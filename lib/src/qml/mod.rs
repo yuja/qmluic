@@ -5,6 +5,9 @@ use std::fmt;
 use std::ops::Range;
 use tree_sitter::{Parser, Query, QueryCursor, Tree};
 
+mod term;
+
+pub use self::term::*; // re-export
 pub use tree_sitter::Node; // re-export
 
 /// Object holding QML source text and parsed tree.
@@ -74,6 +77,7 @@ pub struct ParseError<'tree> {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ParseErrorKind {
     InvalidSyntax,
+    UnexpectedNodeKind,
 }
 
 impl<'tree> ParseError<'tree> {
@@ -107,6 +111,7 @@ impl fmt::Display for ParseError<'_> {
         use ParseErrorKind::*;
         match self.kind {
             InvalidSyntax => write!(f, "syntax error"),
+            UnexpectedNodeKind => write!(f, "unexpected node kind: {}", self.node.kind()),
         }
     }
 }
