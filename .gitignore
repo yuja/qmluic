@@ -1,0 +1,7 @@
+# Cargo
+/target
+
+# Emacs, etc.
+*~
+.#*
+\#*#
