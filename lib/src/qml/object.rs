@@ -1,12 +1,13 @@
-use super::term::NestedIdentifier;
+use super::term::{Identifier, NestedIdentifier};
 use super::{ParseError, ParseErrorKind};
+use std::collections::HashMap;
 use tree_sitter::{Node, TreeCursor};
 
 /// Represents a QML object or top-level component.
 #[derive(Clone, Debug)]
 pub struct UiObjectDefinition<'tree, 'source> {
     type_name: NestedIdentifier<'source>,
-    body: UiObjectBody<'tree>,
+    body: UiObjectBody<'tree, 'source>,
 }
 
 impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
@@ -22,7 +23,7 @@ impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
         let type_name = NestedIdentifier::with_cursor(&mut cursor, source)?;
 
         cursor.reset(get_child_by_field_name(node, "initializer")?);
-        let body = UiObjectBody::with_cursor(&mut cursor)?;
+        let body = UiObjectBody::with_cursor(&mut cursor, source)?;
 
         Ok(UiObjectDefinition { type_name, body })
     }
@@ -37,24 +38,44 @@ impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
     pub fn child_object_nodes(&self) -> &[Node<'tree>] {
         &self.body.child_object_nodes
     }
+
+    /// Map of property bindings.
+    pub fn binding_map(&self) -> &UiBindingMap<'tree, 'source> {
+        &self.body.binding_map
+    }
 }
 
 #[derive(Clone, Debug)]
-struct UiObjectBody<'tree> {
+struct UiObjectBody<'tree, 'source> {
     child_object_nodes: Vec<Node<'tree>>,
+    binding_map: UiBindingMap<'tree, 'source>,
     // TODO: ...
 }
 
-impl<'tree> UiObjectBody<'tree> {
-    fn with_cursor(cursor: &mut TreeCursor<'tree>) -> Result<Self, ParseError<'tree>> {
+impl<'tree, 'source> UiObjectBody<'tree, 'source> {
+    fn with_cursor(
+        cursor: &mut TreeCursor<'tree>,
+        source: &'source str,
+    ) -> Result<Self, ParseError<'tree>> {
         let container_node = cursor.node();
         let mut child_object_nodes = Vec::new();
+        let mut binding_map = UiBindingMap::new();
         for node in container_node.named_children(cursor) {
             // TODO: ui_annotated_object_member
             match node.kind() {
                 "ui_object_definition" => {
                     // TODO: if type name is lowercase, process as grouped notation
                     child_object_nodes.push(node);
+                }
+                "ui_binding" => {
+                    // TODO: handle id
+                    // TODO: split attached type name
+                    let name = NestedIdentifier::from_node(
+                        get_child_by_field_name(node, "name")?,
+                        source,
+                    )?;
+                    let value_node = get_child_by_field_name(node, "value")?;
+                    try_insert_ui_binding_node(&mut binding_map, node, &name, value_node)?;
                 }
                 // TODO: ...
                 _ if node.is_error() => {
@@ -65,8 +86,95 @@ impl<'tree> UiObjectBody<'tree> {
                 }
             }
         }
-        Ok(UiObjectBody { child_object_nodes })
+        Ok(UiObjectBody {
+            child_object_nodes,
+            binding_map,
+        })
     }
+}
+
+/// Map of property binding name to value (or nested binding map.)
+pub type UiBindingMap<'tree, 'source> =
+    HashMap<Identifier<'source>, UiBindingValue<'tree, 'source>>;
+
+/// Variant for the property binding map.
+#[derive(Clone, Debug)]
+pub enum UiBindingValue<'tree, 'source> {
+    Node(Node<'tree>),
+    Map(UiBindingMap<'tree, 'source>),
+}
+
+impl<'tree, 'source> UiBindingValue<'tree, 'source> {
+    /// Returns whether this is a (nested) map or not.
+    pub fn is_map(&self) -> bool {
+        self.get_map().is_some()
+    }
+
+    /// Returns the node if this isn't a (nested) map.
+    pub fn get_node(&self) -> Option<Node<'tree>> {
+        match self {
+            UiBindingValue::Node(n) => Some(*n),
+            UiBindingValue::Map(_) => None,
+        }
+    }
+
+    /// Returns a reference to the map if this is a (nested) map.
+    pub fn get_map(&self) -> Option<&UiBindingMap<'tree, 'source>> {
+        match self {
+            UiBindingValue::Node(_) => None,
+            UiBindingValue::Map(m) => Some(m),
+        }
+    }
+
+    /// Returns a reference to the value corresponding to the key.
+    ///
+    /// If this isn't a (nested) map, returns None.
+    pub fn get_map_value(
+        &self,
+        k: &Identifier<'source>,
+    ) -> Option<&UiBindingValue<'tree, 'source>> {
+        self.get_map().and_then(|m| m.get(k))
+    }
+}
+
+fn try_insert_ui_binding_node<'tree, 'source>(
+    mut map: &mut UiBindingMap<'tree, 'source>,
+    binding_node: Node<'tree>,
+    name: &NestedIdentifier<'source>,
+    value_node: Node<'tree>,
+) -> Result<(), ParseError<'tree>> {
+    use std::collections::hash_map::Entry;
+
+    let (&last, bases) = name
+        .components()
+        .split_last()
+        .ok_or_else(|| ParseError::new(binding_node, ParseErrorKind::InvalidSyntax))?;
+    for &n in bases {
+        match map
+            .entry(n)
+            .or_insert_with(|| UiBindingValue::Map(UiBindingMap::new()))
+        {
+            UiBindingValue::Node(_) => {
+                return Err(ParseError::new(
+                    binding_node,
+                    ParseErrorKind::DuplicatedBinding,
+                ));
+            }
+            UiBindingValue::Map(m) => {
+                map = m;
+            }
+        }
+    }
+
+    if let Entry::Vacant(e) = map.entry(last) {
+        e.insert(UiBindingValue::Node(value_node));
+    } else {
+        return Err(ParseError::new(
+            binding_node,
+            ParseErrorKind::DuplicatedBinding,
+        ));
+    }
+    Ok(())
 }
 
 fn get_child_by_field_name<'tree>(
@@ -129,5 +237,81 @@ mod tests {
             child_objs[1].type_name(),
             &NestedIdentifier::from(["Baz"].as_ref())
         );
+    }
+
+    #[test]
+    fn property_bindings() {
+        let doc = UiDocument::with_source(
+            r###"
+            Foo {
+                bar: 0
+                nested.a: 1
+                nested.b: 2
+                nested.c: 3
+            }
+            "###
+            .to_owned(),
+        );
+        let root_obj = extract_root_object(&doc).unwrap();
+        let map = root_obj.binding_map();
+        assert_eq!(map.len(), 2);
+        assert!(!map.get(&Identifier::new("bar")).unwrap().is_map());
+        let nested = map.get(&Identifier::new("nested")).unwrap();
+        assert!(nested.is_map());
+        assert_eq!(nested.get_map().unwrap().len(), 3);
+        assert!(!nested
+            .get_map_value(&Identifier::new("a"))
+            .unwrap()
+            .is_map());
+        assert!(!nested
+            .get_map_value(&Identifier::new("b"))
+            .unwrap()
+            .is_map());
+        assert!(!nested
+            .get_map_value(&Identifier::new("c"))
+            .unwrap()
+            .is_map());
+    }
+
+    #[test]
+    fn duplicated_property_bindings() {
+        let doc = UiDocument::with_source(
+            r###"
+            Foo {
+                bar: 0
+                bar: 1
+            }
+            "###
+            .to_owned(),
+        );
+        assert!(extract_root_object(&doc).is_err());
+    }
+
+    #[test]
+    fn duplicated_property_bindings_map_to_node() {
+        let doc = UiDocument::with_source(
+            r###"
+            Foo {
+                bar.baz: 0
+                bar: 1
+            }
+            "###
+            .to_owned(),
+        );
+        assert!(extract_root_object(&doc).is_err());
+    }
+
+    #[test]
+    fn duplicated_property_bindings_node_to_map() {
+        let doc = UiDocument::with_source(
+            r###"
+            Foo {
+                bar: 0
+                bar.baz: 1
+            }
+            "###
+            .to_owned(),
+        );
+        assert!(extract_root_object(&doc).is_err());
     }
 }

@@ -43,6 +43,13 @@ impl<'source> NestedIdentifier<'source> {
         }
     }
 
+    pub fn from_node<'tree>(
+        node: Node<'tree>,
+        source: &'source str,
+    ) -> Result<Self, ParseError<'tree>> {
+        Self::with_cursor(&mut node.walk(), source)
+    }
+
     pub(crate) fn with_cursor<'tree>(
         cursor: &mut TreeCursor<'tree>,
         source: &'source str,

@@ -81,6 +81,7 @@ pub enum ParseErrorKind {
     InvalidSyntax,
     UnexpectedNodeKind,
     MissingField(&'static str),
+    DuplicatedBinding,
 }
 
 impl<'tree> ParseError<'tree> {
@@ -116,6 +117,7 @@ impl fmt::Display for ParseError<'_> {
             InvalidSyntax => write!(f, "syntax error"),
             UnexpectedNodeKind => write!(f, "unexpected node kind: {}", self.node.kind()),
             MissingField(name) => write!(f, "missing field: {}", name),
+            DuplicatedBinding => write!(f, "duplicated binding"),
         }
     }
 }
