@@ -36,6 +36,13 @@ pub struct NestedIdentifier<'source> {
 }
 
 impl<'source> NestedIdentifier<'source> {
+    // TODO: make it more capable?
+    pub fn new(components: impl AsRef<[Identifier<'source>]>) -> Self {
+        NestedIdentifier {
+            components: components.as_ref().to_owned(),
+        }
+    }
+
     pub(crate) fn with_cursor<'tree>(
         cursor: &mut TreeCursor<'tree>,
         source: &'source str,
@@ -91,6 +98,13 @@ impl<'source> NestedIdentifier<'source> {
 
     pub fn components(&self) -> &[Identifier<'source>] {
         &self.components
+    }
+}
+
+impl<'source> From<&[&'source str]> for NestedIdentifier<'source> {
+    fn from(parts: &[&'source str]) -> Self {
+        let components = parts.iter().map(|&s| Identifier::new(s)).collect();
+        NestedIdentifier { components }
     }
 }
 

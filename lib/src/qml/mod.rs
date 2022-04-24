@@ -5,8 +5,10 @@ use std::fmt;
 use std::ops::Range;
 use tree_sitter::{Parser, Query, QueryCursor, Tree};
 
+mod object;
 mod term;
 
+pub use self::object::*; // re-export
 pub use self::term::*; // re-export
 pub use tree_sitter::Node; // re-export
 
@@ -78,6 +80,7 @@ pub struct ParseError<'tree> {
 pub enum ParseErrorKind {
     InvalidSyntax,
     UnexpectedNodeKind,
+    MissingField(&'static str),
 }
 
 impl<'tree> ParseError<'tree> {
@@ -112,6 +115,7 @@ impl fmt::Display for ParseError<'_> {
         match self.kind {
             InvalidSyntax => write!(f, "syntax error"),
             UnexpectedNodeKind => write!(f, "unexpected node kind: {}", self.node.kind()),
+            MissingField(name) => write!(f, "missing field: {}", name),
         }
     }
 }
