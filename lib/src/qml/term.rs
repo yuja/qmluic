@@ -7,7 +7,7 @@ use tree_sitter::{Node, TreeCursor};
 pub struct Identifier<'source>(&'source str);
 
 impl<'source> Identifier<'source> {
-    pub fn new(s: &'source str) -> Self {
+    pub const fn new(s: &'source str) -> Self {
         Identifier(s)
     }
 

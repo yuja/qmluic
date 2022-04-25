@@ -132,6 +132,11 @@ impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
         &self.type_name
     }
 
+    /// Object id which should be unique within the QML program.
+    pub fn object_id(&self) -> Option<Identifier<'source>> {
+        self.body.object_id
+    }
+
     /// Nodes for the direct child objects.
     ///
     /// This does not include objects bound to the properties.
@@ -147,6 +152,7 @@ impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
 
 #[derive(Clone, Debug)]
 struct UiObjectBody<'tree, 'source> {
+    object_id: Option<Identifier<'source>>,
     child_object_nodes: Vec<Node<'tree>>,
     binding_map: UiBindingMap<'tree, 'source>,
     // TODO: ...
@@ -158,6 +164,7 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
         source: &'source str,
     ) -> Result<Self, ParseError<'tree>> {
         let container_node = cursor.node();
+        let mut object_id = None;
         let mut child_object_nodes = Vec::new();
         let mut binding_map = UiBindingMap::new();
         for node in container_node.named_children(cursor) {
@@ -168,14 +175,20 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
                     child_object_nodes.push(node);
                 }
                 "ui_binding" => {
-                    // TODO: handle id
                     // TODO: split attached type name
                     let name = NestedIdentifier::from_node(
                         get_child_by_field_name(node, "name")?,
                         source,
                     )?;
                     let value_node = get_child_by_field_name(node, "value")?;
-                    try_insert_ui_binding_node(&mut binding_map, node, &name, value_node)?;
+                    if name.components() == [Identifier::new("id")] {
+                        if object_id.is_some() {
+                            return Err(ParseError::new(node, ParseErrorKind::DuplicatedBinding));
+                        }
+                        object_id = Some(extract_object_id(value_node, source)?);
+                    } else {
+                        try_insert_ui_binding_node(&mut binding_map, node, &name, value_node)?;
+                    }
                 }
                 // TODO: ...
                 _ if node.is_error() => {
@@ -187,6 +200,7 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
             }
         }
         Ok(UiObjectBody {
+            object_id,
             child_object_nodes,
             binding_map,
         })
@@ -403,6 +417,7 @@ mod tests {
         let doc = UiDocument::with_source(
             r###"
             Foo {
+                id: whatever
                 bar: 0
                 nested.a: 1
                 nested.b: 2
@@ -412,6 +427,7 @@ mod tests {
             .to_owned(),
         );
         let root_obj = extract_root_object(&doc).unwrap();
+        assert_eq!(root_obj.object_id(), Some(Identifier::new("whatever")));
         let map = root_obj.binding_map();
         assert_eq!(map.len(), 2);
         assert!(!map.get(&Identifier::new("bar")).unwrap().is_map());
@@ -467,6 +483,20 @@ mod tests {
             Foo {
                 bar: 0
                 bar.baz: 1
+            }
+            "###
+            .to_owned(),
+        );
+        assert!(extract_root_object(&doc).is_err());
+    }
+
+    #[test]
+    fn duplicated_object_id_bindings() {
+        let doc = UiDocument::with_source(
+            r###"
+            Foo {
+                id: foo
+                id: bar
             }
             "###
             .to_owned(),
