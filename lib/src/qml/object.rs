@@ -1,7 +1,107 @@
 use super::term::{Identifier, NestedIdentifier};
 use super::{ParseError, ParseErrorKind};
 use std::collections::HashMap;
-use tree_sitter::{Node, TreeCursor};
+use tree_sitter::{Node, Query, QueryCursor, TreeCursor};
+
+/// Represents a top-level QML program.
+#[derive(Clone, Debug)]
+pub struct UiProgram<'tree, 'source> {
+    root_object_node: Node<'tree>,
+    object_id_map: UiObjectIdMap<'tree, 'source>,
+}
+
+impl<'tree, 'source> UiProgram<'tree, 'source> {
+    pub fn from_node(node: Node<'tree>, source: &'source str) -> Result<Self, ParseError<'tree>> {
+        if node.kind() != "program" {
+            return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
+        }
+
+        // TODO: parse pragma and imports
+
+        let root_object_node = get_child_by_field_name(node, "root")?;
+        let object_id_map = build_object_id_map(root_object_node, source)?;
+
+        Ok(UiProgram {
+            root_object_node,
+            object_id_map,
+        })
+    }
+
+    /// Node for the top-level object (or component.)
+    pub fn root_object_node(&self) -> Node<'tree> {
+        self.root_object_node
+    }
+
+    /// Lookup object node by id.
+    pub fn get_object_node_by_id(&self, id: &Identifier) -> Option<Node<'tree>> {
+        self.object_id_map.get(id).copied()
+    }
+
+    /// Map of id to object node.
+    pub fn object_id_map(&self) -> &UiObjectIdMap<'tree, 'source> {
+        &self.object_id_map
+    }
+}
+
+/// Map of id to object node.
+pub type UiObjectIdMap<'tree, 'source> = HashMap<Identifier<'source>, Node<'tree>>;
+
+fn build_object_id_map<'tree, 'source>(
+    node: Node<'tree>,
+    source: &'source str,
+) -> Result<UiObjectIdMap<'tree, 'source>, ParseError<'tree>> {
+    use std::collections::hash_map::Entry;
+
+    let query = Query::new(
+        node.language(),
+        r###"
+        (ui_object_definition
+         initializer: (ui_object_initializer
+                       (ui_binding
+                        name: (identifier) @property
+                        (#eq? @property "id")
+                        value: (_) @value))) @object
+        "###,
+    )
+    .expect("static query must be valid");
+    let mut cursor = QueryCursor::new();
+    let matches = cursor.matches(&query, node, source.as_bytes());
+
+    let mut object_id_map = UiObjectIdMap::new();
+    for m in matches {
+        let expr_node = m
+            .nodes_for_capture_index(1)
+            .next()
+            .expect("id expression should be captured");
+        let obj_node = m
+            .nodes_for_capture_index(2)
+            .next()
+            .expect("id object should be captured");
+        let id = extract_object_id(expr_node, source)?;
+        if let Entry::Vacant(e) = object_id_map.entry(id) {
+            e.insert(obj_node);
+        } else {
+            return Err(ParseError::new(
+                expr_node,
+                ParseErrorKind::DuplicatedObjectId,
+            ));
+        }
+    }
+    Ok(object_id_map)
+}
+
+fn extract_object_id<'tree, 'source>(
+    mut node: Node<'tree>,
+    source: &'source str,
+) -> Result<Identifier<'source>, ParseError<'tree>> {
+    // (expression_statement (identifier))
+    if node.kind() == "expression_statement" {
+        node = node
+            .child(0)
+            .ok_or_else(|| ParseError::new(node, ParseErrorKind::InvalidSyntax))?;
+    }
+    Identifier::from_node(node, source)
+}
 
 /// Represents a QML object or top-level component.
 #[derive(Clone, Debug)]
@@ -191,8 +291,67 @@ mod tests {
     use crate::qml::UiDocument;
 
     fn extract_root_object(doc: &UiDocument) -> Result<UiObjectDefinition, ParseError> {
-        let node = doc.root_node().child_by_field_name("root").unwrap();
-        UiObjectDefinition::from_node(node, doc.source())
+        let program = UiProgram::from_node(doc.root_node(), doc.source()).unwrap();
+        UiObjectDefinition::from_node(program.root_object_node(), doc.source())
+    }
+
+    #[test]
+    fn object_id_map() {
+        let doc = UiDocument::with_source(
+            r###"
+            Foo {
+                id: foo
+                Bar.Bar { id: bar }
+                Baz {
+                    whatever: 0
+                    id: baz
+                }
+                Blah.Blah {}
+            }
+            "###
+            .to_owned(),
+        );
+
+        let program = UiProgram::from_node(doc.root_node(), doc.source()).unwrap();
+        assert_eq!(
+            program
+                .get_object_node_by_id(&Identifier::new("foo"))
+                .unwrap(),
+            program.root_object_node()
+        );
+
+        let get_object_by_id = |id: &Identifier| {
+            let n = program.get_object_node_by_id(id).unwrap();
+            UiObjectDefinition::from_node(n, doc.source()).unwrap()
+        };
+        assert_eq!(
+            get_object_by_id(&Identifier::new("bar")).type_name(),
+            &NestedIdentifier::from(["Bar", "Bar"].as_ref())
+        );
+        assert_eq!(
+            get_object_by_id(&Identifier::new("baz")).type_name(),
+            &NestedIdentifier::from(["Baz"].as_ref())
+        );
+    }
+
+    #[test]
+    fn duplicated_object_ids() {
+        let doc = UiDocument::with_source(
+            r###"
+            Foo {
+                id: foo
+                Foo { id: foo }
+            }
+            "###
+            .to_owned(),
+        );
+        assert!(UiProgram::from_node(doc.root_node(), doc.source()).is_err());
+    }
+
+    #[test]
+    fn non_trivial_object_id_expression() {
+        let doc = UiDocument::with_source(r"Foo { id: (expr) }".to_owned());
+        assert!(UiProgram::from_node(doc.root_node(), doc.source()).is_err());
     }
 
     #[test]

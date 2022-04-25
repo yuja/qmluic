@@ -11,6 +11,16 @@ impl<'source> Identifier<'source> {
         Identifier(s)
     }
 
+    pub fn from_node<'tree>(
+        node: Node<'tree>,
+        source: &'source str,
+    ) -> Result<Self, ParseError<'tree>> {
+        if node.kind() != "identifier" {
+            return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
+        }
+        Ok(Self::new(node_text(node, source)))
+    }
+
     pub fn as_str(&self) -> &str {
         self.0
     }
@@ -68,11 +78,7 @@ impl<'source> NestedIdentifier<'source> {
 
         let components = if depth == 0 {
             // (identifier)
-            let node = cursor.node();
-            if node.kind() != "identifier" {
-                return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
-            }
-            vec![Identifier::new(node_text(node, source))]
+            vec![Identifier::from_node(cursor.node(), source)?]
         } else {
             // (nested_identifier (nested_identifier (identifier) (identifier)) (identifier))
             let mut components = Vec::with_capacity(depth + 1);
