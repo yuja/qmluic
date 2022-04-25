@@ -6,3 +6,7 @@ edition = "2021"
 [dependencies]
 tree-sitter = "0.20"
 tree-sitter-qmljs = "0.1"
+
+[dev-dependencies]
+ariadne = "0.1"
+clap = { version = "3.1", features = ["derive"] }
