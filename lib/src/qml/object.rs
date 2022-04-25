@@ -144,6 +144,11 @@ impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
         &self.body.child_object_nodes
     }
 
+    /// Map of attached type property bindings.
+    pub fn attached_type_map(&self) -> &UiAttachedTypeBindingMap<'tree, 'source> {
+        &self.body.attached_type_map
+    }
+
     /// Map of property bindings.
     pub fn binding_map(&self) -> &UiBindingMap<'tree, 'source> {
         &self.body.binding_map
@@ -154,6 +159,7 @@ impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
 struct UiObjectBody<'tree, 'source> {
     object_id: Option<Identifier<'source>>,
     child_object_nodes: Vec<Node<'tree>>,
+    attached_type_map: UiAttachedTypeBindingMap<'tree, 'source>,
     binding_map: UiBindingMap<'tree, 'source>,
     // TODO: ...
 }
@@ -173,6 +179,7 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
 
         let mut object_id = None;
         let mut child_object_nodes = Vec::new();
+        let mut attached_type_map = UiAttachedTypeBindingMap::new();
         let mut binding_map = UiBindingMap::new();
         for node in container_node.named_children(cursor) {
             // TODO: ui_annotated_object_member
@@ -196,7 +203,6 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
                     }
                 }
                 "ui_binding" => {
-                    // TODO: split attached type name
                     let name = NestedIdentifier::from_node(
                         get_child_by_field_name(node, "name")?,
                         source,
@@ -207,6 +213,9 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
                             return Err(ParseError::new(node, ParseErrorKind::DuplicatedBinding));
                         }
                         object_id = Some(extract_object_id(value_node, source)?);
+                    } else if let Some((type_name, prop_name)) = name.split_type_name_prefix() {
+                        let map = attached_type_map.entry(type_name).or_default();
+                        try_insert_ui_binding_node(map, node, &prop_name, value_node)?;
                     } else {
                         try_insert_ui_binding_node(&mut binding_map, node, &name, value_node)?;
                     }
@@ -225,10 +234,15 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
         Ok(UiObjectBody {
             object_id,
             child_object_nodes,
+            attached_type_map,
             binding_map,
         })
     }
 }
+
+/// Map of type name to attached property binding map.
+pub type UiAttachedTypeBindingMap<'tree, 'source> =
+    HashMap<NestedIdentifier<'source>, UiBindingMap<'tree, 'source>>;
 
 /// Map of property binding name to value (or nested binding map.)
 pub type UiBindingMap<'tree, 'source> =
@@ -609,6 +623,42 @@ mod tests {
             .is_map());
         assert!(!nested
             .get_map_value(&Identifier::new("c"))
+            .unwrap()
+            .is_map());
+    }
+
+    #[test]
+    fn attached_property_bindings() {
+        let doc = UiDocument::with_source(
+            r###"
+            Foo {
+                Bar.baz: 0
+                A.B.c.d: 1
+                Bar.bar: 2
+            }
+            "###
+            .to_owned(),
+        );
+        let root_obj = extract_root_object(&doc).unwrap();
+        let type_map = root_obj.attached_type_map();
+        assert_eq!(type_map.len(), 2);
+
+        let bar_map = type_map
+            .get(&NestedIdentifier::from(["Bar"].as_ref()))
+            .unwrap();
+        assert_eq!(bar_map.len(), 2);
+        assert!(!bar_map.get(&Identifier::new("bar")).unwrap().is_map());
+        assert!(!bar_map.get(&Identifier::new("baz")).unwrap().is_map());
+
+        let ab_map = type_map
+            .get(&NestedIdentifier::from(["A", "B"].as_ref()))
+            .unwrap();
+        assert_eq!(ab_map.len(), 1);
+        assert!(ab_map.get(&Identifier::new("c")).unwrap().is_map());
+        assert!(!ab_map
+            .get(&Identifier::new("c"))
+            .unwrap()
+            .get_map_value(&Identifier::new("d"))
             .unwrap()
             .is_map());
     }

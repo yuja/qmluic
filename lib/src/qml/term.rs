@@ -125,6 +125,24 @@ impl<'source> NestedIdentifier<'source> {
             .map(|p| p.maybe_type_name())
             .unwrap_or(false)
     }
+
+    /// Splits this to type-name-a-like and the remainder parts.
+    ///
+    /// If either part is empty, returns None.
+    pub fn split_type_name_prefix(&self) -> Option<(Self, Self)> {
+        match self.components.iter().position(|p| !p.maybe_type_name()) {
+            Some(n) if n > 0 => {
+                let (type_parts, rem_parts) = self.components.split_at(n);
+                debug_assert!(!type_parts.is_empty());
+                debug_assert!(!rem_parts.is_empty());
+                Some((
+                    NestedIdentifier::new(type_parts),
+                    NestedIdentifier::new(rem_parts),
+                ))
+            }
+            _ => None,
+        }
+    }
 }
 
 impl<'source> From<&[&'source str]> for NestedIdentifier<'source> {
