@@ -164,6 +164,10 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
         source: &'source str,
     ) -> Result<Self, ParseError<'tree>> {
         let container_node = cursor.node();
+        if container_node.kind() != "ui_object_initializer" {
+            return Err(ParseError::new(container_node, ParseErrorKind::UnexpectedNodeKind));
+        }
+
         let mut object_id = None;
         let mut child_object_nodes = Vec::new();
         let mut binding_map = UiBindingMap::new();
