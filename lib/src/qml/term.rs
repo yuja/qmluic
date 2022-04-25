@@ -21,6 +21,11 @@ impl<'source> Identifier<'source> {
         Ok(Self::new(node_text(node, source)))
     }
 
+    /// Checks if this identifier looks like a type name.
+    pub fn maybe_type_name(&self) -> bool {
+        self.0.starts_with(char::is_uppercase)
+    }
+
     pub fn as_str(&self) -> &str {
         self.0
     }
@@ -111,6 +116,14 @@ impl<'source> NestedIdentifier<'source> {
 
     pub fn components(&self) -> &[Identifier<'source>] {
         &self.components
+    }
+
+    /// Checks if this looks like an identifier prefixed with a type name.
+    pub fn maybe_starts_with_type_name(&self) -> bool {
+        self.components
+            .first()
+            .map(|p| p.maybe_type_name())
+            .unwrap_or(false)
     }
 }
 
