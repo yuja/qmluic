@@ -1,6 +1,6 @@
 use clap::Parser;
 use qmluic::qml::{
-    ParseError, UiAttachedTypeBindingMap, UiBindingMap, UiBindingValue, UiDocument,
+    Node, ParseError, UiAttachedTypeBindingMap, UiBindingMap, UiBindingValue, UiDocument,
     UiObjectDefinition, UiProgram,
 };
 use std::fs;
@@ -14,6 +14,9 @@ const INDENT_WIDTH: usize = 2;
 struct Args {
     /// File to parse
     file: PathBuf,
+    /// Print syntax node as S-expression of CST node
+    #[clap(long)]
+    sexp: bool,
 }
 
 fn main() -> io::Result<()> {
@@ -25,7 +28,8 @@ fn main() -> io::Result<()> {
         process::exit(1);
     }
 
-    match dump_doc(&doc) {
+    let opts = DumpOptions { sexp: args.sexp };
+    match dump_doc(&doc, &opts) {
         Ok(()) => {}
         Err(e) => {
             print_parse_error(&doc, &e)?;
@@ -36,20 +40,27 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn dump_doc(doc: &UiDocument) -> Result<(), ParseError> {
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct DumpOptions {
+    sexp: bool,
+}
+
+fn dump_doc<'tree>(doc: &'tree UiDocument, opts: &DumpOptions) -> Result<(), ParseError<'tree>> {
     dump_program(
         &UiProgram::from_node(doc.root_node(), doc.source())?,
         doc.source(),
+        opts,
     )
 }
 
 fn dump_program<'tree, 'source>(
     program: &UiProgram<'tree, 'source>,
     source: &'source str,
+    opts: &DumpOptions,
 ) -> Result<(), ParseError<'tree>> {
     println!("=== Object ids ===");
-    for (id, node) in program.object_id_map() {
-        println!("{}: {:?}", id, node);
+    for (id, &node) in program.object_id_map() {
+        println!("{}: {}", id, format_node(node, opts));
     }
     println!();
 
@@ -57,6 +68,7 @@ fn dump_program<'tree, 'source>(
     dump_object_definition(
         &UiObjectDefinition::from_node(program.root_object_node(), source)?,
         source,
+        opts,
         0,
     )?;
 
@@ -66,6 +78,7 @@ fn dump_program<'tree, 'source>(
 fn dump_object_definition<'tree, 'source>(
     obj: &UiObjectDefinition<'tree, 'source>,
     source: &'source str,
+    opts: &DumpOptions,
     depth: usize,
 ) -> Result<(), ParseError<'tree>> {
     println!(
@@ -80,12 +93,13 @@ fn dump_object_definition<'tree, 'source>(
         obj.object_id(),
         indent = INDENT_WIDTH * (depth + 1)
     );
-    dump_attached_type_map(obj.attached_type_map(), source, depth + 1)?;
-    dump_binding_map(obj.binding_map(), source, depth + 1)?;
+    dump_attached_type_map(obj.attached_type_map(), source, opts, depth + 1)?;
+    dump_binding_map(obj.binding_map(), source, opts, depth + 1)?;
     for &n in obj.child_object_nodes() {
         dump_object_definition(
             &UiObjectDefinition::from_node(n, source)?,
             source,
+            opts,
             depth + 1,
         )?;
     }
@@ -96,22 +110,23 @@ fn dump_object_definition<'tree, 'source>(
 fn dump_binding_map<'tree, 'source>(
     map: &UiBindingMap<'tree, 'source>,
     source: &'source str,
+    opts: &DumpOptions,
     depth: usize,
 ) -> Result<(), ParseError<'tree>> {
     for (name, value) in map {
         match value {
             UiBindingValue::Node(n) => {
                 println!(
-                    "{:indent$}{}: {:?}",
+                    "{:indent$}{}: {}",
                     "",
                     name,
-                    n,
+                    format_node(*n, opts),
                     indent = INDENT_WIDTH * depth
                 );
             }
             UiBindingValue::Map(m) => {
                 println!("{:indent$}{}: {{", "", name, indent = INDENT_WIDTH * depth);
-                dump_binding_map(m, source, depth + 1)?;
+                dump_binding_map(m, source, opts, depth + 1)?;
                 println!("{:indent$}}}", "", indent = INDENT_WIDTH * depth);
             }
         }
@@ -122,14 +137,23 @@ fn dump_binding_map<'tree, 'source>(
 fn dump_attached_type_map<'tree, 'source>(
     map: &UiAttachedTypeBindingMap<'tree, 'source>,
     source: &'source str,
+    opts: &DumpOptions,
     depth: usize,
 ) -> Result<(), ParseError<'tree>> {
     for (name, m) in map {
         println!("{:indent$}{}: {{", "", name, indent = INDENT_WIDTH * depth);
-        dump_binding_map(m, source, depth + 1)?;
+        dump_binding_map(m, source, opts, depth + 1)?;
         println!("{:indent$}}}", "", indent = INDENT_WIDTH * depth);
     }
     Ok(())
+}
+
+fn format_node<'tree>(node: Node<'tree>, opts: &DumpOptions) -> String {
+    if opts.sexp {
+        node.to_sexp()
+    } else {
+        format!("{:?}", node)
+    }
 }
 
 fn print_syntax_errors(doc: &UiDocument) -> io::Result<()> {
