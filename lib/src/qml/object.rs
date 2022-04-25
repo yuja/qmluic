@@ -191,9 +191,11 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
                     }
                 }
                 // TODO: ...
+                // order matters: (ERROR) node is extra
                 _ if node.is_error() => {
                     return Err(ParseError::new(node, ParseErrorKind::InvalidSyntax));
                 }
+                _ if node.is_extra() => {}
                 _ => {
                     return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
                 }
@@ -384,6 +386,7 @@ mod tests {
         let doc = UiDocument::with_source(
             r###"
             Foo {
+                // comment
                 Bar.Bar {}
                 Baz {}
             }
@@ -502,5 +505,12 @@ mod tests {
             .to_owned(),
         );
         assert!(extract_root_object(&doc).is_err());
+    }
+
+    #[test]
+    fn object_id_binding_with_comment() {
+        let doc = UiDocument::with_source(r"Foo { id: /*what*/ ever /*never*/ }".to_owned());
+        let root_obj = extract_root_object(&doc).unwrap();
+        assert_eq!(root_obj.object_id(), Some(Identifier::new("ever")));
     }
 }
