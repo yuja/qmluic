@@ -10,6 +10,7 @@ pub enum Expression<'tree, 'source> {
     Identifier(Identifier<'source>),
     Number(f64),
     String(String),
+    Bool(bool),
     CallExpression(CallExpression<'tree>),
     UnaryExpression(UnaryExpression<'tree>),
     BinaryExpression(BinaryExpression<'tree>),
@@ -36,6 +37,8 @@ impl<'tree, 'source> Expression<'tree, 'source> {
             "identifier" => Expression::Identifier(Identifier::from_node(node, source)?),
             "number" => Expression::Number(astutil::parse_number(node, source)?),
             "string" => Expression::String(astutil::parse_string(node, source)?),
+            "true" => Expression::Bool(true),
+            "false" => Expression::Bool(false),
             "call_expression" => {
                 let mut cursor = node.walk();
                 let function = astutil::get_child_by_field_name(node, "function")?;
@@ -90,6 +93,13 @@ impl<'tree, 'source> Expression<'tree, 'source> {
     pub fn get_string(&self) -> Option<&String> {
         match self {
             Expression::String(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    pub fn get_bool(&self) -> Option<bool> {
+        match self {
+            Expression::Bool(x) => Some(*x),
             _ => None,
         }
     }
@@ -328,6 +338,8 @@ mod tests {
                 number_: 123
                 string_: "whatever"
                 escaped_string: "foo\nbar"
+                true_: true
+                false_: false
                 paren1: (foo)
                 paren2: ((foo))
             }
@@ -355,6 +367,14 @@ mod tests {
                 .get_string()
                 .unwrap(),
             "foo\nbar"
+        );
+        assert_eq!(
+            extract_expr(&doc, "true_").unwrap().get_bool().unwrap(),
+            true
+        );
+        assert_eq!(
+            extract_expr(&doc, "false_").unwrap().get_bool().unwrap(),
+            false
         );
         assert!(extract_expr(&doc, "paren1").is_ok());
         assert!(extract_expr(&doc, "paren2").is_ok());
