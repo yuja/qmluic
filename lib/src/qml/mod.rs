@@ -6,9 +6,11 @@ use std::ops::Range;
 use tree_sitter::{Parser, Query, QueryCursor, Tree};
 
 mod astutil;
+mod expr;
 mod object;
 mod term;
 
+pub use self::expr::*; // re-export
 pub use self::object::*; // re-export
 pub use self::term::*; // re-export
 pub use tree_sitter::Node; // re-export
