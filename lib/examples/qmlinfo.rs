@@ -161,6 +161,13 @@ fn format_expression<'tree, 'source>(
         Expression::Number(v) => v.to_string(),
         Expression::String(s) => format!("{s:?}"),
         Expression::Bool(b) => format!("{b:?}"),
+        Expression::Array(xs) => {
+            let formatted_items: Vec<_> = xs
+                .iter()
+                .map(|&n| format_expression(n, source, opts, errors))
+                .collect();
+            format!("[{}]", formatted_items.join(", "))
+        }
         Expression::MemberExpression(x) => {
             let formatted_obj = format_expression(x.object, source, opts, errors);
             format!("{}.{}", formatted_obj, x.property)

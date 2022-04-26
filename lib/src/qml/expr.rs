@@ -11,6 +11,7 @@ pub enum Expression<'tree, 'source> {
     Number(f64),
     String(String),
     Bool(bool),
+    Array(Vec<Node<'tree>>),
     MemberExpression(MemberExpression<'tree, 'source>),
     CallExpression(CallExpression<'tree>),
     UnaryExpression(UnaryExpression<'tree>),
@@ -40,6 +41,7 @@ impl<'tree, 'source> Expression<'tree, 'source> {
             "string" => Expression::String(astutil::parse_string(node, source)?),
             "true" => Expression::Bool(true),
             "false" => Expression::Bool(false),
+            "array" => Expression::Array(node.named_children(&mut node.walk()).collect()),
             "member_expression" => {
                 let object = astutil::get_child_by_field_name(node, "object")?;
                 let property = Identifier::from_node(
@@ -110,6 +112,13 @@ impl<'tree, 'source> Expression<'tree, 'source> {
     pub fn get_bool(&self) -> Option<bool> {
         match self {
             Expression::Bool(x) => Some(*x),
+            _ => None,
+        }
+    }
+
+    pub fn get_array(&self) -> Option<&[Node<'tree>]> {
+        match self {
+            Expression::Array(xs) => Some(xs),
             _ => None,
         }
     }
@@ -357,6 +366,7 @@ mod tests {
                 escaped_string: "foo\nbar"
                 true_: true
                 false_: false
+                array: [0, 1, 2]
                 paren1: (foo)
                 paren2: ((foo))
             }
@@ -392,6 +402,19 @@ mod tests {
         assert_eq!(
             extract_expr(&doc, "false_").unwrap().get_bool().unwrap(),
             false
+        );
+        assert_eq!(
+            extract_expr(&doc, "array")
+                .unwrap()
+                .get_array()
+                .unwrap()
+                .iter()
+                .map(|&n| Expression::from_node(n, doc.source())
+                    .unwrap()
+                    .get_number()
+                    .unwrap())
+                .collect::<Vec<_>>(),
+            [0., 1., 2.]
         );
         assert!(extract_expr(&doc, "paren1").is_ok());
         assert!(extract_expr(&doc, "paren2").is_ok());
