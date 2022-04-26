@@ -161,6 +161,10 @@ fn format_expression<'tree, 'source>(
         Expression::Number(v) => v.to_string(),
         Expression::String(s) => format!("{s:?}"),
         Expression::Bool(b) => format!("{b:?}"),
+        Expression::MemberExpression(x) => {
+            let formatted_obj = format_expression(x.object, source, opts, errors);
+            format!("{}.{}", formatted_obj, x.property)
+        }
         Expression::CallExpression(x) => {
             let formatted_func = format_expression(x.function, source, opts, errors);
             let formatted_args: Vec<_> = x

@@ -16,7 +16,7 @@ impl<'source> Identifier<'source> {
         node: Node<'tree>,
         source: &'source str,
     ) -> Result<Self, ParseError<'tree>> {
-        if node.kind() != "identifier" {
+        if node.kind() != "identifier" && node.kind() != "property_identifier" {
             return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
         }
         Ok(Self::new(astutil::node_text(node, source)))

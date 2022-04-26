@@ -11,6 +11,7 @@ pub enum Expression<'tree, 'source> {
     Number(f64),
     String(String),
     Bool(bool),
+    MemberExpression(MemberExpression<'tree, 'source>),
     CallExpression(CallExpression<'tree>),
     UnaryExpression(UnaryExpression<'tree>),
     BinaryExpression(BinaryExpression<'tree>),
@@ -39,6 +40,15 @@ impl<'tree, 'source> Expression<'tree, 'source> {
             "string" => Expression::String(astutil::parse_string(node, source)?),
             "true" => Expression::Bool(true),
             "false" => Expression::Bool(false),
+            "member_expression" => {
+                let object = astutil::get_child_by_field_name(node, "object")?;
+                let property = Identifier::from_node(
+                    astutil::get_child_by_field_name(node, "property")?,
+                    source,
+                )?;
+                // TODO: <object>?.<property>
+                Expression::MemberExpression(MemberExpression { object, property })
+            }
             "call_expression" => {
                 let mut cursor = node.walk();
                 let function = astutil::get_child_by_field_name(node, "function")?;
@@ -103,6 +113,13 @@ impl<'tree, 'source> Expression<'tree, 'source> {
             _ => None,
         }
     }
+}
+
+/// Represents a member expression.
+#[derive(Clone, Debug)]
+pub struct MemberExpression<'tree, 'source> {
+    pub object: Node<'tree>,
+    pub property: Identifier<'source>,
 }
 
 /// Represents a call expression.
@@ -378,6 +395,28 @@ mod tests {
         );
         assert!(extract_expr(&doc, "paren1").is_ok());
         assert!(extract_expr(&doc, "paren2").is_ok());
+    }
+
+    #[test]
+    fn member_expression() {
+        let doc = UiDocument::with_source(
+            r###"
+            Foo {
+                member: foo.bar
+            }
+            "###
+            .to_owned(),
+        );
+        match extract_expr(&doc, "member").unwrap() {
+            Expression::MemberExpression(x) => {
+                assert_eq!(
+                    Identifier::from_node(x.object, doc.source()).unwrap(),
+                    Identifier::new("foo")
+                );
+                assert_eq!(x.property, Identifier::new("bar"));
+            }
+            expr => panic!("unexpected expression: {expr:?}"),
+        }
     }
 
     #[test]
