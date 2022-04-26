@@ -27,7 +27,7 @@ fn main() -> io::Result<()> {
 
     let opts = DumpOptions { sexp: args.sexp };
     let mut errors = Vec::new();
-    dump_doc(&doc, &opts, &mut errors);
+    dump_program(doc.root_node(), doc.source(), &opts, &mut errors);
     if !errors.is_empty() {
         for e in &errors {
             print_parse_error(&doc, &e)?;
@@ -43,24 +43,20 @@ struct DumpOptions {
     sexp: bool,
 }
 
-fn dump_doc<'tree>(
-    doc: &'tree UiDocument,
-    opts: &DumpOptions,
-    errors: &mut Vec<ParseError<'tree>>,
-) {
-    if let Some(program) = try_node(doc.root_node(), opts, errors, 0, |n| {
-        UiProgram::from_node(n, doc.source())
-    }) {
-        dump_program(&program, doc.source(), opts, errors);
-    }
-}
-
 fn dump_program<'tree, 'source>(
-    program: &UiProgram<'tree, 'source>,
+    node: Node<'tree>,
     source: &'source str,
     opts: &DumpOptions,
     errors: &mut Vec<ParseError<'tree>>,
 ) {
+    let program = match UiProgram::from_node(node, source) {
+        Ok(x) => x,
+        Err(e) => {
+            errors.push(e);
+            dump_node(node, opts, 0);
+            return;
+        }
+    };
     println!("=== Object ids ===");
     for (id, &node) in program.object_id_map() {
         println!("{}: {}", id, format_node(node, opts));
@@ -68,20 +64,24 @@ fn dump_program<'tree, 'source>(
     println!();
 
     println!("=== Object definition ===");
-    if let Some(obj) = try_node(program.root_object_node(), opts, errors, 0, |n| {
-        UiObjectDefinition::from_node(n, source)
-    }) {
-        dump_object_definition(&obj, source, opts, errors, 0);
-    }
+    dump_object_definition(program.root_object_node(), source, opts, errors, 0);
 }
 
 fn dump_object_definition<'tree, 'source>(
-    obj: &UiObjectDefinition<'tree, 'source>,
+    node: Node<'tree>,
     source: &'source str,
     opts: &DumpOptions,
     errors: &mut Vec<ParseError<'tree>>,
     depth: usize,
 ) {
+    let obj = match UiObjectDefinition::from_node(node, source) {
+        Ok(x) => x,
+        Err(e) => {
+            errors.push(e);
+            dump_node(node, opts, depth);
+            return;
+        }
+    };
     println!(
         "{:indent$}{} {{",
         "",
@@ -97,11 +97,7 @@ fn dump_object_definition<'tree, 'source>(
     dump_attached_type_map(obj.attached_type_map(), source, opts, errors, depth + 1);
     dump_binding_map(obj.binding_map(), source, opts, errors, depth + 1);
     for &n in obj.child_object_nodes() {
-        if let Some(obj) = try_node(n, opts, errors, depth + 1, |n| {
-            UiObjectDefinition::from_node(n, source)
-        }) {
-            dump_object_definition(&obj, source, opts, errors, depth + 1);
-        }
+        dump_object_definition(n, source, opts, errors, depth + 1);
     }
     println!("{:indent$}}}", "", indent = INDENT_WIDTH * depth);
 }
@@ -193,26 +189,13 @@ fn format_node<'tree>(node: Node<'tree>, opts: &DumpOptions) -> String {
     }
 }
 
-fn try_node<'tree, T>(
-    node: Node<'tree>,
-    opts: &DumpOptions,
-    errors: &mut Vec<ParseError<'tree>>,
-    depth: usize,
-    f: impl FnOnce(Node<'tree>) -> Result<T, ParseError<'tree>>,
-) -> Option<T> {
-    match f(node) {
-        Ok(v) => Some(v),
-        Err(e) => {
-            errors.push(e);
-            println!(
-                "{:indent$}{}",
-                "",
-                format_node(node, opts),
-                indent = INDENT_WIDTH * depth
-            );
-            None
-        }
-    }
+fn dump_node<'tree>(node: Node<'tree>, opts: &DumpOptions, depth: usize) {
+    println!(
+        "{:indent$}{}",
+        "",
+        format_node(node, opts),
+        indent = INDENT_WIDTH * depth
+    );
 }
 
 fn print_syntax_errors(doc: &UiDocument) -> io::Result<()> {
