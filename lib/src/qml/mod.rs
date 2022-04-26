@@ -5,6 +5,7 @@ use std::fmt;
 use std::ops::Range;
 use tree_sitter::{Parser, Query, QueryCursor, Tree};
 
+mod astutil;
 mod object;
 mod term;
 

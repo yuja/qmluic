@@ -1,3 +1,4 @@
+use super::astutil;
 use super::{ParseError, ParseErrorKind};
 use std::fmt;
 use tree_sitter::{Node, TreeCursor};
@@ -18,7 +19,7 @@ impl<'source> Identifier<'source> {
         if node.kind() != "identifier" {
             return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
         }
-        Ok(Self::new(node_text(node, source)))
+        Ok(Self::new(astutil::node_text(node, source)))
     }
 
     /// Checks if this identifier looks like a type name.
@@ -77,7 +78,7 @@ impl<'source> NestedIdentifier<'source> {
                     ParseErrorKind::InvalidSyntax,
                 ));
             }
-            skip_extras(cursor)?;
+            astutil::skip_extras(cursor)?;
             depth += 1;
         }
 
@@ -91,7 +92,7 @@ impl<'source> NestedIdentifier<'source> {
                 let node = cursor.node();
                 match node.kind() {
                     "identifier" => {
-                        components.push(Identifier::new(node_text(node, source)));
+                        components.push(Identifier::new(astutil::node_text(node, source)));
                     }
                     // order matters: (ERROR) node is extra
                     _ if node.is_error() => {
@@ -162,24 +163,6 @@ impl fmt::Display for NestedIdentifier<'_> {
         }
         Ok(())
     }
-}
-
-fn node_text<'tree, 'source>(node: Node<'tree>, source: &'source str) -> &'source str {
-    node.utf8_text(source.as_bytes())
-        .expect("source range must be valid utf-8 string")
-}
-
-fn skip_extras<'tree>(cursor: &mut TreeCursor<'tree>) -> Result<(), ParseError<'tree>> {
-    while cursor.node().is_extra() {
-        let node = cursor.node();
-        if node.is_error() {
-            return Err(ParseError::new(node, ParseErrorKind::InvalidSyntax));
-        }
-        if !cursor.goto_next_sibling() {
-            return Err(ParseError::new(node, ParseErrorKind::InvalidSyntax));
-        }
-    }
-    Ok(())
 }
 
 #[cfg(test)]

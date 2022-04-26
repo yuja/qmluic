@@ -1,3 +1,4 @@
+use super::astutil;
 use super::term::{Identifier, NestedIdentifier};
 use super::{ParseError, ParseErrorKind};
 use std::collections::HashMap;
@@ -18,7 +19,7 @@ impl<'tree, 'source> UiProgram<'tree, 'source> {
 
         // TODO: parse pragma and imports
 
-        let root_object_node = get_child_by_field_name(node, "root")?;
+        let root_object_node = astutil::get_child_by_field_name(node, "root")?;
         let object_id_map = build_object_id_map(root_object_node, source)?;
 
         Ok(UiProgram {
@@ -119,10 +120,10 @@ impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
 
         let mut cursor = node.walk();
 
-        cursor.reset(get_child_by_field_name(node, "type_name")?);
+        cursor.reset(astutil::get_child_by_field_name(node, "type_name")?);
         let type_name = NestedIdentifier::with_cursor(&mut cursor, source)?;
 
-        cursor.reset(get_child_by_field_name(node, "initializer")?);
+        cursor.reset(astutil::get_child_by_field_name(node, "initializer")?);
         let body = UiObjectBody::with_cursor(&mut cursor, source)?;
 
         Ok(UiObjectDefinition { type_name, body })
@@ -186,7 +187,7 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
             match node.kind() {
                 "ui_object_definition" => {
                     let name = NestedIdentifier::from_node(
-                        get_child_by_field_name(node, "type_name")?,
+                        astutil::get_child_by_field_name(node, "type_name")?,
                         source,
                     )?;
                     if name.maybe_starts_with_type_name() {
@@ -197,17 +198,17 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
                             &mut binding_map,
                             node,
                             &name,
-                            get_child_by_field_name(node, "initializer")?,
+                            astutil::get_child_by_field_name(node, "initializer")?,
                             source,
                         )?;
                     }
                 }
                 "ui_binding" => {
                     let name = NestedIdentifier::from_node(
-                        get_child_by_field_name(node, "name")?,
+                        astutil::get_child_by_field_name(node, "name")?,
                         source,
                     )?;
-                    let value_node = get_child_by_field_name(node, "value")?;
+                    let value_node = astutil::get_child_by_field_name(node, "value")?;
                     if name.components() == [Identifier::new("id")] {
                         if object_id.is_some() {
                             return Err(ParseError::new(node, ParseErrorKind::DuplicatedBinding));
@@ -356,9 +357,11 @@ fn try_insert_ui_grouped_binding_node<'tree, 'source>(
         // TODO: ui_annotated_object_member
         match node.kind() {
             "ui_binding" => {
-                let name =
-                    NestedIdentifier::from_node(get_child_by_field_name(node, "name")?, source)?;
-                let value_node = get_child_by_field_name(node, "value")?;
+                let name = NestedIdentifier::from_node(
+                    astutil::get_child_by_field_name(node, "name")?,
+                    source,
+                )?;
+                let value_node = astutil::get_child_by_field_name(node, "value")?;
                 try_insert_ui_binding_node(map, node, &name, value_node)?;
             }
             // order matters: (ERROR) node is extra
@@ -373,14 +376,6 @@ fn try_insert_ui_grouped_binding_node<'tree, 'source>(
     }
 
     Ok(())
-}
-
-fn get_child_by_field_name<'tree>(
-    node: Node<'tree>,
-    name: &'static str,
-) -> Result<Node<'tree>, ParseError<'tree>> {
-    node.child_by_field_name(name)
-        .ok_or_else(|| ParseError::new(node, ParseErrorKind::MissingField(name)))
 }
 
 #[cfg(test)]
