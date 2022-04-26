@@ -1,8 +1,5 @@
 use clap::Parser;
-use qmluic::qml::{
-    Node, ParseError, UiAttachedTypeBindingMap, UiBindingMap, UiBindingValue, UiDocument,
-    UiObjectDefinition, UiProgram,
-};
+use qmluic::qml::*;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
@@ -123,7 +120,7 @@ fn dump_binding_map<'tree, 'source>(
                     "{:indent$}{}: {}",
                     "",
                     name,
-                    format_node(*n, opts),
+                    format_expression(*n, source, opts, errors),
                     indent = INDENT_WIDTH * depth
                 );
             }
@@ -147,6 +144,44 @@ fn dump_attached_type_map<'tree, 'source>(
         println!("{:indent$}{}: {{", "", name, indent = INDENT_WIDTH * depth);
         dump_binding_map(m, source, opts, errors, depth + 1);
         println!("{:indent$}}}", "", indent = INDENT_WIDTH * depth);
+    }
+}
+
+fn format_expression<'tree, 'source>(
+    node: Node<'tree>,
+    source: &'source str,
+    opts: &DumpOptions,
+    errors: &mut Vec<ParseError<'tree>>,
+) -> String {
+    let expr = match Expression::from_node(node, source) {
+        Ok(x) => x,
+        Err(e) => {
+            errors.push(e);
+            return format_node(node, opts);
+        }
+    };
+    match expr {
+        Expression::Identifier(n) => n.to_string(),
+        Expression::Number(v) => v.to_string(),
+        Expression::String(s) => format!("{s:?}"),
+        Expression::CallExpression(x) => {
+            let formatted_func = format_expression(x.function, source, opts, errors);
+            let formatted_args: Vec<_> = x
+                .arguments
+                .iter()
+                .map(|&n| format_expression(n, source, opts, errors))
+                .collect();
+            format!("{}({})", formatted_func, formatted_args.join(", "))
+        }
+        Expression::UnaryExpression(x) => {
+            let formatted_arg = format_expression(x.argument, source, opts, errors);
+            format!("{}({})", x.operator, formatted_arg)
+        }
+        Expression::BinaryExpression(x) => {
+            let formatted_left = format_expression(x.left, source, opts, errors);
+            let formatted_right = format_expression(x.right, source, opts, errors);
+            format!("({}) {} ({})", formatted_left, x.operator, formatted_right)
+        }
     }
 }
 
