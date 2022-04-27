@@ -89,7 +89,7 @@ pub enum ParseErrorKind {
 }
 
 impl<'tree> ParseError<'tree> {
-    fn new(node: Node<'tree>, kind: ParseErrorKind) -> Self {
+    pub fn new(node: Node<'tree>, kind: ParseErrorKind) -> Self {
         ParseError { node, kind }
     }
 
