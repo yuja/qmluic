@@ -41,7 +41,13 @@ impl<'tree, 'source> Expression<'tree, 'source> {
             "string" => Expression::String(astutil::parse_string(node, source)?),
             "true" => Expression::Bool(true),
             "false" => Expression::Bool(false),
-            "array" => Expression::Array(node.named_children(&mut node.walk()).collect()),
+            "array" => {
+                let items = node
+                    .named_children(&mut node.walk())
+                    .filter(|n| !(n.is_extra() && !n.is_error()))
+                    .collect();
+                Expression::Array(items)
+            }
             "member_expression" => {
                 let object = astutil::get_child_by_field_name(node, "object")?;
                 let property = Identifier::from_node(
@@ -56,6 +62,7 @@ impl<'tree, 'source> Expression<'tree, 'source> {
                 let function = astutil::get_child_by_field_name(node, "function")?;
                 let arguments = astutil::get_child_by_field_name(node, "arguments")?
                     .named_children(&mut cursor)
+                    .filter(|n| !(n.is_extra() && !n.is_error()))
                     .collect();
                 // TODO: <func>?.(<arg>...)
                 Expression::CallExpression(CallExpression {
@@ -366,7 +373,7 @@ mod tests {
                 escaped_string: "foo\nbar"
                 true_: true
                 false_: false
-                array: [0, 1, 2]
+                array: [0, 1, /*garbage*/ 2]
                 paren1: (foo)
                 paren2: ((foo))
             }
@@ -447,7 +454,7 @@ mod tests {
         let doc = UiDocument::with_source(
             r###"
             Foo {
-                call: foo(1, 2)
+                call: foo(1, /*garbage*/ 2)
             }
             "###
             .to_owned(),
