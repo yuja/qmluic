@@ -240,14 +240,8 @@ fn format_constant_expression<'tree, 'source>(
     let (kind, formatted) = match qml::Expression::from_node(node, source)? {
         qml::Expression::Number(v) => (b"number".as_ref(), v.to_string()),
         qml::Expression::String(s) => (b"string".as_ref(), s),
-        qml::Expression::Bool(b) => (
-            b"bool".as_ref(),
-            if b {
-                "true".to_owned()
-            } else {
-                "false".to_owned()
-            },
-        ),
+        qml::Expression::Bool(false) => (b"bool".as_ref(), "false".to_owned()),
+        qml::Expression::Bool(true) => (b"bool".as_ref(), "true".to_owned()),
         qml::Expression::MemberExpression(_) => {
             // TODO: ambiguous, it could be a set
             (b"enum".as_ref(), format_as_nested_identifier(node, source)?)
