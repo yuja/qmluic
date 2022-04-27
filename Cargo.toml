@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+ariadne = "0.1"
+clap = { version = "3.1", features = ["derive"] }
+qmluic = { version = "=0.1.0", path = "lib" }
 
 [workspace]
 members = ["lib"]
