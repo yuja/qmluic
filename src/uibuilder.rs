@@ -248,7 +248,10 @@ fn format_constant_expression<'tree, 'source>(
                 "false".to_owned()
             },
         ),
-        // TODO: enum (but could be set): qml::Expression::MemberExpression(x)
+        qml::Expression::MemberExpression(_) => {
+            // TODO: ambiguous, it could be a set
+            (b"enum".as_ref(), format_as_nested_identifier(node, source)?)
+        }
         qml::Expression::CallExpression(x) => {
             match parse_as_identifier(x.function, source)?.as_str() {
                 "qsTr" if x.arguments.len() == 1 => {
@@ -261,7 +264,11 @@ fn format_constant_expression<'tree, 'source>(
             let v = eval_number(node, source)?; // handle -num
             (b"number".as_ref(), v.to_string())
         }
-        // TODO: handle set: qml::Expression::BinaryExpression(x)
+        qml::Expression::BinaryExpression(_) => {
+            let as_set = format_as_identifier_set(node, source).map(|s| (b"set".as_ref(), s));
+            let as_number = eval_number(node, source).map(|v| (b"number".as_ref(), v.to_string()));
+            as_set.or(as_number)?
+        }
         _ => return Err(unexpected_node(node)),
     };
     Ok((kind, formatted))
@@ -275,6 +282,36 @@ fn format_constant_binding_value<'tree, 'source>(
     match value {
         qml::UiBindingValue::Node(n) => format_constant_expression(*n, source),
         qml::UiBindingValue::Map(_) => Err(unexpected_node(key_node)),
+    }
+}
+
+fn format_as_identifier_set<'tree, 'source>(
+    node: qml::Node<'tree>,
+    source: &'source str,
+) -> Result<String, qml::ParseError<'tree>> {
+    match qml::Expression::from_node(node, source)? {
+        qml::Expression::Identifier(n) => Ok(n.to_string()),
+        qml::Expression::MemberExpression(_) => format_as_nested_identifier(node, source),
+        qml::Expression::BinaryExpression(x) if x.operator == qml::BinaryOperator::BitwiseOr => {
+            let left = format_as_identifier_set(x.left, source)?;
+            let right = format_as_identifier_set(x.right, source)?;
+            Ok(format!("{}|{}", left, right))
+        }
+        _ => Err(unexpected_node(node)),
+    }
+}
+
+fn format_as_nested_identifier<'tree, 'source>(
+    node: qml::Node<'tree>,
+    source: &'source str,
+) -> Result<String, qml::ParseError<'tree>> {
+    match qml::Expression::from_node(node, source)? {
+        qml::Expression::Identifier(n) => Ok(n.to_string()),
+        qml::Expression::MemberExpression(x) => {
+            let object = format_as_nested_identifier(x.object, source)?;
+            Ok(format!("{}::{}", object, x.property))
+        }
+        _ => Err(unexpected_node(node)),
     }
 }
 
