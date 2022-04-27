@@ -11,3 +11,7 @@ quick-xml = "0.22"
 
 [workspace]
 members = ["lib"]
+
+[[bin]]
+name = "qmluic"
+path = "src/main.rs"
