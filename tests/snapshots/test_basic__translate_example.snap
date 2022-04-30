@@ -1,0 +1,104 @@
+---
+source: tests/test_basic.rs
+expression: "translate_file(\"examples/SettingsDialog.qml\", \"SettingsDialog\")"
+---
+<ui version="4.0">
+ <class>SettingsDialog</class>
+ <widget class="QDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>400</width>
+    <height>300</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Settings</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <layout class="QFormLayout" name="formLayout">
+     <item column="0" row="0">
+      <widget class="QLabel" name="hgExecutableLabel">
+       <property name="text">
+        <string>Hg executable:</string>
+       </property>
+      </widget>
+     </item>
+     <item column="1" row="0">
+      <layout class="QHBoxLayout" name="hgExecutableLayout">
+       <item>
+        <widget class="QLineEdit" name="hgExecutableEdit">
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="hgExecutableBrowseButton">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item column="0" row="1">
+      <widget class="QLabel" name="textFontLabel">
+       <property name="text">
+        <string>Text font:</string>
+       </property>
+      </widget>
+     </item>
+     <item column="1" row="1">
+      <layout class="QHBoxLayout" name="textFontLayout">
+       <item>
+        <widget class="QFontComboBox" name="textFontFamilyEdit">
+        </widget>
+       </item>
+       <item>
+        <widget class="QSpinBox" name="textFontSizeEdit">
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+         <property name="maximum">
+          <number>999</number>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="textFontSizeLabel">
+         <property name="text">
+          <string>pt</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+</ui>
+
