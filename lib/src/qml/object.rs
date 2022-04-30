@@ -186,39 +186,38 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
             // TODO: ui_annotated_object_member
             match node.kind() {
                 "ui_object_definition" => {
-                    let name = NestedIdentifier::from_node(
-                        astutil::get_child_by_field_name(node, "type_name")?,
-                        source,
-                    )?;
+                    let name_node = astutil::get_child_by_field_name(node, "type_name")?;
+                    let name = NestedIdentifier::from_node(name_node, source)?;
                     if name.maybe_starts_with_type_name() {
                         child_object_nodes.push(node);
                     } else {
                         // grouped binding notation: base { prop: ...; ... }
                         try_insert_ui_grouped_binding_node(
                             &mut binding_map,
-                            node,
                             &name,
+                            name_node,
                             astutil::get_child_by_field_name(node, "initializer")?,
                             source,
                         )?;
                     }
                 }
                 "ui_binding" => {
-                    let name = NestedIdentifier::from_node(
-                        astutil::get_child_by_field_name(node, "name")?,
-                        source,
-                    )?;
+                    let name_node = astutil::get_child_by_field_name(node, "name")?;
+                    let name = NestedIdentifier::from_node(name_node, source)?;
                     let value_node = astutil::get_child_by_field_name(node, "value")?;
                     if name.components() == [Identifier::new("id")] {
                         if object_id.is_some() {
-                            return Err(ParseError::new(node, ParseErrorKind::DuplicatedBinding));
+                            return Err(ParseError::new(
+                                name_node,
+                                ParseErrorKind::DuplicatedBinding,
+                            ));
                         }
                         object_id = Some(extract_object_id(value_node, source)?);
                     } else if let Some((type_name, prop_name)) = name.split_type_name_prefix() {
                         let map = attached_type_map.entry(type_name).or_default();
-                        try_insert_ui_binding_node(map, node, &prop_name, value_node)?;
+                        try_insert_ui_binding_node(map, &prop_name, name_node, value_node)?;
                     } else {
-                        try_insert_ui_binding_node(&mut binding_map, node, &name, value_node)?;
+                        try_insert_ui_binding_node(&mut binding_map, &name, name_node, value_node)?;
                     }
                 }
                 // TODO: ...
@@ -291,8 +290,8 @@ impl<'tree, 'source> UiBindingValue<'tree, 'source> {
 
 fn ensure_ui_binding_map_bases<'tree, 'source, 'map>(
     mut map: &'map mut UiBindingMap<'tree, 'source>,
-    binding_node: Node<'tree>,
     bases: &[Identifier<'source>],
+    name_node: Node<'tree>,
 ) -> Result<&'map mut UiBindingMap<'tree, 'source>, ParseError<'tree>> {
     for &n in bases {
         match map
@@ -301,7 +300,7 @@ fn ensure_ui_binding_map_bases<'tree, 'source, 'map>(
         {
             UiBindingValue::Node(_) => {
                 return Err(ParseError::new(
-                    binding_node,
+                    name_node,
                     ParseErrorKind::DuplicatedBinding,
                 ));
             }
@@ -315,8 +314,8 @@ fn ensure_ui_binding_map_bases<'tree, 'source, 'map>(
 
 fn try_insert_ui_binding_node<'tree, 'source>(
     map: &mut UiBindingMap<'tree, 'source>,
-    binding_node: Node<'tree>,
     name: &NestedIdentifier<'source>,
+    name_node: Node<'tree>,
     value_node: Node<'tree>,
 ) -> Result<(), ParseError<'tree>> {
     use std::collections::hash_map::Entry;
@@ -324,14 +323,14 @@ fn try_insert_ui_binding_node<'tree, 'source>(
     let (&last, bases) = name
         .components()
         .split_last()
-        .ok_or_else(|| ParseError::new(binding_node, ParseErrorKind::InvalidSyntax))?;
+        .ok_or_else(|| ParseError::new(name_node, ParseErrorKind::InvalidSyntax))?;
 
-    let map = ensure_ui_binding_map_bases(map, binding_node, bases)?;
+    let map = ensure_ui_binding_map_bases(map, bases, name_node)?;
     if let Entry::Vacant(e) = map.entry(last) {
         e.insert(UiBindingValue::Node(value_node));
     } else {
         return Err(ParseError::new(
-            binding_node,
+            name_node,
             ParseErrorKind::DuplicatedBinding,
         ));
     }
@@ -340,8 +339,8 @@ fn try_insert_ui_binding_node<'tree, 'source>(
 
 fn try_insert_ui_grouped_binding_node<'tree, 'source>(
     map: &mut UiBindingMap<'tree, 'source>,
-    binding_node: Node<'tree>,
     base_name: &NestedIdentifier<'source>,
+    base_name_node: Node<'tree>,
     container_node: Node<'tree>,
     source: &'source str,
 ) -> Result<(), ParseError<'tree>> {
@@ -352,17 +351,15 @@ fn try_insert_ui_grouped_binding_node<'tree, 'source>(
         ));
     }
 
-    let map = ensure_ui_binding_map_bases(map, binding_node, base_name.components())?;
+    let map = ensure_ui_binding_map_bases(map, base_name.components(), base_name_node)?;
     for node in container_node.named_children(&mut container_node.walk()) {
         // TODO: ui_annotated_object_member
         match node.kind() {
             "ui_binding" => {
-                let name = NestedIdentifier::from_node(
-                    astutil::get_child_by_field_name(node, "name")?,
-                    source,
-                )?;
+                let name_node = astutil::get_child_by_field_name(node, "name")?;
+                let name = NestedIdentifier::from_node(name_node, source)?;
                 let value_node = astutil::get_child_by_field_name(node, "value")?;
-                try_insert_ui_binding_node(map, node, &name, value_node)?;
+                try_insert_ui_binding_node(map, &name, name_node, value_node)?;
             }
             // order matters: (ERROR) node is extra
             _ if node.is_error() => {
