@@ -18,3 +18,4 @@ members = ["lib"]
 [[bin]]
 name = "qmluic"
 path = "src/main.rs"
+doc = false
