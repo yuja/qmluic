@@ -2,14 +2,11 @@
 
 use clap::Parser;
 use qmluic::qml;
+use qmluic_cli::UiBuilder;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process;
-
-mod uibuilder;
-
-use self::uibuilder::UiBuilder;
 
 #[derive(Parser, Clone, Debug, Eq, PartialEq)]
 struct Args {
