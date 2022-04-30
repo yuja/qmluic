@@ -252,7 +252,7 @@ pub type UiBindingMap<'tree, 'source> =
 #[derive(Clone, Debug)]
 pub enum UiBindingValue<'tree, 'source> {
     Node(Node<'tree>),
-    Map(UiBindingMap<'tree, 'source>),
+    Map(Node<'tree>, UiBindingMap<'tree, 'source>),
 }
 
 impl<'tree, 'source> UiBindingValue<'tree, 'source> {
@@ -265,7 +265,7 @@ impl<'tree, 'source> UiBindingValue<'tree, 'source> {
     pub fn get_node(&self) -> Option<Node<'tree>> {
         match self {
             UiBindingValue::Node(n) => Some(*n),
-            UiBindingValue::Map(_) => None,
+            UiBindingValue::Map(..) => None,
         }
     }
 
@@ -273,7 +273,7 @@ impl<'tree, 'source> UiBindingValue<'tree, 'source> {
     pub fn get_map(&self) -> Option<&UiBindingMap<'tree, 'source>> {
         match self {
             UiBindingValue::Node(_) => None,
-            UiBindingValue::Map(m) => Some(m),
+            UiBindingValue::Map(_, m) => Some(m),
         }
     }
 
@@ -296,7 +296,7 @@ fn ensure_ui_binding_map_bases<'tree, 'source, 'map>(
     for &n in bases {
         match map
             .entry(n)
-            .or_insert_with(|| UiBindingValue::Map(UiBindingMap::new()))
+            .or_insert_with(|| UiBindingValue::Map(name_node, UiBindingMap::new()))
         {
             UiBindingValue::Node(_) => {
                 return Err(ParseError::new(
@@ -304,7 +304,7 @@ fn ensure_ui_binding_map_bases<'tree, 'source, 'map>(
                     ParseErrorKind::DuplicatedBinding,
                 ));
             }
-            UiBindingValue::Map(m) => {
+            UiBindingValue::Map(_, m) => {
                 map = m;
             }
         }
@@ -339,8 +339,8 @@ fn try_insert_ui_binding_node<'tree, 'source>(
 
 fn try_insert_ui_grouped_binding_node<'tree, 'source>(
     map: &mut UiBindingMap<'tree, 'source>,
-    base_name: &NestedIdentifier<'source>,
-    base_name_node: Node<'tree>,
+    group_name: &NestedIdentifier<'source>,
+    group_name_node: Node<'tree>,
     container_node: Node<'tree>,
     source: &'source str,
 ) -> Result<(), ParseError<'tree>> {
@@ -351,7 +351,27 @@ fn try_insert_ui_grouped_binding_node<'tree, 'source>(
         ));
     }
 
-    let map = ensure_ui_binding_map_bases(map, base_name.components(), base_name_node)?;
+    // Intermediate maps are created by the group_name_node, but the bottom map should be
+    // attached to the container node if it's newly created.
+    let map = {
+        let (&last, bases) = group_name
+            .components()
+            .split_last()
+            .ok_or_else(|| ParseError::new(group_name_node, ParseErrorKind::InvalidSyntax))?;
+        let v = ensure_ui_binding_map_bases(map, bases, group_name_node)?
+            .entry(last)
+            .or_insert_with(|| UiBindingValue::Map(container_node, UiBindingMap::new()));
+        match v {
+            UiBindingValue::Node(_) => {
+                return Err(ParseError::new(
+                    group_name_node,
+                    ParseErrorKind::DuplicatedBinding,
+                ));
+            }
+            UiBindingValue::Map(_, m) => m,
+        }
+    };
+
     for node in container_node.named_children(&mut container_node.walk()) {
         // TODO: ui_annotated_object_member
         match node.kind() {

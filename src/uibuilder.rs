@@ -125,8 +125,7 @@ where
                 .get(&qml::NestedIdentifier::from(["QLayoutItem"].as_ref()))
             {
                 for (name, value) in collect_sorted_binding_pairs(map) {
-                    // TODO: needs name_node.parent() for error reporting
-                    match format_constant_binding_value(n, value, self.doc.source()) {
+                    match format_constant_binding_value(value, self.doc.source()) {
                         Ok((_, s)) => item_tag.push_attribute((name.as_str(), s.as_ref())),
                         Err(e) => self.errors.push(e),
                     }
@@ -210,7 +209,7 @@ where
             // TODO: use type provided by .qmltypes instead of guessing it
             match value {
                 qml::UiBindingValue::Node(n) => self.process_binding_value_node(*n)?,
-                qml::UiBindingValue::Map(m) => self.process_binding_grouped_value(m)?,
+                qml::UiBindingValue::Map(n, m) => self.process_binding_grouped_value(*n, m)?,
             }
 
             self.writer.write_event(Event::End(prop_tag.to_end()))?;
@@ -228,9 +227,10 @@ where
 
     fn process_binding_grouped_value(
         &mut self,
+        node: qml::Node<'doc>,
         map: &qml::UiBindingMap<'doc, 'doc>,
     ) -> quick_xml::Result<()> {
-        match GroupedValue::from_binding_map(map, self.doc.source()) {
+        match GroupedValue::from_binding_map(node, map, self.doc.source()) {
             Ok(x) => x.write_ui_xml(&mut self.writer)?,
             Err(e) => self.errors.push(e),
         };
@@ -278,13 +278,12 @@ fn format_constant_expression<'tree, 'source>(
 }
 
 fn format_constant_binding_value<'tree, 'source>(
-    key_node: qml::Node<'tree>,
     value: &qml::UiBindingValue<'tree, 'source>,
     source: &'source str,
 ) -> Result<(&'static [u8], String), qml::ParseError<'tree>> {
     match value {
         qml::UiBindingValue::Node(n) => format_constant_expression(*n, source),
-        qml::UiBindingValue::Map(_) => Err(unexpected_node(key_node)),
+        qml::UiBindingValue::Map(n, _) => Err(unexpected_node(*n)),
     }
 }
 
@@ -452,6 +451,7 @@ enum GroupedValue {
 
 impl GroupedValue {
     pub fn from_binding_map<'tree, 'source>(
+        node: qml::Node<'tree>,
         map: &qml::UiBindingMap<'tree, 'source>,
         source: &'source str,
     ) -> Result<Self, qml::ParseError<'tree>> {
@@ -511,8 +511,7 @@ impl GroupedValue {
             }
         }
 
-        // TODO: needs node for error reporting
-        todo!("report error for unsupported grouped value"); //Err(unexpected_node(node))
+        Err(unexpected_node(node))
     }
 
     fn write_ui_xml<W>(&self, writer: &mut quick_xml::Writer<W>) -> quick_xml::Result<()>

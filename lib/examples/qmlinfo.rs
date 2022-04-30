@@ -120,7 +120,7 @@ fn dump_binding_map<'tree, 'source>(
                     indent = INDENT_WIDTH * depth
                 );
             }
-            UiBindingValue::Map(m) => {
+            UiBindingValue::Map(_, m) => {
                 println!("{:indent$}{}: {{", "", name, indent = INDENT_WIDTH * depth);
                 dump_binding_map(m, source, opts, errors, depth + 1);
                 println!("{:indent$}}}", "", indent = INDENT_WIDTH * depth);
