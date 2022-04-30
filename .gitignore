@@ -5,3 +5,7 @@
 *~
 .#*
 \#*#
+
+# Generated files
+/contrib/imports/**/metatypes.json
+/contrib/imports/**/plugins.qmltypes

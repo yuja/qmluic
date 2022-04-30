@@ -1,0 +1,3 @@
+module qmluic.QtWidgets
+typeinfo plugins.qmltypes
+depends QtQml
