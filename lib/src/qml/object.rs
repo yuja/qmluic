@@ -375,6 +375,17 @@ fn try_insert_ui_grouped_binding_node<'tree, 'source>(
     for node in container_node.named_children(&mut container_node.walk()) {
         // TODO: ui_annotated_object_member
         match node.kind() {
+            "ui_object_definition" => {
+                let name_node = astutil::get_child_by_field_name(node, "type_name")?;
+                let name = NestedIdentifier::from_node(name_node, source)?;
+                try_insert_ui_grouped_binding_node(
+                    map,
+                    &name,
+                    name_node,
+                    astutil::get_child_by_field_name(node, "initializer")?,
+                    source,
+                )?;
+            }
             "ui_binding" => {
                 let name_node = astutil::get_child_by_field_name(node, "name")?;
                 let name = NestedIdentifier::from_node(name_node, source)?;
@@ -634,6 +645,28 @@ mod tests {
             .unwrap()
             .is_map());
         assert!(!nested
+            .get_map_value(&Identifier::new("c"))
+            .unwrap()
+            .is_map());
+    }
+
+    #[test]
+    fn nested_grouped_property_bindings() {
+        let doc = UiDocument::with_source(
+            r###"
+            Foo {
+                a { b { c: 1 } }
+            }
+            "###
+            .to_owned(),
+        );
+        let root_obj = extract_root_object(&doc).unwrap();
+        let map = root_obj.binding_map();
+        assert!(!map
+            .get(&Identifier::new("a"))
+            .unwrap()
+            .get_map_value(&Identifier::new("b"))
+            .unwrap()
             .get_map_value(&Identifier::new("c"))
             .unwrap()
             .is_map());
