@@ -1,0 +1,54 @@
+---
+source: tests/test_basic.rs
+expression: "translate_file(\"examples/MainWindow.qml\", \"MainWindow\")"
+---
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="actions">
+   </property>
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>800</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menu_File">
+    <property name="actions">
+    </property>
+    <property name="title">
+     <string>&amp;File</string>
+    </property>
+   </widget>
+  </widget>
+  <widget class="QStatusBar" name="statusbar">
+  </widget>
+  <action name="action_Open">
+   <property name="text">
+    <string>&amp;Open</string>
+   </property>
+  </action>
+  <action name="actionFoo">
+   <property name="text">
+    <string>Foo</string>
+   </property>
+  </action>
+ </widget>
+</ui>
+

@@ -9,6 +9,7 @@ fn test_translate_example() {
         "examples/SettingsDialog.qml",
         "SettingsDialog"
     ));
+    insta::assert_snapshot!(translate_file("examples/MainWindow.qml", "MainWindow"));
 }
 
 fn translate_file(path: impl AsRef<Path>, class_name: impl AsRef<str>) -> String {
