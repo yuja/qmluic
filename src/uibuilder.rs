@@ -201,18 +201,26 @@ where
         map: &qml::UiBindingMap<'doc, 'doc>,
     ) -> quick_xml::Result<()> {
         for (name, value) in collect_sorted_binding_pairs(map) {
-            let prop_tag =
-                BytesStart::borrowed_name(b"property").with_attributes([("name", name.as_str())]);
-            self.writer
-                .write_event(Event::Start(prop_tag.to_borrowed()))?;
+            if name == &qml::Identifier::new("actions") {
+                // TODO: only for QWidget subclasses
+                match value {
+                    qml::UiBindingValue::Node(n) => self.process_binding_action_value_node(*n)?,
+                    qml::UiBindingValue::Map(n, _) => self.errors.push(unexpected_node(*n)),
+                }
+            } else {
+                let prop_tag = BytesStart::borrowed_name(b"property")
+                    .with_attributes([("name", name.as_str())]);
+                self.writer
+                    .write_event(Event::Start(prop_tag.to_borrowed()))?;
 
-            // TODO: use type provided by .qmltypes instead of guessing it
-            match value {
-                qml::UiBindingValue::Node(n) => self.process_binding_value_node(*n)?,
-                qml::UiBindingValue::Map(n, m) => self.process_binding_grouped_value(*n, m)?,
+                // TODO: use type provided by .qmltypes instead of guessing it
+                match value {
+                    qml::UiBindingValue::Node(n) => self.process_binding_value_node(*n)?,
+                    qml::UiBindingValue::Map(n, m) => self.process_binding_grouped_value(*n, m)?,
+                }
+
+                self.writer.write_event(Event::End(prop_tag.to_end()))?;
             }
-
-            self.writer.write_event(Event::End(prop_tag.to_end()))?;
         }
         Ok(()) // TODO
     }
@@ -232,6 +240,23 @@ where
     ) -> quick_xml::Result<()> {
         match GroupedValue::from_binding_map(node, map, self.doc.source()) {
             Ok(x) => x.write_ui_xml(&mut self.writer)?,
+            Err(e) => self.errors.push(e),
+        };
+        Ok(())
+    }
+
+    fn process_binding_action_value_node(
+        &mut self,
+        node: qml::Node<'doc>,
+    ) -> quick_xml::Result<()> {
+        match parse_as_identifier_array(node, self.doc.source()) {
+            Ok(names) => {
+                for n in names {
+                    let tag = BytesStart::borrowed_name(b"addaction")
+                        .with_attributes([("name", n.as_str())]);
+                    self.writer.write_event(Event::Empty(tag))?;
+                }
+            }
             Err(e) => self.errors.push(e),
         };
         Ok(())
@@ -323,6 +348,16 @@ fn parse_as_identifier<'tree, 'source>(
 ) -> Result<qml::Identifier<'source>, qml::ParseError<'tree>> {
     match qml::Expression::from_node(node, source)? {
         qml::Expression::Identifier(n) => Ok(n),
+        _ => Err(unexpected_node(node)),
+    }
+}
+
+fn parse_as_identifier_array<'tree, 'source>(
+    node: qml::Node<'tree>,
+    source: &'source str,
+) -> Result<Vec<qml::Identifier<'source>>, qml::ParseError<'tree>> {
+    match qml::Expression::from_node(node, source)? {
+        qml::Expression::Array(ns) => ns.iter().map(|&n| parse_as_identifier(n, source)).collect(),
         _ => Err(unexpected_node(node)),
     }
 }

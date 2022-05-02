@@ -19,8 +19,7 @@ expression: "translate_file(\"examples/MainWindow.qml\", \"MainWindow\")"
   <widget class="QWidget" name="centralwidget">
   </widget>
   <widget class="QMenuBar" name="menubar">
-   <property name="actions">
-   </property>
+   <addaction name="menu_File"/>
    <property name="geometry">
     <rect>
      <x>0</x>
@@ -30,8 +29,8 @@ expression: "translate_file(\"examples/MainWindow.qml\", \"MainWindow\")"
     </rect>
    </property>
    <widget class="QMenu" name="menu_File">
-    <property name="actions">
-    </property>
+    <addaction name="action_Open"/>
+    <addaction name="separator"/>
     <property name="title">
      <string>&amp;File</string>
     </property>
