@@ -233,6 +233,8 @@ version = "0.1.0"
 dependencies = [
  "ariadne",
  "clap",
+ "serde",
+ "serde_json",
  "tree-sitter",
  "tree-sitter-qmljs",
 ]
