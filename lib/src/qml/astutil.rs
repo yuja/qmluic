@@ -63,7 +63,7 @@ fn strip_radix_prefix(s: &str) -> Option<(u32, &str)> {
         Some((8, &s[2..]))
     } else if s.starts_with("0x") || s.starts_with("0X") {
         Some((16, &s[2..]))
-    } else if s.starts_with("0") && s.len() > 1 && s.chars().all(|c| ('0'..='7').contains(&c)) {
+    } else if s.starts_with('0') && s.len() > 1 && s.chars().all(|c| ('0'..='7').contains(&c)) {
         Some((8, &s[1..]))
     } else {
         None
@@ -114,7 +114,7 @@ fn unescape_char(escaped: &str) -> Option<char> {
             'f' => Some('\x0c'),
             _ => None,
         }
-    } else if tail.starts_with("u{") && tail.ends_with("}") {
+    } else if tail.starts_with("u{") && tail.ends_with('}') {
         char_from_str_radix(&tail[2..tail.len() - 1], 16)
     } else if tail.starts_with('u') && tail.len() == 5 {
         char_from_str_radix(&tail[1..], 16)
