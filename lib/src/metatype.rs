@@ -102,6 +102,34 @@ pub struct Argument {
     pub r#type: String,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
+enum MetatypesDoc {
+    Nested(Vec<CompilationUnit>),
+    Unit(CompilationUnit),
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CompilationUnit {
+    classes: Vec<Class>,
+}
+
+/// Collects all classes from metatypes.json document.
+///
+/// The JSON document should consist of either a compilation unit object `{"classes": ...}`
+/// or an array of such objects `[{"classes": ...}, ...]`.
+pub fn extract_classes_from_str(json_data: &str) -> serde_json::Result<Vec<Class>> {
+    serde_json::from_str(json_data).map(flatten_classes)
+}
+
+fn flatten_classes(doc: MetatypesDoc) -> Vec<Class> {
+    match doc {
+        MetatypesDoc::Nested(units) => units.into_iter().flat_map(|u| u.classes).collect(),
+        MetatypesDoc::Unit(u) => u.classes,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -188,5 +216,27 @@ mod tests {
             ]
         }"###;
         let _meta: Class = serde_json::from_str(data).unwrap();
+    }
+
+    #[test]
+    fn extract_classes_unit() {
+        let data = r###"{
+            "classes": [
+                {"className": "Foo", "qualifiedClassName": "Foo", "object": true},
+                {"className": "Bar", "qualifiedClassName": "Bar", "object": true}
+            ]
+        }"###;
+        let classes = extract_classes_from_str(data).unwrap();
+        assert_eq!(classes.len(), 2);
+    }
+
+    #[test]
+    fn extract_classes_nested() {
+        let data = r###"[
+            {"classes": [{"className": "Foo", "qualifiedClassName": "Foo", "object": true}]},
+            {"classes": [{"className": "Bar", "qualifiedClassName": "Bar", "object": true}]}
+        ]"###;
+        let classes = extract_classes_from_str(data).unwrap();
+        assert_eq!(classes.len(), 2);
     }
 }
