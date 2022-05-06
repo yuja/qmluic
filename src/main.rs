@@ -1,7 +1,9 @@
 #![forbid(unsafe_code)]
 
 use clap::Parser;
+use qmluic::metatype;
 use qmluic::qml;
+use qmluic::typemap::TypeMap;
 use qmluic_cli::UiBuilder;
 use std::fs;
 use std::io;
@@ -12,10 +14,16 @@ use std::process;
 struct Args {
     /// File to parse
     file: PathBuf,
+    #[clap(long)]
+    /// Qt metatypes.json file to load
+    foreign_types: Vec<PathBuf>,
 }
 
 fn main() -> quick_xml::Result<()> {
     let args = Args::parse();
+
+    let mut type_map = TypeMap::with_primitive_types();
+    type_map.extend(load_metatypes(&args.foreign_types)?);
 
     let doc = qml::UiDocument::with_source(fs::read_to_string(&args.file)?);
     if doc.has_syntax_error() {
@@ -31,7 +39,7 @@ fn main() -> quick_xml::Result<()> {
     })?;
 
     let stdout = io::stdout();
-    let mut builder = UiBuilder::new(stdout.lock(), &doc, class_name);
+    let mut builder = UiBuilder::new(stdout.lock(), &type_map, &doc, class_name);
     builder.build()?;
     if !builder.errors().is_empty() {
         for e in builder.errors() {
@@ -47,6 +55,22 @@ fn class_name_for_path(path: &Path) -> Option<&str> {
     path.file_name()
         .and_then(|s| s.to_str())
         .map(|name| name.rsplit_once('.').map(|(n, _)| n).unwrap_or(name))
+}
+
+fn load_metatypes(paths: &[PathBuf]) -> io::Result<Vec<metatype::Class>> {
+    paths.iter().fold(Ok(vec![]), |acc, p| {
+        acc.and_then(|mut classes| {
+            let data = fs::read_to_string(p)?;
+            let cs = metatype::extract_classes_from_str(&data).map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("failed to load {}: {}", p.display(), e),
+                )
+            })?;
+            classes.extend(cs);
+            Ok(classes)
+        })
+    })
 }
 
 fn print_syntax_errors(doc: &qml::UiDocument) -> io::Result<()> {

@@ -1,4 +1,5 @@
 use qmluic::qml;
+use qmluic::typemap::TypeMap;
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::io;
 
@@ -7,6 +8,7 @@ where
     W: io::Write,
 {
     writer: quick_xml::Writer<W>,
+    type_map: &'a TypeMap,
     doc: &'a qml::UiDocument,
     class_name: String, // TODO: maybe UiDocument should have the name?
     errors: Vec<qml::ParseError<'a>>,
@@ -16,10 +18,16 @@ impl<'a, W> UiBuilder<'a, W>
 where
     W: io::Write,
 {
-    pub fn new(dest: W, doc: &'a qml::UiDocument, class_name: impl AsRef<str>) -> Self {
+    pub fn new(
+        dest: W,
+        type_map: &'a TypeMap,
+        doc: &'a qml::UiDocument,
+        class_name: impl AsRef<str>,
+    ) -> Self {
         let writer = quick_xml::Writer::new_with_indent(dest, b' ', 1);
         UiBuilder {
             writer,
+            type_map,
             doc,
             class_name: class_name.as_ref().to_owned(),
             errors: Vec::new(),
