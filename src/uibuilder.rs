@@ -98,7 +98,7 @@ where
         self.writer
             .write_event(Event::Start(obj_tag.to_borrowed()))?;
 
-        self.process_binding_map(obj.binding_map())?;
+        self.process_binding_map(cls, obj.binding_map())?;
 
         // action shouldn't have any children
         self.errors.extend(
@@ -125,7 +125,7 @@ where
         self.writer
             .write_event(Event::Start(obj_tag.to_borrowed()))?;
 
-        self.process_binding_map(obj.binding_map())?;
+        self.process_binding_map(cls, obj.binding_map())?;
 
         for &n in obj.child_object_nodes() {
             let child = match qml::UiObjectDefinition::from_node(n, self.doc.source()) {
@@ -173,7 +173,7 @@ where
         self.writer
             .write_event(Event::Start(obj_tag.to_borrowed()))?;
 
-        self.process_binding_map(obj.binding_map())?;
+        self.process_binding_map(cls, obj.binding_map())?;
 
         // action shouldn't have any children
         self.errors.extend(
@@ -200,7 +200,7 @@ where
         self.writer
             .write_event(Event::Start(obj_tag.to_borrowed()))?;
 
-        self.process_binding_map(obj.binding_map())?;
+        self.process_binding_map(cls, obj.binding_map())?;
 
         for &n in obj.child_object_nodes() {
             self.process_object_definition_node(n)?;
@@ -210,7 +210,11 @@ where
         Ok(())
     }
 
-    fn process_binding_map(&mut self, map: &qml::UiBindingMap<'a, 'a>) -> quick_xml::Result<()> {
+    fn process_binding_map(
+        &mut self,
+        cls: &typemap::Class,
+        map: &qml::UiBindingMap<'a, 'a>,
+    ) -> quick_xml::Result<()> {
         for (name, value) in collect_sorted_binding_pairs(map) {
             if name == &qml::Identifier::new("actions") {
                 // TODO: only for QWidget subclasses
@@ -224,10 +228,15 @@ where
                 self.writer
                     .write_event(Event::Start(prop_tag.to_borrowed()))?;
 
-                // TODO: use type provided by .qmltypes instead of guessing it
+                // TODO: error out if property type can't be mapped
+                let ty_opt = cls.get_property_type(name.as_str());
                 match value {
-                    qml::UiBindingValue::Node(n) => self.process_binding_value_node(*n)?,
-                    qml::UiBindingValue::Map(n, m) => self.process_binding_grouped_value(*n, m)?,
+                    qml::UiBindingValue::Node(n) => {
+                        self.process_binding_value_node(ty_opt.as_ref(), *n)?;
+                    }
+                    qml::UiBindingValue::Map(n, m) => {
+                        self.process_binding_grouped_value(ty_opt.as_ref(), *n, m)?;
+                    }
                 }
 
                 self.writer.write_event(Event::End(prop_tag.to_end()))?;
@@ -236,8 +245,17 @@ where
         Ok(()) // TODO
     }
 
-    fn process_binding_value_node(&mut self, node: qml::Node<'a>) -> quick_xml::Result<()> {
-        match format_constant_expression(node, self.doc.source()) {
+    fn process_binding_value_node(
+        &mut self,
+        ty_opt: Option<&typemap::Type>,
+        node: qml::Node<'a>,
+    ) -> quick_xml::Result<()> {
+        let res = if let Some(ty) = ty_opt {
+            format_typed_constant_expression(ty, node, self.doc.source())
+        } else {
+            format_constant_expression(node, self.doc.source())
+        };
+        match res {
             Ok((kind, formatted)) => write_tagged_str(&mut self.writer, kind, &formatted)?,
             Err(e) => self.errors.push(e),
         };
@@ -246,6 +264,7 @@ where
 
     fn process_binding_grouped_value(
         &mut self,
+        _ty_opt: Option<&typemap::Type>, // TODO: don't guess type
         node: qml::Node<'a>,
         map: &qml::UiBindingMap<'a, 'a>,
     ) -> quick_xml::Result<()> {
@@ -273,6 +292,21 @@ where
     pub fn errors(&self) -> &[qml::ParseError<'a>] {
         &self.errors
     }
+}
+
+fn format_typed_constant_expression<'tree, 'source>(
+    ty: &typemap::Type,
+    node: qml::Node<'tree>,
+    source: &'source str,
+) -> Result<(&'static [u8], String), qml::ParseError<'tree>> {
+    use typemap::{PrimitiveType, Type};
+    let (kind, formatted) = match ty {
+        Type::Primitive(PrimitiveType::Int) => {
+            (b"number".as_ref(), eval_number(node, source)?.to_string())
+        }
+        _ => format_constant_expression(node, source)?, // TODO
+    };
+    Ok((kind, formatted))
 }
 
 fn format_constant_expression<'tree, 'source>(
