@@ -248,6 +248,7 @@ struct ClassData {
     class_name: String,
     public_super_class_names: Vec<String>,
     inner_type_map: TypeMapData,
+    property_map: HashMap<String, PropertyData>,
     // TODO
 }
 
@@ -269,6 +270,21 @@ impl<'a> Class<'a> {
             .public_super_class_names
             .iter()
             .filter_map(|n| self.parent_space.resolve_type_scoped(n))
+    }
+
+    /// Looks up type of the specified property.
+    pub fn get_property_type(&self, name: &str) -> Option<Type<'a>> {
+        // TODO: error out if type name can't be resolved?
+        self.data
+            .property_map
+            .get(name)
+            .and_then(|p| self.resolve_type_scoped(&p.type_name))
+            .or_else(|| {
+                self.public_super_classes().find_map(|ty| match ty {
+                    Type::Class(cls) => cls.get_property_type(name),
+                    _ => None,
+                })
+            })
     }
 }
 
@@ -309,13 +325,37 @@ impl ClassData {
                 }
             })
             .collect();
+
         let mut inner_type_map = TypeMapData::default();
         inner_type_map.extend_enums(meta.enums);
+
+        let property_map = meta
+            .properties
+            .into_iter()
+            .map(PropertyData::pair_from_meta)
+            .collect();
+
         ClassData {
             class_name: meta.class_name,
             public_super_class_names,
             inner_type_map,
+            property_map,
         }
+    }
+}
+
+/// Stored property representation.
+#[derive(Clone, Debug)]
+struct PropertyData {
+    type_name: String,
+}
+
+impl PropertyData {
+    fn pair_from_meta(meta: metatype::Property) -> (String, Self) {
+        let data = PropertyData {
+            type_name: meta.r#type,
+        };
+        (meta.name, data)
     }
 }
 
@@ -435,6 +475,26 @@ mod tests {
         }
     }
 
+    fn new_property_meta(name: &str, type_name: &str) -> metatype::Property {
+        metatype::Property {
+            name: name.to_owned(),
+            r#type: type_name.to_owned(),
+            member: None,
+            read: None,
+            write: None,
+            reset: None,
+            notify: None,
+            revision: 0,
+            designable: true,
+            scriptable: true,
+            stored: true,
+            user: false,
+            constant: false,
+            r#final: false,
+            required: false,
+        }
+    }
+
     fn unwrap_class(ty: Option<Type>) -> Class {
         match ty {
             Some(Type::Class(x)) => x,
@@ -547,6 +607,30 @@ mod tests {
         assert_eq!(
             type_map.get_type_scoped("Sub2::RootEnum").unwrap(),
             root_class.get_type("RootEnum").unwrap()
+        );
+    }
+
+    #[test]
+    fn get_type_of_property() {
+        let mut type_map = TypeMap::with_primitive_types();
+        let mut foo_meta = new_class_meta("Foo");
+        foo_meta
+            .properties
+            .push(new_property_meta("foo_prop", "int"));
+        let mut bar_meta = new_class_meta_with_super("Bar", &["Foo"]);
+        bar_meta
+            .properties
+            .push(new_property_meta("bar_prop", "bool"));
+        type_map.extend([foo_meta, bar_meta]);
+
+        let bar_class = unwrap_class(type_map.get_type("Bar"));
+        assert_eq!(
+            bar_class.get_property_type("bar_prop").unwrap(),
+            type_map.get_type("bool").unwrap()
+        );
+        assert_eq!(
+            bar_class.get_property_type("foo_prop").unwrap(),
+            type_map.get_type("int").unwrap()
         );
     }
 }
