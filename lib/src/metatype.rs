@@ -24,7 +24,10 @@ pub struct Class {
     pub super_classes: Vec<SuperClassSpecifier>,
     // TODO: class_infos
     // TODO: interfaces
+    #[serde(default)]
     pub object: bool,
+    #[serde(default)]
+    pub gadget: bool,
 
     #[serde(default)]
     pub enums: Vec<Enum>,
