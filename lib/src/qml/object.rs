@@ -107,6 +107,7 @@ fn extract_object_id<'tree, 'source>(
 /// Represents a QML object or top-level component.
 #[derive(Clone, Debug)]
 pub struct UiObjectDefinition<'tree, 'source> {
+    node: Node<'tree>,
     type_name: NestedIdentifier<'source>,
     body: UiObjectBody<'tree, 'source>,
 }
@@ -126,7 +127,15 @@ impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
         cursor.reset(astutil::get_child_by_field_name(node, "initializer")?);
         let body = UiObjectBody::with_cursor(&mut cursor, source)?;
 
-        Ok(UiObjectDefinition { type_name, body })
+        Ok(UiObjectDefinition {
+            node,
+            type_name,
+            body,
+        })
+    }
+
+    pub fn node(&self) -> Node<'tree> {
+        self.node
     }
 
     pub fn type_name(&self) -> &NestedIdentifier<'source> {

@@ -56,7 +56,7 @@ where
 
     fn process_object_definition_node(&mut self, node: qml::Node<'a>) -> quick_xml::Result<()> {
         match qml::UiObjectDefinition::from_node(node, self.doc.source()) {
-            Ok(x) => self.process_object_definition(node, &x)?,
+            Ok(x) => self.process_object_definition(&x)?,
             Err(e) => self.errors.push(e),
         };
         Ok(())
@@ -64,7 +64,6 @@ where
 
     fn process_object_definition(
         &mut self,
-        node: qml::Node<'a>,
         obj: &qml::UiObjectDefinition<'a, 'a>,
     ) -> quick_xml::Result<()> {
         // TODO: resolve against imported types: Qml.Type -> Cxx::Type -> type object
@@ -81,7 +80,7 @@ where
             }
         } else {
             // TODO: better error message
-            self.errors.push(unexpected_node(node));
+            self.errors.push(unexpected_node(obj.node()));
             Ok(())
         }
     }
@@ -152,7 +151,7 @@ where
             self.writer
                 .write_event(Event::Start(item_tag.to_borrowed()))?;
 
-            self.process_object_definition(n, &child)?;
+            self.process_object_definition(&child)?;
 
             self.writer.write_event(Event::End(item_tag.to_end()))?;
         }
