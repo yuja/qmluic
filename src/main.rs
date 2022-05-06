@@ -58,16 +58,30 @@ fn class_name_for_path(path: &Path) -> Option<&str> {
 }
 
 fn load_metatypes(paths: &[PathBuf]) -> io::Result<Vec<metatype::Class>> {
-    paths.iter().fold(Ok(vec![]), |acc, p| {
+    fn load_into(classes: &mut Vec<metatype::Class>, path: &Path) -> io::Result<()> {
+        let data = fs::read_to_string(path)?;
+        let cs = metatype::extract_classes_from_str(&data).map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("failed to load {}: {}", path.display(), e),
+            )
+        })?;
+        classes.extend(cs);
+        Ok(())
+    }
+
+    paths.iter().fold(Ok(vec![]), |acc, path| {
         acc.and_then(|mut classes| {
-            let data = fs::read_to_string(p)?;
-            let cs = metatype::extract_classes_from_str(&data).map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("failed to load {}: {}", p.display(), e),
-                )
-            })?;
-            classes.extend(cs);
+            if path.is_dir() {
+                for e in fs::read_dir(path)? {
+                    let p = e?.path();
+                    if p.extension().map(|e| e == "json").unwrap_or(false) {
+                        load_into(&mut classes, &p)?;
+                    }
+                }
+            } else {
+                load_into(&mut classes, path)?;
+            }
             Ok(classes)
         })
     })
