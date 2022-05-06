@@ -2,21 +2,21 @@ use qmluic::qml;
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::io;
 
-pub struct UiBuilder<'doc, W>
+pub struct UiBuilder<'a, W>
 where
     W: io::Write,
 {
     writer: quick_xml::Writer<W>,
-    doc: &'doc qml::UiDocument,
+    doc: &'a qml::UiDocument,
     class_name: String, // TODO: maybe UiDocument should have the name?
-    errors: Vec<qml::ParseError<'doc>>,
+    errors: Vec<qml::ParseError<'a>>,
 }
 
-impl<'doc, W> UiBuilder<'doc, W>
+impl<'a, W> UiBuilder<'a, W>
 where
     W: io::Write,
 {
-    pub fn new(dest: W, doc: &'doc qml::UiDocument, class_name: impl AsRef<str>) -> Self {
+    pub fn new(dest: W, doc: &'a qml::UiDocument, class_name: impl AsRef<str>) -> Self {
         let writer = quick_xml::Writer::new_with_indent(dest, b' ', 1);
         UiBuilder {
             writer,
@@ -38,7 +38,7 @@ where
         Ok(())
     }
 
-    fn process_program_node(&mut self, node: qml::Node<'doc>) -> quick_xml::Result<()> {
+    fn process_program_node(&mut self, node: qml::Node<'a>) -> quick_xml::Result<()> {
         match qml::UiProgram::from_node(node, self.doc.source()) {
             Ok(x) => self.process_object_definition_node(x.root_object_node())?,
             Err(e) => self.errors.push(e),
@@ -46,7 +46,7 @@ where
         Ok(())
     }
 
-    fn process_object_definition_node(&mut self, node: qml::Node<'doc>) -> quick_xml::Result<()> {
+    fn process_object_definition_node(&mut self, node: qml::Node<'a>) -> quick_xml::Result<()> {
         match qml::UiObjectDefinition::from_node(node, self.doc.source()) {
             Ok(x) => self.process_object_definition(&x)?,
             Err(e) => self.errors.push(e),
@@ -56,7 +56,7 @@ where
 
     fn process_object_definition(
         &mut self,
-        obj: &qml::UiObjectDefinition<'doc, 'doc>,
+        obj: &qml::UiObjectDefinition<'a, 'a>,
     ) -> quick_xml::Result<()> {
         // TODO: resolve against imported types
         let type_name = obj.type_name().to_string();
@@ -71,7 +71,7 @@ where
 
     fn process_action_definition(
         &mut self,
-        obj: &qml::UiObjectDefinition<'doc, 'doc>,
+        obj: &qml::UiObjectDefinition<'a, 'a>,
     ) -> quick_xml::Result<()> {
         let mut obj_tag = BytesStart::borrowed_name(b"action");
         if let Some(id) = obj.object_id() {
@@ -97,7 +97,7 @@ where
     fn process_layout_definition(
         &mut self,
         type_name: &str,
-        obj: &qml::UiObjectDefinition<'doc, 'doc>,
+        obj: &qml::UiObjectDefinition<'a, 'a>,
     ) -> quick_xml::Result<()> {
         let mut obj_tag = BytesStart::borrowed_name(b"layout");
         obj_tag.push_attribute(("class", type_name.as_ref()));
@@ -150,7 +150,7 @@ where
 
     fn process_spacer_definition(
         &mut self,
-        obj: &qml::UiObjectDefinition<'doc, 'doc>,
+        obj: &qml::UiObjectDefinition<'a, 'a>,
     ) -> quick_xml::Result<()> {
         let mut obj_tag = BytesStart::borrowed_name(b"spacer");
         if let Some(id) = obj.object_id() {
@@ -176,7 +176,7 @@ where
     fn process_widget_definition(
         &mut self,
         type_name: &str,
-        obj: &qml::UiObjectDefinition<'doc, 'doc>,
+        obj: &qml::UiObjectDefinition<'a, 'a>,
     ) -> quick_xml::Result<()> {
         let mut obj_tag = BytesStart::borrowed_name(b"widget");
         obj_tag.push_attribute(("class", type_name.as_ref()));
@@ -196,10 +196,7 @@ where
         Ok(())
     }
 
-    fn process_binding_map(
-        &mut self,
-        map: &qml::UiBindingMap<'doc, 'doc>,
-    ) -> quick_xml::Result<()> {
+    fn process_binding_map(&mut self, map: &qml::UiBindingMap<'a, 'a>) -> quick_xml::Result<()> {
         for (name, value) in collect_sorted_binding_pairs(map) {
             if name == &qml::Identifier::new("actions") {
                 // TODO: only for QWidget subclasses
@@ -225,7 +222,7 @@ where
         Ok(()) // TODO
     }
 
-    fn process_binding_value_node(&mut self, node: qml::Node<'doc>) -> quick_xml::Result<()> {
+    fn process_binding_value_node(&mut self, node: qml::Node<'a>) -> quick_xml::Result<()> {
         match format_constant_expression(node, self.doc.source()) {
             Ok((kind, formatted)) => write_tagged_str(&mut self.writer, kind, &formatted)?,
             Err(e) => self.errors.push(e),
@@ -235,8 +232,8 @@ where
 
     fn process_binding_grouped_value(
         &mut self,
-        node: qml::Node<'doc>,
-        map: &qml::UiBindingMap<'doc, 'doc>,
+        node: qml::Node<'a>,
+        map: &qml::UiBindingMap<'a, 'a>,
     ) -> quick_xml::Result<()> {
         match GroupedValue::from_binding_map(node, map, self.doc.source()) {
             Ok(x) => x.write_ui_xml(&mut self.writer)?,
@@ -245,10 +242,7 @@ where
         Ok(())
     }
 
-    fn process_binding_action_value_node(
-        &mut self,
-        node: qml::Node<'doc>,
-    ) -> quick_xml::Result<()> {
+    fn process_binding_action_value_node(&mut self, node: qml::Node<'a>) -> quick_xml::Result<()> {
         match parse_as_identifier_array(node, self.doc.source()) {
             Ok(names) => {
                 for n in names {
@@ -262,7 +256,7 @@ where
         Ok(())
     }
 
-    pub fn errors(&self) -> &[qml::ParseError<'doc>] {
+    pub fn errors(&self) -> &[qml::ParseError<'a>] {
         &self.errors
     }
 }
