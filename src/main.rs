@@ -2,7 +2,7 @@
 
 use clap::Parser;
 use qmluic::metatype;
-use qmluic::qml;
+use qmluic::qmlast;
 use qmluic::typemap::TypeMap;
 use qmluic_cli::UiBuilder;
 use std::fs;
@@ -25,7 +25,7 @@ fn main() -> quick_xml::Result<()> {
     let mut type_map = TypeMap::with_primitive_types();
     type_map.extend(load_metatypes(&args.foreign_types)?);
 
-    let doc = qml::UiDocument::with_source(fs::read_to_string(&args.file)?);
+    let doc = qmlast::UiDocument::with_source(fs::read_to_string(&args.file)?);
     if doc.has_syntax_error() {
         print_syntax_errors(&doc)?;
         process::exit(1);
@@ -87,14 +87,14 @@ fn load_metatypes(paths: &[PathBuf]) -> io::Result<Vec<metatype::Class>> {
     })
 }
 
-fn print_syntax_errors(doc: &qml::UiDocument) -> io::Result<()> {
+fn print_syntax_errors(doc: &qmlast::UiDocument) -> io::Result<()> {
     for e in &doc.collect_syntax_errors::<Vec<_>>() {
         print_parse_error(doc, e)?;
     }
     Ok(())
 }
 
-fn print_parse_error(doc: &qml::UiDocument, error: &qml::ParseError) -> io::Result<()> {
+fn print_parse_error(doc: &qmlast::UiDocument, error: &qmlast::ParseError) -> io::Result<()> {
     use ariadne::{Color, Label, Report, ReportKind, Source};
     let start_char_index = doc.source()[..error.start_byte()].chars().count();
     let end_char_index = start_char_index + doc.source()[error.byte_range()].chars().count();

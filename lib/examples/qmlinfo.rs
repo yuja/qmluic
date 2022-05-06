@@ -1,5 +1,5 @@
 use clap::Parser;
-use qmluic::qml::*;
+use qmluic::qmlast::*;
 use std::fs;
 use std::io;
 use std::path::PathBuf;

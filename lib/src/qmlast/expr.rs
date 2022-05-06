@@ -345,7 +345,7 @@ impl fmt::Display for BinaryOperator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::qml::{UiDocument, UiObjectDefinition, UiProgram};
+    use crate::qmlast::{UiDocument, UiObjectDefinition, UiProgram};
 
     fn extract_expr<'a>(
         doc: &'a UiDocument,

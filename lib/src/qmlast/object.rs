@@ -418,7 +418,7 @@ fn try_insert_ui_grouped_binding_node<'tree, 'source>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::qml::UiDocument;
+    use crate::qmlast::UiDocument;
 
     fn extract_root_object(doc: &UiDocument) -> Result<UiObjectDefinition, ParseError> {
         let program = UiProgram::from_node(doc.root_node(), doc.source()).unwrap();

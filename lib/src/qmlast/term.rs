@@ -168,7 +168,7 @@ impl fmt::Display for NestedIdentifier<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::qml::UiDocument;
+    use crate::qmlast::UiDocument;
 
     fn extract_type_id(doc: &UiDocument) -> Result<NestedIdentifier, ParseError> {
         let node = doc

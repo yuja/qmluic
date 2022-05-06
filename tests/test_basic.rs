@@ -1,5 +1,5 @@
 use qmluic::metatype;
-use qmluic::qml::UiDocument;
+use qmluic::qmlast::UiDocument;
 use qmluic::typemap::TypeMap;
 use qmluic_cli::UiBuilder;
 use std::fs;
