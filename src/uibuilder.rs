@@ -1,5 +1,5 @@
 use qmluic::qml;
-use qmluic::typemap::TypeMap;
+use qmluic::typemap::{self, TypeMap};
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::io;
 
@@ -56,7 +56,7 @@ where
 
     fn process_object_definition_node(&mut self, node: qml::Node<'a>) -> quick_xml::Result<()> {
         match qml::UiObjectDefinition::from_node(node, self.doc.source()) {
-            Ok(x) => self.process_object_definition(&x)?,
+            Ok(x) => self.process_object_definition(node, &x)?,
             Err(e) => self.errors.push(e),
         };
         Ok(())
@@ -64,21 +64,29 @@ where
 
     fn process_object_definition(
         &mut self,
+        node: qml::Node<'a>,
         obj: &qml::UiObjectDefinition<'a, 'a>,
     ) -> quick_xml::Result<()> {
-        // TODO: resolve against imported types
+        // TODO: resolve against imported types: Qml.Type -> Cxx::Type -> type object
         let type_name = obj.type_name().to_string();
-        if type_name == "QAction" {
-            self.process_action_definition(obj)
-        } else if type_name.ends_with("Layout") {
-            self.process_layout_definition(&type_name, obj)
+        if let Some(typemap::Type::Class(cls)) = self.type_map.get_type(&type_name) {
+            if cls.name() == "QAction" {
+                self.process_action_definition(&cls, obj)
+            } else if type_name.ends_with("Layout") {
+                self.process_layout_definition(&cls, obj)
+            } else {
+                self.process_widget_definition(&cls, obj)
+            }
         } else {
-            self.process_widget_definition(&type_name, obj)
+            // TODO: better error message
+            self.errors.push(unexpected_node(node));
+            Ok(())
         }
     }
 
     fn process_action_definition(
         &mut self,
+        cls: &typemap::Class,
         obj: &qml::UiObjectDefinition<'a, 'a>,
     ) -> quick_xml::Result<()> {
         let mut obj_tag = BytesStart::borrowed_name(b"action");
@@ -104,11 +112,11 @@ where
 
     fn process_layout_definition(
         &mut self,
-        type_name: &str,
+        cls: &typemap::Class,
         obj: &qml::UiObjectDefinition<'a, 'a>,
     ) -> quick_xml::Result<()> {
         let mut obj_tag = BytesStart::borrowed_name(b"layout");
-        obj_tag.push_attribute(("class", type_name.as_ref()));
+        obj_tag.push_attribute(("class", cls.name()));
         if let Some(id) = obj.object_id() {
             obj_tag.push_attribute(("name", id.as_str()));
         }
@@ -146,7 +154,7 @@ where
             if child.type_name().to_string() == "QSpacerItem" {
                 self.process_spacer_definition(&child)?;
             } else {
-                self.process_object_definition(&child)?;
+                self.process_object_definition(n, &child)?;
             }
 
             self.writer.write_event(Event::End(item_tag.to_end()))?;
@@ -183,11 +191,11 @@ where
 
     fn process_widget_definition(
         &mut self,
-        type_name: &str,
+        cls: &typemap::Class,
         obj: &qml::UiObjectDefinition<'a, 'a>,
     ) -> quick_xml::Result<()> {
         let mut obj_tag = BytesStart::borrowed_name(b"widget");
-        obj_tag.push_attribute(("class", type_name.as_ref()));
+        obj_tag.push_attribute(("class", cls.name()));
         if let Some(id) = obj.object_id() {
             obj_tag.push_attribute(("name", id.as_str()));
         }
