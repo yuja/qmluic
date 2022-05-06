@@ -106,13 +106,6 @@ pub struct Argument {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(untagged)]
-enum MetatypesDoc {
-    Nested(Vec<CompilationUnit>),
-    Unit(CompilationUnit),
-}
-
-#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct CompilationUnit {
     classes: Vec<Class>,
@@ -123,13 +116,14 @@ struct CompilationUnit {
 /// The JSON document should consist of either a compilation unit object `{"classes": ...}`
 /// or an array of such objects `[{"classes": ...}, ...]`.
 pub fn extract_classes_from_str(json_data: &str) -> serde_json::Result<Vec<Class>> {
-    serde_json::from_str(json_data).map(flatten_classes)
-}
-
-fn flatten_classes(doc: MetatypesDoc) -> Vec<Class> {
-    match doc {
-        MetatypesDoc::Nested(units) => units.into_iter().flat_map(|u| u.classes).collect(),
-        MetatypesDoc::Unit(u) => u.classes,
+    // Don't use untagged enum to dispatch [{...}] and {...}. Doing that would move any
+    // parsing error to the document level and line/column information would be lost.
+    if json_data.trim_start().starts_with('{') {
+        let unit: CompilationUnit = serde_json::from_str(json_data)?;
+        Ok(unit.classes)
+    } else {
+        let units: Vec<CompilationUnit> = serde_json::from_str(json_data)?;
+        Ok(units.into_iter().flat_map(|u| u.classes).collect())
     }
 }
 
