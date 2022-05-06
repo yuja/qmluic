@@ -74,6 +74,8 @@ where
                 self.process_action_definition(&cls, obj)
             } else if type_name.ends_with("Layout") {
                 self.process_layout_definition(&cls, obj)
+            } else if cls.name() == "QSpacerItem" {
+                self.process_spacer_definition(&cls, obj)
             } else {
                 self.process_widget_definition(&cls, obj)
             }
@@ -150,12 +152,7 @@ where
             self.writer
                 .write_event(Event::Start(item_tag.to_borrowed()))?;
 
-            // TODO: resolve against imported types
-            if child.type_name().to_string() == "QSpacerItem" {
-                self.process_spacer_definition(&child)?;
-            } else {
-                self.process_object_definition(n, &child)?;
-            }
+            self.process_object_definition(n, &child)?;
 
             self.writer.write_event(Event::End(item_tag.to_end()))?;
         }
@@ -166,6 +163,7 @@ where
 
     fn process_spacer_definition(
         &mut self,
+        cls: &typemap::Class,
         obj: &qml::UiObjectDefinition<'a, 'a>,
     ) -> quick_xml::Result<()> {
         let mut obj_tag = BytesStart::borrowed_name(b"spacer");

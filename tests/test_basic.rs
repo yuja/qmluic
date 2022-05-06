@@ -27,6 +27,7 @@ fn translate_file(path: impl AsRef<Path>, class_name: impl AsRef<str>) -> String
 
 fn load_metatypes() -> Vec<metatype::Class> {
     let paths = [
+        "contrib/metatypes/qmluic_metatypes.json",
         "contrib/metatypes/qt5core_metatypes.json",
         "contrib/metatypes/qt5gui_metatypes.json",
         "contrib/metatypes/qt5widgets_metatypes.json",

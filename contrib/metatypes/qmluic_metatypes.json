@@ -1,0 +1,44 @@
+{
+    "classes": [
+        {
+            "className": "QSpacerItem",
+            "qualifiedClassName": "QSpacerItem",
+            "object": false,
+            "properties": [
+                {
+                    "name": "orientation",
+                    "type": "Qt::Alignment",
+                    "designable": true,
+                    "scriptable": true,
+                    "stored": true,
+                    "user": false,
+                    "constant": false,
+                    "final": false,
+                    "required": false
+                },
+                {
+                    "name": "sizeHint",
+                    "type": "QSize",
+                    "designable": true,
+                    "scriptable": true,
+                    "stored": true,
+                    "user": false,
+                    "constant": false,
+                    "final": false,
+                    "required": false
+                },
+                {
+                    "name": "sizeType",
+                    "type": "QSizePolicy",
+                    "designable": true,
+                    "scriptable": true,
+                    "stored": true,
+                    "user": false,
+                    "constant": false,
+                    "final": false,
+                    "required": false
+                }
+            ]
+        }
+    ]
+}
