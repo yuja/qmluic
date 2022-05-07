@@ -98,8 +98,14 @@ fn dump_object_definition<'tree, 'source>(
         obj.object_id(),
         indent = INDENT_WIDTH * (depth + 1)
     );
-    dump_attached_type_map(obj.attached_type_map(), source, opts, errors, depth + 1);
-    dump_binding_map(obj.binding_map(), source, opts, errors, depth + 1);
+    match obj.build_attached_type_map() {
+        Ok(map) => dump_attached_type_map(&map, source, opts, errors, depth + 1),
+        Err(e) => errors.push(e),
+    }
+    match obj.build_binding_map(source) {
+        Ok(map) => dump_binding_map(&map, source, opts, errors, depth + 1),
+        Err(e) => errors.push(e),
+    }
     for &n in obj.child_object_nodes() {
         dump_object_definition(n, source, opts, errors, depth + 1);
     }

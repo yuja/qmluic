@@ -147,14 +147,67 @@ impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
         &self.body.child_object_nodes
     }
 
-    /// Map of attached type property bindings.
-    pub fn attached_type_map(&self) -> &UiAttachedTypeBindingMap<'tree, 'source> {
-        &self.body.attached_type_map
+    /// Nodes for the attached type property bindings.
+    pub fn attached_type_bindings(&self) -> &[UiBinding<'tree, 'source>] {
+        &self.body.attached_type_bindings
     }
 
-    /// Map of property bindings.
-    pub fn binding_map(&self) -> &UiBindingMap<'tree, 'source> {
-        &self.body.binding_map
+    /// Creates map of attached type property bindings.
+    pub fn build_attached_type_map(
+        &self,
+    ) -> Result<UiAttachedTypeBindingMap<'tree, 'source>, ParseError<'tree>> {
+        let mut type_map = UiAttachedTypeBindingMap::new();
+        for UiBinding {
+            name,
+            name_node,
+            value_node,
+            ..
+        } in self.attached_type_bindings()
+        {
+            let (type_name, prop_name) = name
+                .split_type_name_prefix()
+                .expect("attached binding name should have type prefix");
+            let map = type_map.entry(type_name).or_default();
+            // attached binding can't be grouped
+            try_insert_ui_binding_node(map, &prop_name, *name_node, *value_node)?;
+        }
+        Ok(type_map)
+    }
+
+    /// Nodes for the property bindings.
+    pub fn bindings(&self) -> &[UiBinding<'tree, 'source>] {
+        &self.body.bindings
+    }
+
+    /// Creates map of property bindings.
+    pub fn build_binding_map(
+        &self,
+        source: &'source str,
+    ) -> Result<UiBindingMap<'tree, 'source>, ParseError<'tree>> {
+        let mut map = UiBindingMap::new();
+        for UiBinding {
+            name,
+            name_node,
+            value_node,
+            notation,
+        } in self.bindings()
+        {
+            match notation {
+                UiBindingNotation::Scalar => {
+                    try_insert_ui_binding_node(&mut map, name, *name_node, *value_node)?;
+                }
+                UiBindingNotation::Grouped => {
+                    try_insert_ui_grouped_binding_node(
+                        &mut map,
+                        name,
+                        *name_node,
+                        *value_node,
+                        source,
+                    )?;
+                }
+            }
+        }
+        Ok(map)
     }
 }
 
@@ -162,8 +215,8 @@ impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
 struct UiObjectBody<'tree, 'source> {
     object_id: Option<Identifier<'source>>,
     child_object_nodes: Vec<Node<'tree>>,
-    attached_type_map: UiAttachedTypeBindingMap<'tree, 'source>,
-    binding_map: UiBindingMap<'tree, 'source>,
+    attached_type_bindings: Vec<UiBinding<'tree, 'source>>,
+    bindings: Vec<UiBinding<'tree, 'source>>,
     // TODO: ...
 }
 
@@ -182,8 +235,8 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
 
         let mut object_id = None;
         let mut child_object_nodes = Vec::new();
-        let mut attached_binding_nodes = Vec::new();
-        let mut binding_nodes = Vec::new();
+        let mut attached_type_bindings = Vec::new();
+        let mut bindings = Vec::new();
         for node in container_node.named_children(cursor) {
             // TODO: ui_annotated_object_member
             match node.kind() {
@@ -195,7 +248,7 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
                     } else {
                         // grouped binding notation: base { prop: ...; ... }
                         let value_node = astutil::get_child_by_field_name(node, "initializer")?;
-                        binding_nodes.push(UiBinding {
+                        bindings.push(UiBinding {
                             name,
                             name_node,
                             value_node,
@@ -216,14 +269,14 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
                         }
                         object_id = Some(extract_object_id(value_node, source)?);
                     } else if let Some(_) = name.split_type_name_prefix() {
-                        attached_binding_nodes.push(UiBinding {
+                        attached_type_bindings.push(UiBinding {
                             name,
                             name_node,
                             value_node,
                             notation: UiBindingNotation::Scalar,
                         });
                     } else {
-                        binding_nodes.push(UiBinding {
+                        bindings.push(UiBinding {
                             name,
                             name_node,
                             value_node,
@@ -243,67 +296,29 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
             }
         }
 
-        let mut attached_type_map = UiAttachedTypeBindingMap::new();
-        for UiBinding {
-            name,
-            name_node,
-            value_node,
-            ..
-        } in &attached_binding_nodes
-        {
-            let (type_name, prop_name) = name
-                .split_type_name_prefix()
-                .expect("attached binding name should have type prefix");
-            let map = attached_type_map.entry(type_name).or_default();
-            // attached binding can't be grouped
-            try_insert_ui_binding_node(map, &prop_name, *name_node, *value_node)?;
-        }
-
-        let mut binding_map = UiBindingMap::new();
-        for UiBinding {
-            name,
-            name_node,
-            value_node,
-            notation,
-        } in &binding_nodes
-        {
-            match notation {
-                UiBindingNotation::Scalar => {
-                    try_insert_ui_binding_node(&mut binding_map, name, *name_node, *value_node)?;
-                }
-                UiBindingNotation::Grouped => {
-                    try_insert_ui_grouped_binding_node(
-                        &mut binding_map,
-                        name,
-                        *name_node,
-                        *value_node,
-                        source,
-                    )?;
-                }
-            }
-        }
-
         Ok(UiObjectBody {
             object_id,
             child_object_nodes,
-            attached_type_map,
-            binding_map,
+            attached_type_bindings,
+            bindings,
         })
     }
 }
 
 /// Represents a property binding.
 #[derive(Clone, Debug)]
-struct UiBinding<'tree, 'source> {
+pub struct UiBinding<'tree, 'source> {
     name: NestedIdentifier<'source>,
     name_node: Node<'tree>,
     value_node: Node<'tree>,
     notation: UiBindingNotation,
 }
 
+// TODO: public interface to UiBinding
+
 /// Variant for the property binding notation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum UiBindingNotation {
+pub enum UiBindingNotation {
     Scalar,
     Grouped,
 }
@@ -605,7 +620,7 @@ mod tests {
         );
         let root_obj = extract_root_object(&doc).unwrap();
         assert_eq!(root_obj.object_id(), Some(Identifier::new("whatever")));
-        let map = root_obj.binding_map();
+        let map = root_obj.build_binding_map(doc.source()).unwrap();
         assert_eq!(map.len(), 2);
         assert!(!map.get(&Identifier::new("bar")).unwrap().is_map());
         let nested = map.get(&Identifier::new("nested")).unwrap();
@@ -635,7 +650,8 @@ mod tests {
             }
             "###,
         );
-        assert!(extract_root_object(&doc).is_err());
+        let root_obj = extract_root_object(&doc).unwrap();
+        assert!(root_obj.build_binding_map(doc.source()).is_err());
     }
 
     #[test]
@@ -648,7 +664,8 @@ mod tests {
             }
             "###,
         );
-        assert!(extract_root_object(&doc).is_err());
+        let root_obj = extract_root_object(&doc).unwrap();
+        assert!(root_obj.build_binding_map(doc.source()).is_err());
     }
 
     #[test]
@@ -661,7 +678,8 @@ mod tests {
             }
             "###,
         );
-        assert!(extract_root_object(&doc).is_err());
+        let root_obj = extract_root_object(&doc).unwrap();
+        assert!(root_obj.build_binding_map(doc.source()).is_err());
     }
 
     #[test]
@@ -695,7 +713,7 @@ mod tests {
             "###,
         );
         let root_obj = extract_root_object(&doc).unwrap();
-        let map = root_obj.binding_map();
+        let map = root_obj.build_binding_map(doc.source()).unwrap();
         assert_eq!(map.len(), 1);
         let nested = map.get(&Identifier::new("nested")).unwrap();
         assert!(nested.is_map());
@@ -724,7 +742,7 @@ mod tests {
             "###,
         );
         let root_obj = extract_root_object(&doc).unwrap();
-        let map = root_obj.binding_map();
+        let map = root_obj.build_binding_map(doc.source()).unwrap();
         assert!(!map
             .get(&Identifier::new("a"))
             .unwrap()
@@ -747,7 +765,7 @@ mod tests {
             "###,
         );
         let root_obj = extract_root_object(&doc).unwrap();
-        let type_map = root_obj.attached_type_map();
+        let type_map = root_obj.build_attached_type_map().unwrap();
         assert_eq!(type_map.len(), 2);
 
         let bar_map = type_map

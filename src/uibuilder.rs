@@ -92,7 +92,7 @@ where
         self.writer
             .write_event(Event::Start(obj_tag.to_borrowed()))?;
 
-        self.process_binding_map(cls, obj.binding_map())?;
+        self.process_binding_map(cls, obj)?;
 
         // action shouldn't have any children
         self.errors.extend(
@@ -119,7 +119,7 @@ where
         self.writer
             .write_event(Event::Start(obj_tag.to_borrowed()))?;
 
-        self.process_binding_map(cls, obj.binding_map())?;
+        self.process_binding_map(cls, obj)?;
 
         for &n in obj.child_object_nodes() {
             let child = match qmlast::UiObjectDefinition::from_node(n, self.doc.source()) {
@@ -129,12 +129,18 @@ where
                     continue;
                 }
             };
+            let attached_type_map = match child.build_attached_type_map() {
+                Ok(x) => x,
+                Err(e) => {
+                    self.errors.push(e);
+                    continue;
+                }
+            };
 
             let mut item_tag = BytesStart::borrowed_name(b"item");
             // TODO: resolve against imported types
-            if let Some(map) = child
-                .attached_type_map()
-                .get(&qmlast::NestedIdentifier::from(["QLayoutItem"].as_ref()))
+            if let Some(map) =
+                attached_type_map.get(&qmlast::NestedIdentifier::from(["QLayoutItem"].as_ref()))
             {
                 for (name, value) in collect_sorted_binding_pairs(map) {
                     match format_constant_binding_value(value, self.doc.source()) {
@@ -167,7 +173,7 @@ where
         self.writer
             .write_event(Event::Start(obj_tag.to_borrowed()))?;
 
-        self.process_binding_map(cls, obj.binding_map())?;
+        self.process_binding_map(cls, obj)?;
 
         // action shouldn't have any children
         self.errors.extend(
@@ -194,7 +200,7 @@ where
         self.writer
             .write_event(Event::Start(obj_tag.to_borrowed()))?;
 
-        self.process_binding_map(cls, obj.binding_map())?;
+        self.process_binding_map(cls, obj)?;
 
         for &n in obj.child_object_nodes() {
             self.process_object_definition_node(n)?;
@@ -207,9 +213,16 @@ where
     fn process_binding_map(
         &mut self,
         cls: &typemap::Class,
-        map: &qmlast::UiBindingMap<'a, 'a>,
+        obj: &qmlast::UiObjectDefinition<'a, 'a>,
     ) -> quick_xml::Result<()> {
-        for (name, value) in collect_sorted_binding_pairs(map) {
+        let map = match obj.build_binding_map(self.doc.source()) {
+            Ok(x) => x,
+            Err(e) => {
+                self.errors.push(e);
+                return Ok(());
+            }
+        };
+        for (name, value) in collect_sorted_binding_pairs(&map) {
             if name == &qmlast::Identifier::new("actions") {
                 // TODO: only for QWidget subclasses
                 match value {
