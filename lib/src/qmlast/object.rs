@@ -38,12 +38,12 @@ impl<'tree> UiProgram<'tree> {
 }
 
 /// Map of id to object node.
-pub type UiObjectIdMap<'tree, 'source> = HashMap<Identifier<'source>, Node<'tree>>;
+pub type UiObjectIdMap<'tree, 's> = HashMap<&'s str, Node<'tree>>;
 
-fn build_object_id_map<'tree, 'source>(
+fn build_object_id_map<'tree, 's>(
     node: Node<'tree>,
-    source: &'source str,
-) -> Result<UiObjectIdMap<'tree, 'source>, ParseError<'tree>> {
+    source: &'s str,
+) -> Result<UiObjectIdMap<'tree, 's>, ParseError<'tree>> {
     use std::collections::hash_map::Entry;
 
     let query = Query::new(
@@ -61,7 +61,7 @@ fn build_object_id_map<'tree, 'source>(
     let mut cursor = QueryCursor::new();
     let matches = cursor.matches(&query, node, source.as_bytes());
 
-    let mut object_id_map = UiObjectIdMap::new();
+    let mut object_id_map = HashMap::new();
     for m in matches {
         let expr_node = m
             .nodes_for_capture_index(1)
@@ -72,7 +72,7 @@ fn build_object_id_map<'tree, 'source>(
             .next()
             .expect("id object should be captured");
         let id = extract_object_id(expr_node, source)?;
-        if let Entry::Vacant(e) = object_id_map.entry(id) {
+        if let Entry::Vacant(e) = object_id_map.entry(id.as_str()) {
             e.insert(obj_node);
         } else {
             return Err(ParseError::new(
@@ -441,20 +441,20 @@ mod tests {
         let program = UiProgram::from_node(doc.root_node()).unwrap();
         let object_id_map = program.build_object_id_map(doc.source()).unwrap();
         assert_eq!(
-            object_id_map.get(&Identifier::new("foo")).unwrap(),
+            object_id_map.get("foo").unwrap(),
             &program.root_object_node()
         );
 
-        let get_object_by_id = |id: &Identifier| {
+        let get_object_by_id = |id: &str| {
             let &n = object_id_map.get(id).unwrap();
             UiObjectDefinition::from_node(n, doc.source()).unwrap()
         };
         assert_eq!(
-            get_object_by_id(&Identifier::new("bar")).type_name(),
+            get_object_by_id("bar").type_name(),
             &NestedIdentifier::from(["Bar", "Bar"].as_ref())
         );
         assert_eq!(
-            get_object_by_id(&Identifier::new("baz")).type_name(),
+            get_object_by_id("baz").type_name(),
             &NestedIdentifier::from(["Baz"].as_ref())
         );
     }

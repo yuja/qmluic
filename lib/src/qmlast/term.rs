@@ -27,7 +27,7 @@ impl<'source> Identifier<'source> {
         self.0.starts_with(char::is_uppercase)
     }
 
-    pub fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> &'source str {
         self.0
     }
 }
