@@ -89,7 +89,7 @@ fn dump_object_definition<'tree, 'source>(
     println!(
         "{:indent$}{} {{",
         "",
-        obj.type_name(),
+        obj.type_name().to_string(source),
         indent = INDENT_WIDTH * depth
     );
     println!(
@@ -98,7 +98,7 @@ fn dump_object_definition<'tree, 'source>(
         obj.object_id(),
         indent = INDENT_WIDTH * (depth + 1)
     );
-    match obj.build_attached_type_map() {
+    match obj.build_attached_type_map(source) {
         Ok(map) => dump_attached_type_map(&map, source, opts, errors, depth + 1),
         Err(e) => errors.push(e),
     }
@@ -172,7 +172,7 @@ fn format_expression<'tree, 'source>(
         }
     };
     match expr {
-        Expression::Identifier(n) => n.to_string(),
+        Expression::Identifier(n) => n.to_str(source).to_owned(),
         Expression::Number(v) => v.to_string(),
         Expression::String(s) => format!("{s:?}"),
         Expression::Bool(b) => format!("{b:?}"),
@@ -185,7 +185,7 @@ fn format_expression<'tree, 'source>(
         }
         Expression::MemberExpression(x) => {
             let formatted_obj = format_expression(x.object, source, opts, errors);
-            format!("{}.{}", formatted_obj, x.property)
+            format!("{}.{}", formatted_obj, x.property.to_str(source))
         }
         Expression::CallExpression(x) => {
             let formatted_func = format_expression(x.function, source, opts, errors);

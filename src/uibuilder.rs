@@ -59,10 +59,10 @@ where
 
     fn process_object_definition(
         &mut self,
-        obj: &qmlast::UiObjectDefinition<'a, 'a>,
+        obj: &qmlast::UiObjectDefinition<'a>,
     ) -> quick_xml::Result<()> {
         // TODO: resolve against imported types: Qml.Type -> Cxx::Type -> type object
-        let type_name = obj.type_name().to_string();
+        let type_name = obj.type_name().to_string(self.doc.source());
         if let Some(typemap::Type::Class(cls)) = self.type_map.get_type(&type_name) {
             if cls.name() == "QAction" {
                 self.process_action_definition(&cls, obj)
@@ -83,11 +83,11 @@ where
     fn process_action_definition(
         &mut self,
         cls: &typemap::Class,
-        obj: &qmlast::UiObjectDefinition<'a, 'a>,
+        obj: &qmlast::UiObjectDefinition<'a>,
     ) -> quick_xml::Result<()> {
         let mut obj_tag = BytesStart::borrowed_name(b"action");
         if let Some(id) = obj.object_id() {
-            obj_tag.push_attribute(("name", id.as_str()));
+            obj_tag.push_attribute(("name", id.to_str(self.doc.source())));
         }
         self.writer
             .write_event(Event::Start(obj_tag.to_borrowed()))?;
@@ -109,12 +109,12 @@ where
     fn process_layout_definition(
         &mut self,
         cls: &typemap::Class,
-        obj: &qmlast::UiObjectDefinition<'a, 'a>,
+        obj: &qmlast::UiObjectDefinition<'a>,
     ) -> quick_xml::Result<()> {
         let mut obj_tag = BytesStart::borrowed_name(b"layout");
         obj_tag.push_attribute(("class", cls.name()));
         if let Some(id) = obj.object_id() {
-            obj_tag.push_attribute(("name", id.as_str()));
+            obj_tag.push_attribute(("name", id.to_str(self.doc.source())));
         }
         self.writer
             .write_event(Event::Start(obj_tag.to_borrowed()))?;
@@ -129,7 +129,7 @@ where
                     continue;
                 }
             };
-            let attached_type_map = match child.build_attached_type_map() {
+            let attached_type_map = match child.build_attached_type_map(self.doc.source()) {
                 Ok(x) => x,
                 Err(e) => {
                     self.errors.push(e);
@@ -162,11 +162,11 @@ where
     fn process_spacer_definition(
         &mut self,
         cls: &typemap::Class,
-        obj: &qmlast::UiObjectDefinition<'a, 'a>,
+        obj: &qmlast::UiObjectDefinition<'a>,
     ) -> quick_xml::Result<()> {
         let mut obj_tag = BytesStart::borrowed_name(b"spacer");
         if let Some(id) = obj.object_id() {
-            obj_tag.push_attribute(("name", id.as_str()));
+            obj_tag.push_attribute(("name", id.to_str(self.doc.source())));
         }
         self.writer
             .write_event(Event::Start(obj_tag.to_borrowed()))?;
@@ -188,12 +188,12 @@ where
     fn process_widget_definition(
         &mut self,
         cls: &typemap::Class,
-        obj: &qmlast::UiObjectDefinition<'a, 'a>,
+        obj: &qmlast::UiObjectDefinition<'a>,
     ) -> quick_xml::Result<()> {
         let mut obj_tag = BytesStart::borrowed_name(b"widget");
         obj_tag.push_attribute(("class", cls.name()));
         if let Some(id) = obj.object_id() {
-            obj_tag.push_attribute(("name", id.as_str()));
+            obj_tag.push_attribute(("name", id.to_str(self.doc.source())));
         }
         self.writer
             .write_event(Event::Start(obj_tag.to_borrowed()))?;
@@ -211,7 +211,7 @@ where
     fn process_binding_map(
         &mut self,
         cls: &typemap::Class,
-        obj: &qmlast::UiObjectDefinition<'a, 'a>,
+        obj: &qmlast::UiObjectDefinition<'a>,
     ) -> quick_xml::Result<()> {
         let map = match obj.build_binding_map(self.doc.source()) {
             Ok(x) => x,
@@ -290,7 +290,7 @@ where
             Ok(names) => {
                 for n in names {
                     let tag = BytesStart::borrowed_name(b"addaction")
-                        .with_attributes([("name", n.as_str())]);
+                        .with_attributes([("name", n.to_str(self.doc.source()))]);
                     self.writer.write_event(Event::Empty(tag))?;
                 }
             }
@@ -333,7 +333,7 @@ fn format_constant_expression<'tree, 'source>(
             (b"enum".as_ref(), format_as_nested_identifier(node, source)?)
         }
         qmlast::Expression::CallExpression(x) => {
-            match parse_as_identifier(x.function, source)?.as_str() {
+            match parse_as_identifier(x.function, source)?.to_str(source) {
                 "qsTr" if x.arguments.len() == 1 => {
                     (b"string".as_ref(), parse_as_string(x.arguments[0], source)?)
                 }
@@ -369,7 +369,7 @@ fn format_as_identifier_set<'tree, 'source>(
     source: &'source str,
 ) -> Result<String, qmlast::ParseError<'tree>> {
     match qmlast::Expression::from_node(node, source)? {
-        qmlast::Expression::Identifier(n) => Ok(n.to_string()),
+        qmlast::Expression::Identifier(n) => Ok(n.to_str(source).to_owned()),
         qmlast::Expression::MemberExpression(_) => format_as_nested_identifier(node, source),
         qmlast::Expression::BinaryExpression(x)
             if x.operator == qmlast::BinaryOperator::BitwiseOr =>
@@ -387,10 +387,10 @@ fn format_as_nested_identifier<'tree, 'source>(
     source: &'source str,
 ) -> Result<String, qmlast::ParseError<'tree>> {
     match qmlast::Expression::from_node(node, source)? {
-        qmlast::Expression::Identifier(n) => Ok(n.to_string()),
+        qmlast::Expression::Identifier(n) => Ok(n.to_str(source).to_owned()),
         qmlast::Expression::MemberExpression(x) => {
             let object = format_as_nested_identifier(x.object, source)?;
-            Ok(format!("{}::{}", object, x.property))
+            Ok(format!("{}::{}", object, x.property.to_str(source)))
         }
         _ => Err(unexpected_node(node)),
     }
@@ -399,7 +399,7 @@ fn format_as_nested_identifier<'tree, 'source>(
 fn parse_as_identifier<'tree, 'source>(
     node: qmlast::Node<'tree>,
     source: &'source str,
-) -> Result<qmlast::Identifier<'source>, qmlast::ParseError<'tree>> {
+) -> Result<qmlast::Identifier<'tree>, qmlast::ParseError<'tree>> {
     match qmlast::Expression::from_node(node, source)? {
         qmlast::Expression::Identifier(n) => Ok(n),
         _ => Err(unexpected_node(node)),
@@ -409,7 +409,7 @@ fn parse_as_identifier<'tree, 'source>(
 fn parse_as_identifier_array<'tree, 'source>(
     node: qmlast::Node<'tree>,
     source: &'source str,
-) -> Result<Vec<qmlast::Identifier<'source>>, qmlast::ParseError<'tree>> {
+) -> Result<Vec<qmlast::Identifier<'tree>>, qmlast::ParseError<'tree>> {
     match qmlast::Expression::from_node(node, source)? {
         qmlast::Expression::Array(ns) => {
             ns.iter().map(|&n| parse_as_identifier(n, source)).collect()

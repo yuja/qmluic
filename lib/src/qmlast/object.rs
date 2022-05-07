@@ -71,8 +71,8 @@ fn build_object_id_map<'tree, 's>(
             .nodes_for_capture_index(2)
             .next()
             .expect("id object should be captured");
-        let id = extract_object_id(expr_node, source)?;
-        if let Entry::Vacant(e) = object_id_map.entry(id.as_str()) {
+        let id = extract_object_id(expr_node)?;
+        if let Entry::Vacant(e) = object_id_map.entry(id.to_str(source)) {
             e.insert(obj_node);
         } else {
             return Err(ParseError::new(
@@ -84,29 +84,26 @@ fn build_object_id_map<'tree, 's>(
     Ok(object_id_map)
 }
 
-fn extract_object_id<'tree, 'source>(
-    mut node: Node<'tree>,
-    source: &'source str,
-) -> Result<Identifier<'source>, ParseError<'tree>> {
+fn extract_object_id<'tree>(mut node: Node<'tree>) -> Result<Identifier<'tree>, ParseError<'tree>> {
     // (expression_statement (identifier))
     if node.kind() == "expression_statement" {
         node = node
             .child(0)
             .ok_or_else(|| ParseError::new(node, ParseErrorKind::InvalidSyntax))?;
     }
-    Identifier::from_node(node, source)
+    Identifier::from_node(node)
 }
 
 /// Represents a QML object or top-level component.
 #[derive(Clone, Debug)]
-pub struct UiObjectDefinition<'tree, 'source> {
+pub struct UiObjectDefinition<'tree> {
     node: Node<'tree>,
-    type_name: NestedIdentifier<'source>,
-    body: UiObjectBody<'tree, 'source>,
+    type_name: NestedIdentifier<'tree>,
+    body: UiObjectBody<'tree>,
 }
 
-impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
-    pub fn from_node(node: Node<'tree>, source: &'source str) -> Result<Self, ParseError<'tree>> {
+impl<'tree> UiObjectDefinition<'tree> {
+    pub fn from_node(node: Node<'tree>, source: &str) -> Result<Self, ParseError<'tree>> {
         // TODO: ui_annotated_object
         if node.kind() != "ui_object_definition" {
             return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
@@ -115,7 +112,7 @@ impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
         let mut cursor = node.walk();
 
         cursor.reset(astutil::get_child_by_field_name(node, "type_name")?);
-        let type_name = NestedIdentifier::with_cursor(&mut cursor, source)?;
+        let type_name = NestedIdentifier::with_cursor(&mut cursor)?;
 
         cursor.reset(astutil::get_child_by_field_name(node, "initializer")?);
         let body = UiObjectBody::with_cursor(&mut cursor, source)?;
@@ -131,12 +128,12 @@ impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
         self.node
     }
 
-    pub fn type_name(&self) -> &NestedIdentifier<'source> {
+    pub fn type_name(&self) -> &NestedIdentifier<'tree> {
         &self.type_name
     }
 
     /// Object id which should be unique within the QML program.
-    pub fn object_id(&self) -> Option<Identifier<'source>> {
+    pub fn object_id(&self) -> Option<Identifier<'tree>> {
         self.body.object_id
     }
 
@@ -148,14 +145,15 @@ impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
     }
 
     /// Nodes for the attached type property bindings.
-    pub fn attached_type_bindings(&self) -> &[UiBinding<'tree, 'source>] {
+    pub fn attached_type_bindings(&self) -> &[UiBinding<'tree>] {
         &self.body.attached_type_bindings
     }
 
     /// Creates map of attached type property bindings.
-    pub fn build_attached_type_map(
+    pub fn build_attached_type_map<'s>(
         &self,
-    ) -> Result<UiAttachedTypeBindingMap<'tree, 'source>, ParseError<'tree>> {
+        source: &'s str,
+    ) -> Result<UiAttachedTypeBindingMap<'tree, 's>, ParseError<'tree>> {
         let mut type_map = UiAttachedTypeBindingMap::new();
         for UiBinding {
             name,
@@ -165,27 +163,33 @@ impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
         } in self.attached_type_bindings()
         {
             let (type_name, prop_name) = name
-                .split_type_name_prefix()
+                .split_type_name_prefix(source)
                 .expect("attached binding name should have type prefix");
             let map = type_map
-                .entry(type_name.components().iter().map(|p| p.as_str()).collect())
+                .entry(
+                    type_name
+                        .components()
+                        .iter()
+                        .map(|p| p.to_str(source))
+                        .collect(),
+                )
                 .or_default();
             // attached binding can't be grouped
-            try_insert_ui_binding_node(map, &prop_name, *name_node, *value_node)?;
+            try_insert_ui_binding_node(map, &prop_name, *name_node, *value_node, source)?;
         }
         Ok(type_map)
     }
 
     /// Nodes for the property bindings.
-    pub fn bindings(&self) -> &[UiBinding<'tree, 'source>] {
+    pub fn bindings(&self) -> &[UiBinding<'tree>] {
         &self.body.bindings
     }
 
     /// Creates map of property bindings.
-    pub fn build_binding_map(
+    pub fn build_binding_map<'s>(
         &self,
-        source: &'source str,
-    ) -> Result<UiBindingMap<'tree, 'source>, ParseError<'tree>> {
+        source: &'s str,
+    ) -> Result<UiBindingMap<'tree, 's>, ParseError<'tree>> {
         let mut map = HashMap::new();
         for UiBinding {
             name,
@@ -196,7 +200,7 @@ impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
         {
             match notation {
                 UiBindingNotation::Scalar => {
-                    try_insert_ui_binding_node(&mut map, name, *name_node, *value_node)?;
+                    try_insert_ui_binding_node(&mut map, name, *name_node, *value_node, source)?;
                 }
                 UiBindingNotation::Grouped => {
                     try_insert_ui_grouped_binding_node(
@@ -214,18 +218,18 @@ impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
 }
 
 #[derive(Clone, Debug)]
-struct UiObjectBody<'tree, 'source> {
-    object_id: Option<Identifier<'source>>,
+struct UiObjectBody<'tree> {
+    object_id: Option<Identifier<'tree>>,
     child_object_nodes: Vec<Node<'tree>>,
-    attached_type_bindings: Vec<UiBinding<'tree, 'source>>,
-    bindings: Vec<UiBinding<'tree, 'source>>,
+    attached_type_bindings: Vec<UiBinding<'tree>>,
+    bindings: Vec<UiBinding<'tree>>,
     // TODO: ...
 }
 
-impl<'tree, 'source> UiObjectBody<'tree, 'source> {
+impl<'tree> UiObjectBody<'tree> {
     fn with_cursor(
         cursor: &mut TreeCursor<'tree>,
-        source: &'source str,
+        source: &str,
     ) -> Result<Self, ParseError<'tree>> {
         let container_node = cursor.node();
         if container_node.kind() != "ui_object_initializer" {
@@ -244,8 +248,8 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
             match node.kind() {
                 "ui_object_definition" => {
                     let name_node = astutil::get_child_by_field_name(node, "type_name")?;
-                    let name = NestedIdentifier::from_node(name_node, source)?;
-                    if name.maybe_starts_with_type_name() {
+                    let name = NestedIdentifier::from_node(name_node)?;
+                    if name.maybe_starts_with_type_name(source) {
                         child_object_nodes.push(node);
                     } else {
                         // grouped binding notation: base { prop: ...; ... }
@@ -260,17 +264,17 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
                 }
                 "ui_binding" => {
                     let name_node = astutil::get_child_by_field_name(node, "name")?;
-                    let name = NestedIdentifier::from_node(name_node, source)?;
+                    let name = NestedIdentifier::from_node(name_node)?;
                     let value_node = astutil::get_child_by_field_name(node, "value")?;
-                    if name.components() == [Identifier::new("id")] {
+                    if name.to_string(source) == "id" {
                         if object_id.is_some() {
                             return Err(ParseError::new(
                                 name_node,
                                 ParseErrorKind::DuplicatedBinding,
                             ));
                         }
-                        object_id = Some(extract_object_id(value_node, source)?);
-                    } else if let Some(_) = name.split_type_name_prefix() {
+                        object_id = Some(extract_object_id(value_node)?);
+                    } else if let Some(_) = name.split_type_name_prefix(source) {
                         attached_type_bindings.push(UiBinding {
                             name,
                             name_node,
@@ -309,8 +313,8 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
 
 /// Represents a property binding.
 #[derive(Clone, Debug)]
-pub struct UiBinding<'tree, 'source> {
-    name: NestedIdentifier<'source>,
+pub struct UiBinding<'tree> {
+    name: NestedIdentifier<'tree>,
     name_node: Node<'tree>,
     value_node: Node<'tree>,
     notation: UiBindingNotation,
@@ -371,12 +375,13 @@ impl<'tree, 'source> UiBindingValue<'tree, 'source> {
 
 fn ensure_ui_binding_map_bases<'tree, 'source, 'map>(
     mut map: &'map mut UiBindingMap<'tree, 'source>,
-    bases: &[Identifier<'source>],
+    bases: &[Identifier<'tree>],
     name_node: Node<'tree>,
+    source: &'source str,
 ) -> Result<&'map mut UiBindingMap<'tree, 'source>, ParseError<'tree>> {
     for &n in bases {
         match map
-            .entry(n.as_str())
+            .entry(n.to_str(source))
             .or_insert_with(|| UiBindingValue::Map(name_node, HashMap::new()))
         {
             UiBindingValue::Node(_) => {
@@ -395,9 +400,10 @@ fn ensure_ui_binding_map_bases<'tree, 'source, 'map>(
 
 fn try_insert_ui_binding_node<'tree, 'source>(
     map: &mut UiBindingMap<'tree, 'source>,
-    name: &NestedIdentifier<'source>,
+    name: &NestedIdentifier<'tree>,
     name_node: Node<'tree>,
     value_node: Node<'tree>,
+    source: &'source str,
 ) -> Result<(), ParseError<'tree>> {
     use std::collections::hash_map::Entry;
 
@@ -406,8 +412,8 @@ fn try_insert_ui_binding_node<'tree, 'source>(
         .split_last()
         .ok_or_else(|| ParseError::new(name_node, ParseErrorKind::InvalidSyntax))?;
 
-    let map = ensure_ui_binding_map_bases(map, bases, name_node)?;
-    if let Entry::Vacant(e) = map.entry(last.as_str()) {
+    let map = ensure_ui_binding_map_bases(map, bases, name_node, source)?;
+    if let Entry::Vacant(e) = map.entry(last.to_str(source)) {
         e.insert(UiBindingValue::Node(value_node));
     } else {
         return Err(ParseError::new(
@@ -420,7 +426,7 @@ fn try_insert_ui_binding_node<'tree, 'source>(
 
 fn try_insert_ui_grouped_binding_node<'tree, 'source>(
     map: &mut UiBindingMap<'tree, 'source>,
-    group_name: &NestedIdentifier<'source>,
+    group_name: &NestedIdentifier<'tree>,
     group_name_node: Node<'tree>,
     container_node: Node<'tree>,
     source: &'source str,
@@ -439,8 +445,8 @@ fn try_insert_ui_grouped_binding_node<'tree, 'source>(
             .components()
             .split_last()
             .ok_or_else(|| ParseError::new(group_name_node, ParseErrorKind::InvalidSyntax))?;
-        let v = ensure_ui_binding_map_bases(map, bases, group_name_node)?
-            .entry(last.as_str())
+        let v = ensure_ui_binding_map_bases(map, bases, group_name_node, source)?
+            .entry(last.to_str(source))
             .or_insert_with(|| UiBindingValue::Map(container_node, HashMap::new()));
         match v {
             UiBindingValue::Node(_) => {
@@ -458,7 +464,7 @@ fn try_insert_ui_grouped_binding_node<'tree, 'source>(
         match node.kind() {
             "ui_object_definition" => {
                 let name_node = astutil::get_child_by_field_name(node, "type_name")?;
-                let name = NestedIdentifier::from_node(name_node, source)?;
+                let name = NestedIdentifier::from_node(name_node)?;
                 try_insert_ui_grouped_binding_node(
                     map,
                     &name,
@@ -469,9 +475,9 @@ fn try_insert_ui_grouped_binding_node<'tree, 'source>(
             }
             "ui_binding" => {
                 let name_node = astutil::get_child_by_field_name(node, "name")?;
-                let name = NestedIdentifier::from_node(name_node, source)?;
+                let name = NestedIdentifier::from_node(name_node)?;
                 let value_node = astutil::get_child_by_field_name(node, "value")?;
-                try_insert_ui_binding_node(map, &name, name_node, value_node)?;
+                try_insert_ui_binding_node(map, &name, name_node, value_node, source)?;
             }
             // order matters: (ERROR) node is extra
             _ if node.is_error() => {
@@ -529,12 +535,12 @@ mod tests {
             UiObjectDefinition::from_node(n, doc.source()).unwrap()
         };
         assert_eq!(
-            get_object_by_id("bar").type_name(),
-            &NestedIdentifier::from(["Bar", "Bar"].as_ref())
+            get_object_by_id("bar").type_name().to_string(doc.source()),
+            "Bar.Bar"
         );
         assert_eq!(
-            get_object_by_id("baz").type_name(),
-            &NestedIdentifier::from(["Baz"].as_ref())
+            get_object_by_id("baz").type_name().to_string(doc.source()),
+            "Baz"
         );
     }
 
@@ -563,10 +569,7 @@ mod tests {
     fn trivial_object() {
         let doc = parse(r"Foo.Bar {}");
         let root_obj = extract_root_object(&doc).unwrap();
-        assert_eq!(
-            root_obj.type_name(),
-            &NestedIdentifier::from(["Foo", "Bar"].as_ref())
-        );
+        assert_eq!(root_obj.type_name().to_string(doc.source()), "Foo.Bar");
         assert!(root_obj.child_object_nodes().is_empty());
     }
 
@@ -582,10 +585,7 @@ mod tests {
             "###,
         );
         let root_obj = extract_root_object(&doc).unwrap();
-        assert_eq!(
-            root_obj.type_name(),
-            &NestedIdentifier::from(["Foo"].as_ref())
-        );
+        assert_eq!(root_obj.type_name().to_string(doc.source()), "Foo");
 
         assert_eq!(root_obj.child_object_nodes().len(), 2);
         let child_objs: Vec<_> = root_obj
@@ -593,14 +593,8 @@ mod tests {
             .iter()
             .map(|&n| UiObjectDefinition::from_node(n, doc.source()).unwrap())
             .collect();
-        assert_eq!(
-            child_objs[0].type_name(),
-            &NestedIdentifier::from(["Bar", "Bar"].as_ref())
-        );
-        assert_eq!(
-            child_objs[1].type_name(),
-            &NestedIdentifier::from(["Baz"].as_ref())
-        );
+        assert_eq!(child_objs[0].type_name().to_string(doc.source()), "Bar.Bar");
+        assert_eq!(child_objs[1].type_name().to_string(doc.source()), "Baz");
     }
 
     #[test]
@@ -617,7 +611,10 @@ mod tests {
             "###,
         );
         let root_obj = extract_root_object(&doc).unwrap();
-        assert_eq!(root_obj.object_id(), Some(Identifier::new("whatever")));
+        assert_eq!(
+            root_obj.object_id().unwrap().to_str(doc.source()),
+            "whatever"
+        );
         let map = root_obj.build_binding_map(doc.source()).unwrap();
         assert_eq!(map.len(), 2);
         assert!(!map.get("bar").unwrap().is_map());
@@ -688,7 +685,7 @@ mod tests {
     fn object_id_binding_with_comment() {
         let doc = parse(r"Foo { id: /*what*/ ever /*never*/ }");
         let root_obj = extract_root_object(&doc).unwrap();
-        assert_eq!(root_obj.object_id(), Some(Identifier::new("ever")));
+        assert_eq!(root_obj.object_id().unwrap().to_str(doc.source()), "ever");
     }
 
     #[test]
@@ -745,7 +742,7 @@ mod tests {
             "###,
         );
         let root_obj = extract_root_object(&doc).unwrap();
-        let type_map = root_obj.build_attached_type_map().unwrap();
+        let type_map = root_obj.build_attached_type_map(doc.source()).unwrap();
         assert_eq!(type_map.len(), 2);
 
         let bar_map = type_map.get(["Bar"].as_ref()).unwrap();

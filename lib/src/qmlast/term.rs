@@ -1,75 +1,47 @@
 use super::astutil;
 use super::{ParseError, ParseErrorKind};
-use std::fmt;
+use std::borrow::Cow;
 use tree_sitter::{Node, TreeCursor};
 
 /// Represents a primitive identifier.
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Identifier<'source>(&'source str);
+#[derive(Clone, Copy, Debug)]
+pub struct Identifier<'tree>(Node<'tree>);
 
-impl<'source> Identifier<'source> {
-    pub const fn new(s: &'source str) -> Self {
-        Identifier(s)
-    }
-
-    pub fn from_node<'tree>(
-        node: Node<'tree>,
-        source: &'source str,
-    ) -> Result<Self, ParseError<'tree>> {
+impl<'tree> Identifier<'tree> {
+    pub fn from_node(node: Node<'tree>) -> Result<Self, ParseError<'tree>> {
         if node.kind() != "identifier" && node.kind() != "property_identifier" {
             return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
         }
-        Ok(Self::new(astutil::node_text(node, source)))
+        Ok(Identifier(node))
+    }
+
+    pub fn node(&self) -> Node<'tree> {
+        self.0
     }
 
     /// Checks if this identifier looks like a type name.
-    pub fn maybe_type_name(&self) -> bool {
-        self.0.starts_with(char::is_uppercase)
+    pub fn maybe_type_name(&self, source: &str) -> bool {
+        self.to_str(source).starts_with(char::is_uppercase)
     }
 
-    pub fn as_str(&self) -> &'source str {
-        self.0
-    }
-}
-
-impl AsRef<str> for Identifier<'_> {
-    fn as_ref(&self) -> &str {
-        self.0
-    }
-}
-
-impl fmt::Display for Identifier<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.fmt(f)
+    pub fn to_str<'s>(&self, source: &'s str) -> &'s str {
+        astutil::node_text(self.0, source)
     }
 }
 
 /// Represents a (possibly nested) identifier.
-#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct NestedIdentifier<'source> {
-    // TODO: optimize with smallvec?
-    components: Vec<Identifier<'source>>,
+#[derive(Clone, Debug)]
+pub struct NestedIdentifier<'tree> {
+    // TODO: optimize with smallvec or store the nested_identifier node?
+    components: Vec<Identifier<'tree>>,
 }
 
-impl<'source> NestedIdentifier<'source> {
-    // TODO: make it more capable?
-    pub fn new(components: impl AsRef<[Identifier<'source>]>) -> Self {
-        NestedIdentifier {
-            components: components.as_ref().to_owned(),
-        }
+impl<'tree> NestedIdentifier<'tree> {
+    pub fn from_node(node: Node<'tree>) -> Result<Self, ParseError<'tree>> {
+        Self::with_cursor(&mut node.walk())
     }
 
-    pub fn from_node<'tree>(
-        node: Node<'tree>,
-        source: &'source str,
-    ) -> Result<Self, ParseError<'tree>> {
-        Self::with_cursor(&mut node.walk(), source)
-    }
-
-    pub(crate) fn with_cursor<'tree>(
-        cursor: &mut TreeCursor<'tree>,
-        source: &'source str,
-    ) -> Result<Self, ParseError<'tree>> {
+    pub(crate) fn with_cursor(cursor: &mut TreeCursor<'tree>) -> Result<Self, ParseError<'tree>> {
         let mut depth: usize = 0;
         while cursor.node().kind() == "nested_identifier" {
             if !cursor.goto_first_child() {
@@ -84,7 +56,7 @@ impl<'source> NestedIdentifier<'source> {
 
         let components = if depth == 0 {
             // (identifier)
-            vec![Identifier::from_node(cursor.node(), source)?]
+            vec![Identifier::from_node(cursor.node())?]
         } else {
             // (nested_identifier (nested_identifier (identifier) (identifier)) (identifier))
             let mut components = Vec::with_capacity(depth + 1);
@@ -92,7 +64,7 @@ impl<'source> NestedIdentifier<'source> {
                 let node = cursor.node();
                 match node.kind() {
                     "identifier" => {
-                        components.push(Identifier::new(astutil::node_text(node, source)));
+                        components.push(Identifier(node));
                     }
                     // order matters: (ERROR) node is extra
                     _ if node.is_error() => {
@@ -115,53 +87,56 @@ impl<'source> NestedIdentifier<'source> {
         Ok(NestedIdentifier { components })
     }
 
-    pub fn components(&self) -> &[Identifier<'source>] {
+    pub fn components(&self) -> &[Identifier<'tree>] {
         &self.components
     }
 
     /// Checks if this looks like an identifier prefixed with a type name.
-    pub fn maybe_starts_with_type_name(&self) -> bool {
+    pub fn maybe_starts_with_type_name(&self, source: &str) -> bool {
         self.components
             .first()
-            .map(|p| p.maybe_type_name())
+            .map(|p| p.maybe_type_name(source))
             .unwrap_or(false)
     }
 
     /// Splits this to type-name-a-like and the remainder parts.
     ///
     /// If either part is empty, returns None.
-    pub fn split_type_name_prefix(&self) -> Option<(Self, Self)> {
-        match self.components.iter().position(|p| !p.maybe_type_name()) {
+    pub fn split_type_name_prefix(&self, source: &str) -> Option<(Self, Self)> {
+        match self
+            .components
+            .iter()
+            .position(|p| !p.maybe_type_name(source))
+        {
             Some(n) if n > 0 => {
                 let (type_parts, rem_parts) = self.components.split_at(n);
                 debug_assert!(!type_parts.is_empty());
                 debug_assert!(!rem_parts.is_empty());
                 Some((
-                    NestedIdentifier::new(type_parts),
-                    NestedIdentifier::new(rem_parts),
+                    NestedIdentifier {
+                        components: type_parts.to_owned(),
+                    },
+                    NestedIdentifier {
+                        components: rem_parts.to_owned(),
+                    },
                 ))
             }
             _ => None,
         }
     }
-}
 
-impl<'source> From<&[&'source str]> for NestedIdentifier<'source> {
-    fn from(parts: &[&'source str]) -> Self {
-        let components = parts.iter().map(|&s| Identifier::new(s)).collect();
-        NestedIdentifier { components }
-    }
-}
-
-impl fmt::Display for NestedIdentifier<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let Some((head, tail)) = self.components.split_first() {
-            write!(f, "{}", head)?;
-            for s in tail {
-                write!(f, ".{}", s)?;
-            }
+    pub fn to_string<'s>(&self, source: &'s str) -> Cow<'s, str> {
+        if self.components.len() == 1 {
+            Cow::Borrowed(self.components[0].to_str(source))
+        } else {
+            let dotted_path = self
+                .components
+                .iter()
+                .map(|p| p.to_str(source))
+                .collect::<Vec<_>>()
+                .join(".");
+            Cow::Owned(dotted_path)
         }
-        Ok(())
     }
 }
 
@@ -181,31 +156,31 @@ mod tests {
             .unwrap()
             .child_by_field_name("type_name")
             .unwrap();
-        NestedIdentifier::with_cursor(&mut node.walk(), doc.source())
+        NestedIdentifier::with_cursor(&mut node.walk())
     }
 
     #[test]
     fn trivial_identifier() {
         let doc = parse(r"Foo {}");
         let id = extract_type_id(&doc).unwrap();
-        assert_eq!(id.components(), ["Foo"].map(Identifier::new));
-        assert_eq!(id.to_string(), "Foo");
+        assert_eq!(id.components().len(), 1);
+        assert_eq!(id.to_string(doc.source()), "Foo");
     }
 
     #[test]
     fn nested_identifier() {
         let doc = parse(r"Foo.Bar.Baz {}");
         let id = extract_type_id(&doc).unwrap();
-        assert_eq!(id.components(), ["Foo", "Bar", "Baz"].map(Identifier::new));
-        assert_eq!(id.to_string(), "Foo.Bar.Baz");
+        assert_eq!(id.components().len(), 3);
+        assert_eq!(id.to_string(doc.source()), "Foo.Bar.Baz");
     }
 
     #[test]
     fn nested_identifier_with_comments() {
         let doc = parse(r"Foo. /*Bar.*/ Baz {}");
         let id = extract_type_id(&doc).unwrap();
-        assert_eq!(id.components(), ["Foo", "Baz"].map(Identifier::new));
-        assert_eq!(id.to_string(), "Foo.Baz");
+        assert_eq!(id.components().len(), 2);
+        assert_eq!(id.to_string(doc.source()), "Foo.Baz");
     }
 
     #[test]

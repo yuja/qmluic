@@ -6,24 +6,21 @@ use tree_sitter::Node;
 
 /// Tagged union that wraps an expression.
 #[derive(Clone, Debug)]
-pub enum Expression<'tree, 'source> {
-    Identifier(Identifier<'source>),
+pub enum Expression<'tree> {
+    Identifier(Identifier<'tree>),
     Number(f64),
     String(String),
     Bool(bool),
     Array(Vec<Node<'tree>>),
-    MemberExpression(MemberExpression<'tree, 'source>),
+    MemberExpression(MemberExpression<'tree>),
     CallExpression(CallExpression<'tree>),
     UnaryExpression(UnaryExpression<'tree>),
     BinaryExpression(BinaryExpression<'tree>),
     // TODO: ...
 }
 
-impl<'tree, 'source> Expression<'tree, 'source> {
-    pub fn from_node(
-        mut node: Node<'tree>,
-        source: &'source str,
-    ) -> Result<Self, ParseError<'tree>> {
+impl<'tree> Expression<'tree> {
+    pub fn from_node(mut node: Node<'tree>, source: &str) -> Result<Self, ParseError<'tree>> {
         if node.kind() == "expression_statement" {
             node = node
                 .named_child(0)
@@ -36,7 +33,7 @@ impl<'tree, 'source> Expression<'tree, 'source> {
         }
 
         let expr = match node.kind() {
-            "identifier" => Expression::Identifier(Identifier::from_node(node, source)?),
+            "identifier" => Expression::Identifier(Identifier::from_node(node)?),
             "number" => Expression::Number(astutil::parse_number(node, source)?),
             "string" => Expression::String(astutil::parse_string(node, source)?),
             "true" => Expression::Bool(true),
@@ -50,10 +47,8 @@ impl<'tree, 'source> Expression<'tree, 'source> {
             }
             "member_expression" => {
                 let object = astutil::get_child_by_field_name(node, "object")?;
-                let property = Identifier::from_node(
-                    astutil::get_child_by_field_name(node, "property")?,
-                    source,
-                )?;
+                let property =
+                    Identifier::from_node(astutil::get_child_by_field_name(node, "property")?)?;
                 // TODO: <object>?.<property>
                 Expression::MemberExpression(MemberExpression { object, property })
             }
@@ -133,9 +128,9 @@ impl<'tree, 'source> Expression<'tree, 'source> {
 
 /// Represents a member expression.
 #[derive(Clone, Debug)]
-pub struct MemberExpression<'tree, 'source> {
+pub struct MemberExpression<'tree> {
     pub object: Node<'tree>,
-    pub property: Identifier<'source>,
+    pub property: Identifier<'tree>,
 }
 
 /// Represents a call expression.
@@ -351,10 +346,7 @@ mod tests {
         UiDocument::parse(source.to_owned(), None)
     }
 
-    fn extract_expr<'a>(
-        doc: &'a UiDocument,
-        name: &str,
-    ) -> Result<Expression<'a, 'a>, ParseError<'a>> {
+    fn extract_expr<'a>(doc: &'a UiDocument, name: &str) -> Result<Expression<'a>, ParseError<'a>> {
         let program = UiProgram::from_node(doc.root_node()).unwrap();
         let obj = UiObjectDefinition::from_node(program.root_object_node(), doc.source()).unwrap();
         let map = obj.build_binding_map(doc.source()).unwrap();
@@ -383,8 +375,9 @@ mod tests {
             extract_expr(&doc, "identifier")
                 .unwrap()
                 .get_identifier()
-                .unwrap(),
-            Identifier::new("foo")
+                .unwrap()
+                .to_str(doc.source()),
+            "foo"
         );
         assert_eq!(
             extract_expr(&doc, "number_").unwrap().get_number().unwrap(),
@@ -438,10 +431,12 @@ mod tests {
         match extract_expr(&doc, "member").unwrap() {
             Expression::MemberExpression(x) => {
                 assert_eq!(
-                    Identifier::from_node(x.object, doc.source()).unwrap(),
-                    Identifier::new("foo")
+                    Identifier::from_node(x.object)
+                        .unwrap()
+                        .to_str(doc.source()),
+                    "foo"
                 );
-                assert_eq!(x.property, Identifier::new("bar"));
+                assert_eq!(x.property.to_str(doc.source()), "bar");
             }
             expr => panic!("unexpected expression: {expr:?}"),
         }
@@ -459,8 +454,10 @@ mod tests {
         match extract_expr(&doc, "call").unwrap() {
             Expression::CallExpression(x) => {
                 assert_eq!(
-                    Identifier::from_node(x.function, doc.source()).unwrap(),
-                    Identifier::new("foo")
+                    Identifier::from_node(x.function)
+                        .unwrap()
+                        .to_str(doc.source()),
+                    "foo"
                 );
                 assert_eq!(x.arguments.len(), 2);
             }
