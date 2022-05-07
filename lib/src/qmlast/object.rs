@@ -420,6 +420,10 @@ mod tests {
     use super::*;
     use crate::qmlast::UiDocument;
 
+    fn parse(source: &str) -> UiDocument {
+        UiDocument::parse(source.to_owned(), None)
+    }
+
     fn extract_root_object(doc: &UiDocument) -> Result<UiObjectDefinition, ParseError> {
         let program = UiProgram::from_node(doc.root_node(), doc.source()).unwrap();
         UiObjectDefinition::from_node(program.root_object_node(), doc.source())
@@ -427,7 +431,7 @@ mod tests {
 
     #[test]
     fn object_id_map() {
-        let doc = UiDocument::with_source(
+        let doc = parse(
             r###"
             Foo {
                 id: foo
@@ -438,8 +442,7 @@ mod tests {
                 }
                 Blah.Blah {}
             }
-            "###
-            .to_owned(),
+            "###,
         );
 
         let program = UiProgram::from_node(doc.root_node(), doc.source()).unwrap();
@@ -466,27 +469,26 @@ mod tests {
 
     #[test]
     fn duplicated_object_ids() {
-        let doc = UiDocument::with_source(
+        let doc = parse(
             r###"
             Foo {
                 id: foo
                 Foo { id: foo }
             }
-            "###
-            .to_owned(),
+            "###,
         );
         assert!(UiProgram::from_node(doc.root_node(), doc.source()).is_err());
     }
 
     #[test]
     fn non_trivial_object_id_expression() {
-        let doc = UiDocument::with_source(r"Foo { id: (expr) }".to_owned());
+        let doc = parse(r"Foo { id: (expr) }");
         assert!(UiProgram::from_node(doc.root_node(), doc.source()).is_err());
     }
 
     #[test]
     fn trivial_object() {
-        let doc = UiDocument::with_source(r"Foo.Bar {}".to_owned());
+        let doc = parse(r"Foo.Bar {}");
         let root_obj = extract_root_object(&doc).unwrap();
         assert_eq!(
             root_obj.type_name(),
@@ -497,15 +499,14 @@ mod tests {
 
     #[test]
     fn nested_object() {
-        let doc = UiDocument::with_source(
+        let doc = parse(
             r###"
             Foo {
                 // comment
                 Bar.Bar {}
                 Baz {}
             }
-            "###
-            .to_owned(),
+            "###,
         );
         let root_obj = extract_root_object(&doc).unwrap();
         assert_eq!(
@@ -531,7 +532,7 @@ mod tests {
 
     #[test]
     fn property_bindings() {
-        let doc = UiDocument::with_source(
+        let doc = parse(
             r###"
             Foo {
                 id: whatever
@@ -540,8 +541,7 @@ mod tests {
                 nested.b: 2
                 nested.c: 3
             }
-            "###
-            .to_owned(),
+            "###,
         );
         let root_obj = extract_root_object(&doc).unwrap();
         assert_eq!(root_obj.object_id(), Some(Identifier::new("whatever")));
@@ -567,77 +567,72 @@ mod tests {
 
     #[test]
     fn duplicated_property_bindings() {
-        let doc = UiDocument::with_source(
+        let doc = parse(
             r###"
             Foo {
                 bar: 0
                 bar: 1
             }
-            "###
-            .to_owned(),
+            "###,
         );
         assert!(extract_root_object(&doc).is_err());
     }
 
     #[test]
     fn duplicated_property_bindings_map_to_node() {
-        let doc = UiDocument::with_source(
+        let doc = parse(
             r###"
             Foo {
                 bar.baz: 0
                 bar: 1
             }
-            "###
-            .to_owned(),
+            "###,
         );
         assert!(extract_root_object(&doc).is_err());
     }
 
     #[test]
     fn duplicated_property_bindings_node_to_map() {
-        let doc = UiDocument::with_source(
+        let doc = parse(
             r###"
             Foo {
                 bar: 0
                 bar.baz: 1
             }
-            "###
-            .to_owned(),
+            "###,
         );
         assert!(extract_root_object(&doc).is_err());
     }
 
     #[test]
     fn duplicated_object_id_bindings() {
-        let doc = UiDocument::with_source(
+        let doc = parse(
             r###"
             Foo {
                 id: foo
                 id: bar
             }
-            "###
-            .to_owned(),
+            "###,
         );
         assert!(extract_root_object(&doc).is_err());
     }
 
     #[test]
     fn object_id_binding_with_comment() {
-        let doc = UiDocument::with_source(r"Foo { id: /*what*/ ever /*never*/ }".to_owned());
+        let doc = parse(r"Foo { id: /*what*/ ever /*never*/ }");
         let root_obj = extract_root_object(&doc).unwrap();
         assert_eq!(root_obj.object_id(), Some(Identifier::new("ever")));
     }
 
     #[test]
     fn grouped_property_bindings() {
-        let doc = UiDocument::with_source(
+        let doc = parse(
             r###"
             Foo {
                 nested.a: 1
                 nested { b: 2; /* comment */ c: 3 }
             }
-            "###
-            .to_owned(),
+            "###,
         );
         let root_obj = extract_root_object(&doc).unwrap();
         let map = root_obj.binding_map();
@@ -661,13 +656,12 @@ mod tests {
 
     #[test]
     fn nested_grouped_property_bindings() {
-        let doc = UiDocument::with_source(
+        let doc = parse(
             r###"
             Foo {
                 a { b { c: 1 } }
             }
-            "###
-            .to_owned(),
+            "###,
         );
         let root_obj = extract_root_object(&doc).unwrap();
         let map = root_obj.binding_map();
@@ -683,15 +677,14 @@ mod tests {
 
     #[test]
     fn attached_property_bindings() {
-        let doc = UiDocument::with_source(
+        let doc = parse(
             r###"
             Foo {
                 Bar.baz: 0
                 A.B.c.d: 1
                 Bar.bar: 2
             }
-            "###
-            .to_owned(),
+            "###,
         );
         let root_obj = extract_root_object(&doc).unwrap();
         let type_map = root_obj.attached_type_map();

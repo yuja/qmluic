@@ -170,6 +170,10 @@ mod tests {
     use super::*;
     use crate::qmlast::UiDocument;
 
+    fn parse(source: &str) -> UiDocument {
+        UiDocument::parse(source.to_owned(), None)
+    }
+
     fn extract_type_id(doc: &UiDocument) -> Result<NestedIdentifier, ParseError> {
         let node = doc
             .root_node()
@@ -182,7 +186,7 @@ mod tests {
 
     #[test]
     fn trivial_identifier() {
-        let doc = UiDocument::with_source(r"Foo {}".to_owned());
+        let doc = parse(r"Foo {}");
         let id = extract_type_id(&doc).unwrap();
         assert_eq!(id.components(), ["Foo"].map(Identifier::new));
         assert_eq!(id.to_string(), "Foo");
@@ -190,7 +194,7 @@ mod tests {
 
     #[test]
     fn nested_identifier() {
-        let doc = UiDocument::with_source(r"Foo.Bar.Baz {}".to_owned());
+        let doc = parse(r"Foo.Bar.Baz {}");
         let id = extract_type_id(&doc).unwrap();
         assert_eq!(id.components(), ["Foo", "Bar", "Baz"].map(Identifier::new));
         assert_eq!(id.to_string(), "Foo.Bar.Baz");
@@ -198,7 +202,7 @@ mod tests {
 
     #[test]
     fn nested_identifier_with_comments() {
-        let doc = UiDocument::with_source(r"Foo. /*Bar.*/ Baz {}".to_owned());
+        let doc = parse(r"Foo. /*Bar.*/ Baz {}");
         let id = extract_type_id(&doc).unwrap();
         assert_eq!(id.components(), ["Foo", "Baz"].map(Identifier::new));
         assert_eq!(id.to_string(), "Foo.Baz");
@@ -206,7 +210,7 @@ mod tests {
 
     #[test]
     fn doubled_dots_in_identifier() {
-        let doc = UiDocument::with_source(r"Foo..Bar {}".to_owned());
+        let doc = parse(r"Foo..Bar {}");
         assert!(extract_type_id(&doc).is_err());
     }
 }

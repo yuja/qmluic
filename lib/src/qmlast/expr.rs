@@ -347,6 +347,10 @@ mod tests {
     use super::*;
     use crate::qmlast::{UiDocument, UiObjectDefinition, UiProgram};
 
+    fn parse(source: &str) -> UiDocument {
+        UiDocument::parse(source.to_owned(), None)
+    }
+
     fn extract_expr<'a>(
         doc: &'a UiDocument,
         name: &str,
@@ -364,7 +368,7 @@ mod tests {
 
     #[test]
     fn trivial_expressions() {
-        let doc = UiDocument::with_source(
+        let doc = parse(
             r###"
             Foo {
                 identifier: foo
@@ -377,8 +381,7 @@ mod tests {
                 paren1: (foo)
                 paren2: ((foo))
             }
-            "###
-            .to_owned(),
+            "###,
         );
         assert_eq!(
             extract_expr(&doc, "identifier")
@@ -429,13 +432,12 @@ mod tests {
 
     #[test]
     fn member_expression() {
-        let doc = UiDocument::with_source(
+        let doc = parse(
             r###"
             Foo {
                 member: foo.bar
             }
-            "###
-            .to_owned(),
+            "###,
         );
         match extract_expr(&doc, "member").unwrap() {
             Expression::MemberExpression(x) => {
@@ -451,13 +453,12 @@ mod tests {
 
     #[test]
     fn call_expression() {
-        let doc = UiDocument::with_source(
+        let doc = parse(
             r###"
             Foo {
                 call: foo(1, /*garbage*/ 2)
             }
-            "###
-            .to_owned(),
+            "###,
         );
         match extract_expr(&doc, "call").unwrap() {
             Expression::CallExpression(x) => {
@@ -473,13 +474,12 @@ mod tests {
 
     #[test]
     fn unary_expression() {
-        let doc = UiDocument::with_source(
+        let doc = parse(
             r###"
             Foo {
                 logical_not: !whatever
             }
-            "###
-            .to_owned(),
+            "###,
         );
         match extract_expr(&doc, "logical_not").unwrap() {
             Expression::UnaryExpression(x) => {
@@ -491,13 +491,12 @@ mod tests {
 
     #[test]
     fn binary_expression() {
-        let doc = UiDocument::with_source(
+        let doc = parse(
             r###"
             Foo {
                 add: 1 + 2
             }
-            "###
-            .to_owned(),
+            "###,
         );
         match extract_expr(&doc, "add").unwrap() {
             Expression::BinaryExpression(x) => {
