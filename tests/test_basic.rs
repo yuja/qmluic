@@ -7,21 +7,16 @@ use std::path::Path;
 
 #[test]
 fn test_translate_example() {
-    insta::assert_snapshot!(translate_file(
-        "examples/SettingsDialog.qml",
-        "SettingsDialog"
-    ));
-    insta::assert_snapshot!(translate_file("examples/MainWindow.qml", "MainWindow"));
+    insta::assert_snapshot!(translate_file("examples/SettingsDialog.qml",));
+    insta::assert_snapshot!(translate_file("examples/MainWindow.qml"));
 }
 
-fn translate_file(path: impl AsRef<Path>, class_name: impl AsRef<str>) -> String {
+fn translate_file(path: impl AsRef<Path>) -> String {
     let mut type_map = TypeMap::with_primitive_types();
     type_map.extend(load_metatypes());
     let doc = UiDocument::read(path).unwrap();
     let mut buf = Vec::new();
-    UiBuilder::new(&mut buf, &type_map, &doc, class_name)
-        .build()
-        .unwrap();
+    UiBuilder::new(&mut buf, &type_map, &doc).build().unwrap();
     String::from_utf8(buf).unwrap()
 }
 

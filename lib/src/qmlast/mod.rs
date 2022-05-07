@@ -23,6 +23,7 @@ pub use tree_sitter::Node; // re-export
 pub struct UiDocument {
     source: String,
     tree: Tree,
+    type_name: Option<String>,
 }
 
 impl UiDocument {
@@ -31,11 +32,19 @@ impl UiDocument {
     /// The parsing doesn't fail even if the QML source has a syntax error. Instead, a node
     /// representing the error is inserted.
     pub fn with_source(source: String) -> Self {
+        Self::parse(source, None)
+    }
+
+    fn parse(source: String, type_name: Option<String>) -> Self {
         let mut parser = new_parser();
         let tree = parser
             .parse(source.as_bytes(), None)
             .expect("no timeout nor cancellation should have been made");
-        UiDocument { source, tree }
+        UiDocument {
+            source,
+            tree,
+            type_name,
+        }
     }
 
     /// Creates parsed tree from the given QML file.
@@ -43,8 +52,20 @@ impl UiDocument {
     /// The parsing doesn't fail even if the QML source has a syntax error. Instead, a node
     /// representing the error is inserted.
     pub fn read(path: impl AsRef<Path>) -> io::Result<Self> {
+        let type_name = path
+            .as_ref()
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .map(|s| s.to_owned());
         let source = fs::read_to_string(path)?;
-        Ok(Self::with_source(source))
+        Ok(Self::parse(source, type_name))
+    }
+
+    /// Type (or component) name of this QML document.
+    ///
+    /// It's typically the file name without ".qml" suffix.
+    pub fn type_name(&self) -> Option<&str> {
+        self.type_name.as_deref()
     }
 
     pub fn has_syntax_error(&self) -> bool {

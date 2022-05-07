@@ -31,15 +31,8 @@ fn main() -> quick_xml::Result<()> {
         process::exit(1);
     }
 
-    let class_name = class_name_for_path(&args.file).ok_or_else(|| {
-        io::Error::new(
-            io::ErrorKind::Other,
-            format!("cannot deduce class name for {}", args.file.display()),
-        )
-    })?;
-
     let stdout = io::stdout();
-    let mut builder = UiBuilder::new(stdout.lock(), &type_map, &doc, class_name);
+    let mut builder = UiBuilder::new(stdout.lock(), &type_map, &doc);
     builder.build()?;
     if !builder.errors().is_empty() {
         for e in builder.errors() {
@@ -49,12 +42,6 @@ fn main() -> quick_xml::Result<()> {
     }
 
     Ok(())
-}
-
-fn class_name_for_path(path: &Path) -> Option<&str> {
-    path.file_name()
-        .and_then(|s| s.to_str())
-        .map(|name| name.rsplit_once('.').map(|(n, _)| n).unwrap_or(name))
 }
 
 fn load_metatypes(paths: &[PathBuf]) -> io::Result<Vec<metatype::Class>> {

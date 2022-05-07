@@ -10,7 +10,6 @@ where
     writer: quick_xml::Writer<W>,
     type_map: &'a TypeMap,
     doc: &'a qmlast::UiDocument,
-    class_name: String, // TODO: maybe UiDocument should have the name?
     errors: Vec<qmlast::ParseError<'a>>,
 }
 
@@ -18,18 +17,12 @@ impl<'a, W> UiBuilder<'a, W>
 where
     W: io::Write,
 {
-    pub fn new(
-        dest: W,
-        type_map: &'a TypeMap,
-        doc: &'a qmlast::UiDocument,
-        class_name: impl AsRef<str>,
-    ) -> Self {
+    pub fn new(dest: W, type_map: &'a TypeMap, doc: &'a qmlast::UiDocument) -> Self {
         let writer = quick_xml::Writer::new_with_indent(dest, b' ', 1);
         UiBuilder {
             writer,
             type_map,
             doc,
-            class_name: class_name.as_ref().to_owned(),
             errors: Vec::new(),
         }
     }
@@ -39,7 +32,9 @@ where
             .with_attributes([(b"version".as_ref(), b"4.0".as_ref())]);
         self.writer
             .write_event(Event::Start(ui_tag.to_borrowed()))?;
-        write_tagged_str(&mut self.writer, b"class", &self.class_name)?;
+        if let Some(name) = self.doc.type_name() {
+            write_tagged_str(&mut self.writer, b"class", name)?;
+        }
         self.process_program_node(self.doc.root_node())?;
         self.writer.write_event(Event::End(ui_tag.to_end()))?;
         self.writer.write(b"\n")?;
