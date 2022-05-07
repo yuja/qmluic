@@ -25,7 +25,7 @@ fn main() -> quick_xml::Result<()> {
     let mut type_map = TypeMap::with_primitive_types();
     type_map.extend(load_metatypes(&args.foreign_types)?);
 
-    let doc = qmlast::UiDocument::with_source(fs::read_to_string(&args.file)?);
+    let doc = qmlast::UiDocument::read(&args.file)?;
     if doc.has_syntax_error() {
         print_syntax_errors(&doc)?;
         process::exit(1);

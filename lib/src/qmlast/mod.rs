@@ -2,7 +2,10 @@
 
 use std::error::Error;
 use std::fmt;
+use std::fs;
+use std::io;
 use std::ops::Range;
+use std::path::Path;
 use tree_sitter::{Parser, Query, QueryCursor, Tree};
 
 mod astutil;
@@ -33,6 +36,15 @@ impl UiDocument {
             .parse(source.as_bytes(), None)
             .expect("no timeout nor cancellation should have been made");
         UiDocument { source, tree }
+    }
+
+    /// Creates parsed tree from the given QML file.
+    ///
+    /// The parsing doesn't fail even if the QML source has a syntax error. Instead, a node
+    /// representing the error is inserted.
+    pub fn read(path: impl AsRef<Path>) -> io::Result<Self> {
+        let source = fs::read_to_string(path)?;
+        Ok(Self::with_source(source))
     }
 
     pub fn has_syntax_error(&self) -> bool {

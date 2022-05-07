@@ -17,7 +17,7 @@ fn test_translate_example() {
 fn translate_file(path: impl AsRef<Path>, class_name: impl AsRef<str>) -> String {
     let mut type_map = TypeMap::with_primitive_types();
     type_map.extend(load_metatypes());
-    let doc = UiDocument::with_source(fs::read_to_string(path).unwrap());
+    let doc = UiDocument::read(path).unwrap();
     let mut buf = Vec::new();
     UiBuilder::new(&mut buf, &type_map, &doc, class_name)
         .build()

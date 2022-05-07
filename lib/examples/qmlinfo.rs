@@ -1,6 +1,5 @@
 use clap::Parser;
 use qmluic::qmlast::*;
-use std::fs;
 use std::io;
 use std::path::PathBuf;
 use std::process;
@@ -19,7 +18,7 @@ struct Args {
 fn main() -> io::Result<()> {
     let args = Args::parse();
 
-    let doc = UiDocument::with_source(fs::read_to_string(args.file)?);
+    let doc = UiDocument::read(&args.file)?;
     if doc.has_syntax_error() {
         print_syntax_errors(&doc)?;
         process::exit(1);
