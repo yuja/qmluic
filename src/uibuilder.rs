@@ -139,12 +139,10 @@ where
 
             let mut item_tag = BytesStart::borrowed_name(b"item");
             // TODO: resolve against imported types
-            if let Some(map) =
-                attached_type_map.get(&qmlast::NestedIdentifier::from(["QLayoutItem"].as_ref()))
-            {
-                for (name, value) in collect_sorted_binding_pairs(map) {
+            if let Some(map) = attached_type_map.get(["QLayoutItem"].as_ref()) {
+                for (&name, value) in collect_sorted_binding_pairs(map) {
                     match format_constant_binding_value(value, self.doc.source()) {
-                        Ok((_, s)) => item_tag.push_attribute((name.as_str(), s.as_ref())),
+                        Ok((_, s)) => item_tag.push_attribute((name, s.as_ref())),
                         Err(e) => self.errors.push(e),
                     }
                 }
@@ -222,8 +220,8 @@ where
                 return Ok(());
             }
         };
-        for (name, value) in collect_sorted_binding_pairs(&map) {
-            if name == &qmlast::Identifier::new("actions") {
+        for (&name, value) in collect_sorted_binding_pairs(&map) {
+            if name == "actions" {
                 // TODO: only for QWidget subclasses
                 match value {
                     qmlast::UiBindingValue::Node(n) => {
@@ -232,13 +230,13 @@ where
                     qmlast::UiBindingValue::Map(n, _) => self.errors.push(unexpected_node(*n)),
                 }
             } else {
-                let prop_tag = BytesStart::borrowed_name(b"property")
-                    .with_attributes([("name", name.as_str())]);
+                let prop_tag =
+                    BytesStart::borrowed_name(b"property").with_attributes([("name", name)]);
                 self.writer
                     .write_event(Event::Start(prop_tag.to_borrowed()))?;
 
                 // TODO: error out if property type can't be mapped
-                let ty_opt = cls.get_property_type(name.as_str());
+                let ty_opt = cls.get_property_type(name);
                 match value {
                     qmlast::UiBindingValue::Node(n) => {
                         self.process_binding_value_node(ty_opt.as_ref(), *n)?;
@@ -552,10 +550,8 @@ impl GroupedValue {
             if let (
                 Some(qmlast::UiBindingValue::Node(width)),
                 Some(qmlast::UiBindingValue::Node(height)),
-            ) = (
-                map.get(&qmlast::Identifier::new("width")),
-                map.get(&qmlast::Identifier::new("height")),
-            ) {
+            ) = (map.get("width"), map.get("height"))
+            {
                 let size = Size {
                     width: eval_number(*width, source)?,
                     height: eval_number(*height, source)?,
@@ -569,10 +565,10 @@ impl GroupedValue {
                 Some(qmlast::UiBindingValue::Node(width)),
                 Some(qmlast::UiBindingValue::Node(height)),
             ) = (
-                map.get(&qmlast::Identifier::new("x")),
-                map.get(&qmlast::Identifier::new("y")),
-                map.get(&qmlast::Identifier::new("width")),
-                map.get(&qmlast::Identifier::new("height")),
+                map.get("x"),
+                map.get("y"),
+                map.get("width"),
+                map.get("height"),
             ) {
                 let rect = Rect {
                     x: eval_number(*x, source)?,
@@ -589,10 +585,10 @@ impl GroupedValue {
                 Some(qmlast::UiBindingValue::Node(hstretch)),
                 Some(qmlast::UiBindingValue::Node(vstretch)),
             ) = (
-                map.get(&qmlast::Identifier::new("horizontalPolicy")),
-                map.get(&qmlast::Identifier::new("verticalPolicy")),
-                map.get(&qmlast::Identifier::new("horizontalStretch")),
-                map.get(&qmlast::Identifier::new("verticalStretch")),
+                map.get("horizontalPolicy"),
+                map.get("verticalPolicy"),
+                map.get("horizontalStretch"),
+                map.get("verticalStretch"),
             ) {
                 let policy = SizePolicy {
                     horizontal_policy: format_as_nested_identifier(*hpol, source)?,
@@ -623,7 +619,7 @@ impl GroupedValue {
 fn collect_sorted_binding_pairs<'tree, 'source, 'a>(
     map: &'a qmlast::UiBindingMap<'tree, 'source>,
 ) -> Vec<(
-    &'a qmlast::Identifier<'source>,
+    &'a &'source str, // TODO
     &'a qmlast::UiBindingValue<'tree, 'source>,
 )> {
     let mut pairs: Vec<_> = map.iter().collect();

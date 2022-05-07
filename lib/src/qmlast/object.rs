@@ -167,7 +167,9 @@ impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
             let (type_name, prop_name) = name
                 .split_type_name_prefix()
                 .expect("attached binding name should have type prefix");
-            let map = type_map.entry(type_name).or_default();
+            let map = type_map
+                .entry(type_name.components().iter().map(|p| p.as_str()).collect())
+                .or_default();
             // attached binding can't be grouped
             try_insert_ui_binding_node(map, &prop_name, *name_node, *value_node)?;
         }
@@ -184,7 +186,7 @@ impl<'tree, 'source> UiObjectDefinition<'tree, 'source> {
         &self,
         source: &'source str,
     ) -> Result<UiBindingMap<'tree, 'source>, ParseError<'tree>> {
-        let mut map = UiBindingMap::new();
+        let mut map = HashMap::new();
         for UiBinding {
             name,
             name_node,
@@ -325,11 +327,10 @@ pub enum UiBindingNotation {
 
 /// Map of type name to attached property binding map.
 pub type UiAttachedTypeBindingMap<'tree, 'source> =
-    HashMap<NestedIdentifier<'source>, UiBindingMap<'tree, 'source>>;
+    HashMap<Vec<&'source str>, UiBindingMap<'tree, 'source>>;
 
 /// Map of property binding name to value (or nested binding map.)
-pub type UiBindingMap<'tree, 'source> =
-    HashMap<Identifier<'source>, UiBindingValue<'tree, 'source>>;
+pub type UiBindingMap<'tree, 'source> = HashMap<&'source str, UiBindingValue<'tree, 'source>>;
 
 /// Variant for the property binding map.
 #[derive(Clone, Debug)]
@@ -363,10 +364,7 @@ impl<'tree, 'source> UiBindingValue<'tree, 'source> {
     /// Returns a reference to the value corresponding to the key.
     ///
     /// If this isn't a (nested) map, returns None.
-    pub fn get_map_value(
-        &self,
-        k: &Identifier<'source>,
-    ) -> Option<&UiBindingValue<'tree, 'source>> {
+    pub fn get_map_value(&self, k: &str) -> Option<&UiBindingValue<'tree, 'source>> {
         self.get_map().and_then(|m| m.get(k))
     }
 }
@@ -378,8 +376,8 @@ fn ensure_ui_binding_map_bases<'tree, 'source, 'map>(
 ) -> Result<&'map mut UiBindingMap<'tree, 'source>, ParseError<'tree>> {
     for &n in bases {
         match map
-            .entry(n)
-            .or_insert_with(|| UiBindingValue::Map(name_node, UiBindingMap::new()))
+            .entry(n.as_str())
+            .or_insert_with(|| UiBindingValue::Map(name_node, HashMap::new()))
         {
             UiBindingValue::Node(_) => {
                 return Err(ParseError::new(
@@ -403,13 +401,13 @@ fn try_insert_ui_binding_node<'tree, 'source>(
 ) -> Result<(), ParseError<'tree>> {
     use std::collections::hash_map::Entry;
 
-    let (&last, bases) = name
+    let (last, bases) = name
         .components()
         .split_last()
         .ok_or_else(|| ParseError::new(name_node, ParseErrorKind::InvalidSyntax))?;
 
     let map = ensure_ui_binding_map_bases(map, bases, name_node)?;
-    if let Entry::Vacant(e) = map.entry(last) {
+    if let Entry::Vacant(e) = map.entry(last.as_str()) {
         e.insert(UiBindingValue::Node(value_node));
     } else {
         return Err(ParseError::new(
@@ -437,13 +435,13 @@ fn try_insert_ui_grouped_binding_node<'tree, 'source>(
     // Intermediate maps are created by the group_name_node, but the bottom map should be
     // attached to the container node if it's newly created.
     let map = {
-        let (&last, bases) = group_name
+        let (last, bases) = group_name
             .components()
             .split_last()
             .ok_or_else(|| ParseError::new(group_name_node, ParseErrorKind::InvalidSyntax))?;
         let v = ensure_ui_binding_map_bases(map, bases, group_name_node)?
-            .entry(last)
-            .or_insert_with(|| UiBindingValue::Map(container_node, UiBindingMap::new()));
+            .entry(last.as_str())
+            .or_insert_with(|| UiBindingValue::Map(container_node, HashMap::new()));
         match v {
             UiBindingValue::Node(_) => {
                 return Err(ParseError::new(
@@ -622,22 +620,13 @@ mod tests {
         assert_eq!(root_obj.object_id(), Some(Identifier::new("whatever")));
         let map = root_obj.build_binding_map(doc.source()).unwrap();
         assert_eq!(map.len(), 2);
-        assert!(!map.get(&Identifier::new("bar")).unwrap().is_map());
-        let nested = map.get(&Identifier::new("nested")).unwrap();
+        assert!(!map.get("bar").unwrap().is_map());
+        let nested = map.get("nested").unwrap();
         assert!(nested.is_map());
         assert_eq!(nested.get_map().unwrap().len(), 3);
-        assert!(!nested
-            .get_map_value(&Identifier::new("a"))
-            .unwrap()
-            .is_map());
-        assert!(!nested
-            .get_map_value(&Identifier::new("b"))
-            .unwrap()
-            .is_map());
-        assert!(!nested
-            .get_map_value(&Identifier::new("c"))
-            .unwrap()
-            .is_map());
+        assert!(!nested.get_map_value("a").unwrap().is_map());
+        assert!(!nested.get_map_value("b").unwrap().is_map());
+        assert!(!nested.get_map_value("c").unwrap().is_map());
     }
 
     #[test]
@@ -715,21 +704,12 @@ mod tests {
         let root_obj = extract_root_object(&doc).unwrap();
         let map = root_obj.build_binding_map(doc.source()).unwrap();
         assert_eq!(map.len(), 1);
-        let nested = map.get(&Identifier::new("nested")).unwrap();
+        let nested = map.get("nested").unwrap();
         assert!(nested.is_map());
         assert_eq!(nested.get_map().unwrap().len(), 3);
-        assert!(!nested
-            .get_map_value(&Identifier::new("a"))
-            .unwrap()
-            .is_map());
-        assert!(!nested
-            .get_map_value(&Identifier::new("b"))
-            .unwrap()
-            .is_map());
-        assert!(!nested
-            .get_map_value(&Identifier::new("c"))
-            .unwrap()
-            .is_map());
+        assert!(!nested.get_map_value("a").unwrap().is_map());
+        assert!(!nested.get_map_value("b").unwrap().is_map());
+        assert!(!nested.get_map_value("c").unwrap().is_map());
     }
 
     #[test]
@@ -744,11 +724,11 @@ mod tests {
         let root_obj = extract_root_object(&doc).unwrap();
         let map = root_obj.build_binding_map(doc.source()).unwrap();
         assert!(!map
-            .get(&Identifier::new("a"))
+            .get("a")
             .unwrap()
-            .get_map_value(&Identifier::new("b"))
+            .get_map_value("b")
             .unwrap()
-            .get_map_value(&Identifier::new("c"))
+            .get_map_value("c")
             .unwrap()
             .is_map());
     }
@@ -768,22 +748,18 @@ mod tests {
         let type_map = root_obj.build_attached_type_map().unwrap();
         assert_eq!(type_map.len(), 2);
 
-        let bar_map = type_map
-            .get(&NestedIdentifier::from(["Bar"].as_ref()))
-            .unwrap();
+        let bar_map = type_map.get(["Bar"].as_ref()).unwrap();
         assert_eq!(bar_map.len(), 2);
-        assert!(!bar_map.get(&Identifier::new("bar")).unwrap().is_map());
-        assert!(!bar_map.get(&Identifier::new("baz")).unwrap().is_map());
+        assert!(!bar_map.get("bar").unwrap().is_map());
+        assert!(!bar_map.get("baz").unwrap().is_map());
 
-        let ab_map = type_map
-            .get(&NestedIdentifier::from(["A", "B"].as_ref()))
-            .unwrap();
+        let ab_map = type_map.get(["A", "B"].as_ref()).unwrap();
         assert_eq!(ab_map.len(), 1);
-        assert!(ab_map.get(&Identifier::new("c")).unwrap().is_map());
+        assert!(ab_map.get("c").unwrap().is_map());
         assert!(!ab_map
-            .get(&Identifier::new("c"))
+            .get("c")
             .unwrap()
-            .get_map_value(&Identifier::new("d"))
+            .get_map_value("d")
             .unwrap()
             .is_map());
     }

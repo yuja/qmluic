@@ -147,7 +147,12 @@ fn dump_attached_type_map<'tree, 'source>(
     depth: usize,
 ) {
     for (name, m) in map {
-        println!("{:indent$}{}: {{", "", name, indent = INDENT_WIDTH * depth);
+        println!(
+            "{:indent$}{}: {{",
+            "",
+            name.join("."),
+            indent = INDENT_WIDTH * depth
+        );
         dump_binding_map(m, source, opts, errors, depth + 1);
         println!("{:indent$}}}", "", indent = INDENT_WIDTH * depth);
     }
