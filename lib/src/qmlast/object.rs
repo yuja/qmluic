@@ -6,13 +6,12 @@ use tree_sitter::{Node, Query, QueryCursor, TreeCursor};
 
 /// Represents a top-level QML program.
 #[derive(Clone, Debug)]
-pub struct UiProgram<'tree, 'source> {
+pub struct UiProgram<'tree> {
     root_object_node: Node<'tree>,
-    object_id_map: UiObjectIdMap<'tree, 'source>,
 }
 
-impl<'tree, 'source> UiProgram<'tree, 'source> {
-    pub fn from_node(node: Node<'tree>, source: &'source str) -> Result<Self, ParseError<'tree>> {
+impl<'tree> UiProgram<'tree> {
+    pub fn from_node(node: Node<'tree>) -> Result<Self, ParseError<'tree>> {
         if node.kind() != "program" {
             return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
         }
@@ -20,12 +19,8 @@ impl<'tree, 'source> UiProgram<'tree, 'source> {
         // TODO: parse pragma and imports
 
         let root_object_node = astutil::get_child_by_field_name(node, "root")?;
-        let object_id_map = build_object_id_map(root_object_node, source)?;
 
-        Ok(UiProgram {
-            root_object_node,
-            object_id_map,
-        })
+        Ok(UiProgram { root_object_node })
     }
 
     /// Node for the top-level object (or component.)
@@ -33,14 +28,12 @@ impl<'tree, 'source> UiProgram<'tree, 'source> {
         self.root_object_node
     }
 
-    /// Lookup object node by id.
-    pub fn get_object_node_by_id(&self, id: &Identifier) -> Option<Node<'tree>> {
-        self.object_id_map.get(id).copied()
-    }
-
-    /// Map of id to object node.
-    pub fn object_id_map(&self) -> &UiObjectIdMap<'tree, 'source> {
-        &self.object_id_map
+    /// Creates id to object node map.
+    pub fn build_object_id_map<'s>(
+        &self,
+        source: &'s str,
+    ) -> Result<UiObjectIdMap<'tree, 's>, ParseError<'tree>> {
+        build_object_id_map(self.root_object_node, source)
     }
 }
 
@@ -425,7 +418,7 @@ mod tests {
     }
 
     fn extract_root_object(doc: &UiDocument) -> Result<UiObjectDefinition, ParseError> {
-        let program = UiProgram::from_node(doc.root_node(), doc.source()).unwrap();
+        let program = UiProgram::from_node(doc.root_node()).unwrap();
         UiObjectDefinition::from_node(program.root_object_node(), doc.source())
     }
 
@@ -445,16 +438,15 @@ mod tests {
             "###,
         );
 
-        let program = UiProgram::from_node(doc.root_node(), doc.source()).unwrap();
+        let program = UiProgram::from_node(doc.root_node()).unwrap();
+        let object_id_map = program.build_object_id_map(doc.source()).unwrap();
         assert_eq!(
-            program
-                .get_object_node_by_id(&Identifier::new("foo"))
-                .unwrap(),
-            program.root_object_node()
+            object_id_map.get(&Identifier::new("foo")).unwrap(),
+            &program.root_object_node()
         );
 
         let get_object_by_id = |id: &Identifier| {
-            let n = program.get_object_node_by_id(id).unwrap();
+            let &n = object_id_map.get(id).unwrap();
             UiObjectDefinition::from_node(n, doc.source()).unwrap()
         };
         assert_eq!(
@@ -477,13 +469,15 @@ mod tests {
             }
             "###,
         );
-        assert!(UiProgram::from_node(doc.root_node(), doc.source()).is_err());
+        let program = UiProgram::from_node(doc.root_node()).unwrap();
+        assert!(program.build_object_id_map(doc.source()).is_err());
     }
 
     #[test]
     fn non_trivial_object_id_expression() {
         let doc = parse(r"Foo { id: (expr) }");
-        assert!(UiProgram::from_node(doc.root_node(), doc.source()).is_err());
+        let program = UiProgram::from_node(doc.root_node()).unwrap();
+        assert!(program.build_object_id_map(doc.source()).is_err());
     }
 
     #[test]

@@ -48,7 +48,7 @@ fn dump_program<'tree, 'source>(
     opts: &DumpOptions,
     errors: &mut Vec<ParseError<'tree>>,
 ) {
-    let program = match UiProgram::from_node(node, source) {
+    let program = match UiProgram::from_node(node) {
         Ok(x) => x,
         Err(e) => {
             errors.push(e);
@@ -57,8 +57,13 @@ fn dump_program<'tree, 'source>(
         }
     };
     println!("=== Object ids ===");
-    for (id, &node) in program.object_id_map() {
-        println!("{}: {}", id, format_node(node, opts));
+    match program.build_object_id_map(source) {
+        Ok(object_id_map) => {
+            for (id, &node) in &object_id_map {
+                println!("{}: {}", id, format_node(node, opts));
+            }
+        }
+        Err(e) => errors.push(e),
     }
     println!();
 

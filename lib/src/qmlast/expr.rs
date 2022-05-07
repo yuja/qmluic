@@ -355,7 +355,7 @@ mod tests {
         doc: &'a UiDocument,
         name: &str,
     ) -> Result<Expression<'a, 'a>, ParseError<'a>> {
-        let program = UiProgram::from_node(doc.root_node(), doc.source()).unwrap();
+        let program = UiProgram::from_node(doc.root_node()).unwrap();
         let obj = UiObjectDefinition::from_node(program.root_object_node(), doc.source()).unwrap();
         let node = obj
             .binding_map()

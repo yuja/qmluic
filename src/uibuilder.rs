@@ -42,7 +42,7 @@ where
     }
 
     fn process_program_node(&mut self, node: qmlast::Node<'a>) -> quick_xml::Result<()> {
-        match qmlast::UiProgram::from_node(node, self.doc.source()) {
+        match qmlast::UiProgram::from_node(node) {
             Ok(x) => self.process_object_definition_node(x.root_object_node())?,
             Err(e) => self.errors.push(e),
         };
