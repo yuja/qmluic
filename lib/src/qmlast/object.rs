@@ -182,8 +182,8 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
 
         let mut object_id = None;
         let mut child_object_nodes = Vec::new();
-        let mut attached_type_map = UiAttachedTypeBindingMap::new();
-        let mut binding_map = UiBindingMap::new();
+        let mut attached_binding_nodes = Vec::new();
+        let mut binding_nodes = Vec::new();
         for node in container_node.named_children(cursor) {
             // TODO: ui_annotated_object_member
             match node.kind() {
@@ -194,13 +194,13 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
                         child_object_nodes.push(node);
                     } else {
                         // grouped binding notation: base { prop: ...; ... }
-                        try_insert_ui_grouped_binding_node(
-                            &mut binding_map,
-                            &name,
+                        let value_node = astutil::get_child_by_field_name(node, "initializer")?;
+                        binding_nodes.push(UiBinding {
+                            name,
                             name_node,
-                            astutil::get_child_by_field_name(node, "initializer")?,
-                            source,
-                        )?;
+                            value_node,
+                            notation: UiBindingNotation::Grouped,
+                        });
                     }
                 }
                 "ui_binding" => {
@@ -215,11 +215,20 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
                             ));
                         }
                         object_id = Some(extract_object_id(value_node, source)?);
-                    } else if let Some((type_name, prop_name)) = name.split_type_name_prefix() {
-                        let map = attached_type_map.entry(type_name).or_default();
-                        try_insert_ui_binding_node(map, &prop_name, name_node, value_node)?;
+                    } else if let Some(_) = name.split_type_name_prefix() {
+                        attached_binding_nodes.push(UiBinding {
+                            name,
+                            name_node,
+                            value_node,
+                            notation: UiBindingNotation::Scalar,
+                        });
                     } else {
-                        try_insert_ui_binding_node(&mut binding_map, &name, name_node, value_node)?;
+                        binding_nodes.push(UiBinding {
+                            name,
+                            name_node,
+                            value_node,
+                            notation: UiBindingNotation::Scalar,
+                        });
                     }
                 }
                 // TODO: ...
@@ -233,6 +242,47 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
                 }
             }
         }
+
+        let mut attached_type_map = UiAttachedTypeBindingMap::new();
+        for UiBinding {
+            name,
+            name_node,
+            value_node,
+            ..
+        } in &attached_binding_nodes
+        {
+            let (type_name, prop_name) = name
+                .split_type_name_prefix()
+                .expect("attached binding name should have type prefix");
+            let map = attached_type_map.entry(type_name).or_default();
+            // attached binding can't be grouped
+            try_insert_ui_binding_node(map, &prop_name, *name_node, *value_node)?;
+        }
+
+        let mut binding_map = UiBindingMap::new();
+        for UiBinding {
+            name,
+            name_node,
+            value_node,
+            notation,
+        } in &binding_nodes
+        {
+            match notation {
+                UiBindingNotation::Scalar => {
+                    try_insert_ui_binding_node(&mut binding_map, name, *name_node, *value_node)?;
+                }
+                UiBindingNotation::Grouped => {
+                    try_insert_ui_grouped_binding_node(
+                        &mut binding_map,
+                        name,
+                        *name_node,
+                        *value_node,
+                        source,
+                    )?;
+                }
+            }
+        }
+
         Ok(UiObjectBody {
             object_id,
             child_object_nodes,
@@ -240,6 +290,22 @@ impl<'tree, 'source> UiObjectBody<'tree, 'source> {
             binding_map,
         })
     }
+}
+
+/// Represents a property binding.
+#[derive(Clone, Debug)]
+struct UiBinding<'tree, 'source> {
+    name: NestedIdentifier<'source>,
+    name_node: Node<'tree>,
+    value_node: Node<'tree>,
+    notation: UiBindingNotation,
+}
+
+/// Variant for the property binding notation.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum UiBindingNotation {
+    Scalar,
+    Grouped,
 }
 
 /// Map of type name to attached property binding map.
