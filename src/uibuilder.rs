@@ -304,10 +304,10 @@ where
     }
 }
 
-fn format_typed_constant_expression<'tree, 'source>(
+fn format_typed_constant_expression<'tree>(
     ty: &typemap::Type,
     node: qmlast::Node<'tree>,
-    source: &'source str,
+    source: &str,
 ) -> Result<(&'static [u8], String), qmlast::ParseError<'tree>> {
     use typemap::{PrimitiveType, Type};
     let (kind, formatted) = match ty {
@@ -319,9 +319,9 @@ fn format_typed_constant_expression<'tree, 'source>(
     Ok((kind, formatted))
 }
 
-fn format_constant_expression<'tree, 'source>(
+fn format_constant_expression<'tree>(
     node: qmlast::Node<'tree>,
-    source: &'source str,
+    source: &str,
 ) -> Result<(&'static [u8], String), qmlast::ParseError<'tree>> {
     let (kind, formatted) = match qmlast::Expression::from_node(node, source)? {
         qmlast::Expression::Number(v) => (b"number".as_ref(), v.to_string()),
@@ -354,9 +354,9 @@ fn format_constant_expression<'tree, 'source>(
     Ok((kind, formatted))
 }
 
-fn format_constant_binding_value<'tree, 'source>(
-    value: &qmlast::UiBindingValue<'tree, 'source>,
-    source: &'source str,
+fn format_constant_binding_value<'tree>(
+    value: &qmlast::UiBindingValue<'tree, '_>,
+    source: &str,
 ) -> Result<(&'static [u8], String), qmlast::ParseError<'tree>> {
     match value {
         qmlast::UiBindingValue::Node(n) => format_constant_expression(*n, source),
@@ -364,9 +364,9 @@ fn format_constant_binding_value<'tree, 'source>(
     }
 }
 
-fn format_as_identifier_set<'tree, 'source>(
+fn format_as_identifier_set<'tree>(
     node: qmlast::Node<'tree>,
-    source: &'source str,
+    source: &str,
 ) -> Result<String, qmlast::ParseError<'tree>> {
     match qmlast::Expression::from_node(node, source)? {
         qmlast::Expression::Identifier(n) => Ok(n.to_str(source).to_owned()),
@@ -382,9 +382,9 @@ fn format_as_identifier_set<'tree, 'source>(
     }
 }
 
-fn format_as_nested_identifier<'tree, 'source>(
+fn format_as_nested_identifier<'tree>(
     node: qmlast::Node<'tree>,
-    source: &'source str,
+    source: &str,
 ) -> Result<String, qmlast::ParseError<'tree>> {
     match qmlast::Expression::from_node(node, source)? {
         qmlast::Expression::Identifier(n) => Ok(n.to_str(source).to_owned()),
@@ -396,9 +396,9 @@ fn format_as_nested_identifier<'tree, 'source>(
     }
 }
 
-fn parse_as_identifier<'tree, 'source>(
+fn parse_as_identifier<'tree>(
     node: qmlast::Node<'tree>,
-    source: &'source str,
+    source: &str,
 ) -> Result<qmlast::Identifier<'tree>, qmlast::ParseError<'tree>> {
     match qmlast::Expression::from_node(node, source)? {
         qmlast::Expression::Identifier(n) => Ok(n),
@@ -406,9 +406,9 @@ fn parse_as_identifier<'tree, 'source>(
     }
 }
 
-fn parse_as_identifier_array<'tree, 'source>(
+fn parse_as_identifier_array<'tree>(
     node: qmlast::Node<'tree>,
-    source: &'source str,
+    source: &str,
 ) -> Result<Vec<qmlast::Identifier<'tree>>, qmlast::ParseError<'tree>> {
     match qmlast::Expression::from_node(node, source)? {
         qmlast::Expression::Array(ns) => {
@@ -418,9 +418,9 @@ fn parse_as_identifier_array<'tree, 'source>(
     }
 }
 
-fn parse_as_string<'tree, 'source>(
+fn parse_as_string<'tree>(
     node: qmlast::Node<'tree>,
-    source: &'source str,
+    source: &str,
 ) -> Result<String, qmlast::ParseError<'tree>> {
     match qmlast::Expression::from_node(node, source)? {
         qmlast::Expression::String(s) => Ok(s),
@@ -428,9 +428,9 @@ fn parse_as_string<'tree, 'source>(
     }
 }
 
-fn eval_number<'tree, 'source>(
+fn eval_number<'tree>(
     node: qmlast::Node<'tree>,
-    source: &'source str,
+    source: &str,
 ) -> Result<f64, qmlast::ParseError<'tree>> {
     // TODO: handle overflow, etc.
     let v = match qmlast::Expression::from_node(node, source)? {
@@ -541,10 +541,10 @@ enum GroupedValue {
 }
 
 impl GroupedValue {
-    pub fn from_binding_map<'tree, 'source>(
+    pub fn from_binding_map<'tree>(
         node: qmlast::Node<'tree>,
-        map: &qmlast::UiBindingMap<'tree, 'source>,
-        source: &'source str,
+        map: &qmlast::UiBindingMap<'tree, '_>,
+        source: &str,
     ) -> Result<Self, qmlast::ParseError<'tree>> {
         if map.len() == 2 {
             if let (
