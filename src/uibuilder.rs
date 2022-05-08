@@ -140,7 +140,7 @@ where
             let mut item_tag = BytesStart::borrowed_name(b"item");
             // TODO: resolve against imported types
             if let Some(map) = attached_type_map.get(["QLayoutItem"].as_ref()) {
-                for (&name, value) in collect_sorted_binding_pairs(map) {
+                for (name, value) in collect_sorted_binding_pairs(map) {
                     match format_constant_binding_value(value, self.doc.source()) {
                         Ok((_, s)) => item_tag.push_attribute((name, s.as_ref())),
                         Err(e) => self.errors.push(e),
@@ -220,7 +220,7 @@ where
                 return Ok(());
             }
         };
-        for (&name, value) in collect_sorted_binding_pairs(&map) {
+        for (name, value) in collect_sorted_binding_pairs(&map) {
             if name == "actions" {
                 // TODO: only for QWidget subclasses
                 match value {
@@ -619,11 +619,11 @@ impl GroupedValue {
 fn collect_sorted_binding_pairs<'tree, 'source, 'a>(
     map: &'a qmlast::UiBindingMap<'tree, 'source>,
 ) -> Vec<(
-    &'a &'source str, // TODO
+    &'source str,
     &'a qmlast::UiBindingValue<'tree, 'source>,
 )> {
-    let mut pairs: Vec<_> = map.iter().collect();
-    pairs.sort_by_key(|(&k, _)| k);
+    let mut pairs: Vec<_> = map.iter().map(|(&k, v)| (k, v)).collect();
+    pairs.sort_by_key(|&(k, _)| k);
     pairs
 }
 
