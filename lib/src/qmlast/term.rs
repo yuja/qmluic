@@ -60,7 +60,7 @@ impl<'tree> NestedIdentifier<'tree> {
         } else {
             // (nested_identifier (nested_identifier (identifier) (identifier)) (identifier))
             let mut components = Vec::with_capacity(depth + 1);
-            while depth > 0 {
+            'pop: loop {
                 let node = cursor.node();
                 match node.kind() {
                     "identifier" => {
@@ -75,10 +75,10 @@ impl<'tree> NestedIdentifier<'tree> {
                         return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
                     }
                 }
-                while !cursor.goto_next_sibling() && depth > 0 {
-                    let had_parent = cursor.goto_parent();
-                    assert!(had_parent);
-                    depth -= 1;
+                while !cursor.goto_next_sibling() {
+                    if !cursor.goto_parent() {
+                        break 'pop;
+                    }
                 }
             }
             components
