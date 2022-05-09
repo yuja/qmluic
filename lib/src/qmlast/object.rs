@@ -156,10 +156,7 @@ impl<'tree> UiObjectDefinition<'tree> {
     ) -> Result<UiAttachedTypeBindingMap<'tree, 's>, ParseError<'tree>> {
         let mut type_map = UiAttachedTypeBindingMap::new();
         for UiBinding {
-            name,
-            name_node,
-            value_node,
-            ..
+            name, value_node, ..
         } in self.attached_type_bindings()
         {
             let (type_name, prop_name) = name
@@ -175,7 +172,7 @@ impl<'tree> UiObjectDefinition<'tree> {
                 )
                 .or_default();
             // attached binding can't be grouped
-            try_insert_ui_binding_node(map, &prop_name, *name_node, *value_node, source)?;
+            try_insert_ui_binding_node(map, &prop_name, *value_node, source)?;
         }
         Ok(type_map)
     }
@@ -193,23 +190,16 @@ impl<'tree> UiObjectDefinition<'tree> {
         let mut map = HashMap::new();
         for UiBinding {
             name,
-            name_node,
             value_node,
             notation,
         } in self.bindings()
         {
             match notation {
                 UiBindingNotation::Scalar => {
-                    try_insert_ui_binding_node(&mut map, name, *name_node, *value_node, source)?;
+                    try_insert_ui_binding_node(&mut map, name, *value_node, source)?;
                 }
                 UiBindingNotation::Grouped => {
-                    try_insert_ui_grouped_binding_node(
-                        &mut map,
-                        name,
-                        *name_node,
-                        *value_node,
-                        source,
-                    )?;
+                    try_insert_ui_grouped_binding_node(&mut map, name, *value_node, source)?;
                 }
             }
         }
@@ -256,7 +246,6 @@ impl<'tree> UiObjectBody<'tree> {
                         let value_node = astutil::get_child_by_field_name(node, "initializer")?;
                         bindings.push(UiBinding {
                             name,
-                            name_node,
                             value_node,
                             notation: UiBindingNotation::Grouped,
                         });
@@ -277,14 +266,12 @@ impl<'tree> UiObjectBody<'tree> {
                     } else if let Some(_) = name.split_type_name_prefix(source) {
                         attached_type_bindings.push(UiBinding {
                             name,
-                            name_node,
                             value_node,
                             notation: UiBindingNotation::Scalar,
                         });
                     } else {
                         bindings.push(UiBinding {
                             name,
-                            name_node,
                             value_node,
                             notation: UiBindingNotation::Scalar,
                         });
@@ -315,7 +302,6 @@ impl<'tree> UiObjectBody<'tree> {
 #[derive(Clone, Debug)]
 pub struct UiBinding<'tree> {
     name: NestedIdentifier<'tree>,
-    name_node: Node<'tree>,
     value_node: Node<'tree>,
     notation: UiBindingNotation,
 }
@@ -375,18 +361,22 @@ impl<'tree, 'source> UiBindingValue<'tree, 'source> {
 
 fn ensure_ui_binding_map_bases<'tree, 'source, 'map>(
     mut map: &'map mut UiBindingMap<'tree, 'source>,
-    bases: &[Identifier<'tree>],
-    name_node: Node<'tree>,
+    full_name: &NestedIdentifier<'tree>,
     source: &'source str,
-) -> Result<&'map mut UiBindingMap<'tree, 'source>, ParseError<'tree>> {
-    for &n in bases {
+) -> Result<(&'map mut UiBindingMap<'tree, 'source>, Identifier<'tree>), ParseError<'tree>> {
+    let mut name_iter = full_name.components().iter().copied();
+    let mut cur = name_iter
+        .next()
+        .expect("identifier should have at least one name");
+    for next in name_iter {
+        // new map of name 'cur' is created for the 'next' node.
         match map
-            .entry(n.to_str(source))
-            .or_insert_with(|| UiBindingValue::Map(name_node, HashMap::new()))
+            .entry(cur.to_str(source))
+            .or_insert_with(|| UiBindingValue::Map(next.node(), HashMap::new()))
         {
             UiBindingValue::Node(_) => {
                 return Err(ParseError::new(
-                    name_node,
+                    cur.node(),
                     ParseErrorKind::DuplicatedBinding,
                 ));
             }
@@ -394,30 +384,25 @@ fn ensure_ui_binding_map_bases<'tree, 'source, 'map>(
                 map = m;
             }
         }
+        cur = next;
     }
-    Ok(map)
+    Ok((map, cur))
 }
 
 fn try_insert_ui_binding_node<'tree, 'source>(
     map: &mut UiBindingMap<'tree, 'source>,
     name: &NestedIdentifier<'tree>,
-    name_node: Node<'tree>,
     value_node: Node<'tree>,
     source: &'source str,
 ) -> Result<(), ParseError<'tree>> {
     use std::collections::hash_map::Entry;
 
-    let (last, bases) = name
-        .components()
-        .split_last()
-        .ok_or_else(|| ParseError::new(name_node, ParseErrorKind::InvalidSyntax))?;
-
-    let map = ensure_ui_binding_map_bases(map, bases, name_node, source)?;
+    let (map, last) = ensure_ui_binding_map_bases(map, name, source)?;
     if let Entry::Vacant(e) = map.entry(last.to_str(source)) {
         e.insert(UiBindingValue::Node(value_node));
     } else {
         return Err(ParseError::new(
-            name_node,
+            last.node(),
             ParseErrorKind::DuplicatedBinding,
         ));
     }
@@ -427,7 +412,6 @@ fn try_insert_ui_binding_node<'tree, 'source>(
 fn try_insert_ui_grouped_binding_node<'tree, 'source>(
     map: &mut UiBindingMap<'tree, 'source>,
     group_name: &NestedIdentifier<'tree>,
-    group_name_node: Node<'tree>,
     container_node: Node<'tree>,
     source: &'source str,
 ) -> Result<(), ParseError<'tree>> {
@@ -438,20 +422,17 @@ fn try_insert_ui_grouped_binding_node<'tree, 'source>(
         ));
     }
 
-    // Intermediate maps are created by the group_name_node, but the bottom map should be
+    // Intermediate maps are created by the group_name node, but the bottom map should be
     // attached to the container node if it's newly created.
     let map = {
-        let (last, bases) = group_name
-            .components()
-            .split_last()
-            .ok_or_else(|| ParseError::new(group_name_node, ParseErrorKind::InvalidSyntax))?;
-        let v = ensure_ui_binding_map_bases(map, bases, group_name_node, source)?
+        let (m, last) = ensure_ui_binding_map_bases(map, group_name, source)?;
+        let v = m
             .entry(last.to_str(source))
             .or_insert_with(|| UiBindingValue::Map(container_node, HashMap::new()));
         match v {
             UiBindingValue::Node(_) => {
                 return Err(ParseError::new(
-                    group_name_node,
+                    last.node(),
                     ParseErrorKind::DuplicatedBinding,
                 ));
             }
@@ -468,7 +449,6 @@ fn try_insert_ui_grouped_binding_node<'tree, 'source>(
                 try_insert_ui_grouped_binding_node(
                     map,
                     &name,
-                    name_node,
                     astutil::get_child_by_field_name(node, "initializer")?,
                     source,
                 )?;
@@ -477,7 +457,7 @@ fn try_insert_ui_grouped_binding_node<'tree, 'source>(
                 let name_node = astutil::get_child_by_field_name(node, "name")?;
                 let name = NestedIdentifier::from_node(name_node)?;
                 let value_node = astutil::get_child_by_field_name(node, "value")?;
-                try_insert_ui_binding_node(map, &name, name_node, value_node, source)?;
+                try_insert_ui_binding_node(map, &name, value_node, source)?;
             }
             // order matters: (ERROR) node is extra
             _ if node.is_error() => {
