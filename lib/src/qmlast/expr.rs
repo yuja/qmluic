@@ -2,7 +2,7 @@ use super::astutil;
 use super::term::Identifier;
 use super::{ParseError, ParseErrorKind};
 use std::fmt;
-use tree_sitter::Node;
+use tree_sitter::{Node, TreeCursor};
 
 /// Tagged union that wraps an expression.
 #[derive(Clone, Debug)]
@@ -20,18 +20,36 @@ pub enum Expression<'tree> {
 }
 
 impl<'tree> Expression<'tree> {
-    pub fn from_node(mut node: Node<'tree>, source: &str) -> Result<Self, ParseError<'tree>> {
-        if node.kind() == "expression_statement" {
-            node = node
-                .named_child(0)
-                .ok_or_else(|| ParseError::new(node, ParseErrorKind::InvalidSyntax))?;
+    pub fn from_node(node: Node<'tree>, source: &str) -> Result<Self, ParseError<'tree>> {
+        Self::with_cursor(&mut node.walk(), source)
+    }
+
+    pub(crate) fn with_cursor(
+        cursor: &mut TreeCursor<'tree>,
+        source: &str,
+    ) -> Result<Self, ParseError<'tree>> {
+        // TODO: expression_statement should be handled by caller, and it may hold
+        // sequence_expression.
+        if cursor.node().kind() == "expression_statement" {
+            if !cursor.goto_first_child() {
+                return Err(ParseError::new(
+                    cursor.node(),
+                    ParseErrorKind::InvalidSyntax,
+                ));
+            }
+            astutil::skip_until_named(cursor)?;
         }
-        while node.kind() == "parenthesized_expression" {
-            node = node
-                .named_child(0)
-                .ok_or_else(|| ParseError::new(node, ParseErrorKind::InvalidSyntax))?;
+        while cursor.node().kind() == "parenthesized_expression" {
+            if !cursor.goto_first_child() {
+                return Err(ParseError::new(
+                    cursor.node(),
+                    ParseErrorKind::InvalidSyntax,
+                ));
+            }
+            astutil::skip_until_named(cursor)?;
         }
 
+        let node = cursor.node();
         let expr = match node.kind() {
             "identifier" => Expression::Identifier(Identifier::from_node(node)?),
             "number" => Expression::Number(astutil::parse_number(node, source)?),
@@ -40,7 +58,7 @@ impl<'tree> Expression<'tree> {
             "false" => Expression::Bool(false),
             "array" => {
                 let items = node
-                    .named_children(&mut node.walk())
+                    .named_children(cursor)
                     .filter(|n| !(n.is_extra() && !n.is_error()))
                     .collect();
                 Expression::Array(items)
@@ -53,10 +71,9 @@ impl<'tree> Expression<'tree> {
                 Expression::MemberExpression(MemberExpression { object, property })
             }
             "call_expression" => {
-                let mut cursor = node.walk();
                 let function = astutil::get_child_by_field_name(node, "function")?;
                 let arguments = astutil::get_child_by_field_name(node, "arguments")?
-                    .named_children(&mut cursor)
+                    .named_children(cursor)
                     .filter(|n| !(n.is_extra() && !n.is_error()))
                     .collect();
                 // TODO: <func>?.(<arg>...)
@@ -368,6 +385,7 @@ mod tests {
                 array: [0, 1, /*garbage*/ 2]
                 paren1: (foo)
                 paren2: ((foo))
+                paren_comment: (/*garbage*/ foo)
             }
             "###,
         );
@@ -417,6 +435,7 @@ mod tests {
         );
         assert!(extract_expr(&doc, "paren1").is_ok());
         assert!(extract_expr(&doc, "paren2").is_ok());
+        assert!(extract_expr(&doc, "paren_comment").is_ok());
     }
 
     #[test]
