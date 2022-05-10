@@ -123,9 +123,9 @@ fn unescape_char(escaped: &str) -> Option<char> {
         }
     } else if tail.starts_with("u{") && tail.ends_with('}') {
         char_from_str_radix(&tail[2..tail.len() - 1], 16)
-    } else if tail.starts_with('u') && tail.len() == 5 {
-        char_from_str_radix(&tail[1..], 16)
-    } else if tail.starts_with('x') && tail.len() == 3 {
+    } else if (tail.starts_with('u') && tail.len() == 5)
+        || (tail.starts_with('x') && tail.len() == 3)
+    {
         char_from_str_radix(&tail[1..], 16)
     } else {
         None
