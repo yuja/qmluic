@@ -28,6 +28,14 @@ pub(crate) fn skip_until_named<'tree>(
     Ok(())
 }
 
+pub(crate) fn handle_uninteresting_node(node: Node) -> Result<(), ParseError> {
+    if node.is_extra() || !node.is_named() {
+        Ok(())
+    } else {
+        Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind))
+    }
+}
+
 pub(crate) fn parse_number<'tree, 'source>(
     node: Node<'tree>,
     source: &'source str,

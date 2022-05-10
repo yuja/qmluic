@@ -66,10 +66,7 @@ impl<'tree> NestedIdentifier<'tree> {
                     "identifier" => {
                         components.push(Identifier(node));
                     }
-                    _ if node.is_extra() || !node.is_named() => {}
-                    _ => {
-                        return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
-                    }
+                    _ => astutil::handle_uninteresting_node(node)?,
                 }
                 while !cursor.goto_next_sibling() {
                     if !cursor.goto_parent() {

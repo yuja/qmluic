@@ -278,10 +278,7 @@ impl<'tree> UiObjectBody<'tree> {
                     }
                 }
                 // TODO: ...
-                _ if node.is_extra() || !node.is_named() => {}
-                _ => {
-                    return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
-                }
+                _ => astutil::handle_uninteresting_node(node)?,
             }
         }
 
@@ -455,10 +452,7 @@ fn try_insert_ui_grouped_binding_node<'tree, 'source>(
                 let value_node = astutil::get_child_by_field_name(node, "value")?;
                 try_insert_ui_binding_node(map, &name, value_node, source)?;
             }
-            _ if node.is_extra() || !node.is_named() => {}
-            _ => {
-                return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
-            }
+            _ => astutil::handle_uninteresting_node(node)?,
         }
     }
 
