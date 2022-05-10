@@ -50,7 +50,7 @@ impl<'tree> NestedIdentifier<'tree> {
                     ParseErrorKind::InvalidSyntax,
                 ));
             }
-            astutil::skip_extras(cursor)?;
+            astutil::skip_until_named(cursor)?;
             depth += 1;
         }
 

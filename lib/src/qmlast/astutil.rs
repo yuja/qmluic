@@ -16,8 +16,10 @@ pub(crate) fn node_text<'tree, 'source>(node: Node<'tree>, source: &'source str)
         .expect("source range must be valid utf-8 string")
 }
 
-pub(crate) fn skip_extras<'tree>(cursor: &mut TreeCursor<'tree>) -> Result<(), ParseError<'tree>> {
-    while cursor.node().is_extra() {
+pub(crate) fn skip_until_named<'tree>(
+    cursor: &mut TreeCursor<'tree>,
+) -> Result<(), ParseError<'tree>> {
+    while cursor.node().is_extra() || !cursor.node().is_named() {
         let node = cursor.node();
         if node.is_error() {
             return Err(ParseError::new(node, ParseErrorKind::InvalidSyntax));
