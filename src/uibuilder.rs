@@ -618,10 +618,7 @@ impl GroupedValue {
 /// Builds a list of sorted binding map pairs to stabilize the output.
 fn collect_sorted_binding_pairs<'tree, 'source, 'a>(
     map: &'a qmlast::UiBindingMap<'tree, 'source>,
-) -> Vec<(
-    &'source str,
-    &'a qmlast::UiBindingValue<'tree, 'source>,
-)> {
+) -> Vec<(&'source str, &'a qmlast::UiBindingValue<'tree, 'source>)> {
     let mut pairs: Vec<_> = map.iter().map(|(&k, v)| (k, v)).collect();
     pairs.sort_by_key(|&(k, _)| k);
     pairs
