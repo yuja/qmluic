@@ -36,7 +36,7 @@ fn main() -> quick_xml::Result<()> {
     builder.build()?;
     if !builder.errors().is_empty() {
         for e in builder.errors() {
-            print_parse_error(&doc, &e)?;
+            print_parse_error(&doc, e)?;
         }
         process::exit(1);
     }
