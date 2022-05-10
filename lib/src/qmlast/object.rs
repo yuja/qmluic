@@ -84,7 +84,7 @@ fn build_object_id_map<'tree, 's>(
     Ok(object_id_map)
 }
 
-fn extract_object_id<'tree>(mut node: Node<'tree>) -> Result<Identifier<'tree>, ParseError<'tree>> {
+fn extract_object_id(mut node: Node) -> Result<Identifier, ParseError> {
     // (expression_statement (identifier))
     if node.kind() == "expression_statement" {
         node = node

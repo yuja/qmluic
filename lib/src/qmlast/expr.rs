@@ -184,7 +184,7 @@ pub enum UnaryOperator {
 }
 
 impl UnaryOperator {
-    pub fn from_node<'tree>(node: Node<'tree>) -> Result<Self, ParseError<'tree>> {
+    pub fn from_node(node: Node) -> Result<Self, ParseError> {
         use UnaryOperator::*;
         if node.is_named() {
             return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
@@ -283,7 +283,7 @@ pub enum BinaryOperator {
 }
 
 impl BinaryOperator {
-    pub fn from_node<'tree>(node: Node<'tree>) -> Result<Self, ParseError<'tree>> {
+    pub fn from_node(node: Node) -> Result<Self, ParseError> {
         use BinaryOperator::*;
         if node.is_named() {
             return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
