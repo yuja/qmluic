@@ -311,10 +311,24 @@ fn format_typed_constant_expression<'tree>(
 ) -> Result<(&'static [u8], String), qmlast::ParseError<'tree>> {
     use typemap::{PrimitiveType, Type};
     let (kind, formatted) = match ty {
-        Type::Primitive(PrimitiveType::Int) => {
+        Type::Class(_) => return Err(unexpected_node(node)),
+        Type::Enum(_) => format_constant_expression(node, source)?, // TODO
+        Type::Namespace(_) => return Err(unexpected_node(node)),
+        Type::Primitive(PrimitiveType::Bool) => {
+            // TODO: handle values that can be evaluated as bool
+            match qmlast::Expression::from_node(node, source)? {
+                qmlast::Expression::Bool(false) => (b"bool".as_ref(), "false".to_owned()),
+                qmlast::Expression::Bool(true) => (b"bool".as_ref(), "true".to_owned()),
+                _ => return Err(unexpected_node(node)),
+            }
+        }
+        Type::Primitive(PrimitiveType::Int | PrimitiveType::QReal | PrimitiveType::UInt) => {
             (b"number".as_ref(), eval_number(node, source)?.to_string())
         }
-        _ => format_constant_expression(node, source)?, // TODO
+        Type::Primitive(PrimitiveType::QString) => {
+            (b"string".as_ref(), parse_as_string(node, source)?)
+        }
+        Type::Primitive(PrimitiveType::Void) => return Err(unexpected_node(node)),
     };
     Ok((kind, formatted))
 }
@@ -422,10 +436,17 @@ fn parse_as_string<'tree>(
     node: qmlast::Node<'tree>,
     source: &str,
 ) -> Result<String, qmlast::ParseError<'tree>> {
-    match qmlast::Expression::from_node(node, source)? {
-        qmlast::Expression::String(s) => Ok(s),
-        _ => Err(unexpected_node(node)),
-    }
+    let s = match qmlast::Expression::from_node(node, source)? {
+        qmlast::Expression::CallExpression(x) => {
+            match parse_as_identifier(x.function, source)?.to_str(source) {
+                "qsTr" if x.arguments.len() == 1 => parse_as_string(x.arguments[0], source)?,
+                _ => return Err(unexpected_node(node)),
+            }
+        }
+        qmlast::Expression::String(s) => s,
+        _ => return Err(unexpected_node(node)),
+    };
+    Ok(s)
 }
 
 fn eval_number<'tree>(
