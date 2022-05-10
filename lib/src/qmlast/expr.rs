@@ -59,7 +59,7 @@ impl<'tree> Expression<'tree> {
             "array" => {
                 let items = node
                     .named_children(cursor)
-                    .filter(|n| !(n.is_extra() && !n.is_error()))
+                    .filter(|n| !n.is_extra())
                     .collect();
                 Expression::Array(items)
             }
@@ -74,7 +74,7 @@ impl<'tree> Expression<'tree> {
                 let function = astutil::get_child_by_field_name(node, "function")?;
                 let arguments = astutil::get_child_by_field_name(node, "arguments")?
                     .named_children(cursor)
-                    .filter(|n| !(n.is_extra() && !n.is_error()))
+                    .filter(|n| !n.is_extra())
                     .collect();
                 // TODO: <func>?.(<arg>...)
                 Expression::CallExpression(CallExpression {

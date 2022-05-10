@@ -21,9 +21,6 @@ pub(crate) fn skip_until_named<'tree>(
 ) -> Result<(), ParseError<'tree>> {
     while cursor.node().is_extra() || !cursor.node().is_named() {
         let node = cursor.node();
-        if node.is_error() {
-            return Err(ParseError::new(node, ParseErrorKind::InvalidSyntax));
-        }
         if !cursor.goto_next_sibling() {
             return Err(ParseError::new(node, ParseErrorKind::InvalidSyntax));
         }

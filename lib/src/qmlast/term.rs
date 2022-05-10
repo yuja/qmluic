@@ -66,10 +66,6 @@ impl<'tree> NestedIdentifier<'tree> {
                     "identifier" => {
                         components.push(Identifier(node));
                     }
-                    // order matters: (ERROR) node is extra
-                    _ if node.is_error() => {
-                        return Err(ParseError::new(node, ParseErrorKind::InvalidSyntax));
-                    }
                     _ if node.is_extra() || !node.is_named() => {}
                     _ => {
                         return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
@@ -185,7 +181,9 @@ mod tests {
 
     #[test]
     fn doubled_dots_in_identifier() {
+        // this is syntax error, but recovered as Foo./* something bad */Bar.
         let doc = parse(r"Foo..Bar {}");
-        assert!(extract_type_id(&doc).is_err());
+        let id = extract_type_id(&doc).unwrap();
+        assert_eq!(id.to_string(doc.source()), "Foo.Bar");
     }
 }
