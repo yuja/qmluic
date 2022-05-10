@@ -263,7 +263,7 @@ impl<'tree> UiObjectBody<'tree> {
                             ));
                         }
                         object_id = Some(extract_object_id(value_node)?);
-                    } else if let Some(_) = name.split_type_name_prefix(source) {
+                    } else if name.split_type_name_prefix(source).is_some() {
                         attached_type_bindings.push(UiBinding {
                             name,
                             value_node,
