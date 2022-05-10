@@ -624,7 +624,7 @@ fn collect_sorted_binding_pairs<'tree, 'source, 'a>(
     pairs
 }
 
-fn unexpected_node<'tree>(node: qmlast::Node<'tree>) -> qmlast::ParseError<'tree> {
+fn unexpected_node(node: qmlast::Node) -> qmlast::ParseError {
     qmlast::ParseError::new(node, qmlast::ParseErrorKind::UnexpectedNodeKind)
 }
 
