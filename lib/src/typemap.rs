@@ -260,12 +260,13 @@ impl<'a> Class<'a> {
         &self.data.class_name
     }
 
-    pub fn public_super_classes<'b>(&'b self) -> impl Iterator<Item = Type<'a>> + 'b {
-        // TODO: error out if type name can't be resolved?
-        self.data
-            .public_super_class_names
-            .iter()
-            .filter_map(|n| self.parent_space.resolve_type_scoped(n))
+    pub fn public_super_classes<'b>(&'b self) -> impl Iterator<Item = Class<'a>> + 'b {
+        self.data.public_super_class_names.iter().filter_map(|n| {
+            match self.parent_space.resolve_type_scoped(n) {
+                Some(Type::Class(x)) => Some(x),
+                _ => None, // TODO: error?
+            }
+        })
     }
 
     /// Looks up type of the specified property.
@@ -276,10 +277,8 @@ impl<'a> Class<'a> {
             .get(name)
             .and_then(|p| self.resolve_type_scoped(&p.type_name))
             .or_else(|| {
-                self.public_super_classes().find_map(|ty| match ty {
-                    Type::Class(cls) => cls.get_property_type(name),
-                    _ => None,
-                })
+                self.public_super_classes()
+                    .find_map(|cls| cls.get_property_type(name))
             })
     }
 }
