@@ -271,14 +271,54 @@ where
 
     fn process_binding_grouped_value(
         &mut self,
-        _ty: &typemap::Type, // TODO: don't guess type
+        ty: &typemap::Type,
         node: qmlast::Node<'a>,
         map: &qmlast::UiBindingMap<'a, 'a>,
     ) -> quick_xml::Result<()> {
-        match GroupedValue::from_binding_map(node, map, self.doc.source()) {
-            Ok(x) => x.write_ui_xml(&mut self.writer)?,
-            Err(e) => self.errors.push(e),
+        let cls = match ty {
+            typemap::Type::Class(x) => x,
+            _ => {
+                self.errors.push(unexpected_node(node));
+                return Ok(());
+            }
         };
+        match cls.name() {
+            "QRect" => self.write_grouped_values(
+                b"rect",
+                format_grouped_values(cls, map, self.doc.source()),
+            )?,
+            "QSize" => self.write_grouped_values(
+                b"size",
+                format_grouped_values(cls, map, self.doc.source()),
+            )?,
+            "QSizePolicy" => {
+                // TODO: QSizePolicy is special in that
+                // a) it is registered as gadget type but have no useful property,
+                // b) .ui XML attribute names are diverged from method/property names.
+                match SizePolicy::from_binding_map(node, map, self.doc.source()) {
+                    Ok(x) => x.write_ui_xml(&mut self.writer)?,
+                    Err(e) => self.errors.push(e),
+                }
+            }
+            _ => self.errors.push(unexpected_node(node)),
+        };
+        Ok(())
+    }
+
+    fn write_grouped_values<'b>(
+        &mut self,
+        tag: &[u8],
+        values: impl Iterator<Item = Result<(&'b str, String), qmlast::ParseError<'a>>>,
+    ) -> quick_xml::Result<()> {
+        let tag = BytesStart::borrowed_name(tag);
+        self.writer.write_event(Event::Start(tag.to_borrowed()))?;
+        for r in values {
+            match r {
+                Ok((n, v)) => write_tagged_str(&mut self.writer, n.as_bytes(), &v)?,
+                Err(e) => self.errors.push(e),
+            }
+        }
+        self.writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
     }
 
@@ -515,50 +555,25 @@ fn eval_number<'tree>(
     Ok(v)
 }
 
-struct Rect {
-    pub x: f64,
-    pub y: f64,
-    pub width: f64,
-    pub height: f64,
-}
-
-impl Rect {
-    fn write_ui_xml<W>(&self, writer: &mut quick_xml::Writer<W>) -> quick_xml::Result<()>
-    where
-        W: io::Write,
-    {
-        let tag = BytesStart::borrowed_name(b"rect");
-        writer.write_event(Event::Start(tag.to_borrowed()))?;
-
-        write_tagged_str(writer, b"x", &self.x.to_string())?;
-        write_tagged_str(writer, b"y", &self.y.to_string())?;
-        write_tagged_str(writer, b"width", &self.width.to_string())?;
-        write_tagged_str(writer, b"height", &self.height.to_string())?;
-
-        writer.write_event(Event::End(tag.to_end()))?;
-        Ok(())
-    }
-}
-
-struct Size {
-    pub width: f64,
-    pub height: f64,
-}
-
-impl Size {
-    fn write_ui_xml<W>(&self, writer: &mut quick_xml::Writer<W>) -> quick_xml::Result<()>
-    where
-        W: io::Write,
-    {
-        let tag = BytesStart::borrowed_name(b"size");
-        writer.write_event(Event::Start(tag.to_borrowed()))?;
-
-        write_tagged_str(writer, b"width", &self.width.to_string())?;
-        write_tagged_str(writer, b"height", &self.height.to_string())?;
-
-        writer.write_event(Event::End(tag.to_end()))?;
-        Ok(())
-    }
+fn format_grouped_values<'tree, 's, 'a>(
+    cls: &'a typemap::Class,
+    map: &'a qmlast::UiBindingMap<'tree, 's>,
+    source: &'a str,
+) -> impl Iterator<Item = Result<(&'s str, String), qmlast::ParseError<'tree>>> + 'a {
+    collect_sorted_binding_pairs(map)
+        .into_iter()
+        .map(|(name, value)| {
+            let ty = cls
+                .get_property_type(name)
+                .ok_or_else(|| unexpected_node(value.node()))?; // TODO: unknown property/type
+            let (_kind, formatted) = match value {
+                qmlast::UiBindingValue::Node(n) => {
+                    format_typed_constant_expression(&ty, *n, source)?
+                }
+                qmlast::UiBindingValue::Map(n, _) => return Err(unexpected_node(*n)),
+            };
+            Ok((name, formatted))
+        })
 }
 
 struct SizePolicy {
@@ -569,6 +584,34 @@ struct SizePolicy {
 }
 
 impl SizePolicy {
+    fn from_binding_map<'tree>(
+        node: qmlast::Node<'tree>,
+        map: &qmlast::UiBindingMap<'tree, '_>,
+        source: &str,
+    ) -> Result<Self, qmlast::ParseError<'tree>> {
+        if let (
+            Some(qmlast::UiBindingValue::Node(hpol)),
+            Some(qmlast::UiBindingValue::Node(vpol)),
+            Some(qmlast::UiBindingValue::Node(hstretch)),
+            Some(qmlast::UiBindingValue::Node(vstretch)),
+        ) = (
+            map.get("horizontalPolicy"),
+            map.get("verticalPolicy"),
+            map.get("horizontalStretch"),
+            map.get("verticalStretch"),
+        ) {
+            let policy = SizePolicy {
+                horizontal_policy: format_as_nested_identifier(*hpol, source)?,
+                vertical_policy: format_as_nested_identifier(*vpol, source)?,
+                horizontal_stretch: eval_number(*hstretch, source)?,
+                vertical_stretch: eval_number(*vstretch, source)?,
+            };
+            Ok(policy)
+        } else {
+            Err(unexpected_node(node))
+        }
+    }
+
     fn write_ui_xml<W>(&self, writer: &mut quick_xml::Writer<W>) -> quick_xml::Result<()>
     where
         W: io::Write,
@@ -584,87 +627,6 @@ impl SizePolicy {
 
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
-    }
-}
-
-enum GroupedValue {
-    Rect(Rect),
-    Size(Size),
-    SizePolicy(SizePolicy),
-}
-
-impl GroupedValue {
-    pub fn from_binding_map<'tree>(
-        node: qmlast::Node<'tree>,
-        map: &qmlast::UiBindingMap<'tree, '_>,
-        source: &str,
-    ) -> Result<Self, qmlast::ParseError<'tree>> {
-        if map.len() == 2 {
-            if let (
-                Some(qmlast::UiBindingValue::Node(width)),
-                Some(qmlast::UiBindingValue::Node(height)),
-            ) = (map.get("width"), map.get("height"))
-            {
-                let size = Size {
-                    width: eval_number(*width, source)?,
-                    height: eval_number(*height, source)?,
-                };
-                return Ok(GroupedValue::Size(size));
-            }
-        } else if map.len() == 4 {
-            if let (
-                Some(qmlast::UiBindingValue::Node(x)),
-                Some(qmlast::UiBindingValue::Node(y)),
-                Some(qmlast::UiBindingValue::Node(width)),
-                Some(qmlast::UiBindingValue::Node(height)),
-            ) = (
-                map.get("x"),
-                map.get("y"),
-                map.get("width"),
-                map.get("height"),
-            ) {
-                let rect = Rect {
-                    x: eval_number(*x, source)?,
-                    y: eval_number(*y, source)?,
-                    width: eval_number(*width, source)?,
-                    height: eval_number(*height, source)?,
-                };
-                return Ok(GroupedValue::Rect(rect));
-            }
-
-            if let (
-                Some(qmlast::UiBindingValue::Node(hpol)),
-                Some(qmlast::UiBindingValue::Node(vpol)),
-                Some(qmlast::UiBindingValue::Node(hstretch)),
-                Some(qmlast::UiBindingValue::Node(vstretch)),
-            ) = (
-                map.get("horizontalPolicy"),
-                map.get("verticalPolicy"),
-                map.get("horizontalStretch"),
-                map.get("verticalStretch"),
-            ) {
-                let policy = SizePolicy {
-                    horizontal_policy: format_as_nested_identifier(*hpol, source)?,
-                    vertical_policy: format_as_nested_identifier(*vpol, source)?,
-                    horizontal_stretch: eval_number(*hstretch, source)?,
-                    vertical_stretch: eval_number(*vstretch, source)?,
-                };
-                return Ok(GroupedValue::SizePolicy(policy));
-            }
-        }
-
-        Err(unexpected_node(node))
-    }
-
-    fn write_ui_xml<W>(&self, writer: &mut quick_xml::Writer<W>) -> quick_xml::Result<()>
-    where
-        W: io::Write,
-    {
-        match self {
-            GroupedValue::Rect(x) => x.write_ui_xml(writer),
-            GroupedValue::Size(x) => x.write_ui_xml(writer),
-            GroupedValue::SizePolicy(x) => x.write_ui_xml(writer),
-        }
     }
 }
 

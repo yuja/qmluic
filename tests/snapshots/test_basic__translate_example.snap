@@ -7,10 +7,10 @@ expression: "translate_file(\"examples/SettingsDialog.qml\")"
  <widget class="QDialog">
   <property name="geometry">
    <rect>
+    <height>300</height>
+    <width>400</width>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
-    <height>300</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -82,8 +82,8 @@ expression: "translate_file(\"examples/SettingsDialog.qml\")"
      </property>
      <property name="sizeHint">
       <size>
-       <width>20</width>
        <height>40</height>
+       <width>20</width>
       </size>
      </property>
     </spacer>

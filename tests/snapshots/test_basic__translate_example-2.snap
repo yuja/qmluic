@@ -1,16 +1,16 @@
 ---
 source: tests/test_basic.rs
-expression: "translate_file(\"examples/MainWindow.qml\", \"MainWindow\")"
+expression: "translate_file(\"examples/MainWindow.qml\")"
 ---
 <ui version="4.0">
  <class>MainWindow</class>
  <widget class="QMainWindow">
   <property name="geometry">
    <rect>
+    <height>600</height>
+    <width>800</width>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
-    <height>600</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -22,10 +22,10 @@ expression: "translate_file(\"examples/MainWindow.qml\", \"MainWindow\")"
    <addaction name="menu_File"/>
    <property name="geometry">
     <rect>
+     <height>20</height>
+     <width>800</width>
      <x>0</x>
      <y>0</y>
-     <width>800</width>
-     <height>20</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_File">
