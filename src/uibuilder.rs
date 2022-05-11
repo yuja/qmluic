@@ -244,7 +244,11 @@ where
                 let ty_opt = cls.get_property_type(name);
                 match value {
                     qmlast::UiBindingValue::Node(n) => {
-                        self.process_binding_value_node(ty_opt.as_ref(), *n)?;
+                        if let Some(ty) = &ty_opt {
+                            self.process_binding_value_node(ty, *n)?;
+                        } else {
+                            self.errors.push(unexpected_node(*n)); // TODO: unknown property/type
+                        }
                     }
                     qmlast::UiBindingValue::Map(n, m) => {
                         self.process_binding_grouped_value(ty_opt.as_ref(), *n, m)?;
@@ -259,15 +263,10 @@ where
 
     fn process_binding_value_node(
         &mut self,
-        ty_opt: Option<&typemap::Type>,
+        ty: &typemap::Type,
         node: qmlast::Node<'a>,
     ) -> quick_xml::Result<()> {
-        let res = if let Some(ty) = ty_opt {
-            format_typed_constant_expression(ty, node, self.doc.source())
-        } else {
-            format_constant_expression(node, self.doc.source())
-        };
-        match res {
+        match format_typed_constant_expression(ty, node, self.doc.source()) {
             Ok((kind, formatted)) => write_tagged_str(&mut self.writer, kind, &formatted)?,
             Err(e) => self.errors.push(e),
         };
@@ -343,41 +342,6 @@ fn format_typed_constant_expression<'tree>(
             (b"string".as_ref(), parse_as_string(node, source)?)
         }
         Type::Primitive(PrimitiveType::Void) => return Err(unexpected_node(node)),
-    };
-    Ok((kind, formatted))
-}
-
-fn format_constant_expression<'tree>(
-    node: qmlast::Node<'tree>,
-    source: &str,
-) -> Result<(&'static [u8], String), qmlast::ParseError<'tree>> {
-    let (kind, formatted) = match qmlast::Expression::from_node(node, source)? {
-        qmlast::Expression::Number(v) => (b"number".as_ref(), v.to_string()),
-        qmlast::Expression::String(s) => (b"string".as_ref(), s),
-        qmlast::Expression::Bool(false) => (b"bool".as_ref(), "false".to_owned()),
-        qmlast::Expression::Bool(true) => (b"bool".as_ref(), "true".to_owned()),
-        qmlast::Expression::MemberExpression(_) => {
-            // TODO: ambiguous, it could be a set
-            (b"enum".as_ref(), format_as_nested_identifier(node, source)?)
-        }
-        qmlast::Expression::CallExpression(x) => {
-            match parse_as_identifier(x.function, source)?.to_str(source) {
-                "qsTr" if x.arguments.len() == 1 => {
-                    (b"string".as_ref(), parse_as_string(x.arguments[0], source)?)
-                }
-                _ => return Err(unexpected_node(node)),
-            }
-        }
-        qmlast::Expression::UnaryExpression(_) => {
-            let v = eval_number(node, source)?; // handle -num
-            (b"number".as_ref(), v.to_string())
-        }
-        qmlast::Expression::BinaryExpression(_) => {
-            let as_set = format_as_identifier_set(node, source).map(|s| (b"set".as_ref(), s));
-            let as_number = eval_number(node, source).map(|v| (b"number".as_ref(), v.to_string()));
-            as_set.or(as_number)?
-        }
-        _ => return Err(unexpected_node(node)),
     };
     Ok((kind, formatted))
 }
