@@ -7,7 +7,7 @@
             "properties": [
                 {
                     "name": "orientation",
-                    "type": "Qt::Alignment",
+                    "type": "Qt::Orientation",
                     "designable": true,
                     "scriptable": true,
                     "stored": true,

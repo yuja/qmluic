@@ -78,7 +78,7 @@ expression: "translate_file(\"examples/SettingsDialog.qml\")"
    <item>
     <spacer name="verticalSpacer">
      <property name="orientation">
-      <set>Qt::Vertical</set>
+      <enum>Qt::Vertical</enum>
      </property>
      <property name="sizeHint">
       <size>
