@@ -312,7 +312,16 @@ fn format_typed_constant_expression<'tree>(
     use typemap::{PrimitiveType, Type};
     let (kind, formatted) = match ty {
         Type::Class(_) => return Err(unexpected_node(node)),
-        Type::Enum(_) => format_constant_expression(node, source)?, // TODO
+        Type::Enum(en) => {
+            // try to format x|y|z without parens for the Qt Designer compatibility
+            let expr = format_as_identifier_set(node, source)
+                .or_else(|_| format_as_expression(node, source))?;
+            if en.is_flag() {
+                (b"set".as_ref(), expr)
+            } else {
+                (b"enum".as_ref(), expr)
+            }
+        }
         Type::Namespace(_) => return Err(unexpected_node(node)),
         Type::Primitive(PrimitiveType::Bool) => {
             // TODO: handle values that can be evaluated as bool
@@ -376,6 +385,74 @@ fn format_constant_binding_value<'tree>(
         qmlast::UiBindingValue::Node(n) => format_constant_expression(*n, source),
         qmlast::UiBindingValue::Map(n, _) => Err(unexpected_node(*n)),
     }
+}
+
+/// Formats node as an constant expression without evaluation.
+///
+/// Here we don't strictly follow the JavaScript language model, but try 1:1 mapping.
+fn format_as_expression<'tree>(
+    node: qmlast::Node<'tree>,
+    source: &str,
+) -> Result<String, qmlast::ParseError<'tree>> {
+    use qmlast::{BinaryOperator, Expression, UnaryOperator};
+    let formatted = match qmlast::Expression::from_node(node, source)? {
+        Expression::Identifier(_) => format_as_nested_identifier(node, source)?,
+        Expression::Number(v) => v.to_string(),
+        Expression::String(s) => format!("{:?}", s), // TODO: escape per C spec
+        Expression::Bool(false) => "false".to_owned(),
+        Expression::Bool(true) => "true".to_owned(),
+        Expression::Array(_) => return Err(unexpected_node(node)), // TODO
+        Expression::MemberExpression(_) => format_as_nested_identifier(node, source)?,
+        Expression::CallExpression(_) => return Err(unexpected_node(node)), // TODO
+        Expression::UnaryExpression(x) => {
+            let arg = format_as_expression(x.argument, source)?;
+            match x.operator {
+                UnaryOperator::LogicalNot
+                | UnaryOperator::BitwiseNot
+                | UnaryOperator::Minus
+                | UnaryOperator::Plus => {
+                    format!("{}({})", x.operator, arg)
+                }
+                UnaryOperator::Typeof | UnaryOperator::Void | UnaryOperator::Delete => {
+                    return Err(unexpected_node(node))
+                }
+            }
+        }
+        Expression::BinaryExpression(x) => {
+            let left = format_as_expression(x.left, source)?;
+            let right = format_as_expression(x.right, source)?;
+            match x.operator {
+                BinaryOperator::LogicalAnd
+                | BinaryOperator::LogicalOr
+                | BinaryOperator::RightShift
+                | BinaryOperator::LeftShift
+                | BinaryOperator::BitwiseAnd
+                | BinaryOperator::BitwiseXor
+                | BinaryOperator::BitwiseOr
+                | BinaryOperator::Add
+                | BinaryOperator::Sub
+                | BinaryOperator::Mul
+                | BinaryOperator::Div
+                | BinaryOperator::Rem
+                | BinaryOperator::Equal
+                | BinaryOperator::NotEqual
+                | BinaryOperator::LessThan
+                | BinaryOperator::LessThanEqual
+                | BinaryOperator::GreaterThan
+                | BinaryOperator::GreaterThanEqual => {
+                    format!("({}){}({})", left, x.operator, right)
+                }
+                BinaryOperator::StrictEqual => format!("({}){}({})", left, "==", right),
+                BinaryOperator::StrictNotEqual => format!("({}){}({})", left, "!=", right),
+                BinaryOperator::UnsignedRightShift
+                | BinaryOperator::Exp
+                | BinaryOperator::NullishCoalesce
+                | BinaryOperator::Instanceof
+                | BinaryOperator::In => return Err(unexpected_node(node)), // TODO
+            }
+        }
+    };
+    Ok(formatted)
 }
 
 fn format_as_identifier_set<'tree>(

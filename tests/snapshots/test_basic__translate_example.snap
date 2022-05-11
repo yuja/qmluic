@@ -1,6 +1,6 @@
 ---
 source: tests/test_basic.rs
-expression: "translate_file(\"examples/SettingsDialog.qml\", \"SettingsDialog\")"
+expression: "translate_file(\"examples/SettingsDialog.qml\")"
 ---
 <ui version="4.0">
  <class>SettingsDialog</class>
@@ -78,7 +78,7 @@ expression: "translate_file(\"examples/SettingsDialog.qml\", \"SettingsDialog\")
    <item>
     <spacer name="verticalSpacer">
      <property name="orientation">
-      <enum>Qt::Vertical</enum>
+      <set>Qt::Vertical</set>
      </property>
      <property name="sizeHint">
       <size>
