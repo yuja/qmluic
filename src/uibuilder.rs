@@ -140,10 +140,15 @@ where
             let mut item_tag = BytesStart::borrowed_name(b"item");
             // TODO: resolve against imported types
             if let Some(map) = attached_type_map.get(["QLayoutItem"].as_ref()) {
+                // TODO: look up attached type
                 for (name, value) in collect_sorted_binding_pairs(map) {
-                    match format_constant_binding_value(value, self.doc.source()) {
-                        Ok((_, s)) => item_tag.push_attribute((name, s.as_ref())),
-                        Err(e) => self.errors.push(e),
+                    match value {
+                        qmlast::UiBindingValue::Node(n) => match eval_number(*n, self.doc.source())
+                        {
+                            Ok(d) => item_tag.push_attribute((name, d.to_string().as_ref())),
+                            Err(e) => self.errors.push(e),
+                        },
+                        qmlast::UiBindingValue::Map(n, _) => self.errors.push(unexpected_node(*n)),
                     }
                 }
             }
@@ -375,16 +380,6 @@ fn format_constant_expression<'tree>(
         _ => return Err(unexpected_node(node)),
     };
     Ok((kind, formatted))
-}
-
-fn format_constant_binding_value<'tree>(
-    value: &qmlast::UiBindingValue<'tree, '_>,
-    source: &str,
-) -> Result<(&'static [u8], String), qmlast::ParseError<'tree>> {
-    match value {
-        qmlast::UiBindingValue::Node(n) => format_constant_expression(*n, source),
-        qmlast::UiBindingValue::Map(n, _) => Err(unexpected_node(*n)),
-    }
 }
 
 /// Formats node as an constant expression without evaluation.
