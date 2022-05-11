@@ -234,28 +234,24 @@ where
                     }
                     qmlast::UiBindingValue::Map(n, _) => self.errors.push(unexpected_node(*n)),
                 }
-            } else {
+            } else if let Some(ty) = cls.get_property_type(name) {
                 let prop_tag =
                     BytesStart::borrowed_name(b"property").with_attributes([("name", name)]);
                 self.writer
                     .write_event(Event::Start(prop_tag.to_borrowed()))?;
 
-                // TODO: error out if property type can't be mapped
-                let ty_opt = cls.get_property_type(name);
                 match value {
                     qmlast::UiBindingValue::Node(n) => {
-                        if let Some(ty) = &ty_opt {
-                            self.process_binding_value_node(ty, *n)?;
-                        } else {
-                            self.errors.push(unexpected_node(*n)); // TODO: unknown property/type
-                        }
+                        self.process_binding_value_node(&ty, *n)?;
                     }
                     qmlast::UiBindingValue::Map(n, m) => {
-                        self.process_binding_grouped_value(ty_opt.as_ref(), *n, m)?;
+                        self.process_binding_grouped_value(&ty, *n, m)?
                     }
                 }
 
                 self.writer.write_event(Event::End(prop_tag.to_end()))?;
+            } else {
+                self.errors.push(unexpected_node(value.node())); // TODO: unknown property/type
             }
         }
         Ok(()) // TODO
@@ -275,7 +271,7 @@ where
 
     fn process_binding_grouped_value(
         &mut self,
-        _ty_opt: Option<&typemap::Type>, // TODO: don't guess type
+        _ty: &typemap::Type, // TODO: don't guess type
         node: qmlast::Node<'a>,
         map: &qmlast::UiBindingMap<'a, 'a>,
     ) -> quick_xml::Result<()> {

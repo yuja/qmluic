@@ -318,11 +318,20 @@ pub type UiBindingMap<'tree, 'source> = HashMap<&'source str, UiBindingValue<'tr
 /// Variant for the property binding map.
 #[derive(Clone, Debug)]
 pub enum UiBindingValue<'tree, 'source> {
+    // TODO: rename Node and get_node() which are ambiguous
     Node(Node<'tree>),
     Map(Node<'tree>, UiBindingMap<'tree, 'source>),
 }
 
 impl<'tree, 'source> UiBindingValue<'tree, 'source> {
+    /// Node representing this expression or group.
+    pub fn node(&self) -> Node<'tree> {
+        match self {
+            UiBindingValue::Node(n) => *n,
+            UiBindingValue::Map(n, _) => *n,
+        }
+    }
+
     /// Returns whether this is a (nested) map or not.
     pub fn is_map(&self) -> bool {
         self.get_map().is_some()
