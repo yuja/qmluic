@@ -103,12 +103,8 @@ impl TypeMapData {
         let start = self.enums.len();
         for (i, meta) in iter.into_iter().enumerate() {
             let name = meta.name.clone();
-            let alias = meta.alias.clone();
             self.enums.push(EnumData::from_meta(meta));
             self.name_map.insert(name, TypeIndex::Enum(i + start));
-            if let Some(n) = alias {
-                self.name_map.insert(n, TypeIndex::Enum(i + start));
-            }
         }
     }
 
@@ -118,7 +114,7 @@ impl TypeMapData {
     {
         self.name_map.get(name).map(|&index| match index {
             TypeIndex::Class(i) => Type::Class(Class::new(&self.classes[i], make_parent_space())),
-            TypeIndex::Enum(i) => Type::Enum(Enum::new(&self.enums[i])),
+            TypeIndex::Enum(i) => Type::Enum(Enum::new(&self.enums[i], make_parent_space())),
             TypeIndex::Primitive(t) => Type::Primitive(t),
         })
     }
@@ -363,24 +359,39 @@ impl PropertyData {
 #[derive(Clone, Debug)]
 pub struct Enum<'a> {
     data: &'a EnumData,
+    parent_space: Box<Type<'a>>, // should be either Class or Namespace
 }
 
 /// Stored enum representation.
 #[derive(Clone, Debug)]
 struct EnumData {
     name: String,
+    alias: Option<String>,
     is_class: bool,
     is_flag: bool,
     values: Vec<String>,
 }
 
 impl<'a> Enum<'a> {
-    fn new(data: &'a EnumData) -> Self {
-        Enum { data }
+    fn new(data: &'a EnumData, parent_space: Type<'a>) -> Self {
+        Enum {
+            data,
+            parent_space: Box::new(parent_space),
+        }
     }
 
     pub fn name(&self) -> &str {
         &self.data.name
+    }
+
+    pub fn alias_enum(&self) -> Option<Enum<'a>> {
+        self.data
+            .alias
+            .as_ref()
+            .and_then(|n| match self.parent_space.resolve_type_scoped(n) {
+                Some(Type::Enum(x)) => Some(x),
+                _ => None, // TODO: error?
+            })
     }
 
     pub fn is_scoped(&self) -> bool {
@@ -399,7 +410,7 @@ impl<'a> Enum<'a> {
 impl<'a> PartialEq for Enum<'a> {
     fn eq(&self, other: &Self) -> bool {
         // two types should be equal if both borrow the identical data.
-        ptr::eq(self.data, other.data)
+        ptr::eq(self.data, other.data) && self.parent_space == other.parent_space
     }
 }
 
@@ -409,6 +420,7 @@ impl EnumData {
     fn from_meta(meta: metatype::Enum) -> Self {
         EnumData {
             name: meta.name,
+            alias: meta.alias,
             is_class: meta.is_class,
             is_flag: meta.is_flag,
             values: meta.values,
@@ -504,6 +516,13 @@ mod tests {
         }
     }
 
+    fn unwrap_enum(ty: Option<Type>) -> Enum {
+        match ty {
+            Some(Type::Enum(x)) => x,
+            _ => panic!("unexpected type: {ty:?}"),
+        }
+    }
+
     #[test]
     fn type_eq() {
         let mut type_map = TypeMap::new();
@@ -530,10 +549,10 @@ mod tests {
     #[test]
     fn aliased_enum_eq() {
         let mut type_map = TypeMap::new();
-        type_map.extend([new_flag_meta("Foo", "Foos")]);
+        type_map.extend([new_enum_meta("Foo"), new_flag_meta("Foos", "Foo")]);
         assert_eq!(
-            type_map.get_type("Foo").unwrap(),
-            type_map.get_type("Foos").unwrap()
+            unwrap_enum(type_map.get_type("Foos")).alias_enum(),
+            Some(unwrap_enum(type_map.get_type("Foo")))
         );
     }
 
