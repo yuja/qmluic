@@ -102,8 +102,8 @@ impl TypeMapData {
     {
         let start = self.enums.len();
         for (i, meta) in iter.into_iter().enumerate() {
-            let (name, data) = EnumData::pair_from_meta(meta);
-            self.enums.push(data);
+            let name = meta.name.clone();
+            self.enums.push(EnumData::from_meta(meta));
             self.name_map.insert(name, TypeIndex::Enum(i + start));
         }
     }
@@ -118,9 +118,7 @@ impl TypeMapData {
                 TypeIndex::Class(i) => {
                     Type::Class(Class::new(name, &self.classes[i], make_parent_space()))
                 }
-                TypeIndex::Enum(i) => {
-                    Type::Enum(Enum::new(name, &self.enums[i], make_parent_space()))
-                }
+                TypeIndex::Enum(i) => Type::Enum(Enum::new(&self.enums[i], make_parent_space())),
                 TypeIndex::Primitive(t) => Type::Primitive(t),
             })
     }
@@ -366,7 +364,6 @@ impl PropertyData {
 /// Enum representation.
 #[derive(Clone, Debug)]
 pub struct Enum<'a> {
-    name: &'a str,
     data: &'a EnumData,
     parent_space: Box<Type<'a>>, // should be either Class or Namespace
 }
@@ -374,6 +371,7 @@ pub struct Enum<'a> {
 /// Stored enum representation.
 #[derive(Clone, Debug)]
 struct EnumData {
+    name: String,
     alias: Option<String>,
     is_class: bool,
     is_flag: bool,
@@ -381,16 +379,15 @@ struct EnumData {
 }
 
 impl<'a> Enum<'a> {
-    fn new(name: &'a str, data: &'a EnumData, parent_space: Type<'a>) -> Self {
+    fn new(data: &'a EnumData, parent_space: Type<'a>) -> Self {
         Enum {
-            name,
             data,
             parent_space: Box::new(parent_space),
         }
     }
 
     pub fn name(&self) -> &str {
-        &self.name
+        &self.data.name
     }
 
     pub fn alias_enum(&self) -> Option<Enum<'a>> {
@@ -419,23 +416,21 @@ impl<'a> Enum<'a> {
 impl<'a> PartialEq for Enum<'a> {
     fn eq(&self, other: &Self) -> bool {
         // two types should be equal if both borrow the identical data.
-        ptr::eq(self.name, other.name)
-            && ptr::eq(self.data, other.data)
-            && self.parent_space == other.parent_space
+        ptr::eq(self.data, other.data) && self.parent_space == other.parent_space
     }
 }
 
 impl<'a> Eq for Enum<'a> {}
 
 impl EnumData {
-    fn pair_from_meta(meta: metatype::Enum) -> (String, Self) {
-        let data = EnumData {
+    fn from_meta(meta: metatype::Enum) -> Self {
+        EnumData {
+            name: meta.name,
             alias: meta.alias,
             is_class: meta.is_class,
             is_flag: meta.is_flag,
             values: meta.values,
-        };
-        (meta.name, data)
+        }
     }
 }
 
