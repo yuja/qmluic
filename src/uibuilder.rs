@@ -1,5 +1,6 @@
 use qmluic::qmlast;
 use qmluic::typemap::{self, TypeMap};
+use qmluic::uigen::ConstantValue;
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::io;
 
@@ -262,11 +263,9 @@ where
         ty: &typemap::Type,
         node: qmlast::Node<'a>,
     ) -> quick_xml::Result<()> {
-        match format_typed_constant_expression(ty, node, self.doc.source()) {
-            Ok((kind, formatted)) => write_tagged_str(&mut self.writer, kind, &formatted)?,
-            Err(e) => self.errors.push(e),
-        };
-        Ok(())
+        ConstantValue::from_expression(ty, node, self.doc.source(), &mut self.errors)
+            .map(|v| v.serialize_to_xml(&mut self.writer))
+            .unwrap_or(Ok(()))
     }
 
     fn process_binding_grouped_value(
@@ -344,130 +343,6 @@ where
     }
 }
 
-fn format_typed_constant_expression<'tree>(
-    ty: &typemap::Type,
-    node: qmlast::Node<'tree>,
-    source: &str,
-) -> Result<(&'static [u8], String), qmlast::ParseError<'tree>> {
-    use typemap::{PrimitiveType, Type};
-    let (kind, formatted) = match ty {
-        Type::Class(_) => return Err(unexpected_node(node)),
-        Type::Enum(en) => {
-            // try to format x|y|z without parens for the Qt Designer compatibility
-            let expr = format_as_identifier_set(node, source)
-                .or_else(|_| format_as_expression(node, source))?;
-            if en.is_flag() {
-                (b"set".as_ref(), expr)
-            } else {
-                (b"enum".as_ref(), expr)
-            }
-        }
-        Type::Namespace(_) => return Err(unexpected_node(node)),
-        Type::Primitive(PrimitiveType::Bool) => {
-            // TODO: handle values that can be evaluated as bool
-            match qmlast::Expression::from_node(node, source)? {
-                qmlast::Expression::Bool(false) => (b"bool".as_ref(), "false".to_owned()),
-                qmlast::Expression::Bool(true) => (b"bool".as_ref(), "true".to_owned()),
-                _ => return Err(unexpected_node(node)),
-            }
-        }
-        Type::Primitive(PrimitiveType::Int | PrimitiveType::QReal | PrimitiveType::UInt) => {
-            (b"number".as_ref(), eval_number(node, source)?.to_string())
-        }
-        Type::Primitive(PrimitiveType::QString) => {
-            (b"string".as_ref(), parse_as_string(node, source)?)
-        }
-        Type::Primitive(PrimitiveType::Void) => return Err(unexpected_node(node)),
-    };
-    Ok((kind, formatted))
-}
-
-/// Formats node as an constant expression without evaluation.
-///
-/// Here we don't strictly follow the JavaScript language model, but try 1:1 mapping.
-fn format_as_expression<'tree>(
-    node: qmlast::Node<'tree>,
-    source: &str,
-) -> Result<String, qmlast::ParseError<'tree>> {
-    use qmlast::{BinaryOperator, Expression, UnaryOperator};
-    let formatted = match qmlast::Expression::from_node(node, source)? {
-        Expression::Identifier(_) => format_as_nested_identifier(node, source)?,
-        Expression::Number(v) => v.to_string(),
-        Expression::String(s) => format!("{:?}", s), // TODO: escape per C spec
-        Expression::Bool(false) => "false".to_owned(),
-        Expression::Bool(true) => "true".to_owned(),
-        Expression::Array(_) => return Err(unexpected_node(node)), // TODO
-        Expression::MemberExpression(_) => format_as_nested_identifier(node, source)?,
-        Expression::CallExpression(_) => return Err(unexpected_node(node)), // TODO
-        Expression::UnaryExpression(x) => {
-            let arg = format_as_expression(x.argument, source)?;
-            match x.operator {
-                UnaryOperator::LogicalNot
-                | UnaryOperator::BitwiseNot
-                | UnaryOperator::Minus
-                | UnaryOperator::Plus => {
-                    format!("{}({})", x.operator, arg)
-                }
-                UnaryOperator::Typeof | UnaryOperator::Void | UnaryOperator::Delete => {
-                    return Err(unexpected_node(node))
-                }
-            }
-        }
-        Expression::BinaryExpression(x) => {
-            let left = format_as_expression(x.left, source)?;
-            let right = format_as_expression(x.right, source)?;
-            match x.operator {
-                BinaryOperator::LogicalAnd
-                | BinaryOperator::LogicalOr
-                | BinaryOperator::RightShift
-                | BinaryOperator::LeftShift
-                | BinaryOperator::BitwiseAnd
-                | BinaryOperator::BitwiseXor
-                | BinaryOperator::BitwiseOr
-                | BinaryOperator::Add
-                | BinaryOperator::Sub
-                | BinaryOperator::Mul
-                | BinaryOperator::Div
-                | BinaryOperator::Rem
-                | BinaryOperator::Equal
-                | BinaryOperator::NotEqual
-                | BinaryOperator::LessThan
-                | BinaryOperator::LessThanEqual
-                | BinaryOperator::GreaterThan
-                | BinaryOperator::GreaterThanEqual => {
-                    format!("({}){}({})", left, x.operator, right)
-                }
-                BinaryOperator::StrictEqual => format!("({}){}({})", left, "==", right),
-                BinaryOperator::StrictNotEqual => format!("({}){}({})", left, "!=", right),
-                BinaryOperator::UnsignedRightShift
-                | BinaryOperator::Exp
-                | BinaryOperator::NullishCoalesce
-                | BinaryOperator::Instanceof
-                | BinaryOperator::In => return Err(unexpected_node(node)), // TODO
-            }
-        }
-    };
-    Ok(formatted)
-}
-
-fn format_as_identifier_set<'tree>(
-    node: qmlast::Node<'tree>,
-    source: &str,
-) -> Result<String, qmlast::ParseError<'tree>> {
-    match qmlast::Expression::from_node(node, source)? {
-        qmlast::Expression::Identifier(n) => Ok(n.to_str(source).to_owned()),
-        qmlast::Expression::MemberExpression(_) => format_as_nested_identifier(node, source),
-        qmlast::Expression::BinaryExpression(x)
-            if x.operator == qmlast::BinaryOperator::BitwiseOr =>
-        {
-            let left = format_as_identifier_set(x.left, source)?;
-            let right = format_as_identifier_set(x.right, source)?;
-            Ok(format!("{}|{}", left, right))
-        }
-        _ => Err(unexpected_node(node)),
-    }
-}
-
 fn format_as_nested_identifier<'tree>(
     node: qmlast::Node<'tree>,
     source: &str,
@@ -502,23 +377,6 @@ fn parse_as_identifier_array<'tree>(
         }
         _ => Err(unexpected_node(node)),
     }
-}
-
-fn parse_as_string<'tree>(
-    node: qmlast::Node<'tree>,
-    source: &str,
-) -> Result<String, qmlast::ParseError<'tree>> {
-    let s = match qmlast::Expression::from_node(node, source)? {
-        qmlast::Expression::CallExpression(x) => {
-            match parse_as_identifier(x.function, source)?.to_str(source) {
-                "qsTr" if x.arguments.len() == 1 => parse_as_string(x.arguments[0], source)?,
-                _ => return Err(unexpected_node(node)),
-            }
-        }
-        qmlast::Expression::String(s) => s,
-        _ => return Err(unexpected_node(node)),
-    };
-    Ok(s)
 }
 
 fn eval_number<'tree>(
@@ -566,9 +424,12 @@ fn format_grouped_values<'tree, 's, 'a>(
             let ty = cls
                 .get_property_type(name)
                 .ok_or_else(|| unexpected_node(value.node()))?; // TODO: unknown property/type
-            let (_kind, formatted) = match value {
+            let formatted = match value {
                 qmlast::UiBindingValue::Node(n) => {
-                    format_typed_constant_expression(&ty, *n, source)?
+                    let mut errors = vec![];
+                    ConstantValue::from_expression(&ty, *n, source, &mut errors)
+                        .ok_or_else(|| errors.pop().unwrap())?
+                        .to_string()
                 }
                 qmlast::UiBindingValue::Map(n, _) => return Err(unexpected_node(*n)),
             };

@@ -233,6 +233,7 @@ version = "0.1.0"
 dependencies = [
  "ariadne",
  "clap",
+ "quick-xml",
  "serde",
  "serde_json",
  "tree-sitter",

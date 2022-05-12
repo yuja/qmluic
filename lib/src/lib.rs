@@ -3,6 +3,7 @@
 pub mod metatype;
 pub mod qmlast;
 pub mod typemap;
+pub mod uigen;
 
 #[cfg(test)]
 mod tests {}
