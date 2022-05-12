@@ -368,7 +368,7 @@ struct EnumData {
     alias: Option<String>,
     is_class: bool,
     is_flag: bool,
-    values: Vec<String>,
+    variants: Vec<String>,
 }
 
 impl<'a> Enum<'a> {
@@ -401,8 +401,8 @@ impl<'a> Enum<'a> {
         self.data.is_flag
     }
 
-    pub fn values(&self) -> impl Iterator<Item = &str> {
-        self.data.values.iter().map(String::as_str)
+    pub fn variants(&self) -> impl Iterator<Item = &str> {
+        self.data.variants.iter().map(String::as_str)
     }
 }
 
@@ -422,7 +422,7 @@ impl EnumData {
             alias: meta.alias,
             is_class: meta.is_class,
             is_flag: meta.is_flag,
-            values: meta.values,
+            variants: meta.values,
         }
     }
 }
