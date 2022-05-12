@@ -235,7 +235,7 @@ impl<'a> TypeSpace<'a> for Type<'a> {
         match self {
             Type::Class(cls) => cls.get_type(name),
             Type::Enum(_) => None,
-            Type::Namespace(node) => node.get_type(name),
+            Type::Namespace(ns) => ns.get_type(name),
             Type::Primitive(_) => None,
         }
     }
@@ -244,7 +244,7 @@ impl<'a> TypeSpace<'a> for Type<'a> {
         match self {
             Type::Class(cls) => cls.resolve_type(name),
             Type::Enum(_) => None,
-            Type::Namespace(node) => node.resolve_type(name),
+            Type::Namespace(ns) => ns.resolve_type(name),
             Type::Primitive(_) => None,
         }
     }
@@ -338,7 +338,10 @@ impl<'a> TypeSpace<'a> for Class<'a> {
         self.data
             .inner_type_map
             .get_type_with(name, || Type::Class(self.clone()))
-            .or_else(|| self.public_super_classes().find_map(|ty| ty.get_type(name)))
+            .or_else(|| {
+                self.public_super_classes()
+                    .find_map(|cls| cls.get_type(name))
+            })
     }
 
     fn resolve_type(&self, name: &str) -> Option<Type<'a>> {
