@@ -41,6 +41,61 @@ pub struct Class {
     pub methods: Vec<Method>,
 }
 
+impl Class {
+    /// Creates class metadata of object type.
+    pub fn new<S>(name: S) -> Self
+    where
+        S: AsRef<str>,
+    {
+        Self::with_basic_params(name.as_ref(), true)
+    }
+
+    /// Creates class metadata of gadget type.
+    pub fn new_gadget<S>(name: S) -> Self
+    where
+        S: AsRef<str>,
+    {
+        Self::with_basic_params(name.as_ref(), false)
+    }
+
+    /// Creates class metadata of object type with public super classes.
+    pub fn with_supers<S, I>(name: S, supers: I) -> Self
+    where
+        S: AsRef<str>,
+        I: IntoIterator,
+        I::Item: AsRef<str>,
+    {
+        let mut cls = Self::with_basic_params(name.as_ref(), true);
+        cls.super_classes = supers
+            .into_iter()
+            .map(|n| SuperClassSpecifier {
+                name: n.as_ref().to_owned(),
+                access: AccessSpecifier::Public,
+            })
+            .collect();
+        cls
+    }
+
+    fn with_basic_params(name: &str, object: bool) -> Self {
+        Class {
+            class_name: unqualify_name(name).to_owned(),
+            qualified_class_name: name.to_owned(),
+            super_classes: vec![],
+            object: object,
+            gadget: !object,
+            enums: vec![],
+            properties: vec![],
+            signals: vec![],
+            slots: vec![],
+            methods: vec![],
+        }
+    }
+}
+
+fn unqualify_name(name: &str) -> &str {
+    name.rsplit_once("::").map(|(_, n)| n).unwrap_or(name)
+}
+
 /// Super class reference with the access specifier.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -58,6 +113,53 @@ pub struct Enum {
     pub is_class: bool,
     pub is_flag: bool,
     pub values: Vec<String>,
+}
+
+impl Enum {
+    /// Creates enum metadata.
+    pub fn new<S>(name: S) -> Self
+    where
+        S: AsRef<str>,
+    {
+        Enum {
+            name: name.as_ref().to_owned(),
+            alias: None,
+            is_class: false,
+            is_flag: false,
+            values: vec![],
+        }
+    }
+
+    /// Creates flag metadata.
+    pub fn new_flag<S, T>(name: S, alias: T) -> Self
+    where
+        S: AsRef<str>,
+        T: AsRef<str>,
+    {
+        Enum {
+            name: name.as_ref().to_owned(),
+            alias: Some(alias.as_ref().to_owned()),
+            is_class: false,
+            is_flag: true,
+            values: vec![],
+        }
+    }
+
+    /// Creates enum metadata with values.
+    pub fn with_values<S, I>(name: S, values: I) -> Self
+    where
+        S: AsRef<str>,
+        I: IntoIterator,
+        I::Item: AsRef<str>,
+    {
+        Enum {
+            name: name.as_ref().to_owned(),
+            alias: None,
+            is_class: false,
+            is_flag: false,
+            values: values.into_iter().map(|n| n.as_ref().to_owned()).collect(),
+        }
+    }
 }
 
 /// Property metadata.
@@ -82,6 +184,33 @@ pub struct Property {
     pub constant: bool,
     pub r#final: bool,
     pub required: bool,
+}
+
+impl Property {
+    /// Creates property metadata.
+    pub fn new<S, T>(name: S, type_name: T) -> Self
+    where
+        S: AsRef<str>,
+        T: AsRef<str>,
+    {
+        Property {
+            name: name.as_ref().to_owned(),
+            r#type: type_name.as_ref().to_owned(),
+            member: None,
+            read: None,
+            write: None,
+            reset: None,
+            notify: None,
+            revision: 0,
+            designable: true,
+            scriptable: true,
+            stored: true,
+            user: false,
+            constant: false,
+            r#final: false,
+            required: false,
+        }
+    }
 }
 
 /// Signal, slot, or callable function metadata.

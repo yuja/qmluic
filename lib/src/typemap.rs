@@ -443,83 +443,6 @@ impl EnumData {
 mod tests {
     use super::*;
 
-    fn new_class_meta(name: &str) -> metatype::Class {
-        metatype::Class {
-            class_name: name.to_owned(),
-            qualified_class_name: name.to_owned(),
-            super_classes: vec![],
-            object: true,
-            gadget: false,
-            enums: vec![],
-            properties: vec![],
-            signals: vec![],
-            slots: vec![],
-            methods: vec![],
-        }
-    }
-
-    fn new_class_meta_with_super(name: &str, supers: &[&str]) -> metatype::Class {
-        let super_classes = supers
-            .iter()
-            .map(|&n| metatype::SuperClassSpecifier {
-                name: n.to_owned(),
-                access: metatype::AccessSpecifier::Public,
-            })
-            .collect();
-        metatype::Class {
-            class_name: name.to_owned(),
-            qualified_class_name: name.to_owned(),
-            super_classes: super_classes,
-            object: true,
-            gadget: false,
-            enums: vec![],
-            properties: vec![],
-            signals: vec![],
-            slots: vec![],
-            methods: vec![],
-        }
-    }
-
-    fn new_enum_meta(name: &str) -> metatype::Enum {
-        metatype::Enum {
-            name: name.to_owned(),
-            alias: None,
-            is_class: false,
-            is_flag: false,
-            values: vec![],
-        }
-    }
-
-    fn new_flag_meta(name: &str, alias: &str) -> metatype::Enum {
-        metatype::Enum {
-            name: name.to_owned(),
-            alias: Some(alias.to_owned()),
-            is_class: false,
-            is_flag: true,
-            values: vec![],
-        }
-    }
-
-    fn new_property_meta(name: &str, type_name: &str) -> metatype::Property {
-        metatype::Property {
-            name: name.to_owned(),
-            r#type: type_name.to_owned(),
-            member: None,
-            read: None,
-            write: None,
-            reset: None,
-            notify: None,
-            revision: 0,
-            designable: true,
-            scriptable: true,
-            stored: true,
-            user: false,
-            constant: false,
-            r#final: false,
-            required: false,
-        }
-    }
-
     fn unwrap_class(ty: Option<Type>) -> Class {
         match ty {
             Some(Type::Class(x)) => x,
@@ -537,8 +460,8 @@ mod tests {
     #[test]
     fn type_eq() {
         let mut type_map = TypeMap::new();
-        type_map.extend([new_class_meta("Foo"), new_class_meta("Bar")]);
-        type_map.extend([new_enum_meta("Baz")]);
+        type_map.extend([metatype::Class::new("Foo"), metatype::Class::new("Bar")]);
+        type_map.extend([metatype::Enum::new("Baz")]);
         assert_eq!(
             type_map.get_type("Foo").unwrap(),
             type_map.get_type("Foo").unwrap()
@@ -560,7 +483,10 @@ mod tests {
     #[test]
     fn aliased_enum_eq() {
         let mut type_map = TypeMap::new();
-        type_map.extend([new_enum_meta("Foo"), new_flag_meta("Foos", "Foo")]);
+        type_map.extend([
+            metatype::Enum::new("Foo"),
+            metatype::Enum::new_flag("Foos", "Foo"),
+        ]);
         assert_eq!(
             unwrap_enum(type_map.get_type("Foos")).alias_enum(),
             Some(unwrap_enum(type_map.get_type("Foo")))
@@ -570,7 +496,7 @@ mod tests {
     #[test]
     fn get_type_of_root() {
         let mut type_map = TypeMap::with_primitive_types();
-        type_map.extend([new_class_meta("Foo")]);
+        type_map.extend([metatype::Class::new("Foo")]);
         assert_eq!(
             type_map.get_type("int").unwrap(),
             Type::Primitive(PrimitiveType::Int)
@@ -586,8 +512,8 @@ mod tests {
     #[test]
     fn get_type_of_root_scoped() {
         let mut type_map = TypeMap::with_primitive_types();
-        let mut foo_meta = new_class_meta("Foo");
-        foo_meta.enums.push(new_enum_meta("Bar"));
+        let mut foo_meta = metatype::Class::new("Foo");
+        foo_meta.enums.push(metatype::Enum::new("Bar"));
         type_map.extend([foo_meta]);
 
         let foo_class = unwrap_class(type_map.get_type("Foo"));
@@ -609,7 +535,7 @@ mod tests {
     #[test]
     fn do_not_resolve_intermediate_type_scoped() {
         let mut type_map = TypeMap::with_primitive_types();
-        type_map.extend([new_class_meta("Foo")]);
+        type_map.extend([metatype::Class::new("Foo")]);
         let foo_class = unwrap_class(type_map.get_type("Foo"));
         assert!(foo_class.resolve_type_scoped("int").is_some());
         assert_eq!(
@@ -622,12 +548,12 @@ mod tests {
     #[test]
     fn get_super_class_type() {
         let mut type_map = TypeMap::with_primitive_types();
-        let mut root_meta = new_class_meta("Root");
-        root_meta.enums.push(new_enum_meta("RootEnum"));
+        let mut root_meta = metatype::Class::new("Root");
+        root_meta.enums.push(metatype::Enum::new("RootEnum"));
         type_map.extend([
             root_meta,
-            new_class_meta_with_super("Sub1", &["Root"]),
-            new_class_meta_with_super("Sub2", &["Sub1"]),
+            metatype::Class::with_supers("Sub1", &["Root"]),
+            metatype::Class::with_supers("Sub2", &["Sub1"]),
         ]);
 
         let root_class = unwrap_class(type_map.get_type("Root"));
@@ -645,14 +571,14 @@ mod tests {
     #[test]
     fn get_type_of_property() {
         let mut type_map = TypeMap::with_primitive_types();
-        let mut foo_meta = new_class_meta("Foo");
+        let mut foo_meta = metatype::Class::new("Foo");
         foo_meta
             .properties
-            .push(new_property_meta("foo_prop", "int"));
-        let mut bar_meta = new_class_meta_with_super("Bar", &["Foo"]);
+            .push(metatype::Property::new("foo_prop", "int"));
+        let mut bar_meta = metatype::Class::with_supers("Bar", &["Foo"]);
         bar_meta
             .properties
-            .push(new_property_meta("bar_prop", "bool"));
+            .push(metatype::Property::new("bar_prop", "bool"));
         type_map.extend([foo_meta, bar_meta]);
 
         let bar_class = unwrap_class(type_map.get_type("Bar"));
