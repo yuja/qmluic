@@ -90,8 +90,8 @@ impl TypeMapData {
         let start = self.classes.len();
         for (i, meta) in iter.into_iter().enumerate() {
             // TODO: use qualified type name and insert namespace node accordingly
-            let (name, data) = ClassData::pair_from_meta(meta);
-            self.classes.push(data);
+            let name = meta.class_name.clone();
+            self.classes.push(ClassData::from_meta(meta));
             self.name_map.insert(name, TypeIndex::Class(i + start));
         }
     }
@@ -112,15 +112,11 @@ impl TypeMapData {
     where
         F: FnOnce() -> Type<'a>,
     {
-        self.name_map
-            .get_key_value(name)
-            .map(|(name, &index)| match index {
-                TypeIndex::Class(i) => {
-                    Type::Class(Class::new(name, &self.classes[i], make_parent_space()))
-                }
-                TypeIndex::Enum(i) => Type::Enum(Enum::new(&self.enums[i], make_parent_space())),
-                TypeIndex::Primitive(t) => Type::Primitive(t),
-            })
+        self.name_map.get(name).map(|&index| match index {
+            TypeIndex::Class(i) => Type::Class(Class::new(&self.classes[i], make_parent_space())),
+            TypeIndex::Enum(i) => Type::Enum(Enum::new(&self.enums[i], make_parent_space())),
+            TypeIndex::Primitive(t) => Type::Primitive(t),
+        })
     }
 }
 
@@ -238,7 +234,6 @@ pub enum PrimitiveType {
 /// QObject (or gadget) class representation.
 #[derive(Clone, Debug)]
 pub struct Class<'a> {
-    name: &'a str,
     data: &'a ClassData,
     parent_space: Box<Type<'a>>, // should be either Class or Namespace
 }
@@ -246,6 +241,7 @@ pub struct Class<'a> {
 /// Stored class representation.
 #[derive(Clone, Debug)]
 struct ClassData {
+    class_name: String,
     public_super_class_names: Vec<String>,
     inner_type_map: TypeMapData,
     property_map: HashMap<String, PropertyData>,
@@ -253,16 +249,15 @@ struct ClassData {
 }
 
 impl<'a> Class<'a> {
-    fn new(name: &'a str, data: &'a ClassData, parent_space: Type<'a>) -> Self {
+    fn new(data: &'a ClassData, parent_space: Type<'a>) -> Self {
         Class {
-            name,
             data,
             parent_space: Box::new(parent_space),
         }
     }
 
     pub fn name(&self) -> &str {
-        &self.name
+        &self.data.class_name
     }
 
     pub fn public_super_classes<'b>(&'b self) -> impl Iterator<Item = Class<'a>> + 'b {
@@ -291,9 +286,7 @@ impl<'a> Class<'a> {
 impl<'a> PartialEq for Class<'a> {
     fn eq(&self, other: &Self) -> bool {
         // two types should be equal if both borrow the identical data.
-        ptr::eq(self.name, other.name)
-            && ptr::eq(self.data, other.data)
-            && self.parent_space == other.parent_space
+        ptr::eq(self.data, other.data) && self.parent_space == other.parent_space
     }
 }
 
@@ -315,7 +308,7 @@ impl<'a> TypeSpace<'a> for Class<'a> {
 }
 
 impl ClassData {
-    fn pair_from_meta(meta: metatype::Class) -> (String, Self) {
+    fn from_meta(meta: metatype::Class) -> Self {
         let public_super_class_names = meta
             .super_classes
             .into_iter()
@@ -337,12 +330,12 @@ impl ClassData {
             .map(PropertyData::pair_from_meta)
             .collect();
 
-        let data = ClassData {
+        ClassData {
+            class_name: meta.class_name,
             public_super_class_names,
             inner_type_map,
             property_map,
-        };
-        (meta.class_name, data)
+        }
     }
 }
 
