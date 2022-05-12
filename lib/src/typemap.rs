@@ -1,7 +1,7 @@
 //! Manages types loaded from Qt metatypes.json.
 
 use super::metatype;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ptr;
 
 /// Storage to map type name to class or enum representation.
@@ -16,6 +16,7 @@ struct TypeMapData {
     name_map: HashMap<String, TypeIndex>,
     classes: Vec<ClassData>,
     enums: Vec<EnumData>,
+    enum_variant_map: HashMap<String, usize>,
 }
 
 impl TypeMap {
@@ -103,8 +104,14 @@ impl TypeMapData {
         let start = self.enums.len();
         for (i, meta) in iter.into_iter().enumerate() {
             let name = meta.name.clone();
-            self.enums.push(EnumData::from_meta(meta));
-            self.name_map.insert(name, TypeIndex::Enum(i + start));
+            let data = EnumData::from_meta(meta);
+            let index = i + start;
+            self.name_map.insert(name, TypeIndex::Enum(index));
+            if !data.is_class {
+                self.enum_variant_map
+                    .extend(data.variants.iter().map(|v| (v.to_owned(), index)));
+            }
+            self.enums.push(data);
         }
     }
 
@@ -117,6 +124,19 @@ impl TypeMapData {
             TypeIndex::Enum(i) => Type::Enum(Enum::new(&self.enums[i], make_parent_space())),
             TypeIndex::Primitive(t) => Type::Primitive(t),
         })
+    }
+
+    fn get_enum_by_variant_with<'a, F>(
+        &'a self,
+        name: &str,
+        make_parent_space: F,
+    ) -> Option<Enum<'a>>
+    where
+        F: FnOnce() -> Type<'a>,
+    {
+        self.enum_variant_map
+            .get(name)
+            .map(|&i| Enum::new(&self.enums[i], make_parent_space()))
     }
 }
 
@@ -146,6 +166,12 @@ pub trait TypeSpace<'a> {
         // "resolve" only the first node. the remainder should be direct child.
         parts.fold(head, |outer, name| outer.and_then(|ty| ty.get_type(name)))
     }
+
+    /// Looks up enum type by variant name.
+    ///
+    /// The returned type is not an abstract [`Type`] since Qt metatype does not support
+    /// an arbitrary static constant.
+    fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>>;
 }
 
 /// Represents a type map in tree (or a namespace), which is created temporarily by borrowing
@@ -179,6 +205,11 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
 
     fn resolve_type(&self, name: &str) -> Option<Type<'a>> {
         self.get_type(name) /* or_else( .. parent_space ..) */
+    }
+
+    fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
+        self.data
+            .get_enum_by_variant_with(name, || Type::Namespace(self.clone()))
     }
 }
 
@@ -214,6 +245,15 @@ impl<'a> TypeSpace<'a> for Type<'a> {
             Type::Class(cls) => cls.resolve_type(name),
             Type::Enum(_) => None,
             Type::Namespace(node) => node.resolve_type(name),
+            Type::Primitive(_) => None,
+        }
+    }
+
+    fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
+        match self {
+            Type::Class(cls) => cls.get_enum_by_variant(name),
+            Type::Enum(en) => en.get_enum_by_variant(name),
+            Type::Namespace(ns) => ns.get_enum_by_variant(name),
             Type::Primitive(_) => None,
         }
     }
@@ -305,6 +345,17 @@ impl<'a> TypeSpace<'a> for Class<'a> {
         self.get_type(name)
             .or_else(|| self.parent_space.resolve_type(name))
     }
+
+    fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
+        // TODO: detect cycle in super-class chain
+        self.data
+            .inner_type_map
+            .get_enum_by_variant_with(name, || Type::Class(self.clone()))
+            .or_else(|| {
+                self.public_super_classes()
+                    .find_map(|cls| cls.get_enum_by_variant(name))
+            })
+    }
 }
 
 impl ClassData {
@@ -369,6 +420,7 @@ struct EnumData {
     is_class: bool,
     is_flag: bool,
     variants: Vec<String>,
+    variant_set: HashSet<String>,
 }
 
 impl<'a> Enum<'a> {
@@ -404,6 +456,10 @@ impl<'a> Enum<'a> {
     pub fn variants(&self) -> impl Iterator<Item = &str> {
         self.data.variants.iter().map(String::as_str)
     }
+
+    pub fn contains_variant(&self, name: &str) -> bool {
+        self.data.variant_set.contains(name)
+    }
 }
 
 impl<'a> PartialEq for Enum<'a> {
@@ -415,14 +471,34 @@ impl<'a> PartialEq for Enum<'a> {
 
 impl<'a> Eq for Enum<'a> {}
 
+impl<'a> TypeSpace<'a> for Enum<'a> {
+    fn get_type(&self, _name: &str) -> Option<Type<'a>> {
+        None
+    }
+
+    fn resolve_type(&self, name: &str) -> Option<Type<'a>> {
+        self.parent_space.resolve_type(name)
+    }
+
+    fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
+        if self.is_scoped() && self.contains_variant(name) {
+            Some(self.clone())
+        } else {
+            None
+        }
+    }
+}
+
 impl EnumData {
     fn from_meta(meta: metatype::Enum) -> Self {
+        let variant_set = HashSet::from_iter(meta.values.iter().cloned());
         EnumData {
             name: meta.name,
             alias: meta.alias,
             is_class: meta.is_class,
             is_flag: meta.is_flag,
             variants: meta.values,
+            variant_set,
         }
     }
 }
@@ -578,5 +654,41 @@ mod tests {
             bar_class.get_property_type("foo_prop").unwrap(),
             type_map.get_type("int").unwrap()
         );
+    }
+
+    #[test]
+    fn get_enum_by_variant() {
+        let mut type_map = TypeMap::new();
+        let mut foo_meta = metatype::Class::new("Foo");
+        let unscoped_meta = metatype::Enum::with_values("Unscoped", ["X", "Y"]);
+        let mut scoped_meta = metatype::Enum::with_values("Scoped", ["A", "Y"]);
+        scoped_meta.is_class = true;
+        foo_meta.enums.extend([unscoped_meta, scoped_meta]);
+        type_map.extend([foo_meta]);
+
+        let foo_class = unwrap_class(type_map.get_type("Foo"));
+        let unscoped_enum = unwrap_enum(foo_class.get_type("Unscoped"));
+        assert_eq!(foo_class.get_enum_by_variant("X").unwrap(), unscoped_enum);
+        assert_eq!(foo_class.get_enum_by_variant("Y").unwrap(), unscoped_enum);
+        assert!(foo_class.get_enum_by_variant("A").is_none());
+
+        let scoped_enum = unwrap_enum(foo_class.get_type("Scoped"));
+        assert!(unscoped_enum.get_enum_by_variant("X").is_none());
+        assert_eq!(scoped_enum.get_enum_by_variant("A").unwrap(), scoped_enum);
+    }
+
+    #[test]
+    fn get_super_class_enum_by_variant() {
+        let mut type_map = TypeMap::new();
+        let mut foo_meta = metatype::Class::new("Foo");
+        let unscoped_meta = metatype::Enum::with_values("Unscoped", ["X", "Y"]);
+        foo_meta.enums.extend([unscoped_meta]);
+        let bar_meta = metatype::Class::with_supers("Bar", ["Foo"]);
+        type_map.extend([foo_meta, bar_meta]);
+
+        let foo_class = unwrap_class(type_map.get_type("Bar"));
+        let bar_class = unwrap_class(type_map.get_type("Bar"));
+        let unscoped_enum = unwrap_enum(foo_class.get_type("Unscoped"));
+        assert_eq!(bar_class.get_enum_by_variant("X").unwrap(), unscoped_enum);
     }
 }
