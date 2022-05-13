@@ -53,7 +53,7 @@ expression: "translate_file(\"examples/SettingsDialog.qml\")"
        <item>
         <widget class="QFontComboBox" name="textFontFamilyEdit">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="QSizePolicy::Expanding" vsizetype="QSizePolicy::Fixed">
+          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>

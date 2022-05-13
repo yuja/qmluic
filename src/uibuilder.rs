@@ -327,6 +327,16 @@ where
     }
 }
 
+fn format_as_size_policy<'tree>(
+    node: qmlast::Node<'tree>,
+    source: &str,
+) -> Result<String, qmlast::ParseError<'tree>> {
+    let s = format_as_nested_identifier(node, source)?;
+    s.strip_prefix("QSizePolicy::")
+        .map(str::to_owned)
+        .ok_or_else(|| unexpected_node(node))
+}
+
 fn format_as_nested_identifier<'tree>(
     node: qmlast::Node<'tree>,
     source: &str,
@@ -422,8 +432,8 @@ impl SizePolicy {
             map.get("verticalStretch"),
         ) {
             let policy = SizePolicy {
-                horizontal_policy: format_as_nested_identifier(*hpol, source)?,
-                vertical_policy: format_as_nested_identifier(*vpol, source)?,
+                horizontal_policy: format_as_size_policy(*hpol, source)?,
+                vertical_policy: format_as_size_policy(*vpol, source)?,
                 horizontal_stretch: eval_number(*hstretch, source)?,
                 vertical_stretch: eval_number(*vstretch, source)?,
             };
