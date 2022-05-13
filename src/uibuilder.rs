@@ -1,6 +1,6 @@
 use qmluic::qmlast;
 use qmluic::typemap::{self, PrimitiveType, Type, TypeMap};
-use qmluic::uigen::{ConstantGadget, ConstantSizePolicy, ConstantValue};
+use qmluic::uigen::{ConstantExpression, ConstantValue};
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::io;
 
@@ -246,14 +246,14 @@ where
                 self.writer
                     .write_event(Event::Start(prop_tag.to_borrowed()))?;
 
-                match value {
-                    qmlast::UiBindingValue::Node(n) => {
-                        self.process_binding_value_node(&ty, *n)?;
-                    }
-                    qmlast::UiBindingValue::Map(n, m) => {
-                        self.process_binding_grouped_value(&ty, *n, m)?
-                    }
-                }
+                ConstantExpression::from_binding_value(
+                    &ty,
+                    value,
+                    self.doc.source(),
+                    &mut self.errors,
+                )
+                .map(|v| v.serialize_to_xml(&mut self.writer))
+                .unwrap_or(Ok(()))?;
 
                 self.writer.write_event(Event::End(prop_tag.to_end()))?;
             } else {
@@ -261,53 +261,6 @@ where
             }
         }
         Ok(()) // TODO
-    }
-
-    fn process_binding_value_node(
-        &mut self,
-        ty: &typemap::Type,
-        node: qmlast::Node<'a>,
-    ) -> quick_xml::Result<()> {
-        ConstantValue::from_expression(ty, node, self.doc.source(), &mut self.errors)
-            .map(|v| v.serialize_to_xml(&mut self.writer))
-            .unwrap_or(Ok(()))
-    }
-
-    fn process_binding_grouped_value(
-        &mut self,
-        ty: &typemap::Type,
-        node: qmlast::Node<'a>,
-        map: &qmlast::UiBindingMap<'a, 'a>,
-    ) -> quick_xml::Result<()> {
-        let cls = match ty {
-            typemap::Type::Class(x) => x,
-            _ => {
-                self.errors.push(unexpected_node(node));
-                return Ok(());
-            }
-        };
-        match cls.name() {
-            "QRect" | "QSize" => ConstantGadget::from_binding_map(
-                cls,
-                node,
-                map,
-                self.doc.source(),
-                &mut self.errors,
-            )
-            .map(|g| g.serialize_to_xml(&mut self.writer))
-            .unwrap_or(Ok(()))?,
-            "QSizePolicy" => ConstantSizePolicy::from_binding_map(
-                cls,
-                node,
-                map,
-                self.doc.source(),
-                &mut self.errors,
-            )
-            .map(|g| g.serialize_to_xml(&mut self.writer))
-            .unwrap_or(Ok(()))?,
-            _ => self.errors.push(unexpected_node(node)),
-        };
-        Ok(())
     }
 
     fn process_binding_action_value_node(

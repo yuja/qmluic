@@ -1,11 +1,85 @@
+use super::gadget::{ConstantGadget, ConstantSizePolicy};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
 use crate::qmlast::{
-    BinaryOperator, Expression, Identifier, Node, ParseError, ParseErrorKind, UnaryOperator,
+    BinaryOperator, Expression, Identifier, Node, ParseError, ParseErrorKind, UiBindingMap,
+    UiBindingValue, UnaryOperator,
 };
-use crate::typemap::{PrimitiveType, Type};
+use crate::typemap::{Class, PrimitiveType, Type};
 use std::fmt;
 use std::io;
+
+/// Variant for the constant expressions which can be serialized to UI XML.
+#[derive(Clone, Debug)]
+pub enum ConstantExpression {
+    Value(ConstantValue),
+    Gadget(ConstantGadget),
+    SizePolicy(ConstantSizePolicy),
+}
+
+impl ConstantExpression {
+    /// Generates constant expression of `ty` type from the given `binding_value`.
+    pub fn from_binding_value<'tree>(
+        ty: &Type,
+        binding_value: &UiBindingValue<'tree, '_>,
+        source: &str,
+        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+    ) -> Option<Self> {
+        match binding_value {
+            UiBindingValue::Node(n) => Self::from_expression(ty, *n, source, diagnostics),
+            UiBindingValue::Map(n, m) => {
+                match ty {
+                    Type::Class(cls) => Self::from_binding_map(cls, *n, m, source, diagnostics),
+                    _ => {
+                        diagnostics.push(unexpected_node(*n)); // TODO
+                        None
+                    }
+                }
+            }
+        }
+    }
+
+    /// Generates constant expression of `cls` type from the given `binding_map`.
+    pub fn from_binding_map<'tree>(
+        cls: &Class,
+        node: Node<'tree>,
+        binding_map: &UiBindingMap<'tree, '_>,
+        source: &str,
+        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+    ) -> Option<Self> {
+        match cls.name() {
+            "QSizePolicy" => {
+                ConstantSizePolicy::from_binding_map(cls, node, binding_map, source, diagnostics)
+                    .map(ConstantExpression::SizePolicy)
+            }
+            _ => ConstantGadget::from_binding_map(cls, node, binding_map, source, diagnostics)
+                .map(ConstantExpression::Gadget),
+        }
+    }
+
+    /// Generates constant expression of `ty` type from the given expression `node`.
+    pub fn from_expression<'tree>(
+        ty: &Type,
+        node: Node<'tree>,
+        source: &str,
+        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+    ) -> Option<Self> {
+        ConstantValue::from_expression(ty, node, source, diagnostics).map(ConstantExpression::Value)
+    }
+
+    /// Serializes this to UI XML.
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    where
+        W: io::Write,
+    {
+        use ConstantExpression::*;
+        match self {
+            Value(x) => x.serialize_to_xml(writer),
+            Gadget(x) => x.serialize_to_xml(writer),
+            SizePolicy(x) => x.serialize_to_xml(writer),
+        }
+    }
+}
 
 /// Constant expression which can be serialized to UI XML as a simple tagged value.
 #[derive(Clone, Debug)]
