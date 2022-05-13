@@ -1,5 +1,5 @@
 use qmluic::qmlast;
-use qmluic::typemap::{self, TypeMap};
+use qmluic::typemap::{self, PrimitiveType, Type, TypeMap};
 use qmluic::uigen::{ConstantGadget, ConstantSizePolicy, ConstantValue};
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::io;
@@ -144,11 +144,16 @@ where
                 // TODO: look up attached type
                 for (name, value) in collect_sorted_binding_pairs(map) {
                     match value {
-                        qmlast::UiBindingValue::Node(n) => match eval_number(*n, self.doc.source())
-                        {
-                            Ok(d) => item_tag.push_attribute((name, d.to_string().as_ref())),
-                            Err(e) => self.errors.push(e),
-                        },
+                        qmlast::UiBindingValue::Node(n) => {
+                            if let Some(v) = ConstantValue::from_expression(
+                                &Type::Primitive(PrimitiveType::Int),
+                                *n,
+                                self.doc.source(),
+                                &mut self.errors,
+                            ) {
+                                item_tag.push_attribute((name, v.to_string().as_ref()));
+                            }
+                        }
                         qmlast::UiBindingValue::Map(n, _) => self.errors.push(unexpected_node(*n)),
                     }
                 }
@@ -347,40 +352,6 @@ fn parse_as_identifier_array<'tree>(
         }
         _ => Err(unexpected_node(node)),
     }
-}
-
-fn eval_number<'tree>(
-    node: qmlast::Node<'tree>,
-    source: &str,
-) -> Result<f64, qmlast::ParseError<'tree>> {
-    // TODO: handle overflow, etc.
-    let v = match qmlast::Expression::from_node(node, source)? {
-        qmlast::Expression::Number(v) => v,
-        qmlast::Expression::UnaryExpression(x) => {
-            let arg = eval_number(x.argument, source);
-            match x.operator {
-                qmlast::UnaryOperator::Minus => -arg?,
-                qmlast::UnaryOperator::Plus => arg?,
-                // TODO: ...
-                _ => return Err(unexpected_node(node)),
-            }
-        }
-        qmlast::Expression::BinaryExpression(x) => {
-            let left = eval_number(x.left, source);
-            let right = eval_number(x.right, source);
-            match x.operator {
-                qmlast::BinaryOperator::Add => left? + right?,
-                qmlast::BinaryOperator::Sub => left? - right?,
-                qmlast::BinaryOperator::Mul => left? * right?,
-                qmlast::BinaryOperator::Div => left? / right?,
-                qmlast::BinaryOperator::Exp => left?.powf(right?),
-                // TODO: ...
-                _ => return Err(unexpected_node(node)),
-            }
-        }
-        _ => return Err(unexpected_node(node)),
-    };
-    Ok(v)
 }
 
 /// Builds a list of sorted binding map pairs to stabilize the output.
