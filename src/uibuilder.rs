@@ -1,6 +1,6 @@
 use qmluic::qmlast;
 use qmluic::typemap::{self, TypeMap};
-use qmluic::uigen::{ConstantGadget, ConstantValue};
+use qmluic::uigen::{ConstantGadget, ConstantSizePolicy, ConstantValue};
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::io;
 
@@ -291,15 +291,15 @@ where
             )
             .map(|g| g.serialize_to_xml(&mut self.writer))
             .unwrap_or(Ok(()))?,
-            "QSizePolicy" => {
-                // TODO: QSizePolicy is special in that
-                // a) it is registered as gadget type but have no useful property,
-                // b) .ui XML attribute names are diverged from method/property names.
-                match SizePolicy::from_binding_map(node, map, self.doc.source()) {
-                    Ok(x) => x.write_ui_xml(&mut self.writer)?,
-                    Err(e) => self.errors.push(e),
-                }
-            }
+            "QSizePolicy" => ConstantSizePolicy::from_binding_map(
+                cls,
+                node,
+                map,
+                self.doc.source(),
+                &mut self.errors,
+            )
+            .map(|g| g.serialize_to_xml(&mut self.writer))
+            .unwrap_or(Ok(()))?,
             _ => self.errors.push(unexpected_node(node)),
         };
         Ok(())
@@ -324,30 +324,6 @@ where
 
     pub fn errors(&self) -> &[qmlast::ParseError<'a>] {
         &self.errors
-    }
-}
-
-fn format_as_size_policy<'tree>(
-    node: qmlast::Node<'tree>,
-    source: &str,
-) -> Result<String, qmlast::ParseError<'tree>> {
-    let s = format_as_nested_identifier(node, source)?;
-    s.strip_prefix("QSizePolicy::")
-        .map(str::to_owned)
-        .ok_or_else(|| unexpected_node(node))
-}
-
-fn format_as_nested_identifier<'tree>(
-    node: qmlast::Node<'tree>,
-    source: &str,
-) -> Result<String, qmlast::ParseError<'tree>> {
-    match qmlast::Expression::from_node(node, source)? {
-        qmlast::Expression::Identifier(n) => Ok(n.to_str(source).to_owned()),
-        qmlast::Expression::MemberExpression(x) => {
-            let object = format_as_nested_identifier(x.object, source)?;
-            Ok(format!("{}::{}", object, x.property.to_str(source)))
-        }
-        _ => Err(unexpected_node(node)),
     }
 }
 
@@ -405,60 +381,6 @@ fn eval_number<'tree>(
         _ => return Err(unexpected_node(node)),
     };
     Ok(v)
-}
-
-struct SizePolicy {
-    pub horizontal_policy: String,
-    pub vertical_policy: String,
-    pub horizontal_stretch: f64,
-    pub vertical_stretch: f64,
-}
-
-impl SizePolicy {
-    fn from_binding_map<'tree>(
-        node: qmlast::Node<'tree>,
-        map: &qmlast::UiBindingMap<'tree, '_>,
-        source: &str,
-    ) -> Result<Self, qmlast::ParseError<'tree>> {
-        if let (
-            Some(qmlast::UiBindingValue::Node(hpol)),
-            Some(qmlast::UiBindingValue::Node(vpol)),
-            Some(qmlast::UiBindingValue::Node(hstretch)),
-            Some(qmlast::UiBindingValue::Node(vstretch)),
-        ) = (
-            map.get("horizontalPolicy"),
-            map.get("verticalPolicy"),
-            map.get("horizontalStretch"),
-            map.get("verticalStretch"),
-        ) {
-            let policy = SizePolicy {
-                horizontal_policy: format_as_size_policy(*hpol, source)?,
-                vertical_policy: format_as_size_policy(*vpol, source)?,
-                horizontal_stretch: eval_number(*hstretch, source)?,
-                vertical_stretch: eval_number(*vstretch, source)?,
-            };
-            Ok(policy)
-        } else {
-            Err(unexpected_node(node))
-        }
-    }
-
-    fn write_ui_xml<W>(&self, writer: &mut quick_xml::Writer<W>) -> quick_xml::Result<()>
-    where
-        W: io::Write,
-    {
-        let tag = BytesStart::borrowed_name(b"sizepolicy").with_attributes([
-            ("hsizetype", self.horizontal_policy.as_ref()),
-            ("vsizetype", self.vertical_policy.as_ref()),
-        ]);
-        writer.write_event(Event::Start(tag.to_borrowed()))?;
-
-        write_tagged_str(writer, b"horstretch", &self.horizontal_stretch.to_string())?;
-        write_tagged_str(writer, b"verstretch", &self.vertical_stretch.to_string())?;
-
-        writer.write_event(Event::End(tag.to_end()))?;
-        Ok(())
-    }
 }
 
 /// Builds a list of sorted binding map pairs to stabilize the output.
