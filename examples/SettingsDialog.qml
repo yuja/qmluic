@@ -104,8 +104,22 @@ QDialog {
 
                 //        <item>
                 //         <widget class="QFontComboBox" name="textFontFamilyEdit"/>
-                QFontComboBox { id: textFontFamilyEdit }
-                //        </item>
+                QFontComboBox {
+                    id: textFontFamilyEdit
+
+                    //          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                    //           <horstretch>0</horstretch>
+                    //           <verstretch>0</verstretch>
+                    //          </sizepolicy>
+                    sizePolicy {
+                        horizontalPolicy: QSizePolicy.Expanding
+                        verticalPolicy: QSizePolicy.Fixed
+                        horizontalStretch: 0
+                        verticalStretch: 0
+                    }
+
+                    //        </item>
+                }
 
                 //        <item>
                 //         <widget class="QSpinBox" name="textFontSizeEdit">

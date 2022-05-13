@@ -52,6 +52,12 @@ expression: "translate_file(\"examples/SettingsDialog.qml\")"
       <layout class="QHBoxLayout" name="textFontLayout">
        <item>
         <widget class="QFontComboBox" name="textFontFamilyEdit">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="QSizePolicy::Expanding" vsizetype="QSizePolicy::Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
         </widget>
        </item>
        <item>
