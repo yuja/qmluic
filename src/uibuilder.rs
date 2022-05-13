@@ -1,6 +1,6 @@
 use qmluic::qmlast;
 use qmluic::typemap::{self, TypeMap};
-use qmluic::uigen::ConstantValue;
+use qmluic::uigen::{ConstantGadget, ConstantValue};
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::io;
 
@@ -282,14 +282,15 @@ where
             }
         };
         match cls.name() {
-            "QRect" => self.write_grouped_values(
-                b"rect",
-                format_grouped_values(cls, map, self.doc.source()),
-            )?,
-            "QSize" => self.write_grouped_values(
-                b"size",
-                format_grouped_values(cls, map, self.doc.source()),
-            )?,
+            "QRect" | "QSize" => ConstantGadget::from_binding_map(
+                cls,
+                node,
+                map,
+                self.doc.source(),
+                &mut self.errors,
+            )
+            .map(|g| g.serialize_to_xml(&mut self.writer))
+            .unwrap_or(Ok(()))?,
             "QSizePolicy" => {
                 // TODO: QSizePolicy is special in that
                 // a) it is registered as gadget type but have no useful property,
@@ -301,23 +302,6 @@ where
             }
             _ => self.errors.push(unexpected_node(node)),
         };
-        Ok(())
-    }
-
-    fn write_grouped_values<'b>(
-        &mut self,
-        tag: &[u8],
-        values: impl Iterator<Item = Result<(&'b str, String), qmlast::ParseError<'a>>>,
-    ) -> quick_xml::Result<()> {
-        let tag = BytesStart::borrowed_name(tag);
-        self.writer.write_event(Event::Start(tag.to_borrowed()))?;
-        for r in values {
-            match r {
-                Ok((n, v)) => write_tagged_str(&mut self.writer, n.as_bytes(), &v)?,
-                Err(e) => self.errors.push(e),
-            }
-        }
-        self.writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
     }
 
@@ -411,30 +395,6 @@ fn eval_number<'tree>(
         _ => return Err(unexpected_node(node)),
     };
     Ok(v)
-}
-
-fn format_grouped_values<'tree, 's, 'a>(
-    cls: &'a typemap::Class,
-    map: &'a qmlast::UiBindingMap<'tree, 's>,
-    source: &'a str,
-) -> impl Iterator<Item = Result<(&'s str, String), qmlast::ParseError<'tree>>> + 'a {
-    collect_sorted_binding_pairs(map)
-        .into_iter()
-        .map(|(name, value)| {
-            let ty = cls
-                .get_property_type(name)
-                .ok_or_else(|| unexpected_node(value.node()))?; // TODO: unknown property/type
-            let formatted = match value {
-                qmlast::UiBindingValue::Node(n) => {
-                    let mut errors = vec![];
-                    ConstantValue::from_expression(&ty, *n, source, &mut errors)
-                        .ok_or_else(|| errors.pop().unwrap())?
-                        .to_string()
-                }
-                qmlast::UiBindingValue::Map(n, _) => return Err(unexpected_node(*n)),
-            };
-            Ok((name, formatted))
-        })
 }
 
 struct SizePolicy {
