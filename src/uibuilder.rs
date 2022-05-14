@@ -1,3 +1,4 @@
+use qmluic::diagnostic::Diagnostics;
 use qmluic::qmlast;
 use qmluic::typemap::{self, TypeMap};
 use qmluic::uigen::{LayoutItem, LayoutItemContent, UiObject};
@@ -11,20 +12,25 @@ where
     writer: quick_xml::Writer<W>,
     type_map: &'a TypeMap,
     doc: &'a qmlast::UiDocument,
-    errors: Vec<qmlast::ParseError<'a>>,
+    diagnostics: &'a mut Diagnostics,
 }
 
 impl<'a, W> UiBuilder<'a, W>
 where
     W: io::Write,
 {
-    pub fn new(dest: W, type_map: &'a TypeMap, doc: &'a qmlast::UiDocument) -> Self {
+    pub fn new(
+        dest: W,
+        type_map: &'a TypeMap,
+        doc: &'a qmlast::UiDocument,
+        diagnostics: &'a mut Diagnostics,
+    ) -> Self {
         let writer = quick_xml::Writer::new_with_indent(dest, b' ', 1);
         UiBuilder {
             writer,
             type_map,
             doc,
-            errors: Vec::new(),
+            diagnostics,
         }
     }
 
@@ -48,7 +54,7 @@ where
                 .generate_object_rec(x.root_object_node())
                 .map(|w| w.serialize_to_xml(&mut self.writer))
                 .unwrap_or(Ok(()))?,
-            Err(e) => self.errors.push(e),
+            Err(e) => self.diagnostics.push(e),
         };
         Ok(())
     }
@@ -60,7 +66,7 @@ where
         let obj = match qmlast::UiObjectDefinition::from_node(node, self.doc.source()) {
             Ok(x) => x,
             Err(e) => {
-                self.errors.push(e);
+                self.diagnostics.push(e);
                 return None;
             }
         };
@@ -76,7 +82,7 @@ where
     fn generate_object_rec(&mut self, node: qmlast::Node<'a>) -> Option<UiObject> {
         let (obj, cls) = self.resolve_object_definition(node)?;
         let mut ui_obj =
-            UiObject::from_object_definition(&cls, &obj, self.doc.source(), &mut self.errors)?;
+            UiObject::from_object_definition(&cls, &obj, self.doc.source(), self.diagnostics)?;
         match &mut ui_obj {
             UiObject::Action(_) => self.confine_children(&obj),
             UiObject::Layout(layout) => {
@@ -100,7 +106,7 @@ where
     fn generate_layout_item_rec(&mut self, node: qmlast::Node<'a>) -> Option<LayoutItem> {
         let (obj, cls) = self.resolve_object_definition(node)?;
         let mut item =
-            LayoutItem::from_object_definition(&cls, &obj, self.doc.source(), &mut self.errors)?;
+            LayoutItem::from_object_definition(&cls, &obj, self.doc.source(), self.diagnostics)?;
         match &mut item.content {
             LayoutItemContent::Layout(layout) => {
                 layout.children.extend(
@@ -123,16 +129,12 @@ where
 
     fn confine_children(&mut self, obj: &qmlast::UiObjectDefinition<'a>) {
         // action shouldn't have any children
-        self.errors.extend(
+        self.diagnostics.extend(
             obj.child_object_nodes()
                 .iter()
                 .copied()
                 .map(unexpected_node),
         );
-    }
-
-    pub fn errors(&self) -> &[qmlast::ParseError<'a>] {
-        &self.errors
     }
 }
 

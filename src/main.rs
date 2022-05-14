@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use clap::Parser;
+use qmluic::diagnostic::{Diagnostic, DiagnosticKind, Diagnostics};
 use qmluic::metatype;
 use qmluic::qmlast;
 use qmluic::typemap::TypeMap;
@@ -32,11 +33,12 @@ fn main() -> quick_xml::Result<()> {
     }
 
     let stdout = io::stdout();
-    let mut builder = UiBuilder::new(stdout.lock(), &type_map, &doc);
+    let mut diagnostics = Diagnostics::new();
+    let mut builder = UiBuilder::new(stdout.lock(), &type_map, &doc, &mut diagnostics);
     builder.build()?;
-    if !builder.errors().is_empty() {
-        for e in builder.errors() {
-            print_parse_error(&doc, e)?;
+    if !diagnostics.is_empty() {
+        for d in &diagnostics {
+            print_diagnostic(&doc, d)?;
         }
         process::exit(1);
     }
@@ -76,17 +78,20 @@ fn load_metatypes(paths: &[PathBuf]) -> io::Result<Vec<metatype::Class>> {
 
 fn print_syntax_errors(doc: &qmlast::UiDocument) -> io::Result<()> {
     for e in &doc.collect_syntax_errors::<Vec<_>>() {
-        print_parse_error(doc, e)?;
+        print_diagnostic(doc, &e.into())?;
     }
     Ok(())
 }
 
-fn print_parse_error(doc: &qmlast::UiDocument, error: &qmlast::ParseError) -> io::Result<()> {
+fn print_diagnostic(doc: &qmlast::UiDocument, diag: &Diagnostic) -> io::Result<()> {
     use ariadne::{Color, Label, Report, ReportKind, Source};
-    let start_char_index = doc.source()[..error.start_byte()].chars().count();
-    let end_char_index = start_char_index + doc.source()[error.byte_range()].chars().count();
-    let report = Report::build(ReportKind::Error, (), start_char_index)
-        .with_message(error)
+    let kind = match diag.kind() {
+        DiagnosticKind::Error => ReportKind::Error,
+    };
+    let start_char_index = doc.source()[..diag.start_byte()].chars().count();
+    let end_char_index = start_char_index + doc.source()[diag.byte_range()].chars().count();
+    let report = Report::build(kind, (), start_char_index)
+        .with_message(diag.message())
         .with_label(Label::new(start_char_index..end_char_index).with_color(Color::Yellow))
         .finish();
     report.eprint(Source::from(doc.source()))

@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod diagnostic;
 pub mod metatype;
 pub mod qmlast;
 pub mod typemap;

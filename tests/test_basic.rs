@@ -1,3 +1,4 @@
+use qmluic::diagnostic::Diagnostics;
 use qmluic::metatype;
 use qmluic::qmlast::UiDocument;
 use qmluic::typemap::TypeMap;
@@ -16,7 +17,10 @@ fn translate_file(path: impl AsRef<Path>) -> String {
     type_map.extend(load_metatypes());
     let doc = UiDocument::read(path).unwrap();
     let mut buf = Vec::new();
-    UiBuilder::new(&mut buf, &type_map, &doc).build().unwrap();
+    let mut diagnostics = Diagnostics::new();
+    UiBuilder::new(&mut buf, &type_map, &doc, &mut diagnostics)
+        .build()
+        .unwrap();
     String::from_utf8(buf).unwrap()
 }
 

@@ -1,6 +1,7 @@
 use super::gadget::{ConstantGadget, ConstantSizePolicy};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
+use crate::diagnostic::Diagnostics;
 use crate::qmlast::{
     BinaryOperator, Expression, Identifier, Node, ParseError, ParseErrorKind, UiBindingMap,
     UiBindingValue, UnaryOperator,
@@ -19,11 +20,11 @@ pub enum ConstantExpression {
 
 impl ConstantExpression {
     /// Generates constant expression of `ty` type from the given `binding_value`.
-    pub fn from_binding_value<'tree>(
+    pub fn from_binding_value(
         ty: &Type,
-        binding_value: &UiBindingValue<'tree, '_>,
+        binding_value: &UiBindingValue,
         source: &str,
-        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+        diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         match binding_value {
             UiBindingValue::Node(n) => Self::from_expression(ty, *n, source, diagnostics),
@@ -40,12 +41,12 @@ impl ConstantExpression {
     }
 
     /// Generates constant expression of `cls` type from the given `binding_map`.
-    pub fn from_binding_map<'tree>(
+    pub fn from_binding_map(
         cls: &Class,
-        node: Node<'tree>,
-        binding_map: &UiBindingMap<'tree, '_>,
+        node: Node,
+        binding_map: &UiBindingMap,
         source: &str,
-        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+        diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         match cls.name() {
             "QSizePolicy" => {
@@ -58,11 +59,11 @@ impl ConstantExpression {
     }
 
     /// Generates constant expression of `ty` type from the given expression `node`.
-    pub fn from_expression<'tree>(
+    pub fn from_expression(
         ty: &Type,
-        node: Node<'tree>,
+        node: Node,
         source: &str,
-        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+        diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         ConstantValue::from_expression(ty, node, source, diagnostics).map(ConstantExpression::Value)
     }
@@ -93,11 +94,11 @@ pub enum ConstantValue {
 
 impl ConstantValue {
     /// Generates value of `ty` type from the given expression `node`.
-    pub fn from_expression<'tree>(
+    pub fn from_expression(
         ty: &Type,
-        node: Node<'tree>,
+        node: Node,
         source: &str,
-        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+        diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         match format_constant_value(ty, node, source) {
             Ok(v) => Some(v),

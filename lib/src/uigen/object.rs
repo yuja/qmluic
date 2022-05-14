@@ -1,5 +1,6 @@
 use super::expr::{ConstantExpression, ConstantValue};
 use super::{XmlResult, XmlWriter};
+use crate::diagnostic::Diagnostics;
 use crate::qmlast::{
     Expression, Node, ParseError, ParseErrorKind, UiBindingMap, UiBindingValue, UiObjectDefinition,
 };
@@ -20,11 +21,11 @@ impl UiObject {
     /// Generates object of `cls` type from the given `obj` definition.
     ///
     /// Child objects are NOT generated recursively.
-    pub fn from_object_definition<'tree>(
+    pub fn from_object_definition(
         cls: &Class,
-        obj: &UiObjectDefinition<'tree>,
+        obj: &UiObjectDefinition,
         source: &str,
-        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+        diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         // TODO: leverage type map to dispatch
         if cls.name() == "QAction" {
@@ -61,11 +62,11 @@ impl Action {
     /// Generates action of `cls` type from the given `obj` definition.
     ///
     /// The given `cls` is supposed to be of `QAction` type.
-    pub fn from_object_definition<'tree>(
+    pub fn from_object_definition(
         cls: &Class,
-        obj: &UiObjectDefinition<'tree>,
+        obj: &UiObjectDefinition,
         source: &str,
-        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+        diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let binding_map = consume_err(diagnostics, obj.build_binding_map(source))?;
         Some(Action {
@@ -106,11 +107,11 @@ impl Widget {
     /// Generates widget of `cls` type from the given `obj` definition.
     ///
     /// Child objects are NOT constructed recursively.
-    pub fn from_object_definition<'tree>(
+    pub fn from_object_definition(
         cls: &Class,
-        obj: &UiObjectDefinition<'tree>,
+        obj: &UiObjectDefinition,
         source: &str,
-        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+        diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let binding_map = consume_err(diagnostics, obj.build_binding_map(source))?;
         let properties_opt = collect_properties(cls, &binding_map, source, diagnostics);
@@ -167,11 +168,11 @@ pub struct LayoutItem {
 
 impl LayoutItem {
     /// Generates layout item of `cls` type from the given `obj` definition.
-    pub fn from_object_definition<'tree>(
+    pub fn from_object_definition(
         cls: &Class,
-        obj: &UiObjectDefinition<'tree>,
+        obj: &UiObjectDefinition,
         source: &str,
-        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+        diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let content_opt = LayoutItemContent::from_object_definition(cls, obj, source, diagnostics);
 
@@ -237,11 +238,11 @@ pub enum LayoutItemContent {
 }
 
 impl LayoutItemContent {
-    fn from_object_definition<'tree>(
+    fn from_object_definition(
         cls: &Class,
-        obj: &UiObjectDefinition<'tree>,
+        obj: &UiObjectDefinition,
         source: &str,
-        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+        diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         // TODO: leverage type map to dispatch
         if cls.name().ends_with("Layout") {
@@ -280,11 +281,11 @@ impl SpacerItem {
     /// Generates spacer item of `cls` type from the given `obj` definition.
     ///
     /// The given `cls` is supposed to be of `QSpacerItem` type.
-    pub fn from_object_definition<'tree>(
+    pub fn from_object_definition(
         cls: &Class,
-        obj: &UiObjectDefinition<'tree>,
+        obj: &UiObjectDefinition,
         source: &str,
-        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+        diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let binding_map = consume_err(diagnostics, obj.build_binding_map(source))?;
         Some(SpacerItem {
@@ -324,11 +325,11 @@ impl Layout {
     /// Generates layout of `cls` type from the given `obj` definition.
     ///
     /// Child items are NOT constructed recursively.
-    pub fn from_object_definition<'tree>(
+    pub fn from_object_definition(
         cls: &Class,
-        obj: &UiObjectDefinition<'tree>,
+        obj: &UiObjectDefinition,
         source: &str,
-        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+        diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let binding_map = consume_err(diagnostics, obj.build_binding_map(source))?;
         Some(Layout {
@@ -362,11 +363,11 @@ impl Layout {
     }
 }
 
-fn collect_properties<'tree>(
+fn collect_properties(
     cls: &Class,
-    binding_map: &UiBindingMap<'tree, '_>,
+    binding_map: &UiBindingMap,
     source: &str,
-    diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+    diagnostics: &mut Diagnostics,
 ) -> Option<HashMap<String, ConstantExpression>> {
     binding_map
         .iter()
@@ -383,10 +384,10 @@ fn collect_properties<'tree>(
         .collect()
 }
 
-fn collect_identifiers<'tree>(
-    value: &UiBindingValue<'tree, '_>,
+fn collect_identifiers(
+    value: &UiBindingValue,
     source: &str,
-    diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+    diagnostics: &mut Diagnostics,
 ) -> Option<Vec<String>> {
     match value {
         UiBindingValue::Node(n) => parse_as_identifier_array(*n, source, diagnostics),
@@ -397,10 +398,10 @@ fn collect_identifiers<'tree>(
     }
 }
 
-fn parse_as_identifier_string<'tree>(
-    node: Node<'tree>,
+fn parse_as_identifier_string(
+    node: Node,
     source: &str,
-    diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+    diagnostics: &mut Diagnostics,
 ) -> Option<String> {
     match consume_err(diagnostics, Expression::from_node(node, source))? {
         Expression::Identifier(n) => Some(n.to_str(source).to_owned()),
@@ -411,10 +412,10 @@ fn parse_as_identifier_string<'tree>(
     }
 }
 
-fn parse_as_identifier_array<'tree>(
-    node: Node<'tree>,
+fn parse_as_identifier_array(
+    node: Node,
     source: &str,
-    diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+    diagnostics: &mut Diagnostics,
 ) -> Option<Vec<String>> {
     match consume_err(diagnostics, Expression::from_node(node, source))? {
         Expression::Array(ns) => ns
@@ -428,10 +429,7 @@ fn parse_as_identifier_array<'tree>(
     }
 }
 
-fn consume_err<'tree, T>(
-    diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
-    res: Result<T, ParseError<'tree>>,
-) -> Option<T> {
+fn consume_err<T>(diagnostics: &mut Diagnostics, res: Result<T, ParseError>) -> Option<T> {
     match res {
         Ok(x) => Some(x),
         Err(e) => {

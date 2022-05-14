@@ -1,6 +1,7 @@
 use super::expr::ConstantValue;
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
+use crate::diagnostic::Diagnostics;
 use crate::qmlast::{Node, ParseError, ParseErrorKind, UiBindingMap, UiBindingValue};
 use crate::typemap::{Class, TypeSpace};
 use quick_xml::events::{BytesStart, Event};
@@ -23,12 +24,12 @@ impl ConstantGadget {
     }
 
     /// Generates gadget of `cls` type from the given `binding_map`.
-    pub fn from_binding_map<'tree>(
+    pub fn from_binding_map(
         cls: &Class,
-        node: Node<'tree>,
-        binding_map: &UiBindingMap<'tree, '_>,
+        node: Node,
+        binding_map: &UiBindingMap,
         source: &str,
-        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+        diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         match cls.name() {
             "QRect" => collect_constant_properties(cls, binding_map, source, diagnostics)
@@ -59,11 +60,11 @@ impl ConstantGadget {
     }
 }
 
-fn collect_constant_properties<'tree>(
+fn collect_constant_properties(
     cls: &Class,
-    binding_map: &UiBindingMap<'tree, '_>,
+    binding_map: &UiBindingMap,
     source: &str,
-    diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+    diagnostics: &mut Diagnostics,
 ) -> Option<HashMap<String, ConstantValue>> {
     binding_map
         .iter()
@@ -104,12 +105,12 @@ impl ConstantSizePolicy {
     /// Generates size policy from the given `binding_map`.
     ///
     /// The `cls` must be of `QSizePolicy` type.
-    pub fn from_binding_map<'tree>(
+    pub fn from_binding_map(
         cls: &Class,
-        node: Node<'tree>,
-        binding_map: &UiBindingMap<'tree, '_>,
+        node: Node,
+        binding_map: &UiBindingMap,
         source: &str,
-        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+        diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         if cls.name() != "QSizePolicy" {
             diagnostics.push(unexpected_node(node)); // TODO
@@ -172,11 +173,11 @@ impl ConstantSizePolicy {
     }
 }
 
-fn extract_size_policy<'tree>(
+fn extract_size_policy(
     cls: &Class,
-    value: &UiBindingValue<'tree, '_>,
+    value: &UiBindingValue,
     source: &str,
-    diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+    diagnostics: &mut Diagnostics,
 ) -> Option<String> {
     extract_value_of_type_name(cls, "QSizePolicy::Policy", value, source, diagnostics).and_then(
         |v| {
@@ -198,11 +199,11 @@ fn extract_size_policy<'tree>(
     )
 }
 
-fn extract_int<'tree>(
+fn extract_int(
     cls: &Class,
-    value: &UiBindingValue<'tree, '_>,
+    value: &UiBindingValue,
     source: &str,
-    diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+    diagnostics: &mut Diagnostics,
 ) -> Option<f64> {
     extract_value_of_type_name(cls, "int", value, source, diagnostics).and_then(|v| {
         match v {
@@ -215,12 +216,12 @@ fn extract_int<'tree>(
     })
 }
 
-fn extract_value_of_type_name<'tree>(
+fn extract_value_of_type_name(
     cls: &Class,
     type_name: &str,
-    value: &UiBindingValue<'tree, '_>,
+    value: &UiBindingValue,
     source: &str,
-    diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+    diagnostics: &mut Diagnostics,
 ) -> Option<ConstantValue> {
     if let Some(ty) = cls.resolve_type_scoped(type_name) {
         match value {
