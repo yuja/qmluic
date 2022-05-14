@@ -160,6 +160,59 @@ impl SpacerItem {
     }
 }
 
+/// Layout definition which can be serialized to UI XML.
+#[derive(Clone, Debug)]
+pub struct Layout {
+    pub class: String,
+    pub name: Option<String>,
+    pub properties: HashMap<String, ConstantExpression>,
+    //pub children: Vec<LayoutItem>,
+}
+
+impl Layout {
+    /// Generates layout of `cls` type from the given `obj` definition.
+    ///
+    /// Child items are NOT constructed recursively.
+    pub fn from_object_definition<'tree>(
+        cls: &Class,
+        obj: &UiObjectDefinition<'tree>,
+        source: &str,
+        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+    ) -> Option<Self> {
+        let binding_map = consume_err(diagnostics, obj.build_binding_map(source))?;
+        Some(Layout {
+            class: cls.name().to_owned(),
+            name: obj.object_id().map(|n| n.to_str(source).to_owned()),
+            properties: collect_properties(cls, &binding_map, source, diagnostics)?,
+            //children: vec![]
+        })
+    }
+
+    /// Serializes this to UI XML.
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    where
+        W: io::Write,
+    {
+        let mut tag = BytesStart::borrowed_name(b"layout");
+        tag.push_attribute(("class", self.class.as_ref()));
+        if let Some(n) = &self.name {
+            tag.push_attribute(("name", n.as_ref()));
+        }
+        writer.write_event(Event::Start(tag.to_borrowed()))?;
+
+        serialize_properties_to_xml(writer, &self.properties)?;
+
+        /*
+        for c in &self.children {
+            c.serialize_to_xml(writer)?;
+        }
+
+        writer.write_event(Event::End(tag.to_end()))?;
+        */
+        Ok(())
+    }
+}
+
 fn collect_properties<'tree>(
     cls: &Class,
     binding_map: &UiBindingMap<'tree, '_>,
