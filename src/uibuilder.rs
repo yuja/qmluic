@@ -1,6 +1,6 @@
 use qmluic::qmlast;
-use qmluic::typemap::{self, PrimitiveType, Type, TypeMap};
-use qmluic::uigen::{Action, ConstantValue, Layout, SpacerItem, Widget};
+use qmluic::typemap::{self, TypeMap};
+use qmluic::uigen::{LayoutItem, LayoutItemContent, UiObject};
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::io;
 
@@ -44,131 +44,84 @@ where
 
     fn process_program_node(&mut self, node: qmlast::Node<'a>) -> quick_xml::Result<()> {
         match qmlast::UiProgram::from_node(node) {
-            Ok(x) => self.process_object_definition_node(x.root_object_node())?,
+            Ok(x) => self
+                .generate_object_rec(x.root_object_node())
+                .map(|w| w.serialize_to_xml(&mut self.writer))
+                .unwrap_or(Ok(()))?,
             Err(e) => self.errors.push(e),
         };
         Ok(())
     }
 
-    fn process_object_definition_node(&mut self, node: qmlast::Node<'a>) -> quick_xml::Result<()> {
-        match qmlast::UiObjectDefinition::from_node(node, self.doc.source()) {
-            Ok(x) => self.process_object_definition(&x)?,
-            Err(e) => self.errors.push(e),
-        };
-        Ok(())
-    }
-
-    fn process_object_definition(
+    fn resolve_object_definition(
         &mut self,
-        obj: &qmlast::UiObjectDefinition<'a>,
-    ) -> quick_xml::Result<()> {
+        node: qmlast::Node<'a>,
+    ) -> Option<(qmlast::UiObjectDefinition<'a>, typemap::Class<'a>)> {
+        let obj = match qmlast::UiObjectDefinition::from_node(node, self.doc.source()) {
+            Ok(x) => x,
+            Err(e) => {
+                self.errors.push(e);
+                return None;
+            }
+        };
         // TODO: resolve against imported types: Qml.Type -> Cxx::Type -> type object
         let type_name = obj.type_name().to_string(self.doc.source());
         if let Some(typemap::Type::Class(cls)) = self.type_map.get_type(&type_name) {
-            if cls.name() == "QAction" {
-                self.process_action_definition(&cls, obj)
-            } else if type_name.ends_with("Layout") {
-                self.process_layout_definition(&cls, obj)
-            } else if cls.name() == "QSpacerItem" {
-                self.process_spacer_definition(&cls, obj)
-            } else {
-                self.process_widget_definition(&cls, obj)
-            }
+            Some((obj, cls))
         } else {
-            // TODO: better error message
-            self.errors.push(unexpected_node(obj.node()));
-            Ok(())
+            None
         }
     }
 
-    fn process_action_definition(
-        &mut self,
-        cls: &typemap::Class,
-        obj: &qmlast::UiObjectDefinition<'a>,
-    ) -> quick_xml::Result<()> {
-        Action::from_object_definition(cls, obj, self.doc.source(), &mut self.errors)
-            .map(|w| w.serialize_to_xml(&mut self.writer))
-            .unwrap_or(Ok(()))?;
-
-        // action shouldn't have any children
-        self.errors.extend(
-            obj.child_object_nodes()
-                .iter()
-                .copied()
-                .map(unexpected_node),
-        );
-
-        Ok(())
-    }
-
-    fn process_layout_definition(
-        &mut self,
-        cls: &typemap::Class,
-        obj: &qmlast::UiObjectDefinition<'a>,
-    ) -> quick_xml::Result<()> {
-        Layout::from_object_definition(cls, obj, self.doc.source(), &mut self.errors)
-            .map(|w| w.serialize_to_xml(&mut self.writer))
-            .unwrap_or(Ok(()))?;
-
-        let obj_tag = BytesStart::borrowed_name(b"layout");
-
-        for &n in obj.child_object_nodes() {
-            let child = match qmlast::UiObjectDefinition::from_node(n, self.doc.source()) {
-                Ok(x) => x,
-                Err(e) => {
-                    self.errors.push(e);
-                    continue;
-                }
-            };
-            let attached_type_map = match child.build_attached_type_map(self.doc.source()) {
-                Ok(x) => x,
-                Err(e) => {
-                    self.errors.push(e);
-                    continue;
-                }
-            };
-
-            let mut item_tag = BytesStart::borrowed_name(b"item");
-            // TODO: resolve against imported types
-            if let Some(map) = attached_type_map.get(["QLayoutItem"].as_ref()) {
-                // TODO: look up attached type
-                for (name, value) in collect_sorted_binding_pairs(map) {
-                    match value {
-                        qmlast::UiBindingValue::Node(n) => {
-                            if let Some(v) = ConstantValue::from_expression(
-                                &Type::Primitive(PrimitiveType::Int),
-                                *n,
-                                self.doc.source(),
-                                &mut self.errors,
-                            ) {
-                                item_tag.push_attribute((name, v.to_string().as_ref()));
-                            }
-                        }
-                        qmlast::UiBindingValue::Map(n, _) => self.errors.push(unexpected_node(*n)),
-                    }
-                }
+    fn generate_object_rec(&mut self, node: qmlast::Node<'a>) -> Option<UiObject> {
+        let (obj, cls) = self.resolve_object_definition(node)?;
+        let mut ui_obj =
+            UiObject::from_object_definition(&cls, &obj, self.doc.source(), &mut self.errors)?;
+        match &mut ui_obj {
+            UiObject::Action(_) => self.confine_children(&obj),
+            UiObject::Layout(layout) => {
+                layout.children.extend(
+                    obj.child_object_nodes()
+                        .iter()
+                        .filter_map(|&n| self.generate_layout_item_rec(n)),
+                );
             }
-            self.writer
-                .write_event(Event::Start(item_tag.to_borrowed()))?;
-
-            self.process_object_definition(&child)?;
-
-            self.writer.write_event(Event::End(item_tag.to_end()))?;
+            UiObject::Widget(widget) => {
+                widget.children.extend(
+                    obj.child_object_nodes()
+                        .iter()
+                        .filter_map(|&n| self.generate_object_rec(n)),
+                );
+            }
         }
-
-        self.writer.write_event(Event::End(obj_tag.to_end()))?;
-        Ok(())
+        Some(ui_obj)
     }
 
-    fn process_spacer_definition(
-        &mut self,
-        cls: &typemap::Class,
-        obj: &qmlast::UiObjectDefinition<'a>,
-    ) -> quick_xml::Result<()> {
-        SpacerItem::from_object_definition(cls, obj, self.doc.source(), &mut self.errors)
-            .map(|w| w.serialize_to_xml(&mut self.writer))
-            .unwrap_or(Ok(()))?;
+    fn generate_layout_item_rec(&mut self, node: qmlast::Node<'a>) -> Option<LayoutItem> {
+        let (obj, cls) = self.resolve_object_definition(node)?;
+        let mut item =
+            LayoutItem::from_object_definition(&cls, &obj, self.doc.source(), &mut self.errors)?;
+        match &mut item.content {
+            LayoutItemContent::Layout(layout) => {
+                layout.children.extend(
+                    obj.child_object_nodes()
+                        .iter()
+                        .filter_map(|&n| self.generate_layout_item_rec(n)),
+                );
+            }
+            LayoutItemContent::SpacerItem(_) => self.confine_children(&obj),
+            LayoutItemContent::Widget(widget) => {
+                widget.children.extend(
+                    obj.child_object_nodes()
+                        .iter()
+                        .filter_map(|&n| self.generate_object_rec(n)),
+                );
+            }
+        }
+        Some(item)
+    }
 
+    fn confine_children(&mut self, obj: &qmlast::UiObjectDefinition<'a>) {
         // action shouldn't have any children
         self.errors.extend(
             obj.child_object_nodes()
@@ -176,41 +129,11 @@ where
                 .copied()
                 .map(unexpected_node),
         );
-
-        Ok(())
-    }
-
-    fn process_widget_definition(
-        &mut self,
-        cls: &typemap::Class,
-        obj: &qmlast::UiObjectDefinition<'a>,
-    ) -> quick_xml::Result<()> {
-        Widget::from_object_definition(cls, obj, self.doc.source(), &mut self.errors)
-            .map(|w| w.serialize_to_xml(&mut self.writer))
-            .unwrap_or(Ok(()))?;
-
-        let obj_tag = BytesStart::borrowed_name(b"widget");
-
-        for &n in obj.child_object_nodes() {
-            self.process_object_definition_node(n)?;
-        }
-
-        self.writer.write_event(Event::End(obj_tag.to_end()))?;
-        Ok(())
     }
 
     pub fn errors(&self) -> &[qmlast::ParseError<'a>] {
         &self.errors
     }
-}
-
-/// Builds a list of sorted binding map pairs to stabilize the output.
-fn collect_sorted_binding_pairs<'tree, 'source, 'a>(
-    map: &'a qmlast::UiBindingMap<'tree, 'source>,
-) -> Vec<(&'source str, &'a qmlast::UiBindingValue<'tree, 'source>)> {
-    let mut pairs: Vec<_> = map.iter().map(|(&k, v)| (k, v)).collect();
-    pairs.sort_by_key(|&(k, _)| k);
-    pairs
 }
 
 fn unexpected_node(node: qmlast::Node) -> qmlast::ParseError {

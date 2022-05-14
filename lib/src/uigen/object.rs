@@ -1,12 +1,54 @@
-use super::expr::ConstantExpression;
+use super::expr::{ConstantExpression, ConstantValue};
 use super::{XmlResult, XmlWriter};
 use crate::qmlast::{
     Expression, Node, ParseError, ParseErrorKind, UiBindingMap, UiBindingValue, UiObjectDefinition,
 };
-use crate::typemap::Class;
+use crate::typemap::{Class, PrimitiveType, Type};
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
 use std::io;
+
+/// Variant for the object definitions which can be serialized to UI XML.
+#[derive(Clone, Debug)]
+pub enum UiObject {
+    Action(Action),
+    Layout(Layout),
+    Widget(Widget),
+}
+
+impl UiObject {
+    /// Generates object of `cls` type from the given `obj` definition.
+    ///
+    /// Child objects are NOT generated recursively.
+    pub fn from_object_definition<'tree>(
+        cls: &Class,
+        obj: &UiObjectDefinition<'tree>,
+        source: &str,
+        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+    ) -> Option<Self> {
+        // TODO: leverage type map to dispatch
+        if cls.name() == "QAction" {
+            Action::from_object_definition(cls, obj, source, diagnostics).map(UiObject::Action)
+        } else if cls.name().ends_with("Layout") {
+            Layout::from_object_definition(cls, obj, source, diagnostics).map(UiObject::Layout)
+        } else {
+            Widget::from_object_definition(cls, obj, source, diagnostics).map(UiObject::Widget)
+        }
+    }
+
+    /// Serializes this to UI XML.
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    where
+        W: io::Write,
+    {
+        use UiObject::*;
+        match self {
+            Action(x) => x.serialize_to_xml(writer),
+            Layout(x) => x.serialize_to_xml(writer),
+            Widget(x) => x.serialize_to_xml(writer),
+        }
+    }
+}
 
 /// Action definition which can be serialized to UI XML.
 #[derive(Clone, Debug)]
@@ -57,7 +99,7 @@ pub struct Widget {
     pub name: Option<String>,
     pub properties: HashMap<String, ConstantExpression>,
     pub actions: Vec<String>,
-    //pub children: Vec<Object>,
+    pub children: Vec<UiObject>,
 }
 
 impl Widget {
@@ -83,7 +125,7 @@ impl Widget {
             name: obj.object_id().map(|n| n.to_str(source).to_owned()),
             properties: properties_opt?,
             actions: actions_opt?,
-            //children: vec![]
+            children: vec![],
         })
     }
 
@@ -107,14 +149,123 @@ impl Widget {
             ))?;
         }
 
-        /*
         for c in &self.children {
             c.serialize_to_xml(writer)?;
         }
 
         writer.write_event(Event::End(tag.to_end()))?;
-        */
         Ok(())
+    }
+}
+
+/// Layout item definition which can be serialized to UI XML.
+#[derive(Clone, Debug)]
+pub struct LayoutItem {
+    pub properties: HashMap<String, ConstantValue>,
+    pub content: LayoutItemContent,
+}
+
+impl LayoutItem {
+    /// Generates layout item of `cls` type from the given `obj` definition.
+    pub fn from_object_definition<'tree>(
+        cls: &Class,
+        obj: &UiObjectDefinition<'tree>,
+        source: &str,
+        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+    ) -> Option<Self> {
+        let content_opt = LayoutItemContent::from_object_definition(cls, obj, source, diagnostics);
+
+        let attached_type_map = consume_err(diagnostics, obj.build_attached_type_map(source))?;
+        let properties_opt = attached_type_map
+            .get(["QLayoutItem"].as_ref()) // TODO: resolve against imported types
+            .map(|binding_map| {
+                binding_map
+                    .iter()
+                    .map(|(&name, value)| {
+                        // TODO: look up attached type
+                        match value {
+                            UiBindingValue::Node(n) => ConstantValue::from_expression(
+                                &Type::Primitive(PrimitiveType::Int),
+                                *n,
+                                source,
+                                diagnostics,
+                            ),
+                            UiBindingValue::Map(n, _) => {
+                                diagnostics.push(unexpected_node(*n));
+                                None
+                            }
+                        }
+                        .map(|v| (name.to_owned(), v))
+                    })
+                    .collect()
+            })
+            .unwrap_or(Some(HashMap::new()));
+
+        // late return on error so as many diagnostics will be generated as possible
+        Some(LayoutItem {
+            properties: properties_opt?,
+            content: content_opt?,
+        })
+    }
+
+    /// Serializes this to UI XML.
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    where
+        W: io::Write,
+    {
+        let mut tag = BytesStart::borrowed_name(b"item");
+        let mut pairs: Vec<_> = self.properties.iter().collect();
+        pairs.sort_by_key(|&(k, _)| k);
+        for (k, v) in pairs {
+            tag.push_attribute((k.as_str(), v.to_string().as_ref()));
+        }
+        writer.write_event(Event::Start(tag.to_borrowed()))?;
+
+        self.content.serialize_to_xml(writer)?;
+
+        writer.write_event(Event::End(tag.to_end()))?;
+        Ok(())
+    }
+}
+
+/// Variant for the object managed by the layout item.
+#[derive(Clone, Debug)]
+pub enum LayoutItemContent {
+    Layout(Layout),
+    SpacerItem(SpacerItem),
+    Widget(Widget),
+}
+
+impl LayoutItemContent {
+    fn from_object_definition<'tree>(
+        cls: &Class,
+        obj: &UiObjectDefinition<'tree>,
+        source: &str,
+        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+    ) -> Option<Self> {
+        // TODO: leverage type map to dispatch
+        if cls.name().ends_with("Layout") {
+            Layout::from_object_definition(cls, obj, source, diagnostics)
+                .map(LayoutItemContent::Layout)
+        } else if cls.name() == "QSpacerItem" {
+            SpacerItem::from_object_definition(cls, obj, source, diagnostics)
+                .map(LayoutItemContent::SpacerItem)
+        } else {
+            Widget::from_object_definition(cls, obj, source, diagnostics)
+                .map(LayoutItemContent::Widget)
+        }
+    }
+
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    where
+        W: io::Write,
+    {
+        use LayoutItemContent::*;
+        match self {
+            Layout(x) => x.serialize_to_xml(writer),
+            SpacerItem(x) => x.serialize_to_xml(writer),
+            Widget(x) => x.serialize_to_xml(writer),
+        }
     }
 }
 
@@ -166,7 +317,7 @@ pub struct Layout {
     pub class: String,
     pub name: Option<String>,
     pub properties: HashMap<String, ConstantExpression>,
-    //pub children: Vec<LayoutItem>,
+    pub children: Vec<LayoutItem>,
 }
 
 impl Layout {
@@ -184,7 +335,7 @@ impl Layout {
             class: cls.name().to_owned(),
             name: obj.object_id().map(|n| n.to_str(source).to_owned()),
             properties: collect_properties(cls, &binding_map, source, diagnostics)?,
-            //children: vec![]
+            children: vec![],
         })
     }
 
@@ -202,13 +353,11 @@ impl Layout {
 
         serialize_properties_to_xml(writer, &self.properties)?;
 
-        /*
         for c in &self.children {
             c.serialize_to_xml(writer)?;
         }
 
         writer.write_event(Event::End(tag.to_end()))?;
-        */
         Ok(())
     }
 }
