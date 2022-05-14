@@ -1,6 +1,6 @@
 use qmluic::qmlast;
 use qmluic::typemap::{self, PrimitiveType, Type, TypeMap};
-use qmluic::uigen::{Action, ConstantExpression, ConstantValue, Layout, SpacerItem, Widget};
+use qmluic::uigen::{Action, ConstantValue, Layout, SpacerItem, Widget};
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::io;
 
@@ -199,91 +199,8 @@ where
         Ok(())
     }
 
-    fn process_binding_map(
-        &mut self,
-        cls: &typemap::Class,
-        obj: &qmlast::UiObjectDefinition<'a>,
-    ) -> quick_xml::Result<()> {
-        let map = match obj.build_binding_map(self.doc.source()) {
-            Ok(x) => x,
-            Err(e) => {
-                self.errors.push(e);
-                return Ok(());
-            }
-        };
-        for (name, value) in collect_sorted_binding_pairs(&map) {
-            if name == "actions" {
-                // TODO: only for QWidget subclasses
-                match value {
-                    qmlast::UiBindingValue::Node(n) => {
-                        self.process_binding_action_value_node(*n)?
-                    }
-                    qmlast::UiBindingValue::Map(n, _) => self.errors.push(unexpected_node(*n)),
-                }
-            } else if let Some(ty) = cls.get_property_type(name) {
-                let prop_tag =
-                    BytesStart::borrowed_name(b"property").with_attributes([("name", name)]);
-                self.writer
-                    .write_event(Event::Start(prop_tag.to_borrowed()))?;
-
-                ConstantExpression::from_binding_value(
-                    &ty,
-                    value,
-                    self.doc.source(),
-                    &mut self.errors,
-                )
-                .map(|v| v.serialize_to_xml(&mut self.writer))
-                .unwrap_or(Ok(()))?;
-
-                self.writer.write_event(Event::End(prop_tag.to_end()))?;
-            } else {
-                self.errors.push(unexpected_node(value.node())); // TODO: unknown property/type
-            }
-        }
-        Ok(()) // TODO
-    }
-
-    fn process_binding_action_value_node(
-        &mut self,
-        node: qmlast::Node<'a>,
-    ) -> quick_xml::Result<()> {
-        match parse_as_identifier_array(node, self.doc.source()) {
-            Ok(names) => {
-                for n in names {
-                    let tag = BytesStart::borrowed_name(b"addaction")
-                        .with_attributes([("name", n.to_str(self.doc.source()))]);
-                    self.writer.write_event(Event::Empty(tag))?;
-                }
-            }
-            Err(e) => self.errors.push(e),
-        };
-        Ok(())
-    }
-
     pub fn errors(&self) -> &[qmlast::ParseError<'a>] {
         &self.errors
-    }
-}
-
-fn parse_as_identifier<'tree>(
-    node: qmlast::Node<'tree>,
-    source: &str,
-) -> Result<qmlast::Identifier<'tree>, qmlast::ParseError<'tree>> {
-    match qmlast::Expression::from_node(node, source)? {
-        qmlast::Expression::Identifier(n) => Ok(n),
-        _ => Err(unexpected_node(node)),
-    }
-}
-
-fn parse_as_identifier_array<'tree>(
-    node: qmlast::Node<'tree>,
-    source: &str,
-) -> Result<Vec<qmlast::Identifier<'tree>>, qmlast::ParseError<'tree>> {
-    match qmlast::Expression::from_node(node, source)? {
-        qmlast::Expression::Array(ns) => {
-            ns.iter().map(|&n| parse_as_identifier(n, source)).collect()
-        }
-        _ => Err(unexpected_node(node)),
     }
 }
 
