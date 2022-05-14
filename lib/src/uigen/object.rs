@@ -8,6 +8,48 @@ use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
 use std::io;
 
+/// Action definition which can be serialized to UI XML.
+#[derive(Clone, Debug)]
+pub struct Action {
+    pub name: Option<String>,
+    pub properties: HashMap<String, ConstantExpression>,
+}
+
+impl Action {
+    /// Generates action of `cls` type from the given `obj` definition.
+    ///
+    /// The given `cls` is supposed to be of `QAction` type.
+    pub fn from_object_definition<'tree>(
+        cls: &Class,
+        obj: &UiObjectDefinition<'tree>,
+        source: &str,
+        diagnostics: &mut Vec<ParseError<'tree>>, // TODO: diagnostic wrapper
+    ) -> Option<Self> {
+        let binding_map = consume_err(diagnostics, obj.build_binding_map(source))?;
+        Some(Action {
+            name: obj.object_id().map(|n| n.to_str(source).to_owned()),
+            properties: collect_properties(cls, &binding_map, source, diagnostics)?,
+        })
+    }
+
+    /// Serializes this to UI XML.
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    where
+        W: io::Write,
+    {
+        let mut tag = BytesStart::borrowed_name(b"action");
+        if let Some(n) = &self.name {
+            tag.push_attribute(("name", n.as_ref()));
+        }
+        writer.write_event(Event::Start(tag.to_borrowed()))?;
+
+        serialize_properties_to_xml(writer, &self.properties)?;
+
+        writer.write_event(Event::End(tag.to_end()))?;
+        Ok(())
+    }
+}
+
 /// Widget definition which can be serialized to UI XML.
 #[derive(Clone, Debug)]
 pub struct Widget {

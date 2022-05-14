@@ -1,6 +1,6 @@
 use qmluic::qmlast;
 use qmluic::typemap::{self, PrimitiveType, Type, TypeMap};
-use qmluic::uigen::{ConstantExpression, ConstantValue, Widget};
+use qmluic::uigen::{Action, ConstantExpression, ConstantValue, Widget};
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::io;
 
@@ -86,14 +86,9 @@ where
         cls: &typemap::Class,
         obj: &qmlast::UiObjectDefinition<'a>,
     ) -> quick_xml::Result<()> {
-        let mut obj_tag = BytesStart::borrowed_name(b"action");
-        if let Some(id) = obj.object_id() {
-            obj_tag.push_attribute(("name", id.to_str(self.doc.source())));
-        }
-        self.writer
-            .write_event(Event::Start(obj_tag.to_borrowed()))?;
-
-        self.process_binding_map(cls, obj)?;
+        Action::from_object_definition(cls, obj, self.doc.source(), &mut self.errors)
+            .map(|w| w.serialize_to_xml(&mut self.writer))
+            .unwrap_or(Ok(()))?;
 
         // action shouldn't have any children
         self.errors.extend(
@@ -103,7 +98,6 @@ where
                 .map(unexpected_node),
         );
 
-        self.writer.write_event(Event::End(obj_tag.to_end()))?;
         Ok(())
     }
 
