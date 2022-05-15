@@ -1,8 +1,8 @@
 use super::expr::ConstantValue;
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
-use crate::diagnostic::Diagnostics;
-use crate::qmlast::{Node, ParseError, ParseErrorKind, UiBindingMap, UiBindingValue};
+use crate::diagnostic::{Diagnostic, Diagnostics};
+use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
 use crate::typemap::{Class, TypeSpace};
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
@@ -37,7 +37,10 @@ impl ConstantGadget {
             "QSize" => collect_constant_properties(cls, binding_map, source, diagnostics)
                 .map(|ps| Self::new("size", ps)),
             _ => {
-                diagnostics.push(unexpected_node(node));
+                diagnostics.push(Diagnostic::error(
+                    node.byte_range(),
+                    format!("unsupported gadget type: {}", cls.qualified_name()),
+                ));
                 None
             }
         }
@@ -75,12 +78,22 @@ fn collect_constant_properties(
                         ConstantValue::from_expression(&ty, *n, source, diagnostics)
                     }
                     UiBindingValue::Map(n, _) => {
-                        diagnostics.push(unexpected_node(*n));
+                        diagnostics.push(Diagnostic::error(
+                            n.byte_range(),
+                            "binding map cannot be gadget property",
+                        ));
                         None
                     }
                 }
             } else {
-                diagnostics.push(unexpected_node(value.node())); // TODO: unknown property/type
+                diagnostics.push(Diagnostic::error(
+                    value.node().byte_range(),
+                    format!(
+                        "unknown property of class '{}': {}",
+                        cls.qualified_name(),
+                        name
+                    ),
+                ));
                 None
             }
             .map(|v| (name.to_owned(), v))
@@ -104,19 +117,14 @@ pub struct ConstantSizePolicy {
 impl ConstantSizePolicy {
     /// Generates size policy from the given `binding_map`.
     ///
-    /// The `cls` must be of `QSizePolicy` type.
+    /// The `cls` is supposed to be of `QSizePolicy` type.
     pub fn from_binding_map(
         cls: &Class,
-        node: Node,
+        _node: Node,
         binding_map: &UiBindingMap,
         source: &str,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        if cls.name() != "QSizePolicy" {
-            diagnostics.push(unexpected_node(node)); // TODO
-            return None;
-        }
-
         let mut policy = ConstantSizePolicy::default();
         let mut ok = true;
         for (&name, value) in binding_map {
@@ -134,7 +142,14 @@ impl ConstantSizePolicy {
                     policy.vertical_stretch = extract_int(cls, value, source, diagnostics);
                 }
                 _ => {
-                    diagnostics.push(unexpected_node(value.node())); // TODO
+                    diagnostics.push(Diagnostic::error(
+                        value.node().byte_range(),
+                        format!(
+                            "unknown property of class '{}': {}",
+                            cls.qualified_name(),
+                            name
+                        ),
+                    ));
                     ok = false;
                 }
             }
@@ -180,20 +195,24 @@ fn extract_size_policy(
     diagnostics: &mut Diagnostics,
 ) -> Option<String> {
     extract_value_of_type_name(cls, "QSizePolicy::Policy", value, source, diagnostics).and_then(
-        |v| {
-            match v {
-                ConstantValue::Enum(s) => {
-                    if let Some(t) = s.strip_prefix("QSizePolicy::") {
-                        Some(t.to_owned())
-                    } else {
-                        diagnostics.push(unexpected_node(value.node())); // TODO
-                        None
-                    }
-                }
-                _ => {
-                    diagnostics.push(unexpected_node(value.node())); // TODO
+        |v| match v {
+            ConstantValue::Enum(s) => {
+                if let Some(t) = s.strip_prefix("QSizePolicy::") {
+                    Some(t.to_owned())
+                } else {
+                    diagnostics.push(Diagnostic::error(
+                        value.node().byte_range(),
+                        "not a size policy enum",
+                    ));
                     None
                 }
+            }
+            _ => {
+                diagnostics.push(Diagnostic::error(
+                    value.node().byte_range(),
+                    "not a size policy enum",
+                ));
+                None
             }
         },
     )
@@ -205,13 +224,14 @@ fn extract_int(
     source: &str,
     diagnostics: &mut Diagnostics,
 ) -> Option<f64> {
-    extract_value_of_type_name(cls, "int", value, source, diagnostics).and_then(|v| {
-        match v {
-            ConstantValue::Number(d) => Some(d),
-            _ => {
-                diagnostics.push(unexpected_node(value.node())); // TODO
-                None
-            }
+    extract_value_of_type_name(cls, "int", value, source, diagnostics).and_then(|v| match v {
+        ConstantValue::Number(d) => Some(d),
+        _ => {
+            diagnostics.push(Diagnostic::error(
+                value.node().byte_range(),
+                "not an integer",
+            ));
+            None
         }
     })
 }
@@ -227,16 +247,24 @@ fn extract_value_of_type_name(
         match value {
             UiBindingValue::Node(n) => ConstantValue::from_expression(&ty, *n, source, diagnostics),
             UiBindingValue::Map(n, _) => {
-                diagnostics.push(unexpected_node(*n));
+                diagnostics.push(Diagnostic::error(
+                    n.byte_range(),
+                    format!(
+                        "binding map cannot be parsed as value type '{}'",
+                        ty.qualified_name()
+                    ),
+                ));
                 None
             }
         }
     } else {
-        diagnostics.push(unexpected_node(value.node())); // TODO
+        diagnostics.push(Diagnostic::error(
+            value.node().byte_range(),
+            format!(
+                "required type cannot be resolved from type map: {}",
+                type_name
+            ),
+        ));
         None
     }
-}
-
-fn unexpected_node(node: Node) -> ParseError {
-    ParseError::new(node, ParseErrorKind::UnexpectedNodeKind)
 }

@@ -1,7 +1,7 @@
 use super::gadget::{ConstantGadget, ConstantSizePolicy};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
-use crate::diagnostic::Diagnostics;
+use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{
     BinaryOperator, Expression, Identifier, Node, ParseError, ParseErrorKind, UiBindingMap,
     UiBindingValue, UnaryOperator,
@@ -28,15 +28,19 @@ impl ConstantExpression {
     ) -> Option<Self> {
         match binding_value {
             UiBindingValue::Node(n) => Self::from_expression(ty, *n, source, diagnostics),
-            UiBindingValue::Map(n, m) => {
-                match ty {
-                    Type::Class(cls) => Self::from_binding_map(cls, *n, m, source, diagnostics),
-                    _ => {
-                        diagnostics.push(unexpected_node(*n)); // TODO
-                        None
-                    }
+            UiBindingValue::Map(n, m) => match ty {
+                Type::Class(cls) => Self::from_binding_map(cls, *n, m, source, diagnostics),
+                _ => {
+                    diagnostics.push(Diagnostic::error(
+                        n.byte_range(),
+                        format!(
+                            "binding map cannot be parsed as non-class type '{}'",
+                            ty.qualified_name()
+                        ),
+                    ));
+                    None
                 }
-            }
+            },
         }
     }
 

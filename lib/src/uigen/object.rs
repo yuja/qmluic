@@ -1,9 +1,7 @@
 use super::expr::{ConstantExpression, ConstantValue};
 use super::{XmlResult, XmlWriter};
-use crate::diagnostic::Diagnostics;
-use crate::qmlast::{
-    Expression, Node, ParseError, ParseErrorKind, UiBindingMap, UiBindingValue, UiObjectDefinition,
-};
+use crate::diagnostic::{Diagnostic, Diagnostics};
+use crate::qmlast::{Expression, Node, UiBindingMap, UiBindingValue, UiObjectDefinition};
 use crate::typemap::{Class, PrimitiveType, Type, TypeSpace};
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
@@ -192,7 +190,10 @@ impl LayoutItem {
                                 diagnostics,
                             ),
                             UiBindingValue::Map(n, _) => {
-                                diagnostics.push(unexpected_node(*n));
+                                diagnostics.push(Diagnostic::error(
+                                    n.byte_range(),
+                                    "binding map cannot be QLayoutItem attached property",
+                                ));
                                 None
                             }
                         }
@@ -376,7 +377,14 @@ fn collect_properties(
             if let Some(ty) = cls.get_property_type(name) {
                 ConstantExpression::from_binding_value(&ty, value, source, diagnostics)
             } else {
-                diagnostics.push(unexpected_node(value.node())); // TODO: unknown property/type
+                diagnostics.push(Diagnostic::error(
+                    value.node().byte_range(),
+                    format!(
+                        "unknown property of class '{}': {}",
+                        cls.qualified_name(),
+                        name
+                    ),
+                ));
                 None
             }
             .map(|v| (name.to_owned(), v))
@@ -392,7 +400,10 @@ fn collect_identifiers(
     match value {
         UiBindingValue::Node(n) => parse_as_identifier_array(*n, source, diagnostics),
         UiBindingValue::Map(n, _) => {
-            diagnostics.push(unexpected_node(*n));
+            diagnostics.push(Diagnostic::error(
+                n.byte_range(),
+                "binding map cannot be parsed as array of identifiers",
+            ));
             None
         }
     }
@@ -406,7 +417,7 @@ fn parse_as_identifier_string(
     match diagnostics.consume_err(Expression::from_node(node, source))? {
         Expression::Identifier(n) => Some(n.to_str(source).to_owned()),
         _ => {
-            diagnostics.push(unexpected_node(node));
+            diagnostics.push(Diagnostic::error(node.byte_range(), "not an identifier"));
             None
         }
     }
@@ -423,14 +434,10 @@ fn parse_as_identifier_array(
             .map(|&n| parse_as_identifier_string(n, source, diagnostics))
             .collect(),
         _ => {
-            diagnostics.push(unexpected_node(node));
+            diagnostics.push(Diagnostic::error(node.byte_range(), "not an array"));
             None
         }
     }
-}
-
-fn unexpected_node(node: Node) -> ParseError {
-    ParseError::new(node, ParseErrorKind::UnexpectedNodeKind)
 }
 
 fn serialize_properties_to_xml<W>(
