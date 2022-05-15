@@ -1,6 +1,6 @@
-use qmluic::diagnostic::Diagnostics;
+use qmluic::diagnostic::{Diagnostic, Diagnostics};
 use qmluic::qmlast;
-use qmluic::typemap::{self, TypeMap};
+use qmluic::typemap::{self, TypeMap, TypeSpace};
 use qmluic::uigen::{LayoutItem, LayoutItemContent, UiForm, UiObject};
 
 pub struct UiBuilder<'a> {
@@ -57,7 +57,7 @@ impl<'a> UiBuilder<'a> {
         let mut ui_obj =
             UiObject::from_object_definition(&cls, &obj, self.doc.source(), self.diagnostics)?;
         match &mut ui_obj {
-            UiObject::Action(_) => self.confine_children(&obj),
+            UiObject::Action(_) => self.confine_children(&cls, &obj),
             UiObject::Layout(layout) => {
                 layout.children.extend(
                     obj.child_object_nodes()
@@ -88,7 +88,7 @@ impl<'a> UiBuilder<'a> {
                         .filter_map(|&n| self.generate_layout_item_rec(n)),
                 );
             }
-            LayoutItemContent::SpacerItem(_) => self.confine_children(&obj),
+            LayoutItemContent::SpacerItem(_) => self.confine_children(&cls, &obj),
             LayoutItemContent::Widget(widget) => {
                 widget.children.extend(
                     obj.child_object_nodes()
@@ -100,17 +100,13 @@ impl<'a> UiBuilder<'a> {
         Some(item)
     }
 
-    fn confine_children(&mut self, obj: &qmlast::UiObjectDefinition<'a>) {
-        // action shouldn't have any children
-        self.diagnostics.extend(
-            obj.child_object_nodes()
-                .iter()
-                .copied()
-                .map(unexpected_node),
-        );
+    fn confine_children(&mut self, cls: &typemap::Class<'a>, obj: &qmlast::UiObjectDefinition<'a>) {
+        if let Some(n) = obj.child_object_nodes().first() {
+            // TODO: error on obj.node(), and add hint to child nodes
+            self.diagnostics.push(Diagnostic::error(
+                n.byte_range(),
+                format!("'{}' should have no children", cls.qualified_name()),
+            ));
+        }
     }
-}
-
-fn unexpected_node(node: qmlast::Node) -> qmlast::ParseError {
-    qmlast::ParseError::new(node, qmlast::ParseErrorKind::UnexpectedNodeKind)
 }
