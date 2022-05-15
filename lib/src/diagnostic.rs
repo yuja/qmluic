@@ -88,6 +88,20 @@ impl Diagnostics {
     {
         self.diagnostics.push(diag.into())
     }
+
+    /// Extracts error from the given `result` and pushes it. Returns the success value if any.
+    pub fn consume_err<T, E>(&mut self, result: Result<T, E>) -> Option<T>
+    where
+        E: Into<Diagnostic>,
+    {
+        match result {
+            Ok(x) => Some(x),
+            Err(e) => {
+                self.push(e);
+                None
+            }
+        }
+    }
 }
 
 impl<'a> IntoIterator for &'a Diagnostics {

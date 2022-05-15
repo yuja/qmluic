@@ -100,13 +100,7 @@ impl ConstantValue {
         source: &str,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        match format_constant_value(ty, node, source) {
-            Ok(v) => Some(v),
-            Err(e) => {
-                diagnostics.push(e);
-                None
-            }
-        }
+        diagnostics.consume_err(format_constant_value(ty, node, source))
     }
 
     /// Serializes this to UI XML.

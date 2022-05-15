@@ -68,7 +68,7 @@ impl Action {
         source: &str,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let binding_map = consume_err(diagnostics, obj.build_binding_map(source))?;
+        let binding_map = diagnostics.consume_err(obj.build_binding_map(source))?;
         Some(Action {
             name: obj.object_id().map(|n| n.to_str(source).to_owned()),
             properties: collect_properties(cls, &binding_map, source, diagnostics)?,
@@ -113,7 +113,7 @@ impl Widget {
         source: &str,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let binding_map = consume_err(diagnostics, obj.build_binding_map(source))?;
+        let binding_map = diagnostics.consume_err(obj.build_binding_map(source))?;
         let properties_opt = collect_properties(cls, &binding_map, source, diagnostics);
         let actions_opt = binding_map
             .get("actions")
@@ -176,7 +176,7 @@ impl LayoutItem {
     ) -> Option<Self> {
         let content_opt = LayoutItemContent::from_object_definition(cls, obj, source, diagnostics);
 
-        let attached_type_map = consume_err(diagnostics, obj.build_attached_type_map(source))?;
+        let attached_type_map = diagnostics.consume_err(obj.build_attached_type_map(source))?;
         let properties_opt = attached_type_map
             .get(["QLayoutItem"].as_ref()) // TODO: resolve against imported types
             .map(|binding_map| {
@@ -287,7 +287,7 @@ impl SpacerItem {
         source: &str,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let binding_map = consume_err(diagnostics, obj.build_binding_map(source))?;
+        let binding_map = diagnostics.consume_err(obj.build_binding_map(source))?;
         Some(SpacerItem {
             name: obj.object_id().map(|n| n.to_str(source).to_owned()),
             properties: collect_properties(cls, &binding_map, source, diagnostics)?,
@@ -331,7 +331,7 @@ impl Layout {
         source: &str,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let binding_map = consume_err(diagnostics, obj.build_binding_map(source))?;
+        let binding_map = diagnostics.consume_err(obj.build_binding_map(source))?;
         Some(Layout {
             class: cls.name().to_owned(),
             name: obj.object_id().map(|n| n.to_str(source).to_owned()),
@@ -403,7 +403,7 @@ fn parse_as_identifier_string(
     source: &str,
     diagnostics: &mut Diagnostics,
 ) -> Option<String> {
-    match consume_err(diagnostics, Expression::from_node(node, source))? {
+    match diagnostics.consume_err(Expression::from_node(node, source))? {
         Expression::Identifier(n) => Some(n.to_str(source).to_owned()),
         _ => {
             diagnostics.push(unexpected_node(node));
@@ -417,23 +417,13 @@ fn parse_as_identifier_array(
     source: &str,
     diagnostics: &mut Diagnostics,
 ) -> Option<Vec<String>> {
-    match consume_err(diagnostics, Expression::from_node(node, source))? {
+    match diagnostics.consume_err(Expression::from_node(node, source))? {
         Expression::Array(ns) => ns
             .iter()
             .map(|&n| parse_as_identifier_string(n, source, diagnostics))
             .collect(),
         _ => {
             diagnostics.push(unexpected_node(node));
-            None
-        }
-    }
-}
-
-fn consume_err<T>(diagnostics: &mut Diagnostics, res: Result<T, ParseError>) -> Option<T> {
-    match res {
-        Ok(x) => Some(x),
-        Err(e) => {
-            diagnostics.push(e);
             None
         }
     }
