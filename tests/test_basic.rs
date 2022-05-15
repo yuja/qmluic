@@ -2,6 +2,7 @@ use qmluic::diagnostic::Diagnostics;
 use qmluic::metatype;
 use qmluic::qmlast::UiDocument;
 use qmluic::typemap::TypeMap;
+use qmluic::uigen::XmlWriter;
 use qmluic_cli::UiBuilder;
 use std::fs;
 use std::path::Path;
@@ -16,10 +17,12 @@ fn translate_file(path: impl AsRef<Path>) -> String {
     let mut type_map = TypeMap::with_primitive_types();
     type_map.extend(load_metatypes());
     let doc = UiDocument::read(path).unwrap();
-    let mut buf = Vec::new();
     let mut diagnostics = Diagnostics::new();
-    UiBuilder::new(&mut buf, &type_map, &doc, &mut diagnostics)
+    let form = UiBuilder::new(&type_map, &doc, &mut diagnostics)
         .build()
+        .unwrap();
+    let mut buf = Vec::new();
+    form.serialize_to_xml(&mut XmlWriter::new_with_indent(&mut buf, b' ', 1))
         .unwrap();
     String::from_utf8(buf).unwrap()
 }

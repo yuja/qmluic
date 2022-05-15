@@ -1,62 +1,35 @@
 use qmluic::diagnostic::Diagnostics;
 use qmluic::qmlast;
 use qmluic::typemap::{self, TypeMap};
-use qmluic::uigen::{LayoutItem, LayoutItemContent, UiObject};
-use quick_xml::events::{BytesStart, BytesText, Event};
-use std::io;
+use qmluic::uigen::{LayoutItem, LayoutItemContent, UiForm, UiObject};
 
-pub struct UiBuilder<'a, W>
-where
-    W: io::Write,
-{
-    writer: quick_xml::Writer<W>,
+pub struct UiBuilder<'a> {
     type_map: &'a TypeMap,
     doc: &'a qmlast::UiDocument,
     diagnostics: &'a mut Diagnostics,
 }
 
-impl<'a, W> UiBuilder<'a, W>
-where
-    W: io::Write,
-{
+impl<'a> UiBuilder<'a> {
     pub fn new(
-        dest: W,
         type_map: &'a TypeMap,
         doc: &'a qmlast::UiDocument,
         diagnostics: &'a mut Diagnostics,
     ) -> Self {
-        let writer = quick_xml::Writer::new_with_indent(dest, b' ', 1);
         UiBuilder {
-            writer,
             type_map,
             doc,
             diagnostics,
         }
     }
 
-    pub fn build(&mut self) -> quick_xml::Result<()> {
-        let ui_tag = BytesStart::borrowed_name(b"ui")
-            .with_attributes([(b"version".as_ref(), b"4.0".as_ref())]);
-        self.writer
-            .write_event(Event::Start(ui_tag.to_borrowed()))?;
-        if let Some(name) = self.doc.type_name() {
-            write_tagged_str(&mut self.writer, b"class", name)?;
-        }
-        self.process_program_node(self.doc.root_node())?;
-        self.writer.write_event(Event::End(ui_tag.to_end()))?;
-        self.writer.write(b"\n")?;
-        Ok(())
-    }
-
-    fn process_program_node(&mut self, node: qmlast::Node<'a>) -> quick_xml::Result<()> {
-        match qmlast::UiProgram::from_node(node) {
-            Ok(x) => self
-                .generate_object_rec(x.root_object_node())
-                .map(|w| w.serialize_to_xml(&mut self.writer))
-                .unwrap_or(Ok(()))?,
-            Err(e) => self.diagnostics.push(e),
-        };
-        Ok(())
+    pub fn build(&mut self) -> Option<UiForm> {
+        self.diagnostics
+            .consume_err(qmlast::UiProgram::from_node(self.doc.root_node()))
+            .and_then(|p| self.generate_object_rec(p.root_object_node()))
+            .map(|root_object| UiForm {
+                class: self.doc.type_name().map(|s| s.to_owned()),
+                root_object,
+            })
     }
 
     fn resolve_object_definition(
@@ -140,19 +113,4 @@ where
 
 fn unexpected_node(node: qmlast::Node) -> qmlast::ParseError {
     qmlast::ParseError::new(node, qmlast::ParseErrorKind::UnexpectedNodeKind)
-}
-
-fn write_tagged_str<W>(
-    writer: &mut quick_xml::Writer<W>,
-    tag: &[u8],
-    content: &str,
-) -> quick_xml::Result<()>
-where
-    W: io::Write,
-{
-    let tag = BytesStart::borrowed_name(tag);
-    writer.write_event(Event::Start(tag.to_borrowed()))?;
-    writer.write_event(Event::Text(BytesText::from_plain_str(content)))?;
-    writer.write_event(Event::End(tag.to_end()))?;
-    Ok(())
 }

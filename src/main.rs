@@ -5,6 +5,7 @@ use qmluic::diagnostic::{Diagnostic, DiagnosticKind, Diagnostics};
 use qmluic::metatype;
 use qmluic::qmlast;
 use qmluic::typemap::TypeMap;
+use qmluic::uigen::{XmlResult, XmlWriter};
 use qmluic_cli::UiBuilder;
 use std::fs;
 use std::io;
@@ -20,7 +21,7 @@ struct Args {
     foreign_types: Vec<PathBuf>,
 }
 
-fn main() -> quick_xml::Result<()> {
+fn main() -> XmlResult<()> {
     let args = Args::parse();
 
     let mut type_map = TypeMap::with_primitive_types();
@@ -34,8 +35,10 @@ fn main() -> quick_xml::Result<()> {
 
     let stdout = io::stdout();
     let mut diagnostics = Diagnostics::new();
-    let mut builder = UiBuilder::new(stdout.lock(), &type_map, &doc, &mut diagnostics);
-    builder.build()?;
+    let mut builder = UiBuilder::new(&type_map, &doc, &mut diagnostics);
+    if let Some(form) = builder.build() {
+        form.serialize_to_xml(&mut XmlWriter::new_with_indent(stdout.lock(), b' ', 1))?;
+    }
     if !diagnostics.is_empty() {
         for d in &diagnostics {
             print_diagnostic(&doc, d)?;
