@@ -21,7 +21,7 @@ struct TypeMapData {
 
 impl TypeMap {
     /// Creates empty type map.
-    pub fn new() -> Self {
+    pub fn empty() -> Self {
         TypeMap {
             data: Default::default(),
         }
@@ -526,7 +526,7 @@ mod tests {
 
     #[test]
     fn type_eq() {
-        let mut type_map = TypeMap::new();
+        let mut type_map = TypeMap::empty();
         type_map.extend([metatype::Class::new("Foo"), metatype::Class::new("Bar")]);
         type_map.extend([metatype::Enum::new("Baz")]);
         assert_eq!(
@@ -549,7 +549,7 @@ mod tests {
 
     #[test]
     fn aliased_enum_eq() {
-        let mut type_map = TypeMap::new();
+        let mut type_map = TypeMap::empty();
         type_map.extend([
             metatype::Enum::new("Foo"),
             metatype::Enum::new_flag("Foos", "Foo"),
@@ -661,7 +661,7 @@ mod tests {
 
     #[test]
     fn get_enum_by_variant() {
-        let mut type_map = TypeMap::new();
+        let mut type_map = TypeMap::empty();
         let mut foo_meta = metatype::Class::new("Foo");
         let unscoped_meta = metatype::Enum::with_values("Unscoped", ["X", "Y"]);
         let mut scoped_meta = metatype::Enum::with_values("Scoped", ["A", "Y"]);
@@ -682,7 +682,7 @@ mod tests {
 
     #[test]
     fn get_super_class_enum_by_variant() {
-        let mut type_map = TypeMap::new();
+        let mut type_map = TypeMap::empty();
         let mut foo_meta = metatype::Class::new("Foo");
         let unscoped_meta = metatype::Enum::with_values("Unscoped", ["X", "Y"]);
         foo_meta.enums.extend([unscoped_meta]);
