@@ -19,6 +19,26 @@ pub struct Diagnostic {
 }
 
 impl Diagnostic {
+    /// Creates new diagnostic message of the given `kind`.
+    pub fn new<S>(kind: DiagnosticKind, byte_range: Range<usize>, message: S) -> Self
+    where
+        S: Into<String>,
+    {
+        Diagnostic {
+            kind,
+            byte_range,
+            message: message.into(),
+        }
+    }
+
+    /// Creates new error message.
+    pub fn error<S>(byte_range: Range<usize>, message: S) -> Self
+    where
+        S: Into<String>,
+    {
+        Self::new(DiagnosticKind::Error, byte_range, message)
+    }
+
     pub fn kind(&self) -> DiagnosticKind {
         self.kind
     }
@@ -45,11 +65,7 @@ impl Diagnostic {
 
 impl From<&ParseError<'_>> for Diagnostic {
     fn from(error: &ParseError) -> Self {
-        Diagnostic {
-            kind: DiagnosticKind::Error,
-            byte_range: error.byte_range(),
-            message: error.to_string(),
-        }
+        Self::error(error.byte_range(), error.to_string())
     }
 }
 
