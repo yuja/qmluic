@@ -32,14 +32,9 @@ impl TypeMap {
         use PrimitiveType::*;
         use TypeIndex::Primitive;
 
-        let name_map = HashMap::from([
-            ("bool".to_owned(), Primitive(Bool)),
-            ("int".to_owned(), Primitive(Int)),
-            ("qreal".to_owned(), Primitive(QReal)),
-            ("QString".to_owned(), Primitive(QString)),
-            ("uint".to_owned(), Primitive(UInt)),
-            ("void".to_owned(), Primitive(Void)),
-        ]);
+        let name_map = HashMap::from(
+            [Bool, Int, QReal, QString, UInt, Void].map(|t| (t.name().to_owned(), Primitive(t))),
+        );
 
         TypeMap {
             data: TypeMapData {
@@ -186,6 +181,10 @@ impl<'a> Namespace<'a> {
     fn root(data: &'a TypeMapData) -> Self {
         Namespace { data }
     }
+
+    pub fn name(&self) -> &str {
+        "" // TODO: return name if not root namespace
+    }
 }
 
 impl<'a> PartialEq for Namespace<'a> {
@@ -230,6 +229,17 @@ pub enum Type<'a> {
     Primitive(PrimitiveType),
 }
 
+impl Type<'_> {
+    pub fn name(&self) -> &str {
+        match self {
+            Type::Class(cls) => cls.name(),
+            Type::Enum(en) => en.name(),
+            Type::Namespace(ns) => ns.name(),
+            Type::Primitive(pt) => pt.name(),
+        }
+    }
+}
+
 impl<'a> TypeSpace<'a> for Type<'a> {
     fn get_type(&self, name: &str) -> Option<Type<'a>> {
         match self {
@@ -269,6 +279,20 @@ pub enum PrimitiveType {
     UInt,
     Void,
     // TODO: ...
+}
+
+impl PrimitiveType {
+    pub const fn name(&self) -> &'static str {
+        use PrimitiveType::*;
+        match self {
+            Bool => "bool",
+            Int => "int",
+            QReal => "qreal",
+            QString => "QString",
+            UInt => "uint",
+            Void => "void",
+        }
+    }
 }
 
 /// QObject (or gadget) class representation.
