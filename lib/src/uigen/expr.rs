@@ -6,7 +6,7 @@ use crate::qmlast::{
     BinaryOperator, Expression, Identifier, Node, ParseError, ParseErrorKind, UiBindingMap,
     UiBindingValue, UnaryOperator,
 };
-use crate::typemap::{Class, PrimitiveType, Type};
+use crate::typemap::{Class, PrimitiveType, Type, TypeSpace};
 use std::fmt;
 use std::io;
 

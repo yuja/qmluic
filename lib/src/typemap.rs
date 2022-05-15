@@ -137,6 +137,9 @@ impl TypeMapData {
 
 /// Interface to look up type by name.
 pub trait TypeSpace<'a> {
+    /// Name of this type.
+    fn name(&self) -> &str;
+
     /// Looks up type by name.
     ///
     /// If this type is a class, the returned type may be inherited from one of the super classes.
@@ -189,10 +192,6 @@ impl<'a> Namespace<'a> {
     fn root(data: &'a TypeMapData) -> Self {
         Namespace { data }
     }
-
-    pub fn name(&self) -> &str {
-        "" // TODO: return name if not root namespace
-    }
 }
 
 impl<'a> PartialEq for Namespace<'a> {
@@ -205,6 +204,10 @@ impl<'a> PartialEq for Namespace<'a> {
 impl<'a> Eq for Namespace<'a> {}
 
 impl<'a> TypeSpace<'a> for Namespace<'a> {
+    fn name(&self) -> &str {
+        "" // TODO: return name if not root namespace
+    }
+
     fn get_type(&self, name: &str) -> Option<Type<'a>> {
         self.data
             .get_type_with(name, || Type::Namespace(self.clone()))
@@ -237,8 +240,8 @@ pub enum Type<'a> {
     Primitive(PrimitiveType),
 }
 
-impl Type<'_> {
-    pub fn name(&self) -> &str {
+impl<'a> TypeSpace<'a> for Type<'a> {
+    fn name(&self) -> &str {
         match self {
             Type::Class(cls) => cls.name(),
             Type::Enum(en) => en.name(),
@@ -246,9 +249,7 @@ impl Type<'_> {
             Type::Primitive(pt) => pt.name(),
         }
     }
-}
 
-impl<'a> TypeSpace<'a> for Type<'a> {
     fn get_type(&self, name: &str) -> Option<Type<'a>> {
         match self {
             Type::Class(cls) => cls.get_type(name),
@@ -328,10 +329,6 @@ impl<'a> Class<'a> {
         }
     }
 
-    pub fn name(&self) -> &str {
-        &self.data.class_name
-    }
-
     pub fn public_super_classes<'b>(&'b self) -> impl Iterator<Item = Class<'a>> + 'b {
         self.data.public_super_class_names.iter().filter_map(|n| {
             match self.parent_space.resolve_type_scoped(n) {
@@ -365,6 +362,10 @@ impl<'a> PartialEq for Class<'a> {
 impl<'a> Eq for Class<'a> {}
 
 impl<'a> TypeSpace<'a> for Class<'a> {
+    fn name(&self) -> &str {
+        &self.data.class_name
+    }
+
     fn get_type(&self, name: &str) -> Option<Type<'a>> {
         // TODO: detect cycle in super-class chain
         self.data
@@ -465,10 +466,6 @@ impl<'a> Enum<'a> {
         }
     }
 
-    pub fn name(&self) -> &str {
-        &self.data.name
-    }
-
     pub fn alias_enum(&self) -> Option<Enum<'a>> {
         self.data
             .alias
@@ -506,6 +503,10 @@ impl<'a> PartialEq for Enum<'a> {
 impl<'a> Eq for Enum<'a> {}
 
 impl<'a> TypeSpace<'a> for Enum<'a> {
+    fn name(&self) -> &str {
+        &self.data.name
+    }
+
     fn get_type(&self, _name: &str) -> Option<Type<'a>> {
         None
     }
