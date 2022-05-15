@@ -1,6 +1,7 @@
 //! Manages types loaded from Qt metatypes.json.
 
 use super::metatype;
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::ptr;
 
@@ -139,6 +140,23 @@ impl TypeMapData {
 pub trait TypeSpace<'a> {
     /// Name of this type.
     fn name(&self) -> &str;
+
+    /// Scoped name of this type from the root.
+    ///
+    /// This is primarily designed for diagnostics.
+    fn qualified_name(&self) -> Cow<'_, str> {
+        if let Some(ty) = self.lexical_parent() {
+            // ty may be the root namespace
+            if ty.name().is_empty() && ty.lexical_parent().is_none() {
+                Cow::Borrowed(self.name())
+            } else {
+                Cow::Owned(format!("{}::{}", ty.qualified_name(), self.name()))
+            }
+        } else {
+            // primitive type can't return the root namespace as parent
+            Cow::Borrowed(self.name())
+        }
+    }
 
     /// Looks up type by name.
     ///
@@ -589,6 +607,21 @@ mod tests {
         assert_eq!(
             unwrap_enum(type_map.get_type("Foos")).alias_enum(),
             Some(unwrap_enum(type_map.get_type("Foo")))
+        );
+    }
+
+    #[test]
+    fn qualified_name() {
+        let mut type_map = TypeMap::with_primitive_types();
+        let mut foo_meta = metatype::Class::new("Foo");
+        foo_meta.enums.push(metatype::Enum::new("Bar"));
+        type_map.extend([foo_meta]);
+        assert_eq!(type_map.get_type("int").unwrap().qualified_name(), "int");
+        let foo_type = type_map.get_type("Foo").unwrap();
+        assert_eq!(foo_type.qualified_name(), "Foo");
+        assert_eq!(
+            foo_type.get_type("Bar").unwrap().qualified_name(),
+            "Foo::Bar"
         );
     }
 
