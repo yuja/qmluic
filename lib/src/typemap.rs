@@ -150,8 +150,16 @@ pub trait TypeSpace<'a> {
         parts.fold(head, |outer, name| outer.and_then(|ty| ty.get_type(name)))
     }
 
+    /// Parent space of this type.
+    ///
+    /// This is unrelated to the super type of the class inheritance.
+    fn lexical_parent(&self) -> Option<&Type<'a>>;
+
     /// Looks up type by name from this towards the parent type space.
-    fn resolve_type(&self, name: &str) -> Option<Type<'a>>;
+    fn resolve_type(&self, name: &str) -> Option<Type<'a>> {
+        self.get_type(name)
+            .or_else(|| self.lexical_parent().and_then(|ty| ty.resolve_type(name)))
+    }
 
     /// Looks up type by scoped name from this towards the parent type space.
     fn resolve_type_scoped(&self, scoped_name: &str) -> Option<Type<'a>> {
@@ -202,8 +210,8 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
             .get_type_with(name, || Type::Namespace(self.clone()))
     }
 
-    fn resolve_type(&self, name: &str) -> Option<Type<'a>> {
-        self.get_type(name) /* or_else( .. parent_space ..) */
+    fn lexical_parent(&self) -> Option<&Type<'a>> {
+        None // TODO: return some if not root namespace
     }
 
     fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
@@ -250,11 +258,11 @@ impl<'a> TypeSpace<'a> for Type<'a> {
         }
     }
 
-    fn resolve_type(&self, name: &str) -> Option<Type<'a>> {
+    fn lexical_parent(&self) -> Option<&Type<'a>> {
         match self {
-            Type::Class(cls) => cls.resolve_type(name),
-            Type::Enum(_) => None,
-            Type::Namespace(ns) => ns.resolve_type(name),
+            Type::Class(cls) => cls.lexical_parent(),
+            Type::Enum(en) => en.lexical_parent(),
+            Type::Namespace(ns) => ns.lexical_parent(),
             Type::Primitive(_) => None,
         }
     }
@@ -368,9 +376,8 @@ impl<'a> TypeSpace<'a> for Class<'a> {
             })
     }
 
-    fn resolve_type(&self, name: &str) -> Option<Type<'a>> {
-        self.get_type(name)
-            .or_else(|| self.parent_space.resolve_type(name))
+    fn lexical_parent(&self) -> Option<&Type<'a>> {
+        Some(&self.parent_space)
     }
 
     fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
@@ -503,8 +510,8 @@ impl<'a> TypeSpace<'a> for Enum<'a> {
         None
     }
 
-    fn resolve_type(&self, name: &str) -> Option<Type<'a>> {
-        self.parent_space.resolve_type(name)
+    fn lexical_parent(&self) -> Option<&Type<'a>> {
+        Some(&self.parent_space)
     }
 
     fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
