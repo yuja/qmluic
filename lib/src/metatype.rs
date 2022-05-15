@@ -81,7 +81,7 @@ impl Class {
             class_name: unqualify_name(name).to_owned(),
             qualified_class_name: name.to_owned(),
             super_classes: vec![],
-            object: object,
+            object,
             gadget: !object,
             enums: vec![],
             properties: vec![],

@@ -200,7 +200,7 @@ impl LayoutItem {
                     })
                     .collect()
             })
-            .unwrap_or(Some(HashMap::new()));
+            .unwrap_or_else(|| Some(HashMap::new()));
 
         // late return on error so as many diagnostics will be generated as possible
         Some(LayoutItem {
