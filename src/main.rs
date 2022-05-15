@@ -36,17 +36,17 @@ fn main() -> XmlResult<()> {
     let stdout = io::stdout();
     let mut diagnostics = Diagnostics::new();
     let mut builder = UiBuilder::new(&type_map, &doc, &mut diagnostics);
-    if let Some(form) = builder.build() {
-        form.serialize_to_xml(&mut XmlWriter::new_with_indent(stdout.lock(), b' ', 1))?;
-    }
-    if !diagnostics.is_empty() {
+    let form_opt = builder.build();
+    if form_opt.is_none() || !diagnostics.is_empty() {
         for d in &diagnostics {
             print_diagnostic(&doc, d)?;
         }
         process::exit(1);
     }
 
-    Ok(())
+    form_opt
+        .map(|f| f.serialize_to_xml(&mut XmlWriter::new_with_indent(stdout.lock(), b' ', 1)))
+        .unwrap_or(Ok(()))
 }
 
 fn load_metatypes(paths: &[PathBuf]) -> io::Result<Vec<metatype::Class>> {
