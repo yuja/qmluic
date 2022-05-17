@@ -615,3 +615,76 @@ fn is_compatible_enum(left_en: &Enum, right_en: &Enum) -> bool {
         || left_en.alias_enum().map_or(false, |en| &en == right_en)
         || right_en.alias_enum().map_or(false, |en| &en == left_en)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::diagnostic::Diagnostics;
+    use crate::metatype;
+    use crate::qmlast::{UiDocument, UiObjectDefinition, UiProgram};
+    use crate::typemap::TypeMap;
+
+    struct Env {
+        doc: UiDocument,
+        type_map: TypeMap,
+    }
+
+    impl Env {
+        fn new(expr_source: &str) -> Self {
+            let mut type_map = TypeMap::with_primitive_types();
+            let mut foo_meta = metatype::Class::new("Foo");
+            foo_meta
+                .enums
+                .push(metatype::Enum::with_values("Bar", ["Bar0", "Bar1", "Bar2"]));
+            type_map.extend([foo_meta]);
+            Env {
+                doc: UiDocument::parse(format!("A {{ a: {expr_source}}}"), None),
+                type_map,
+            }
+        }
+
+        fn node(&self) -> Node {
+            let program = UiProgram::from_node(self.doc.root_node()).unwrap();
+            let obj = UiObjectDefinition::from_node(program.root_object_node(), self.doc.source())
+                .unwrap();
+            let map = obj.build_binding_map(self.doc.source()).unwrap();
+            map.get("a").unwrap().get_node().unwrap()
+        }
+
+        fn format(&self) -> (TypeDesc, String) {
+            self.try_format().unwrap()
+        }
+
+        fn try_format(&self) -> Result<(TypeDesc, String), Diagnostics> {
+            let mut diagnostics = Diagnostics::new();
+            let type_space = self.type_map.root();
+            let node = self.node();
+            typedexpr::walk(
+                &type_space,
+                node,
+                self.doc.source(),
+                &ExpressionFormatter,
+                &mut diagnostics,
+            )
+            .ok_or(diagnostics)
+        }
+    }
+
+    fn format_expr(expr_source: &str) -> String {
+        let (_, expr) = Env::new(expr_source).format();
+        expr
+    }
+
+    #[test]
+    fn format_flags() {
+        assert_eq!(format_expr("Foo.Bar0"), "Foo::Bar0");
+        assert_eq!(
+            format_expr("Foo.Bar0 | Foo.Bar1 | Foo.Bar2"),
+            "((Foo::Bar0)|(Foo::Bar1))|(Foo::Bar2)"
+        );
+        assert_eq!(
+            format_expr("Foo.Bar0 & ~Foo.Bar1"),
+            "(Foo::Bar0)&(~(Foo::Bar1))"
+        );
+    }
+}
