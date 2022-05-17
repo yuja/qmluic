@@ -75,7 +75,7 @@ fn collect_constant_properties(
             if let Some(ty) = cls.get_property_type(name) {
                 match value {
                     UiBindingValue::Node(n) => {
-                        ConstantValue::from_expression(&ty, *n, source, diagnostics)
+                        ConstantValue::from_expression(cls, &ty, *n, source, diagnostics)
                     }
                     UiBindingValue::Map(n, _) => {
                         diagnostics.push(Diagnostic::error(
@@ -245,7 +245,9 @@ fn extract_value_of_type_name(
 ) -> Option<ConstantValue> {
     if let Some(ty) = cls.resolve_type_scoped(type_name) {
         match value {
-            UiBindingValue::Node(n) => ConstantValue::from_expression(&ty, *n, source, diagnostics),
+            UiBindingValue::Node(n) => {
+                ConstantValue::from_expression(cls, &ty, *n, source, diagnostics)
+            }
             UiBindingValue::Map(n, _) => {
                 diagnostics.push(Diagnostic::error(
                     n.byte_range(),

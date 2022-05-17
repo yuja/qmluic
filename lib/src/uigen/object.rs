@@ -209,6 +209,7 @@ impl LayoutItem {
                         // TODO: look up attached type
                         match value {
                             UiBindingValue::Node(n) => ConstantValue::from_expression(
+                                cls,
                                 &Type::Primitive(PrimitiveType::Int),
                                 *n,
                                 source,
@@ -400,7 +401,7 @@ fn collect_properties(
         .filter(|(&name, _)| name != "actions") // TODO: only for QWidget subclasses
         .map(|(&name, value)| {
             if let Some(ty) = cls.get_property_type(name) {
-                ConstantExpression::from_binding_value(&ty, value, source, diagnostics)
+                ConstantExpression::from_binding_value(cls, &ty, value, source, diagnostics)
             } else {
                 diagnostics.push(Diagnostic::error(
                     value.node().byte_range(),

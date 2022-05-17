@@ -21,14 +21,20 @@ pub enum ConstantExpression {
 
 impl ConstantExpression {
     /// Generates constant expression of `ty` type from the given `binding_value`.
-    pub fn from_binding_value(
+    pub fn from_binding_value<'a, P>(
+        parent_space: &P, // TODO: should be QML space, not C++ metatype space
         ty: &Type,
         binding_value: &UiBindingValue,
         source: &str,
         diagnostics: &mut Diagnostics,
-    ) -> Option<Self> {
+    ) -> Option<Self>
+    where
+        P: TypeSpace<'a>,
+    {
         match binding_value {
-            UiBindingValue::Node(n) => Self::from_expression(ty, *n, source, diagnostics),
+            UiBindingValue::Node(n) => {
+                Self::from_expression(parent_space, ty, *n, source, diagnostics)
+            }
             UiBindingValue::Map(n, m) => match ty {
                 Type::Class(cls) => Self::from_binding_map(cls, *n, m, source, diagnostics),
                 _ => {
@@ -64,13 +70,18 @@ impl ConstantExpression {
     }
 
     /// Generates constant expression of `ty` type from the given expression `node`.
-    pub fn from_expression(
+    pub fn from_expression<'a, P>(
+        parent_space: &P, // TODO: should be QML space, not C++ metatype space
         ty: &Type,
         node: Node,
         source: &str,
         diagnostics: &mut Diagnostics,
-    ) -> Option<Self> {
-        ConstantValue::from_expression(ty, node, source, diagnostics).map(ConstantExpression::Value)
+    ) -> Option<Self>
+    where
+        P: TypeSpace<'a>,
+    {
+        ConstantValue::from_expression(parent_space, ty, node, source, diagnostics)
+            .map(ConstantExpression::Value)
     }
 
     /// Serializes this to UI XML.
@@ -99,12 +110,16 @@ pub enum ConstantValue {
 
 impl ConstantValue {
     /// Generates value of `ty` type from the given expression `node`.
-    pub fn from_expression(
+    pub fn from_expression<'a, P>(
+        parent_space: &P, // TODO: should be QML space, not C++ metatype space
         ty: &Type,
         node: Node,
         source: &str,
         diagnostics: &mut Diagnostics,
-    ) -> Option<Self> {
+    ) -> Option<Self>
+    where
+        P: TypeSpace<'a>,
+    {
         diagnostics.consume_err(format_constant_value(ty, node, source))
     }
 
