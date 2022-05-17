@@ -6,7 +6,7 @@ use crate::qmlast::{
     BinaryOperator, Expression, Identifier, Node, ParseError, ParseErrorKind, UiBindingMap,
     UiBindingValue, UnaryOperator,
 };
-use crate::typedexpr::{DescribeType, ExpressionVisitor, TypeDesc};
+use crate::typedexpr::{self, DescribeType, ExpressionVisitor, TypeDesc};
 use crate::typemap::{Class, Enum, PrimitiveType, Type, TypeSpace};
 use std::fmt;
 use std::io;
@@ -120,7 +120,85 @@ impl ConstantValue {
     where
         P: TypeSpace<'a>,
     {
-        diagnostics.consume_err(format_constant_value(ty, node, source))
+        match ty {
+            Type::Class(_) => {
+                diagnostics.push(Diagnostic::error(
+                    node.byte_range(),
+                    format!(
+                        "unsupported constant value expression: class '{}'",
+                        ty.qualified_name(),
+                    ),
+                ));
+                None
+            }
+            Type::Enum(en) => {
+                let (res_t, res_expr) = typedexpr::walk(
+                    parent_space,
+                    node,
+                    source,
+                    &ExpressionFormatter,
+                    diagnostics,
+                )?;
+                match &res_t {
+                    TypeDesc::Enum(res_en) if is_compatible_enum(res_en, en) => {
+                        if en.is_flag() {
+                            // try to format x|y|z without parens for the Qt Designer compatibility
+                            let set_expr =
+                                format_as_identifier_set(node, source).unwrap_or(res_expr);
+                            Some(ConstantValue::Set(set_expr))
+                        } else {
+                            Some(ConstantValue::Enum(res_expr))
+                        }
+                    }
+                    _ => {
+                        diagnostics.push(Diagnostic::error(
+                            node.byte_range(),
+                            format!(
+                                "expression type mismatch (expected: {}, actual: {})",
+                                ty.qualified_name(),
+                                res_t.qualified_name()
+                            ),
+                        ));
+                        None
+                    }
+                }
+            }
+            Type::Namespace(_) => {
+                diagnostics.push(Diagnostic::error(
+                    node.byte_range(),
+                    format!(
+                        "unsupported constant value expression: namespace '{}'",
+                        ty.qualified_name(),
+                    ),
+                ));
+                None
+            }
+            Type::Primitive(p) => {
+                let res = typedexpr::walk(
+                    parent_space,
+                    node,
+                    source,
+                    &ExpressionEvaluator,
+                    diagnostics,
+                )?;
+                if !describe_primitive_type(*p).map_or(false, |t| res.type_desc() == t) {
+                    diagnostics.push(Diagnostic::error(
+                        node.byte_range(),
+                        format!(
+                            "evaluated type mismatch (expected: {}, actual: {})",
+                            ty.qualified_name(),
+                            res.type_desc().qualified_name()
+                        ),
+                    ));
+                    return None;
+                }
+                match res {
+                    EvaluatedValue::Bool(v) => Some(ConstantValue::Bool(v)),
+                    EvaluatedValue::Number(v) => Some(ConstantValue::Number(v)),
+                    EvaluatedValue::String(v) => Some(ConstantValue::String(v)),
+                }
+            }
+        }
     }
 
     /// Serializes this to UI XML.
@@ -147,6 +225,17 @@ impl fmt::Display for ConstantValue {
             Number(d) => write!(f, "{}", d),
             String(s) | Enum(s) | Set(s) => write!(f, "{}", s),
         }
+    }
+}
+
+fn describe_primitive_type(t: PrimitiveType) -> Option<TypeDesc<'static>> {
+    match t {
+        PrimitiveType::Bool => Some(TypeDesc::Bool),
+        PrimitiveType::Int => Some(TypeDesc::Number),
+        PrimitiveType::QReal => Some(TypeDesc::Number),
+        PrimitiveType::QString => Some(TypeDesc::String),
+        PrimitiveType::UInt => Some(TypeDesc::Number),
+        PrimitiveType::Void => None,
     }
 }
 
