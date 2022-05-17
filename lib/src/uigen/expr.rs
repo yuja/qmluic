@@ -3,8 +3,8 @@ use super::xmlutil;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{
-    BinaryOperator, Expression, Identifier, Node, ParseError, ParseErrorKind, UiBindingMap,
-    UiBindingValue, UnaryOperator,
+    BinaryOperator, Expression, Node, ParseError, ParseErrorKind, UiBindingMap, UiBindingValue,
+    UnaryOperator,
 };
 use crate::typedexpr::{self, DescribeType, ExpressionVisitor, TypeDesc};
 use crate::typemap::{Class, Enum, PrimitiveType, Type, TypeSpace};
@@ -239,110 +239,6 @@ fn describe_primitive_type(t: PrimitiveType) -> Option<TypeDesc<'static>> {
     }
 }
 
-fn format_constant_value<'tree>(
-    ty: &Type,
-    node: Node<'tree>,
-    source: &str,
-) -> Result<ConstantValue, ParseError<'tree>> {
-    let value = match ty {
-        Type::Class(_) => return Err(unexpected_node(node)),
-        Type::Enum(en) => {
-            // TODO: check if the identifier is a constant in that context.
-            // try to format x|y|z without parens for the Qt Designer compatibility
-            let expr = format_as_identifier_set(node, source)
-                .or_else(|_| format_as_expression(node, source))?;
-            if en.is_flag() {
-                ConstantValue::Set(expr)
-            } else {
-                ConstantValue::Enum(expr)
-            }
-        }
-        Type::Namespace(_) => return Err(unexpected_node(node)),
-        Type::Primitive(PrimitiveType::Bool) => {
-            // TODO: handle values that can be evaluated as bool
-            match Expression::from_node(node, source)? {
-                Expression::Bool(b) => ConstantValue::Bool(b),
-                _ => return Err(unexpected_node(node)),
-            }
-        }
-        Type::Primitive(PrimitiveType::Int | PrimitiveType::QReal | PrimitiveType::UInt) => {
-            ConstantValue::Number(eval_number(node, source)?)
-        }
-        Type::Primitive(PrimitiveType::QString) => {
-            ConstantValue::String(parse_as_string(node, source)?)
-        }
-        Type::Primitive(PrimitiveType::Void) => return Err(unexpected_node(node)),
-    };
-    Ok(value)
-}
-
-/// Formats node as an constant expression without evaluation.
-///
-/// Here we don't strictly follow the JavaScript language model, but try 1:1 mapping.
-fn format_as_expression<'tree>(
-    node: Node<'tree>,
-    source: &str,
-) -> Result<String, ParseError<'tree>> {
-    let formatted = match Expression::from_node(node, source)? {
-        Expression::Identifier(_) => format_as_nested_identifier(node, source)?,
-        Expression::Number(v) => v.to_string(),
-        Expression::String(s) => format!("{:?}", s), // TODO: escape per C spec
-        Expression::Bool(false) => "false".to_owned(),
-        Expression::Bool(true) => "true".to_owned(),
-        Expression::Array(_) => return Err(unexpected_node(node)), // TODO
-        Expression::MemberExpression(_) => format_as_nested_identifier(node, source)?,
-        Expression::CallExpression(_) => return Err(unexpected_node(node)), // TODO
-        Expression::UnaryExpression(x) => {
-            let arg = format_as_expression(x.argument, source)?;
-            match x.operator {
-                UnaryOperator::LogicalNot
-                | UnaryOperator::BitwiseNot
-                | UnaryOperator::Minus
-                | UnaryOperator::Plus => {
-                    format!("{}({})", x.operator, arg)
-                }
-                UnaryOperator::Typeof | UnaryOperator::Void | UnaryOperator::Delete => {
-                    return Err(unexpected_node(node))
-                }
-            }
-        }
-        Expression::BinaryExpression(x) => {
-            let left = format_as_expression(x.left, source)?;
-            let right = format_as_expression(x.right, source)?;
-            match x.operator {
-                BinaryOperator::LogicalAnd
-                | BinaryOperator::LogicalOr
-                | BinaryOperator::RightShift
-                | BinaryOperator::LeftShift
-                | BinaryOperator::BitwiseAnd
-                | BinaryOperator::BitwiseXor
-                | BinaryOperator::BitwiseOr
-                | BinaryOperator::Add
-                | BinaryOperator::Sub
-                | BinaryOperator::Mul
-                | BinaryOperator::Div
-                | BinaryOperator::Rem
-                | BinaryOperator::Equal
-                | BinaryOperator::NotEqual
-                | BinaryOperator::LessThan
-                | BinaryOperator::LessThanEqual
-                | BinaryOperator::GreaterThan
-                | BinaryOperator::GreaterThanEqual => {
-                    format!("({}){}({})", left, x.operator, right)
-                }
-                BinaryOperator::StrictEqual => format!("({}){}({})", left, "==", right),
-                BinaryOperator::StrictNotEqual => format!("({}){}({})", left, "!=", right),
-                BinaryOperator::UnsignedRightShift
-                | BinaryOperator::Exp
-                | BinaryOperator::NullishCoalesce
-                | BinaryOperator::Instanceof
-                | BinaryOperator::In => return Err(unexpected_node(node)), // TODO
-            }
-        }
-    };
-    Ok(formatted)
-}
-
 fn format_as_identifier_set<'tree>(
     node: Node<'tree>,
     source: &str,
@@ -371,61 +267,6 @@ fn format_as_nested_identifier<'tree>(
         }
         _ => Err(unexpected_node(node)),
     }
-}
-
-fn parse_as_identifier<'tree>(
-    node: Node<'tree>,
-    source: &str,
-) -> Result<Identifier<'tree>, ParseError<'tree>> {
-    match Expression::from_node(node, source)? {
-        Expression::Identifier(n) => Ok(n),
-        _ => Err(unexpected_node(node)),
-    }
-}
-
-fn parse_as_string<'tree>(node: Node<'tree>, source: &str) -> Result<String, ParseError<'tree>> {
-    let s = match Expression::from_node(node, source)? {
-        Expression::CallExpression(x) => {
-            match parse_as_identifier(x.function, source)?.to_str(source) {
-                "qsTr" if x.arguments.len() == 1 => parse_as_string(x.arguments[0], source)?,
-                _ => return Err(unexpected_node(node)),
-            }
-        }
-        Expression::String(s) => s,
-        _ => return Err(unexpected_node(node)),
-    };
-    Ok(s)
-}
-
-fn eval_number<'tree>(node: Node<'tree>, source: &str) -> Result<f64, ParseError<'tree>> {
-    // TODO: handle overflow, etc.
-    let v = match Expression::from_node(node, source)? {
-        Expression::Number(v) => v,
-        Expression::UnaryExpression(x) => {
-            let arg = eval_number(x.argument, source);
-            match x.operator {
-                UnaryOperator::Minus => -arg?,
-                UnaryOperator::Plus => arg?,
-                // TODO: ...
-                _ => return Err(unexpected_node(node)),
-            }
-        }
-        Expression::BinaryExpression(x) => {
-            let left = eval_number(x.left, source);
-            let right = eval_number(x.right, source);
-            match x.operator {
-                BinaryOperator::Add => left? + right?,
-                BinaryOperator::Sub => left? - right?,
-                BinaryOperator::Mul => left? * right?,
-                BinaryOperator::Div => left? / right?,
-                BinaryOperator::Exp => left?.powf(right?),
-                // TODO: ...
-                _ => return Err(unexpected_node(node)),
-            }
-        }
-        _ => return Err(unexpected_node(node)),
-    };
-    Ok(v)
 }
 
 fn unexpected_node(node: Node) -> ParseError {
