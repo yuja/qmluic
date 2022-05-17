@@ -3,8 +3,7 @@ use super::xmlutil;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{
-    BinaryOperator, Expression, Node, ParseError, ParseErrorKind, UiBindingMap, UiBindingValue,
-    UnaryOperator,
+    BinaryOperator, Expression, Node, UiBindingMap, UiBindingValue, UnaryOperator,
 };
 use crate::typedexpr::{self, DescribeType, ExpressionVisitor, TypeDesc};
 use crate::typemap::{Class, Enum, PrimitiveType, Type, TypeSpace};
@@ -239,38 +238,28 @@ fn describe_primitive_type(t: PrimitiveType) -> Option<TypeDesc<'static>> {
     }
 }
 
-fn format_as_identifier_set<'tree>(
-    node: Node<'tree>,
-    source: &str,
-) -> Result<String, ParseError<'tree>> {
-    match Expression::from_node(node, source)? {
-        Expression::Identifier(n) => Ok(n.to_str(source).to_owned()),
+fn format_as_identifier_set(node: Node, source: &str) -> Option<String> {
+    match Expression::from_node(node, source).ok()? {
+        Expression::Identifier(n) => Some(n.to_str(source).to_owned()),
         Expression::MemberExpression(_) => format_as_nested_identifier(node, source),
         Expression::BinaryExpression(x) if x.operator == BinaryOperator::BitwiseOr => {
             let left = format_as_identifier_set(x.left, source)?;
             let right = format_as_identifier_set(x.right, source)?;
-            Ok(format!("{}|{}", left, right))
+            Some(format!("{}|{}", left, right))
         }
-        _ => Err(unexpected_node(node)),
+        _ => None,
     }
 }
 
-fn format_as_nested_identifier<'tree>(
-    node: Node<'tree>,
-    source: &str,
-) -> Result<String, ParseError<'tree>> {
-    match Expression::from_node(node, source)? {
-        Expression::Identifier(n) => Ok(n.to_str(source).to_owned()),
+fn format_as_nested_identifier(node: Node, source: &str) -> Option<String> {
+    match Expression::from_node(node, source).ok()? {
+        Expression::Identifier(n) => Some(n.to_str(source).to_owned()),
         Expression::MemberExpression(x) => {
             let object = format_as_nested_identifier(x.object, source)?;
-            Ok(format!("{}::{}", object, x.property.to_str(source)))
+            Some(format!("{}::{}", object, x.property.to_str(source)))
         }
-        _ => Err(unexpected_node(node)),
+        _ => None,
     }
-}
-
-fn unexpected_node(node: Node) -> ParseError {
-    ParseError::new(node, ParseErrorKind::UnexpectedNodeKind)
 }
 
 /// Evaluates expression tree as arbitrary constant value expression.
