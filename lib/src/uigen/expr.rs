@@ -371,7 +371,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
                 LogicalAnd | LogicalOr => None,
                 RightShift | UnsignedRightShift | LeftShift => None,
                 BitwiseAnd | BitwiseXor | BitwiseOr => None,
-                Add => Some(EvaluatedValue::String(format!("{l}{r}"))),
+                Add => Some(EvaluatedValue::String(l + &r)),
                 Sub | Mul | Div | Rem | Exp => None,
                 Equal => Some(EvaluatedValue::Bool(l == r)),
                 StrictEqual => Some(EvaluatedValue::Bool(l == r)),
@@ -454,11 +454,11 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
     ) -> Option<Self::Item> {
         use UnaryOperator::*;
         let res_prec = unary_operator_precedence(operator);
-        let res_expr = format!(
-            "{}{}",
+        let res_expr = [
             unary_operator_str(operator),
-            maybe_paren(res_prec, arg_expr, arg_prec)
-        );
+            &maybe_paren(res_prec, arg_expr, arg_prec),
+        ]
+        .concat();
         match arg_t {
             TypeDesc::Bool => match operator {
                 LogicalNot => Some((TypeDesc::Bool, res_expr, res_prec)),
@@ -491,12 +491,12 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
         let res_prec = binary_operator_precedence(operator);
         match (left_t, right_t) {
             (TypeDesc::Bool, TypeDesc::Bool) => {
-                let res_expr = format!(
-                    "{}{}{}",
-                    maybe_paren(res_prec, left_expr, left_prec),
+                let res_expr = [
+                    &maybe_paren(res_prec, left_expr, left_prec),
                     binary_operator_str(operator),
-                    maybe_paren(res_prec, right_expr, right_prec)
-                );
+                    &maybe_paren(res_prec, right_expr, right_prec),
+                ]
+                .concat();
                 match operator {
                     LogicalAnd | LogicalOr => Some((TypeDesc::Bool, res_expr, res_prec)),
                     RightShift | UnsignedRightShift | LeftShift => None,
@@ -510,12 +510,12 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
                 }
             }
             (TypeDesc::Number, TypeDesc::Number) => {
-                let res_expr = format!(
-                    "{}{}{}",
-                    maybe_paren(res_prec, left_expr, left_prec),
+                let res_expr = [
+                    &maybe_paren(res_prec, left_expr, left_prec),
                     binary_operator_str(operator),
-                    maybe_paren(res_prec, right_expr, right_prec)
-                );
+                    &maybe_paren(res_prec, right_expr, right_prec),
+                ]
+                .concat();
                 match operator {
                     LogicalAnd | LogicalOr => None,
                     // TODO: >>, (unsigned)>>, <<
@@ -535,12 +535,12 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
             }
             (TypeDesc::String, TypeDesc::String) => {
                 let (left_expr, left_prec) = (format!("QString({})", left_expr), PREC_CALL);
-                let res_expr = format!(
-                    "{}{}{}",
-                    maybe_paren(res_prec, left_expr, left_prec),
+                let res_expr = [
+                    &maybe_paren(res_prec, left_expr, left_prec),
                     binary_operator_str(operator),
-                    maybe_paren(res_prec, right_expr, right_prec)
-                );
+                    &maybe_paren(res_prec, right_expr, right_prec),
+                ]
+                .concat();
                 match operator {
                     LogicalAnd | LogicalOr => None,
                     RightShift | UnsignedRightShift | LeftShift => None,
@@ -556,12 +556,12 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
             (TypeDesc::Enum(left_en), TypeDesc::Enum(right_en))
                 if is_compatible_enum(&left_en, &right_en) =>
             {
-                let res_expr = format!(
-                    "{}{}{}",
-                    maybe_paren(res_prec, left_expr, left_prec),
+                let res_expr = [
+                    &maybe_paren(res_prec, left_expr, left_prec),
                     binary_operator_str(operator),
-                    maybe_paren(res_prec, right_expr, right_prec)
-                );
+                    &maybe_paren(res_prec, right_expr, right_prec),
+                ]
+                .concat();
                 match operator {
                     LogicalAnd | LogicalOr => Some((TypeDesc::Bool, res_expr, res_prec)),
                     RightShift | UnsignedRightShift | LeftShift => None,
