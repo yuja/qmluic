@@ -131,7 +131,7 @@ impl ConstantValue {
                 None
             }
             Type::Enum(en) => {
-                let (res_t, res_expr) = typedexpr::walk(
+                let (res_t, res_expr, _) = typedexpr::walk(
                     parent_space,
                     node,
                     source,
@@ -425,21 +425,21 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
 #[derive(Debug)]
 struct ExpressionFormatter;
 
-impl<'a> DescribeType<'a> for (TypeDesc<'a>, String) {
+impl<'a> DescribeType<'a> for (TypeDesc<'a>, String, u32) {
     fn type_desc(&self) -> TypeDesc<'a> {
         self.0.clone()
     }
 }
 
 impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
-    type Item = (TypeDesc<'a>, String);
+    type Item = (TypeDesc<'a>, String, u32);
 
     fn visit_number(&self, value: f64) -> Option<Self::Item> {
-        Some((TypeDesc::Number, value.to_string()))
+        Some((TypeDesc::Number, value.to_string(), PREC_TERM))
     }
 
     fn visit_string(&self, value: String) -> Option<Self::Item> {
-        Some((TypeDesc::String, format!("{:?}", value))) // TODO: escape per C spec)
+        Some((TypeDesc::String, format!("{:?}", value), PREC_TERM)) // TODO: escape per C spec)
     }
 
     fn visit_bool(&self, value: bool) -> Option<Self::Item> {
@@ -450,12 +450,13 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
             } else {
                 "false".to_owned()
             },
+            PREC_TERM,
         ))
     }
 
     fn visit_enum(&self, enum_ty: Enum<'a>, variant: &str) -> Option<Self::Item> {
         let res_expr = enum_ty.qualify_variant_name(variant);
-        Some((TypeDesc::Enum(enum_ty), res_expr))
+        Some((TypeDesc::Enum(enum_ty), res_expr, PREC_SCOPE))
     }
 
     fn visit_call_expression(
@@ -465,8 +466,8 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
     ) -> Option<Self::Item> {
         match function {
             "qsTr" if arguments.len() == 1 => {
-                if let (TypeDesc::String, expr) = &arguments[0] {
-                    Some((TypeDesc::String, format!("qsTr({})", expr)))
+                if let (TypeDesc::String, expr, _prec) = &arguments[0] {
+                    Some((TypeDesc::String, format!("qsTr({})", expr), PREC_CALL))
                 } else {
                     None
                 }
@@ -478,26 +479,27 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
     fn visit_unary_expression(
         &self,
         operator: UnaryOperator,
-        (arg_t, ref arg_expr): Self::Item,
+        (arg_t, arg_expr, arg_prec): Self::Item,
     ) -> Option<Self::Item> {
         use UnaryOperator::*;
-        let res_expr = format!("{}({})", operator, arg_expr);
+        let res_prec = unary_operator_precedence(operator);
+        let res_expr = format!("{}{}", operator, maybe_paren(res_prec, arg_expr, arg_prec));
         match arg_t {
             TypeDesc::Bool => match operator {
-                LogicalNot => Some((TypeDesc::Bool, res_expr)),
+                LogicalNot => Some((TypeDesc::Bool, res_expr, res_prec)),
                 BitwiseNot => None,
                 Minus | Plus => None,
                 Typeof | Void | Delete => None,
             },
             TypeDesc::Number => match operator {
-                LogicalNot => Some((TypeDesc::Bool, res_expr)),
-                BitwiseNot | Minus | Plus => Some((TypeDesc::Number, res_expr)),
+                LogicalNot => Some((TypeDesc::Bool, res_expr, res_prec)),
+                BitwiseNot | Minus | Plus => Some((TypeDesc::Number, res_expr, res_prec)),
                 Typeof | Void | Delete => None,
             },
             TypeDesc::String => None,
             TypeDesc::Enum(en) => match operator {
-                LogicalNot => Some((TypeDesc::Bool, res_expr)),
-                BitwiseNot => Some((TypeDesc::Enum(en), res_expr)),
+                LogicalNot => Some((TypeDesc::Bool, res_expr, res_prec)),
+                BitwiseNot => Some((TypeDesc::Enum(en), res_expr, res_prec)),
                 Minus | Plus => None,
                 Typeof | Void | Delete => None,
             },
@@ -507,27 +509,40 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
     fn visit_binary_expression(
         &self,
         operator: BinaryOperator,
-        (left_t, ref left_expr): Self::Item,
-        (right_t, ref right_expr): Self::Item,
+        (left_t, left_expr, left_prec): Self::Item,
+        (right_t, right_expr, right_prec): Self::Item,
     ) -> Option<Self::Item> {
         use BinaryOperator::*;
+        let res_prec = binary_operator_precedence(operator);
         match (left_t, right_t) {
             (TypeDesc::Bool, TypeDesc::Bool) => {
-                let res_expr = format!("({}){}({})", left_expr, operator, right_expr);
+                let res_expr = format!(
+                    "{}{}{}",
+                    maybe_paren(res_prec, left_expr.clone(), left_prec),
+                    operator,
+                    maybe_paren(res_prec, right_expr.clone(), right_prec)
+                );
                 match operator {
-                    LogicalAnd | LogicalOr => Some((TypeDesc::Bool, res_expr)),
+                    LogicalAnd | LogicalOr => Some((TypeDesc::Bool, res_expr, res_prec)),
                     RightShift | UnsignedRightShift | LeftShift => None,
-                    BitwiseAnd | BitwiseXor | BitwiseOr => Some((TypeDesc::Bool, res_expr)),
+                    BitwiseAnd | BitwiseXor | BitwiseOr => {
+                        Some((TypeDesc::Bool, res_expr, res_prec))
+                    }
                     Add | Sub | Mul | Div | Rem | Exp => None,
                     Equal | StrictEqual | NotEqual | StrictNotEqual | LessThan | LessThanEqual
-                    | GreaterThan | GreaterThanEqual => {
-                        format_comparison_expression(operator, left_expr, right_expr)
-                    }
+                    | GreaterThan | GreaterThanEqual => format_comparison_expression(
+                        operator, left_expr, left_prec, right_expr, right_prec,
+                    ),
                     NullishCoalesce | Instanceof | In => None,
                 }
             }
             (TypeDesc::Number, TypeDesc::Number) => {
-                let res_expr = format!("({}){}({})", left_expr, operator, right_expr);
+                let res_expr = format!(
+                    "{}{}{}",
+                    maybe_paren(res_prec, left_expr.clone(), left_prec),
+                    operator,
+                    maybe_paren(res_prec, right_expr.clone(), right_prec)
+                );
                 match operator {
                     LogicalAnd | LogicalOr => None,
                     // TODO: >>, (unsigned)>>, <<
@@ -538,47 +553,57 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
                     BitwiseAnd => None,
                     BitwiseXor => None,
                     BitwiseOr => None,
-                    Add | Sub | Mul | Div | Rem => Some((TypeDesc::Number, res_expr)),
+                    Add | Sub | Mul | Div | Rem => Some((TypeDesc::Number, res_expr, res_prec)),
                     Exp => None, // TODO
                     Equal | StrictEqual | NotEqual | StrictNotEqual | LessThan | LessThanEqual
-                    | GreaterThan | GreaterThanEqual => {
-                        format_comparison_expression(operator, left_expr, right_expr)
-                    }
+                    | GreaterThan | GreaterThanEqual => format_comparison_expression(
+                        operator, left_expr, left_prec, right_expr, right_prec,
+                    ),
                     NullishCoalesce | Instanceof | In => None,
                 }
             }
             (TypeDesc::String, TypeDesc::String) => {
-                let res_expr = format!("(QString({})){}({})", left_expr, operator, right_expr);
+                let (left_expr, left_prec) = (format!("QString({})", left_expr), PREC_CALL);
+                let res_expr = format!(
+                    "{}{}{}",
+                    maybe_paren(res_prec, left_expr.clone(), left_prec),
+                    operator,
+                    maybe_paren(res_prec, right_expr.clone(), right_prec)
+                );
                 match operator {
                     LogicalAnd | LogicalOr => None,
                     RightShift | UnsignedRightShift | LeftShift => None,
                     BitwiseAnd | BitwiseXor | BitwiseOr => None,
-                    Add => Some((TypeDesc::String, res_expr)),
+                    Add => Some((TypeDesc::String, res_expr, res_prec)),
                     Sub | Mul | Div | Rem | Exp => None,
                     Equal | StrictEqual | NotEqual | StrictNotEqual | LessThan | LessThanEqual
                     | GreaterThan | GreaterThanEqual => format_comparison_expression(
-                        operator,
-                        &format!("QString({})", left_expr),
-                        right_expr,
+                        operator, left_expr, left_prec, right_expr, right_prec,
                     ),
+
                     NullishCoalesce | Instanceof | In => None,
                 }
             }
             (TypeDesc::Enum(left_en), TypeDesc::Enum(right_en))
                 if is_compatible_enum(&left_en, &right_en) =>
             {
-                let res_expr = format!("({}){}({})", left_expr, operator, right_expr);
+                let res_expr = format!(
+                    "{}{}{}",
+                    maybe_paren(res_prec, left_expr.clone(), left_prec),
+                    operator,
+                    maybe_paren(res_prec, right_expr.clone(), right_prec)
+                );
                 match operator {
-                    LogicalAnd | LogicalOr => Some((TypeDesc::Bool, res_expr)),
+                    LogicalAnd | LogicalOr => Some((TypeDesc::Bool, res_expr, res_prec)),
                     RightShift | UnsignedRightShift | LeftShift => None,
                     BitwiseAnd | BitwiseXor | BitwiseOr => {
-                        Some((TypeDesc::Enum(left_en), res_expr))
+                        Some((TypeDesc::Enum(left_en), res_expr, res_prec))
                     }
                     Add | Sub | Mul | Div | Rem | Exp => None,
                     Equal | StrictEqual | NotEqual | StrictNotEqual | LessThan | LessThanEqual
-                    | GreaterThan | GreaterThanEqual => {
-                        format_comparison_expression(operator, left_expr, right_expr)
-                    }
+                    | GreaterThan | GreaterThanEqual => format_comparison_expression(
+                        operator, left_expr, left_prec, right_expr, right_prec,
+                    ),
                     NullishCoalesce | Instanceof | In => None,
                 }
             }
@@ -589,22 +614,43 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
 
 fn format_comparison_expression(
     operator: BinaryOperator,
-    left_expr: &str,
-    right_expr: &str,
-) -> Option<(TypeDesc<'static>, String)> {
+    left_expr: String,
+    left_prec: u32,
+    right_expr: String,
+    right_prec: u32,
+) -> Option<(TypeDesc<'static>, String, u32)> {
     use BinaryOperator::*;
+    let res_prec = binary_operator_precedence(operator);
     match operator {
         Equal | NotEqual | LessThan | LessThanEqual | GreaterThan | GreaterThanEqual => Some((
             TypeDesc::Bool,
-            format!("({}){}({})", left_expr, operator, right_expr),
+            format!(
+                "{}{}{}",
+                maybe_paren(res_prec, left_expr, left_prec),
+                operator,
+                maybe_paren(res_prec, right_expr, right_prec)
+            ),
+            res_prec,
         )),
         StrictEqual => Some((
             TypeDesc::Bool,
-            format!("({}){}({})", left_expr, "==", right_expr),
+            format!(
+                "{}{}{}",
+                maybe_paren(res_prec, left_expr, left_prec),
+                "==",
+                maybe_paren(res_prec, right_expr, right_prec)
+            ),
+            res_prec,
         )),
         StrictNotEqual => Some((
             TypeDesc::Bool,
-            format!("({}){}({})", left_expr, "!=", right_expr),
+            format!(
+                "{}{}{}",
+                maybe_paren(res_prec, left_expr, left_prec),
+                "!=",
+                maybe_paren(res_prec, right_expr, right_prec)
+            ),
+            res_prec,
         )),
         _ => panic!("unhandled binary op: {operator}"),
     }
@@ -614,6 +660,56 @@ fn is_compatible_enum(left_en: &Enum, right_en: &Enum) -> bool {
     left_en == right_en
         || left_en.alias_enum().map_or(false, |en| &en == right_en)
         || right_en.alias_enum().map_or(false, |en| &en == left_en)
+}
+
+fn maybe_paren(res_prec: u32, arg_expr: String, arg_prec: u32) -> String {
+    if res_prec >= arg_prec {
+        arg_expr
+    } else {
+        format!("({})", arg_expr)
+    }
+}
+
+// 1-17: https://en.cppreference.com/w/cpp/language/operator_precedence
+const PREC_TERM: u32 = 0;
+const PREC_SCOPE: u32 = 1;
+const PREC_CALL: u32 = 2;
+
+fn unary_operator_precedence(operator: UnaryOperator) -> u32 {
+    use UnaryOperator::*;
+    match operator {
+        LogicalNot => 3,
+        BitwiseNot => 3,
+        Minus => 3,
+        Plus => 3,
+        Typeof | Void | Delete => u32::MAX, // unsupported
+    }
+}
+
+fn binary_operator_precedence(operator: BinaryOperator) -> u32 {
+    use BinaryOperator::*;
+    match operator {
+        LogicalAnd => 14,
+        LogicalOr => 15,
+        RightShift | UnsignedRightShift => 7,
+        LeftShift => 7,
+        BitwiseAnd => 11,
+        BitwiseXor => 12,
+        BitwiseOr => 13,
+        Add => 6,
+        Sub => 6,
+        Mul => 5,
+        Div => 5,
+        Rem => 5,
+        Exp => u32::MAX, // unsupported
+        Equal | StrictEqual => 10,
+        NotEqual | StrictNotEqual => 10,
+        LessThan => 9,
+        LessThanEqual => 9,
+        GreaterThan => 9,
+        GreaterThanEqual => 9,
+        NullishCoalesce | Instanceof | In => u32::MAX, // unsupported
+    }
 }
 
 #[cfg(test)]
@@ -651,11 +747,11 @@ mod tests {
             map.get("a").unwrap().get_node().unwrap()
         }
 
-        fn format(&self) -> (TypeDesc, String) {
+        fn format(&self) -> (TypeDesc, String, u32) {
             self.try_format().unwrap()
         }
 
-        fn try_format(&self) -> Result<(TypeDesc, String), Diagnostics> {
+        fn try_format(&self) -> Result<(TypeDesc, String, u32), Diagnostics> {
             let mut diagnostics = Diagnostics::new();
             let type_space = self.type_map.root();
             let node = self.node();
@@ -671,7 +767,7 @@ mod tests {
     }
 
     fn format_expr(expr_source: &str) -> String {
-        let (_, expr) = Env::new(expr_source).format();
+        let (_, expr, _) = Env::new(expr_source).format();
         expr
     }
 
@@ -680,11 +776,17 @@ mod tests {
         assert_eq!(format_expr("Foo.Bar0"), "Foo::Bar0");
         assert_eq!(
             format_expr("Foo.Bar0 | Foo.Bar1 | Foo.Bar2"),
-            "((Foo::Bar0)|(Foo::Bar1))|(Foo::Bar2)"
+            "Foo::Bar0|Foo::Bar1|Foo::Bar2"
         );
-        assert_eq!(
-            format_expr("Foo.Bar0 & ~Foo.Bar1"),
-            "(Foo::Bar0)&(~(Foo::Bar1))"
-        );
+        assert_eq!(format_expr("Foo.Bar0 & ~Foo.Bar1"), "Foo::Bar0&~Foo::Bar1");
+    }
+
+    #[test]
+    fn format_operator_precedence() {
+        assert_eq!(format_expr("1 + (2 * 3) + 4"), "1+2*3+4");
+        assert_eq!(format_expr("((1 + 2) * 3) + 4"), "(1+2)*3+4");
+        assert_eq!(format_expr("1 + (2 * (3 + 4))"), "1+2*(3+4)");
+        assert_eq!(format_expr("+(-1)"), "+-1");
+        assert_eq!(format_expr("+((-1) + 1)"), "+(-1+1)");
     }
 }
