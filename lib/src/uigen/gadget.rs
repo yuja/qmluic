@@ -244,21 +244,7 @@ fn extract_value_of_type_name(
     diagnostics: &mut Diagnostics,
 ) -> Option<ConstantValue> {
     if let Some(ty) = cls.resolve_type_scoped(type_name) {
-        match value {
-            UiBindingValue::Node(n) => {
-                ConstantValue::from_expression(cls, &ty, *n, source, diagnostics)
-            }
-            UiBindingValue::Map(n, _) => {
-                diagnostics.push(Diagnostic::error(
-                    n.byte_range(),
-                    format!(
-                        "binding map cannot be parsed as value type '{}'",
-                        ty.qualified_name()
-                    ),
-                ));
-                None
-            }
-        }
+        ConstantValue::from_binding_value(cls, &ty, value, source, diagnostics)
     } else {
         diagnostics.push(Diagnostic::error(
             value.node().byte_range(),

@@ -207,22 +207,13 @@ impl LayoutItem {
                     .iter()
                     .map(|(&name, value)| {
                         // TODO: look up attached type
-                        match value {
-                            UiBindingValue::Node(n) => ConstantValue::from_expression(
-                                cls,
-                                &Type::Primitive(PrimitiveType::Int),
-                                *n,
-                                source,
-                                diagnostics,
-                            ),
-                            UiBindingValue::Map(n, _) => {
-                                diagnostics.push(Diagnostic::error(
-                                    n.byte_range(),
-                                    "binding map cannot be QLayoutItem attached property",
-                                ));
-                                None
-                            }
-                        }
+                        ConstantValue::from_binding_value(
+                            cls,
+                            &Type::Primitive(PrimitiveType::Int),
+                            value,
+                            source,
+                            diagnostics,
+                        )
                         .map(|v| (name.to_owned(), v))
                     })
                     .collect()
