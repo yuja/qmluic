@@ -2,9 +2,7 @@ use super::gadget::{ConstantGadget, ConstantSizePolicy};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::qmlast::{
-    BinaryOperator, Expression, Node, UiBindingMap, UiBindingValue, UnaryOperator,
-};
+use crate::qmlast::{BinaryOperator, Node, UiBindingMap, UiBindingValue, UnaryOperator};
 use crate::typedexpr::{self, DescribeType, ExpressionVisitor, TypeDesc};
 use crate::typemap::{Class, Enum, PrimitiveType, Type, TypeSpace};
 use std::fmt;
@@ -141,10 +139,7 @@ impl ConstantValue {
                 match &res_t {
                     TypeDesc::Enum(res_en) if is_compatible_enum(res_en, en) => {
                         if en.is_flag() {
-                            // try to format x|y|z without parens for the Qt Designer compatibility
-                            let set_expr =
-                                format_as_identifier_set(node, source).unwrap_or(res_expr);
-                            Some(ConstantValue::Set(set_expr))
+                            Some(ConstantValue::Set(res_expr))
                         } else {
                             Some(ConstantValue::Enum(res_expr))
                         }
@@ -235,30 +230,6 @@ fn describe_primitive_type(t: PrimitiveType) -> Option<TypeDesc<'static>> {
         PrimitiveType::QString => Some(TypeDesc::String),
         PrimitiveType::UInt => Some(TypeDesc::Number),
         PrimitiveType::Void => None,
-    }
-}
-
-fn format_as_identifier_set(node: Node, source: &str) -> Option<String> {
-    match Expression::from_node(node, source).ok()? {
-        Expression::Identifier(n) => Some(n.to_str(source).to_owned()),
-        Expression::MemberExpression(_) => format_as_nested_identifier(node, source),
-        Expression::BinaryExpression(x) if x.operator == BinaryOperator::BitwiseOr => {
-            let left = format_as_identifier_set(x.left, source)?;
-            let right = format_as_identifier_set(x.right, source)?;
-            Some(format!("{}|{}", left, right))
-        }
-        _ => None,
-    }
-}
-
-fn format_as_nested_identifier(node: Node, source: &str) -> Option<String> {
-    match Expression::from_node(node, source).ok()? {
-        Expression::Identifier(n) => Some(n.to_str(source).to_owned()),
-        Expression::MemberExpression(x) => {
-            let object = format_as_nested_identifier(x.object, source)?;
-            Some(format!("{}::{}", object, x.property.to_str(source)))
-        }
-        _ => None,
     }
 }
 
