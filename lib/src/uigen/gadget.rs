@@ -196,46 +196,13 @@ fn extract_size_policy(
     source: &str,
     diagnostics: &mut Diagnostics,
 ) -> Option<String> {
-    extract_value_of_type_name(cls, "QSizePolicy::Policy", value, source, diagnostics).and_then(
-        |v| match v {
-            ConstantValue::Enum(s) => {
-                if let Some(t) = s.strip_prefix("QSizePolicy::") {
-                    Some(t.to_owned())
-                } else {
-                    diagnostics.push(Diagnostic::error(
-                        value.node().byte_range(),
-                        "not a size policy enum",
-                    ));
-                    None
-                }
-            }
-            _ => {
-                diagnostics.push(Diagnostic::error(
-                    value.node().byte_range(),
-                    "not a size policy enum",
-                ));
-                None
-            }
-        },
-    )
-}
-
-fn extract_value_of_type_name(
-    cls: &Class,
-    type_name: &str,
-    value: &UiBindingValue,
-    source: &str,
-    diagnostics: &mut Diagnostics,
-) -> Option<ConstantValue> {
-    if let Some(ty) = cls.resolve_type_scoped(type_name) {
-        ConstantValue::from_binding_value(cls, &ty, value, source, diagnostics)
+    if let Some(ty) = cls.resolve_type_scoped("QSizePolicy::Policy") {
+        expr::format_enum_expression(cls, &ty, value, source, diagnostics)
+            .and_then(|s| s.strip_prefix("QSizePolicy::").map(|t| t.to_owned()))
     } else {
         diagnostics.push(Diagnostic::error(
             value.node().byte_range(),
-            format!(
-                "required type cannot be resolved from type map: {}",
-                type_name
-            ),
+            "QSizePolicy::Policy cannot be resolved from type map",
         ));
         None
     }

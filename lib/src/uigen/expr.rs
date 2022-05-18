@@ -288,6 +288,25 @@ where
     }
 }
 
+/// Formats the given `binding_value` as expression of enum `ty` type.
+pub(super) fn format_enum_expression<'a, P>(
+    parent_space: &P, // TODO: should be QML space, not C++ metatype space
+    ty: &Type,
+    binding_value: &UiBindingValue,
+    source: &str,
+    diagnostics: &mut Diagnostics,
+) -> Option<String>
+where
+    P: TypeSpace<'a>,
+{
+    let c =
+        ConstantValue::from_binding_value(parent_space, ty, binding_value, source, diagnostics)?;
+    match c {
+        ConstantValue::Enum(v) | ConstantValue::Set(v) => Some(v),
+        _ => None, // diagnostic message should have been pushed (so long as ty is enum)
+    }
+}
+
 /// Evaluates expression tree as arbitrary constant value expression.
 ///
 /// Here we don't follow the JavaScript language model, but try to be stricter.
