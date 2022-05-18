@@ -268,6 +268,26 @@ fn describe_primitive_type(t: PrimitiveType) -> Option<TypeDesc<'static>> {
     }
 }
 
+/// Evaluates the given `binding_value` to number.
+pub(super) fn evaluate_number<'a, P>(
+    parent_space: &P, // TODO: should be QML space, not C++ metatype space
+    binding_value: &UiBindingValue,
+    source: &str,
+    diagnostics: &mut Diagnostics,
+) -> Option<f64>
+where
+    P: TypeSpace<'a>,
+{
+    let ty = Type::Primitive(PrimitiveType::QReal); // don't care for the exact type
+    let c =
+        ConstantValue::from_binding_value(parent_space, &ty, binding_value, source, diagnostics)?;
+    if let ConstantValue::Number(v) = c {
+        Some(v)
+    } else {
+        None // diagnostic message should have been pushed
+    }
+}
+
 /// Evaluates expression tree as arbitrary constant value expression.
 ///
 /// Here we don't follow the JavaScript language model, but try to be stricter.

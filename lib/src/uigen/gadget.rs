@@ -1,4 +1,4 @@
-use super::expr::ConstantValue;
+use super::expr::{self, ConstantValue};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
@@ -136,10 +136,12 @@ impl ConstantSizePolicy {
                     policy.vertical_policy = extract_size_policy(cls, value, source, diagnostics);
                 }
                 "horizontalStretch" => {
-                    policy.horizontal_stretch = extract_int(cls, value, source, diagnostics);
+                    policy.horizontal_stretch =
+                        expr::evaluate_number(cls, value, source, diagnostics);
                 }
                 "verticalStretch" => {
-                    policy.vertical_stretch = extract_int(cls, value, source, diagnostics);
+                    policy.vertical_stretch =
+                        expr::evaluate_number(cls, value, source, diagnostics);
                 }
                 _ => {
                     diagnostics.push(Diagnostic::error(
@@ -216,24 +218,6 @@ fn extract_size_policy(
             }
         },
     )
-}
-
-fn extract_int(
-    cls: &Class,
-    value: &UiBindingValue,
-    source: &str,
-    diagnostics: &mut Diagnostics,
-) -> Option<f64> {
-    extract_value_of_type_name(cls, "int", value, source, diagnostics).and_then(|v| match v {
-        ConstantValue::Number(d) => Some(d),
-        _ => {
-            diagnostics.push(Diagnostic::error(
-                value.node().byte_range(),
-                "not an integer",
-            ));
-            None
-        }
-    })
 }
 
 fn extract_value_of_type_name(
