@@ -281,17 +281,21 @@ impl LayoutItemProperties {
     }
 
     fn push_attributes_to_item_tag(&self, tag: &mut BytesStart) {
-        self.alignment
-            .as_ref()
-            .map(|v| tag.push_attribute(("alignment", v.as_ref())));
-        self.column
-            .map(|v| tag.push_attribute(("column", v.to_string().as_ref())));
-        self.column_span
-            .map(|v| tag.push_attribute(("columnspan", v.to_string().as_ref())));
-        self.row
-            .map(|v| tag.push_attribute(("row", v.to_string().as_ref())));
-        self.row_span
-            .map(|v| tag.push_attribute(("rowspan", v.to_string().as_ref())));
+        if let Some(v) = &self.alignment {
+            tag.push_attribute(("alignment", v.as_ref()));
+        }
+        if let Some(v) = self.column {
+            tag.push_attribute(("column", v.to_string().as_ref()));
+        }
+        if let Some(v) = self.column_span {
+            tag.push_attribute(("columnspan", v.to_string().as_ref()));
+        }
+        if let Some(v) = self.row {
+            tag.push_attribute(("row", v.to_string().as_ref()));
+        }
+        if let Some(v) = self.row_span {
+            tag.push_attribute(("rowspan", v.to_string().as_ref()));
+        }
     }
 }
 
