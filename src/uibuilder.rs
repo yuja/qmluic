@@ -48,6 +48,10 @@ impl<'a> UiBuilder<'a> {
         if let Some(typemap::Type::Class(cls)) = self.type_map.get_type(&type_name) {
             Some((obj, cls))
         } else {
+            self.diagnostics.push(Diagnostic::error(
+                obj.node().byte_range(), // TODO: on identifier node
+                format!("unknown object type: {type_name}"),
+            ));
             None
         }
     }
