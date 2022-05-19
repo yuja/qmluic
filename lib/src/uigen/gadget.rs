@@ -117,13 +117,11 @@ impl ConstantSizePolicy {
     /// The `cls` is supposed to be of `QSizePolicy` type.
     pub fn from_binding_map(
         cls: &Class,
-        _node: Node,
         binding_map: &UiBindingMap,
         source: &str,
         diagnostics: &mut Diagnostics,
-    ) -> Option<Self> {
+    ) -> Self {
         let mut policy = ConstantSizePolicy::default();
-        let mut ok = true;
         for (&name, value) in binding_map {
             match name {
                 "horizontalPolicy" => {
@@ -149,16 +147,10 @@ impl ConstantSizePolicy {
                             name
                         ),
                     ));
-                    ok = false;
                 }
             }
         }
-
-        if ok {
-            Some(policy)
-        } else {
-            None
-        }
+        policy
     }
 
     /// Serializes this to UI XML.

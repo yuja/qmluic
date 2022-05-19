@@ -58,8 +58,9 @@ impl ConstantExpression {
     ) -> Option<Self> {
         match cls.name() {
             "QSizePolicy" => {
-                ConstantSizePolicy::from_binding_map(cls, node, binding_map, source, diagnostics)
-                    .map(ConstantExpression::SizePolicy)
+                let policy =
+                    ConstantSizePolicy::from_binding_map(cls, binding_map, source, diagnostics);
+                Some(ConstantExpression::SizePolicy(policy))
             }
             _ => ConstantGadget::from_binding_map(cls, node, binding_map, source, diagnostics)
                 .map(ConstantExpression::Gadget),
