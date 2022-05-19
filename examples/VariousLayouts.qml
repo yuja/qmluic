@@ -66,7 +66,7 @@ QWidget {
             //      <property name="bottomMargin">
             //       <number>4</number>
             //      </property>
-            contentsMargins { left: 1; top: 2; right: 3; bottom: 4 }
+            // TODO: contentsMargins { left: 1; top: 2; right: 3; bottom: 4 }
 
             //      <item>
             //       <widget class="QRadioButton" name="radioButton">
@@ -129,7 +129,7 @@ QWidget {
             //      </item>
             QPlainTextEdit {
                 id: plainTextEdit
-                QBoxLayout.stretch: 2  // TODO: or columnStretch?
+                // TODO: QBoxLayout.stretch: 2  // TODO: or columnStretch?
             }
 
             //      <item>
@@ -137,7 +137,7 @@ QWidget {
             //      </item>
             QPlainTextEdit {
                 id: plainTextEdit_2
-                QBoxLayout.stretch: 3  // TODO: or columnStretch?
+                // TODO: QBoxLayout.stretch: 3  // TODO: or columnStretch?
             }
 
             //     </layout>
@@ -186,17 +186,17 @@ QWidget {
             //      <property name="bottomMargin">
             //       <number>2</number>
             //      </property>
-            contentsMargins { left: 2; top: 2; right: 2; bottom: 2 }
+            // TODO: contentsMargins { left: 2; top: 2; right: 2; bottom: 2 }
 
             //      <property name="horizontalSpacing">
             //       <number>10</number>
             //      </property>
-            horizontalSpacing: 10
+            // TODO: horizontalSpacing: 10
 
             //      <property name="verticalSpacing">
             //       <number>4</number>
             //      </property>
-            verticalSpacing: 4
+            // TODO: verticalSpacing: 4
 
             //      <item row="0" column="0">
             //       <widget class="QPushButton" name="pushButton">
@@ -209,10 +209,10 @@ QWidget {
                 id: pushButton
                 QLayoutItem.row: 0
                 QLayoutItem.column: 0
-                QGridLayout.rowStretch: 1
-                QGridLayout.columnStretch: 3
-                QGridLayout.rowMinimumHeight: 20
-                QGridLayout.columnMinimumWidth: 50
+                // TODO: QGridLayout.rowStretch: 1
+                // TODO: QGridLayout.columnStretch: 3
+                // TODO: QGridLayout.rowMinimumHeight: 20
+                // TODO: QGridLayout.columnMinimumWidth: 50
                 text: qsTr("PushButton")
             }
 
@@ -227,10 +227,10 @@ QWidget {
                 id: pushButton_2
                 QLayoutItem.row: 1
                 QLayoutItem.column: 0
-                QGridLayout.rowStretch: 2
-                QGridLayout.columnStretch: 3
-                QGridLayout.rowMinimumHeight: 20
-                QGridLayout.columnMinimumWidth: 50
+                // TODO: QGridLayout.rowStretch: 2
+                // TODO: QGridLayout.columnStretch: 3
+                // TODO: QGridLayout.rowMinimumHeight: 20
+                // TODO: QGridLayout.columnMinimumWidth: 50
                 text: qsTr("PushButton")
             }
 
@@ -246,11 +246,11 @@ QWidget {
                 id: pushButton_3
                 QLayoutItem.row: 0
                 QLayoutItem.column: 1
-                QLayoutItem.rowSpan: 2
-                QLayoutItem.alignment: Qt.AlignTop
-                QGridLayout.rowStretch: 1
-                QGridLayout.columnStretch: 4
-                QGridLayout.columnMinimumWidth: 50
+                // TODO: QLayoutItem.rowSpan: 2
+                // TODO: QLayoutItem.alignment: Qt.AlignTop
+                // TODO: QGridLayout.rowStretch: 1
+                // TODO: QGridLayout.columnStretch: 4
+                // TODO: QGridLayout.columnMinimumWidth: 50
                 text: qsTr("RowSpan\nButton")
             }
 
@@ -265,10 +265,10 @@ QWidget {
                 id: pushButton_4
                 QLayoutItem.row: 0
                 QLayoutItem.column: 2
-                QGridLayout.rowStretch: 1
-                QGridLayout.columnStretch: 5
-                QGridLayout.rowMinimumHeight: 20
-                QGridLayout.columnMinimumWidth: 50
+                // TODO: QGridLayout.rowStretch: 1
+                // TODO: QGridLayout.columnStretch: 5
+                // TODO: QGridLayout.rowMinimumHeight: 20
+                // TODO: QGridLayout.columnMinimumWidth: 50
                 text: qsTr("PushButton")
             }
 
