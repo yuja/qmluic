@@ -144,7 +144,7 @@ impl Widget {
             actions: binding_map
                 .get("actions")
                 .map(|v| collect_identifiers(v, source, diagnostics))
-                .unwrap_or(vec![]),
+                .unwrap_or_default(),
             children: vec![],
         })
     }
@@ -468,7 +468,7 @@ fn collect_identifiers(
 ) -> Vec<String> {
     match value {
         UiBindingValue::Node(n) => {
-            parse_as_identifier_array(*n, source, diagnostics).unwrap_or(vec![])
+            parse_as_identifier_array(*n, source, diagnostics).unwrap_or_default()
         }
         UiBindingValue::Map(n, _) => {
             diagnostics.push(Diagnostic::error(
