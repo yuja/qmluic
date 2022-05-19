@@ -222,6 +222,7 @@ impl LayoutItem {
 /// Layout properties of [`LayoutItem`].
 #[derive(Clone, Debug, Default)]
 pub struct LayoutItemProperties {
+    pub alignment: Option<String>,
     pub column: Option<i32>,
     pub column_span: Option<i32>,
     pub row: Option<i32>,
@@ -241,6 +242,18 @@ impl LayoutItemProperties {
         let mut properties = LayoutItemProperties::default();
         for (&name, value) in binding_map {
             match name {
+                "alignment" => {
+                    // type name is resolved within C++ metatype space, which is correct
+                    properties.alignment = expr::resolve_type_scoped_for_node(
+                        parent_space,
+                        "Qt::Alignment",
+                        value.node(),
+                        diagnostics,
+                    )
+                    .and_then(|ty| {
+                        expr::format_enum_expression(parent_space, &ty, value, source, diagnostics)
+                    });
+                }
                 "column" => {
                     properties.column =
                         expr::evaluate_i32(parent_space, value, source, diagnostics);
@@ -268,6 +281,9 @@ impl LayoutItemProperties {
     }
 
     fn push_attributes_to_item_tag(&self, tag: &mut BytesStart) {
+        self.alignment
+            .as_ref()
+            .map(|v| tag.push_attribute(("alignment", v.as_ref())));
         self.column
             .map(|v| tag.push_attribute(("column", v.to_string().as_ref())));
         self.column_span

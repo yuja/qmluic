@@ -247,7 +247,7 @@ QWidget {
                 QLayoutItem.row: 0
                 QLayoutItem.column: 1
                 QLayoutItem.rowSpan: 2
-                // TODO: QLayoutItem.alignment: Qt.AlignTop
+                QLayoutItem.alignment: Qt.AlignTop
                 // TODO: QGridLayout.rowStretch: 1
                 // TODO: QGridLayout.columnStretch: 4
                 // TODO: QGridLayout.columnMinimumWidth: 50

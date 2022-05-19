@@ -97,7 +97,7 @@ expression: "translate_file(\"examples/VariousLayouts.qml\")"
        </property>
       </widget>
      </item>
-     <item column="1" row="0" rowspan="2">
+     <item alignment="Qt::AlignTop" column="1" row="0" rowspan="2">
       <widget class="QPushButton" name="pushButton_3">
        <property name="text">
         <string>RowSpan
