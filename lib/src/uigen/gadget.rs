@@ -32,10 +32,14 @@ impl ConstantGadget {
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         match cls.name() {
-            "QRect" => collect_constant_properties(cls, binding_map, source, diagnostics)
-                .map(|ps| Self::new("rect", ps)),
-            "QSize" => collect_constant_properties(cls, binding_map, source, diagnostics)
-                .map(|ps| Self::new("size", ps)),
+            "QRect" => Some(Self::new(
+                "rect",
+                collect_constant_properties(cls, binding_map, source, diagnostics),
+            )),
+            "QSize" => Some(Self::new(
+                "size",
+                collect_constant_properties(cls, binding_map, source, diagnostics),
+            )),
             _ => {
                 diagnostics.push(Diagnostic::error(
                     node.byte_range(),
@@ -63,15 +67,19 @@ impl ConstantGadget {
     }
 }
 
+/// Parses the given `binding_map` into a map of constant values.
+///
+/// Unparsable properties are excluded from the resulting map so as many diagnostic messages
+/// will be generated as possible.
 fn collect_constant_properties(
     cls: &Class,
     binding_map: &UiBindingMap,
     source: &str,
     diagnostics: &mut Diagnostics,
-) -> Option<HashMap<String, ConstantValue>> {
+) -> HashMap<String, ConstantValue> {
     binding_map
         .iter()
-        .map(|(&name, value)| {
+        .filter_map(|(&name, value)| {
             if let Some(ty) = cls.get_property_type(name) {
                 match value {
                     UiBindingValue::Node(n) => {

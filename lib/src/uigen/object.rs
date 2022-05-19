@@ -94,7 +94,7 @@ impl Action {
         let binding_map = diagnostics.consume_err(obj.build_binding_map(source))?;
         Some(Action {
             name: obj.object_id().map(|n| n.to_str(source).to_owned()),
-            properties: collect_properties(cls, &binding_map, source, diagnostics)?,
+            properties: collect_properties(cls, &binding_map, source, diagnostics),
         })
     }
 
@@ -137,18 +137,14 @@ impl Widget {
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let binding_map = diagnostics.consume_err(obj.build_binding_map(source))?;
-        let properties_opt = collect_properties(cls, &binding_map, source, diagnostics);
-        let actions_opt = binding_map
-            .get("actions")
-            .map(|v| collect_identifiers(v, source, diagnostics))
-            .unwrap_or(Some(vec![]));
-
-        // late return on error so as many diagnostics will be generated as possible
         Some(Widget {
             class: cls.name().to_owned(),
             name: obj.object_id().map(|n| n.to_str(source).to_owned()),
-            properties: properties_opt?,
-            actions: actions_opt?,
+            properties: collect_properties(cls, &binding_map, source, diagnostics),
+            actions: binding_map
+                .get("actions")
+                .map(|v| collect_identifiers(v, source, diagnostics))
+                .unwrap_or(vec![]),
             children: vec![],
         })
     }
@@ -197,15 +193,13 @@ impl LayoutItem {
         source: &str,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let content_opt = LayoutItemContent::from_object_definition(cls, obj, source, diagnostics);
-
         let attached_type_map = diagnostics.consume_err(obj.build_attached_type_map(source))?;
-        let properties_opt = attached_type_map
+        let properties = attached_type_map
             .get(["QLayoutItem"].as_ref()) // TODO: resolve against imported types
             .map(|binding_map| {
                 binding_map
                     .iter()
-                    .map(|(&name, value)| {
+                    .filter_map(|(&name, value)| {
                         // TODO: look up attached type
                         ConstantValue::from_binding_value(
                             cls,
@@ -218,12 +212,10 @@ impl LayoutItem {
                     })
                     .collect()
             })
-            .unwrap_or_else(|| Some(HashMap::new()));
-
-        // late return on error so as many diagnostics will be generated as possible
+            .unwrap_or_else(|| HashMap::new());
         Some(LayoutItem {
-            properties: properties_opt?,
-            content: content_opt?,
+            properties,
+            content: LayoutItemContent::from_object_definition(cls, obj, source, diagnostics)?,
         })
     }
 
@@ -308,7 +300,7 @@ impl SpacerItem {
         let binding_map = diagnostics.consume_err(obj.build_binding_map(source))?;
         Some(SpacerItem {
             name: obj.object_id().map(|n| n.to_str(source).to_owned()),
-            properties: collect_properties(cls, &binding_map, source, diagnostics)?,
+            properties: collect_properties(cls, &binding_map, source, diagnostics),
         })
     }
 
@@ -353,7 +345,7 @@ impl Layout {
         Some(Layout {
             class: cls.name().to_owned(),
             name: obj.object_id().map(|n| n.to_str(source).to_owned()),
-            properties: collect_properties(cls, &binding_map, source, diagnostics)?,
+            properties: collect_properties(cls, &binding_map, source, diagnostics),
             children: vec![],
         })
     }
@@ -381,16 +373,20 @@ impl Layout {
     }
 }
 
+/// Parses the given `binding_map` into a map of constant expressions.
+///
+/// Unparsable properties are excluded from the resulting map so as many diagnostic messages
+/// will be generated as possible.
 fn collect_properties(
     cls: &Class,
     binding_map: &UiBindingMap,
     source: &str,
     diagnostics: &mut Diagnostics,
-) -> Option<HashMap<String, ConstantExpression>> {
+) -> HashMap<String, ConstantExpression> {
     binding_map
         .iter()
         .filter(|(&name, _)| name != "actions") // TODO: only for QWidget subclasses
-        .map(|(&name, value)| {
+        .filter_map(|(&name, value)| {
             if let Some(ty) = cls.get_property_type(name) {
                 ConstantExpression::from_binding_value(cls, &ty, value, source, diagnostics)
             } else {
@@ -413,15 +409,17 @@ fn collect_identifiers(
     value: &UiBindingValue,
     source: &str,
     diagnostics: &mut Diagnostics,
-) -> Option<Vec<String>> {
+) -> Vec<String> {
     match value {
-        UiBindingValue::Node(n) => parse_as_identifier_array(*n, source, diagnostics),
+        UiBindingValue::Node(n) => {
+            parse_as_identifier_array(*n, source, diagnostics).unwrap_or(vec![])
+        }
         UiBindingValue::Map(n, _) => {
             diagnostics.push(Diagnostic::error(
                 n.byte_range(),
                 "binding map cannot be parsed as array of identifiers",
             ));
-            None
+            vec![]
         }
     }
 }
