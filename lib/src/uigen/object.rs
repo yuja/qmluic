@@ -1,9 +1,9 @@
-use super::expr::{ConstantExpression, ConstantValue};
+use super::expr::{self, ConstantExpression};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Expression, Node, UiBindingMap, UiBindingValue, UiObjectDefinition};
-use crate::typemap::{Class, PrimitiveType, Type, TypeSpace};
+use crate::typemap::{Class, TypeSpace};
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
 use std::io;
@@ -181,7 +181,7 @@ impl Widget {
 /// Layout item definition which can be serialized to UI XML.
 #[derive(Clone, Debug)]
 pub struct LayoutItem {
-    pub properties: HashMap<String, ConstantValue>,
+    pub properties: LayoutItemProperties,
     pub content: LayoutItemContent,
 }
 
@@ -194,27 +194,11 @@ impl LayoutItem {
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let attached_type_map = diagnostics.consume_err(obj.build_attached_type_map(source))?;
-        let properties = attached_type_map
-            .get(["QLayoutItem"].as_ref()) // TODO: resolve against imported types
-            .map(|binding_map| {
-                binding_map
-                    .iter()
-                    .filter_map(|(&name, value)| {
-                        // TODO: look up attached type
-                        ConstantValue::from_binding_value(
-                            cls,
-                            &Type::Primitive(PrimitiveType::Int),
-                            value,
-                            source,
-                            diagnostics,
-                        )
-                        .map(|v| (name.to_owned(), v))
-                    })
-                    .collect()
-            })
-            .unwrap_or_else(|| HashMap::new());
         Some(LayoutItem {
-            properties,
+            properties: attached_type_map
+                .get(["QLayoutItem"].as_ref()) // TODO: resolve against imported types
+                .map(|m| LayoutItemProperties::from_binding_map(cls, m, source, diagnostics))
+                .unwrap_or_default(),
             content: LayoutItemContent::from_object_definition(cls, obj, source, diagnostics)?,
         })
     }
@@ -225,17 +209,59 @@ impl LayoutItem {
         W: io::Write,
     {
         let mut tag = BytesStart::borrowed_name(b"item");
-        let mut pairs: Vec<_> = self.properties.iter().collect();
-        pairs.sort_by_key(|&(k, _)| k);
-        for (k, v) in pairs {
-            tag.push_attribute((k.as_str(), v.to_string().as_ref()));
-        }
+        self.properties.push_attributes_to_item_tag(&mut tag);
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
         self.content.serialize_to_xml(writer)?;
 
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
+    }
+}
+
+/// Layout properties of [`LayoutItem`].
+#[derive(Clone, Debug, Default)]
+pub struct LayoutItemProperties {
+    pub column: Option<i32>,
+    pub row: Option<i32>,
+}
+
+impl LayoutItemProperties {
+    fn from_binding_map<'a, P>(
+        parent_space: &P, // TODO: should be QML space, not C++ metatype space
+        binding_map: &UiBindingMap,
+        source: &str,
+        diagnostics: &mut Diagnostics,
+    ) -> Self
+    where
+        P: TypeSpace<'a>,
+    {
+        let mut properties = LayoutItemProperties::default();
+        for (&name, value) in binding_map {
+            match name {
+                "column" => {
+                    properties.column =
+                        expr::evaluate_i32(parent_space, value, source, diagnostics);
+                }
+                "row" => {
+                    properties.row = expr::evaluate_i32(parent_space, value, source, diagnostics);
+                }
+                _ => {
+                    diagnostics.push(Diagnostic::error(
+                        value.node().byte_range(),
+                        format!("unknown property of QLayoutItem: {}", name),
+                    ));
+                }
+            }
+        }
+        properties
+    }
+
+    fn push_attributes_to_item_tag(&self, tag: &mut BytesStart) {
+        self.column
+            .map(|v| tag.push_attribute(("column", v.to_string().as_ref())));
+        self.row
+            .map(|v| tag.push_attribute(("row", v.to_string().as_ref())));
     }
 }
 
