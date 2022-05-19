@@ -5,8 +5,7 @@ use qmluic::diagnostic::{Diagnostic, DiagnosticKind, Diagnostics};
 use qmluic::metatype;
 use qmluic::qmlast;
 use qmluic::typemap::TypeMap;
-use qmluic::uigen::{XmlResult, XmlWriter};
-use qmluic_cli::UiBuilder;
+use qmluic::uigen::{self, XmlResult, XmlWriter};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -35,8 +34,7 @@ fn main() -> XmlResult<()> {
 
     let stdout = io::stdout();
     let mut diagnostics = Diagnostics::new();
-    let mut builder = UiBuilder::new(&type_map, &doc, &mut diagnostics);
-    let form_opt = builder.build();
+    let form_opt = uigen::build(&type_map, &doc, &mut diagnostics);
     if form_opt.is_none() || !diagnostics.is_empty() {
         for d in &diagnostics {
             print_diagnostic(&doc, d)?;
