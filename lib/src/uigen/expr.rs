@@ -280,8 +280,35 @@ where
     P: TypeSpace<'a>,
 {
     let ty = Type::Primitive(PrimitiveType::QReal); // don't care for the exact type
+    evaluate_number_of_type(parent_space, &ty, binding_value, source, diagnostics)
+}
+
+/// Evaluates the given `binding_value` to `i32`.
+pub(super) fn evaluate_i32<'a, P>(
+    parent_space: &P, // TODO: should be QML space, not C++ metatype space
+    binding_value: &UiBindingValue,
+    source: &str,
+    diagnostics: &mut Diagnostics,
+) -> Option<i32>
+where
+    P: TypeSpace<'a>,
+{
+    let ty = Type::Primitive(PrimitiveType::Int);
+    evaluate_number_of_type(parent_space, &ty, binding_value, source, diagnostics).map(|d| d as i32)
+}
+
+fn evaluate_number_of_type<'a, P>(
+    parent_space: &P, // TODO: should be QML space, not C++ metatype space
+    ty: &Type,
+    binding_value: &UiBindingValue,
+    source: &str,
+    diagnostics: &mut Diagnostics,
+) -> Option<f64>
+where
+    P: TypeSpace<'a>,
+{
     let c =
-        ConstantValue::from_binding_value(parent_space, &ty, binding_value, source, diagnostics)?;
+        ConstantValue::from_binding_value(parent_space, ty, binding_value, source, diagnostics)?;
     if let ConstantValue::Number(v) = c {
         Some(v)
     } else {
