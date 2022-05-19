@@ -23,29 +23,34 @@ pub fn build(
     doc: &UiDocument,
     diagnostics: &mut Diagnostics,
 ) -> Option<UiForm> {
-    let program = diagnostics.consume_err(UiProgram::from_node(doc.root_node()))?;
-    let root_object = generate_object_rec(
+    let ctx = BuildContext {
         type_map,
-        program.root_object_node(),
-        doc.source(),
-        diagnostics,
-    )?;
+        source: doc.source(),
+    };
+    let program = diagnostics.consume_err(UiProgram::from_node(doc.root_node()))?;
+    let root_object = generate_object_rec(&ctx, program.root_object_node(), diagnostics)?;
     Some(UiForm {
         class: doc.type_name().map(|s| s.to_owned()),
         root_object,
     })
 }
 
-fn resolve_object_definition<'a, 't>(
+/// Resources passed around the UI object constructors.
+#[derive(Clone, Debug)]
+struct BuildContext<'a, 's> {
     type_map: &'a TypeMap,
+    source: &'s str,
+}
+
+fn resolve_object_definition<'a, 't>(
+    ctx: &BuildContext<'a, '_>,
     node: Node<'t>,
-    source: &str,
     diagnostics: &mut Diagnostics,
 ) -> Option<(UiObjectDefinition<'t>, Class<'a>)> {
-    let obj = diagnostics.consume_err(UiObjectDefinition::from_node(node, source))?;
+    let obj = diagnostics.consume_err(UiObjectDefinition::from_node(node, ctx.source))?;
     // TODO: resolve against imported types: Qml.Type -> Cxx::Type -> type object
-    let type_name = obj.type_name().to_string(source);
-    if let Some(Type::Class(cls)) = type_map.get_type(&type_name) {
+    let type_name = obj.type_name().to_string(ctx.source);
+    if let Some(Type::Class(cls)) = ctx.type_map.get_type(&type_name) {
         Some((obj, cls))
     } else {
         diagnostics.push(Diagnostic::error(
@@ -57,27 +62,26 @@ fn resolve_object_definition<'a, 't>(
 }
 
 fn generate_object_rec(
-    type_map: &TypeMap,
+    ctx: &BuildContext,
     node: Node,
-    source: &str,
     diagnostics: &mut Diagnostics,
 ) -> Option<UiObject> {
-    let (obj, cls) = resolve_object_definition(type_map, node, source, diagnostics)?;
-    let mut ui_obj = UiObject::from_object_definition(&cls, &obj, source, diagnostics)?;
+    let (obj, cls) = resolve_object_definition(ctx, node, diagnostics)?;
+    let mut ui_obj = UiObject::from_object_definition(&cls, &obj, ctx.source, diagnostics)?;
     match &mut ui_obj {
         UiObject::Action(_) => confine_children(&cls, &obj, diagnostics),
         UiObject::Layout(layout) => {
             layout.children.extend(
                 obj.child_object_nodes()
                     .iter()
-                    .filter_map(|&n| generate_layout_item_rec(type_map, n, source, diagnostics)),
+                    .filter_map(|&n| generate_layout_item_rec(ctx, n, diagnostics)),
             );
         }
         UiObject::Widget(widget) => {
             widget.children.extend(
                 obj.child_object_nodes()
                     .iter()
-                    .filter_map(|&n| generate_object_rec(type_map, n, source, diagnostics)),
+                    .filter_map(|&n| generate_object_rec(ctx, n, diagnostics)),
             );
         }
     }
@@ -85,19 +89,18 @@ fn generate_object_rec(
 }
 
 fn generate_layout_item_rec(
-    type_map: &TypeMap,
+    ctx: &BuildContext,
     node: Node,
-    source: &str,
     diagnostics: &mut Diagnostics,
 ) -> Option<LayoutItem> {
-    let (obj, cls) = resolve_object_definition(type_map, node, source, diagnostics)?;
-    let mut item = LayoutItem::from_object_definition(&cls, &obj, source, diagnostics)?;
+    let (obj, cls) = resolve_object_definition(ctx, node, diagnostics)?;
+    let mut item = LayoutItem::from_object_definition(&cls, &obj, ctx.source, diagnostics)?;
     match &mut item.content {
         LayoutItemContent::Layout(layout) => {
             layout.children.extend(
                 obj.child_object_nodes()
                     .iter()
-                    .filter_map(|&n| generate_layout_item_rec(type_map, n, source, diagnostics)),
+                    .filter_map(|&n| generate_layout_item_rec(ctx, n, diagnostics)),
             );
         }
         LayoutItemContent::SpacerItem(_) => confine_children(&cls, &obj, diagnostics),
@@ -105,7 +108,7 @@ fn generate_layout_item_rec(
             widget.children.extend(
                 obj.child_object_nodes()
                     .iter()
-                    .filter_map(|&n| generate_object_rec(type_map, n, source, diagnostics)),
+                    .filter_map(|&n| generate_object_rec(ctx, n, diagnostics)),
             );
         }
     }
