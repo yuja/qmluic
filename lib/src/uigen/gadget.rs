@@ -81,18 +81,7 @@ fn collect_constant_properties(
         .iter()
         .filter_map(|(&name, value)| {
             if let Some(ty) = cls.get_property_type(name) {
-                match value {
-                    UiBindingValue::Node(n) => {
-                        ConstantValue::from_expression(cls, &ty, *n, source, diagnostics)
-                    }
-                    UiBindingValue::Map(n, _) => {
-                        diagnostics.push(Diagnostic::error(
-                            n.byte_range(),
-                            "binding map cannot be gadget property",
-                        ));
-                        None
-                    }
-                }
+                ConstantValue::from_binding_value(cls, &ty, value, source, diagnostics)
             } else {
                 diagnostics.push(Diagnostic::error(
                     value.node().byte_range(),
