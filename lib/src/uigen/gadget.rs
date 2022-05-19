@@ -185,14 +185,8 @@ fn extract_size_policy(
     source: &str,
     diagnostics: &mut Diagnostics,
 ) -> Option<String> {
-    if let Some(ty) = cls.resolve_type_scoped("QSizePolicy::Policy") {
-        expr::format_enum_expression(cls, &ty, value, source, diagnostics)
-            .and_then(|s| s.strip_prefix("QSizePolicy::").map(|t| t.to_owned()))
-    } else {
-        diagnostics.push(Diagnostic::error(
-            value.node().byte_range(),
-            "QSizePolicy::Policy cannot be resolved from type map",
-        ));
-        None
-    }
+    let ty =
+        expr::resolve_type_scoped_for_node(cls, "QSizePolicy::Policy", value.node(), diagnostics)?;
+    expr::format_enum_expression(cls, &ty, value, source, diagnostics)
+        .and_then(|s| s.strip_prefix("QSizePolicy::").map(|t| t.to_owned()))
 }

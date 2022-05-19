@@ -335,6 +335,27 @@ where
     }
 }
 
+/// Resolves type by `scoped_name`. Diagnostic message is generated for the given `node`.
+pub(super) fn resolve_type_scoped_for_node<'a, P>(
+    parent_space: &P,
+    scoped_name: &str,
+    node: Node,
+    diagnostics: &mut Diagnostics,
+) -> Option<Type<'a>>
+where
+    P: TypeSpace<'a>,
+{
+    if let Some(ty) = parent_space.resolve_type_scoped(scoped_name) {
+        Some(ty)
+    } else {
+        diagnostics.push(Diagnostic::error(
+            node.byte_range(),
+            format!("type cannot be resolved from type map: {scoped_name}"),
+        ));
+        None
+    }
+}
+
 /// Evaluates expression tree as arbitrary constant value expression.
 ///
 /// Here we don't follow the JavaScript language model, but try to be stricter.
