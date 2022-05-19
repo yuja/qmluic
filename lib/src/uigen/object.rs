@@ -223,7 +223,9 @@ impl LayoutItem {
 #[derive(Clone, Debug, Default)]
 pub struct LayoutItemProperties {
     pub column: Option<i32>,
+    pub column_span: Option<i32>,
     pub row: Option<i32>,
+    pub row_span: Option<i32>,
 }
 
 impl LayoutItemProperties {
@@ -243,8 +245,16 @@ impl LayoutItemProperties {
                     properties.column =
                         expr::evaluate_i32(parent_space, value, source, diagnostics);
                 }
+                "columnSpan" => {
+                    properties.column_span =
+                        expr::evaluate_i32(parent_space, value, source, diagnostics);
+                }
                 "row" => {
                     properties.row = expr::evaluate_i32(parent_space, value, source, diagnostics);
+                }
+                "rowSpan" => {
+                    properties.row_span =
+                        expr::evaluate_i32(parent_space, value, source, diagnostics);
                 }
                 _ => {
                     diagnostics.push(Diagnostic::error(
@@ -260,8 +270,12 @@ impl LayoutItemProperties {
     fn push_attributes_to_item_tag(&self, tag: &mut BytesStart) {
         self.column
             .map(|v| tag.push_attribute(("column", v.to_string().as_ref())));
+        self.column_span
+            .map(|v| tag.push_attribute(("columnspan", v.to_string().as_ref())));
         self.row
             .map(|v| tag.push_attribute(("row", v.to_string().as_ref())));
+        self.row_span
+            .map(|v| tag.push_attribute(("rowspan", v.to_string().as_ref())));
     }
 }
 

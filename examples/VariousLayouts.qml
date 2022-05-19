@@ -246,7 +246,7 @@ QWidget {
                 id: pushButton_3
                 QLayoutItem.row: 0
                 QLayoutItem.column: 1
-                // TODO: QLayoutItem.rowSpan: 2
+                QLayoutItem.rowSpan: 2
                 // TODO: QLayoutItem.alignment: Qt.AlignTop
                 // TODO: QGridLayout.rowStretch: 1
                 // TODO: QGridLayout.columnStretch: 4
