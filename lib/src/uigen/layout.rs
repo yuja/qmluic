@@ -131,6 +131,7 @@ impl LayoutItem {
 /// Layout properties to be resolved into [`Layout`] and [`LayoutItem`].
 #[derive(Clone, Debug, Default)]
 struct LayoutItemAttached<'t> {
+    // binding node is stored for error reporting
     pub alignment: Option<(Node<'t>, String)>,
     pub column: Option<(Node<'t>, i32)>,
     pub column_span: Option<(Node<'t>, i32)>,
@@ -170,32 +171,32 @@ impl<'t> LayoutItemAttached<'t> {
                             diagnostics,
                         )
                     })
-                    .map(|v| (value.node(), v));
+                    .map(|v| (value.binding_node(), v));
                 }
                 "column" => {
                     properties.column =
                         expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
-                            .map(|v| (value.node(), v));
+                            .map(|v| (value.binding_node(), v));
                 }
                 "columnSpan" => {
                     properties.column_span =
                         expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
-                            .map(|v| (value.node(), v));
+                            .map(|v| (value.binding_node(), v));
                 }
                 "row" => {
                     properties.row =
                         expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
-                            .map(|v| (value.node(), v));
+                            .map(|v| (value.binding_node(), v));
                 }
                 "rowSpan" => {
                     properties.row_span =
                         expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
-                            .map(|v| (value.node(), v));
+                            .map(|v| (value.binding_node(), v));
                 }
                 _ => {
                     diagnostics.push(Diagnostic::error(
-                        value.node().byte_range(),
-                        format!("unknown property of QLayoutItem: {}", name),
+                        value.binding_node().byte_range(),
+                        "unknown layout property",
                     ));
                 }
             }

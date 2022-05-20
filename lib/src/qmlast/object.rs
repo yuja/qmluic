@@ -332,6 +332,16 @@ impl<'tree, 'source> UiBindingValue<'tree, 'source> {
         }
     }
 
+    /// Node representing the binding notation of this value.
+    ///
+    /// If this is an intermediate map, the parent (nested) identifier node will be
+    /// returned. That wouldn't be ideal, but should be okay for error reporting.
+    pub fn binding_node(&self) -> Node<'tree> {
+        self.node()
+            .parent()
+            .expect("binding value node should have parent")
+    }
+
     /// Returns whether this is a (nested) map or not.
     pub fn is_map(&self) -> bool {
         self.get_map().is_some()
