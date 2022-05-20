@@ -356,6 +356,14 @@ impl<'a> Class<'a> {
         })
     }
 
+    pub fn is_derived_from(&self, base: &Class) -> bool {
+        if self == base {
+            true
+        } else {
+            self.public_super_classes().any(|c| c.is_derived_from(base))
+        }
+    }
+
     /// Looks up type of the specified property.
     pub fn get_property_type(&self, name: &str) -> Option<Type<'a>> {
         // TODO: error out if type name can't be resolved?
@@ -710,6 +718,32 @@ mod tests {
             type_map.get_type_scoped("Sub2::RootEnum").unwrap(),
             root_class.get_type("RootEnum").unwrap()
         );
+    }
+
+    #[test]
+    fn class_derived_from() {
+        let mut type_map = TypeMap::with_primitive_types();
+        type_map.extend([
+            metatype::Class::new("Root"),
+            metatype::Class::with_supers("Sub1", &["Root"]),
+            metatype::Class::with_supers("Sub2", &["Sub1"]),
+            metatype::Class::with_supers("Sub3", &["Root"]),
+        ]);
+
+        let root_class = unwrap_class(type_map.get_type("Root"));
+        let sub1_class = unwrap_class(type_map.get_type("Sub1"));
+        let sub2_class = unwrap_class(type_map.get_type("Sub2"));
+        let sub3_class = unwrap_class(type_map.get_type("Sub3"));
+
+        assert!(root_class.is_derived_from(&root_class));
+        assert!(sub1_class.is_derived_from(&root_class));
+        assert!(sub2_class.is_derived_from(&root_class));
+        assert!(sub3_class.is_derived_from(&root_class));
+
+        assert!(!sub3_class.is_derived_from(&sub1_class));
+        assert!(!sub3_class.is_derived_from(&sub2_class));
+
+        assert!(!root_class.is_derived_from(&sub1_class));
     }
 
     #[test]
