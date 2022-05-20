@@ -126,6 +126,8 @@ fn generate_layout_item_rec(
     diagnostics: &mut Diagnostics,
 ) -> Option<LayoutItem> {
     let (obj, cls) = resolve_object_definition(ctx, node, diagnostics)?;
+    let attached = LayoutItemAttached::from_object_definition(ctx, &cls, &obj, diagnostics)
+        .unwrap_or_default();
     let content = if cls.is_derived_from(&ctx.layout_class) {
         let mut layout = Layout::from_object_definition(&cls, &obj, ctx.source, diagnostics)?;
         layout.children.extend(
@@ -156,7 +158,7 @@ fn generate_layout_item_rec(
         ));
         return None;
     };
-    LayoutItem::from_object_definition(&cls, &obj, ctx.source, content, diagnostics)
+    Some(LayoutItem::new(attached, content))
 }
 
 fn confine_children(cls: &Class, obj: &UiObjectDefinition, diagnostics: &mut Diagnostics) {
