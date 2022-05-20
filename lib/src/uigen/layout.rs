@@ -5,6 +5,7 @@ use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiObjectDefinition};
 use crate::typemap::{Class, TypeSpace};
+use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
 use std::io;
@@ -14,8 +15,15 @@ use std::io;
 pub struct Layout {
     pub class: String,
     pub name: Option<String>,
+    attributes: LayoutAttributes,
     pub properties: HashMap<String, ConstantExpression>,
     pub children: Vec<LayoutItem>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct LayoutAttributes {
+    column_stretch: Vec<Option<i32>>,
+    row_stretch: Vec<Option<i32>>,
 }
 
 impl Layout {
@@ -28,7 +36,7 @@ impl Layout {
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let binding_map = diagnostics.consume_err(obj.build_binding_map(ctx.source))?;
-        let children = if cls.is_derived_from(&ctx.vbox_layout_class)
+        let (attributes, children) = if cls.is_derived_from(&ctx.vbox_layout_class)
             || cls.is_derived_from(&ctx.hbox_layout_class)
         {
             process_box_layout_children(ctx, obj, diagnostics)
@@ -47,6 +55,7 @@ impl Layout {
         Some(Layout {
             class: cls.name().to_owned(),
             name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
+            attributes,
             properties: object::collect_properties(cls, &binding_map, ctx.source, diagnostics),
             children,
         })
@@ -61,6 +70,18 @@ impl Layout {
         tag.push_attribute(("class", self.class.as_ref()));
         if let Some(n) = &self.name {
             tag.push_attribute(("name", n.as_ref()));
+        }
+        if !self.attributes.column_stretch.is_empty() {
+            tag.push_attribute((
+                "columnstretch",
+                format_opt_i32_array(&self.attributes.column_stretch, 1).as_ref(),
+            ));
+        }
+        if !self.attributes.row_stretch.is_empty() {
+            tag.push_attribute((
+                "rowstretch",
+                format_opt_i32_array(&self.attributes.row_stretch, 1).as_ref(),
+            ));
         }
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
@@ -135,8 +156,10 @@ struct LayoutItemAttached<'t> {
     pub alignment: Option<(Node<'t>, String)>,
     pub column: Option<(Node<'t>, i32)>,
     pub column_span: Option<(Node<'t>, i32)>,
+    pub column_stretch: Option<(Node<'t>, i32)>,
     pub row: Option<(Node<'t>, i32)>,
     pub row_span: Option<(Node<'t>, i32)>,
+    pub row_stretch: Option<(Node<'t>, i32)>,
 }
 
 impl<'t> LayoutItemAttached<'t> {
@@ -183,6 +206,11 @@ impl<'t> LayoutItemAttached<'t> {
                         expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
                             .map(|v| (value.binding_node(), v));
                 }
+                "columnStretch" => {
+                    properties.column_stretch =
+                        expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
+                            .map(|v| (value.binding_node(), v));
+                }
                 "row" => {
                     properties.row =
                         expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
@@ -190,6 +218,11 @@ impl<'t> LayoutItemAttached<'t> {
                 }
                 "rowSpan" => {
                     properties.row_span =
+                        expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
+                            .map(|v| (value.binding_node(), v));
+                }
+                "rowStretch" => {
+                    properties.row_stretch =
                         expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
                             .map(|v| (value.binding_node(), v));
                 }
@@ -302,8 +335,9 @@ fn process_box_layout_children(
     ctx: &BuildContext,
     layout_obj: &UiObjectDefinition,
     diagnostics: &mut Diagnostics,
-) -> Vec<LayoutItem> {
-    layout_obj
+) -> (LayoutAttributes, Vec<LayoutItem>) {
+    let attributes = LayoutAttributes::default();
+    let children = layout_obj
         .child_object_nodes()
         .iter()
         .filter_map(|&n| {
@@ -315,23 +349,31 @@ fn process_box_layout_children(
             if let Some((n, _)) = attached.column_span {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
+            if let Some((n, _)) = attached.column_stretch {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
             if let Some((n, _)) = attached.row {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
             if let Some((n, _)) = attached.row_span {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
+            if let Some((n, _)) = attached.row_stretch {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
             Some(LayoutItem::new(attached, content))
         })
-        .collect()
+        .collect();
+    (attributes, children)
 }
 
 fn process_form_layout_children(
     ctx: &BuildContext,
     layout_obj: &UiObjectDefinition,
     diagnostics: &mut Diagnostics,
-) -> Vec<LayoutItem> {
-    layout_obj
+) -> (LayoutAttributes, Vec<LayoutItem>) {
+    let attributes = LayoutAttributes::default();
+    let children = layout_obj
         .child_object_nodes()
         .iter()
         .filter_map(|&n| {
@@ -340,27 +382,51 @@ fn process_form_layout_children(
             if let Some((n, _)) = attached.column_span {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
+            if let Some((n, _)) = attached.column_stretch {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
             if let Some((n, _)) = attached.row_span {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
+            if let Some((n, _)) = attached.row_stretch {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
             Some(LayoutItem::new(attached, content))
         })
-        .collect()
+        .collect();
+    (attributes, children)
 }
 
 fn process_grid_layout_children(
     ctx: &BuildContext,
     layout_obj: &UiObjectDefinition,
     diagnostics: &mut Diagnostics,
-) -> Vec<LayoutItem> {
-    layout_obj
+) -> (LayoutAttributes, Vec<LayoutItem>) {
+    const MAX_INDEX: i32 = 65535; // arbitrary value to avoid excessive allocation
+    let mut attributes = LayoutAttributes::default();
+    let children = layout_obj
         .child_object_nodes()
         .iter()
         .filter_map(|&n| {
             let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
+            let column = expect_layout_index("column", attached.column, MAX_INDEX, n, diagnostics)?;
+            let row = expect_layout_index("row", attached.row, MAX_INDEX, n, diagnostics)?;
+            maybe_insert_into_opt_i32_array(
+                &mut attributes.column_stretch,
+                column,
+                attached.column_stretch,
+                diagnostics,
+            );
+            maybe_insert_into_opt_i32_array(
+                &mut attributes.row_stretch,
+                row,
+                attached.row_stretch,
+                diagnostics,
+            );
             Some(LayoutItem::new(attached, content))
         })
-        .collect()
+        .collect();
+    (attributes, children)
 }
 
 fn make_layout_item_pair<'t>(
@@ -373,4 +439,65 @@ fn make_layout_item_pair<'t>(
         .unwrap_or_default();
     let content = LayoutItemContent::from_object_definition(ctx, &cls, &obj, diagnostics)?;
     Some((attached, content))
+}
+
+fn expect_layout_index(
+    field_name: &str,
+    index: Option<(Node, i32)>,
+    max_index: i32,
+    content_node: Node,
+    diagnostics: &mut Diagnostics,
+) -> Option<usize> {
+    match index {
+        Some((n, i)) if i < 0 => {
+            diagnostics.push(Diagnostic::error(
+                n.byte_range(),
+                format!("negative {field_name} is not allowed"),
+            ));
+            None
+        }
+        Some((n, i)) if i > max_index => {
+            diagnostics.push(Diagnostic::error(
+                n.byte_range(),
+                format!("{field_name} is too large"),
+            ));
+            None
+        }
+        Some((_, i)) => Some(i as usize),
+        None => {
+            diagnostics.push(Diagnostic::error(
+                content_node.byte_range(),
+                format!("{field_name} is not set"),
+            ));
+            None
+        }
+    }
+}
+
+fn maybe_insert_into_opt_i32_array(
+    array: &mut Vec<Option<i32>>,
+    index: usize,
+    value: Option<(Node, i32)>,
+    diagnostics: &mut Diagnostics,
+) {
+    if let Some((n, v1)) = value {
+        if index >= array.len() {
+            array.resize_with(index + 1, Default::default);
+        }
+        match array[index] {
+            Some(v0) if v0 != v1 => {
+                diagnostics.push(Diagnostic::error(
+                    n.byte_range(),
+                    format!("mismatched with the value previously set: {v0}"),
+                ));
+            }
+            _ => {
+                array[index] = Some(v1);
+            }
+        }
+    }
+}
+
+fn format_opt_i32_array(array: &[Option<i32>], default: i32) -> String {
+    array.iter().map(|x| x.unwrap_or(default)).join(",")
 }
