@@ -40,8 +40,12 @@ pub fn build(
         type_map,
         source: doc.source(),
         action_class: get_class("QAction")?,
+        form_layout_class: get_class("QFormLayout")?,
+        grid_layout_class: get_class("QGridLayout")?,
+        hbox_layout_class: get_class("QHBoxLayout")?,
         layout_class: get_class("QLayout")?,
         spacer_item_class: get_class("QSpacerItem")?,
+        vbox_layout_class: get_class("QVBoxLayout")?,
         widget_class: get_class("QWidget")?,
     };
     let program = diagnostics.consume_err(UiProgram::from_node(doc.root_node()))?;
@@ -60,7 +64,11 @@ struct BuildContext<'a, 's> {
     type_map: &'a TypeMap,
     source: &'s str,
     action_class: Class<'a>,
+    form_layout_class: Class<'a>,
+    grid_layout_class: Class<'a>,
+    hbox_layout_class: Class<'a>,
     layout_class: Class<'a>,
     spacer_item_class: Class<'a>,
+    vbox_layout_class: Class<'a>,
     widget_class: Class<'a>,
 }

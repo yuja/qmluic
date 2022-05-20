@@ -28,13 +28,27 @@ impl Layout {
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let binding_map = diagnostics.consume_err(obj.build_binding_map(ctx.source))?;
+        let children = if cls.is_derived_from(&ctx.vbox_layout_class)
+            || cls.is_derived_from(&ctx.hbox_layout_class)
+        {
+            process_box_layout_children(ctx, obj, diagnostics)
+        } else if cls.is_derived_from(&ctx.form_layout_class) {
+            process_form_layout_children(ctx, obj, diagnostics)
+        } else if cls.is_derived_from(&ctx.grid_layout_class) {
+            process_grid_layout_children(ctx, obj, diagnostics)
+        } else {
+            diagnostics.push(Diagnostic::error(
+                obj.node().byte_range(),
+                format!("unknown layout class: {}", cls.qualified_name()),
+            ));
+            // use the most restricted one to report as many errors as possible
+            process_box_layout_children(ctx, obj, diagnostics)
+        };
         Some(Layout {
             class: cls.name().to_owned(),
             name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
             properties: object::collect_properties(cls, &binding_map, ctx.source, diagnostics),
-            children: iter_layout_children(ctx, obj, diagnostics)
-                .map(|(a, c)| LayoutItem::new(a, c))
-                .collect(),
+            children,
         })
     }
 
@@ -283,15 +297,69 @@ impl SpacerItem {
     }
 }
 
-fn iter_layout_children<'a, 't>(
-    ctx: &'a BuildContext,
-    layout_obj: &'a UiObjectDefinition<'t>,
-    diagnostics: &'a mut Diagnostics,
-) -> impl Iterator<Item = (LayoutItemAttached<'t>, LayoutItemContent)> + 'a {
+fn process_box_layout_children(
+    ctx: &BuildContext,
+    layout_obj: &UiObjectDefinition,
+    diagnostics: &mut Diagnostics,
+) -> Vec<LayoutItem> {
     layout_obj
         .child_object_nodes()
         .iter()
-        .filter_map(|&n| make_layout_item_pair(ctx, n, diagnostics))
+        .filter_map(|&n| {
+            const UNSUPPORTED_MSG: &str = "unsupported box layout property";
+            let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
+            if let Some((n, _)) = attached.column {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
+            if let Some((n, _)) = attached.column_span {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
+            if let Some((n, _)) = attached.row {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
+            if let Some((n, _)) = attached.row_span {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
+            Some(LayoutItem::new(attached, content))
+        })
+        .collect()
+}
+
+fn process_form_layout_children(
+    ctx: &BuildContext,
+    layout_obj: &UiObjectDefinition,
+    diagnostics: &mut Diagnostics,
+) -> Vec<LayoutItem> {
+    layout_obj
+        .child_object_nodes()
+        .iter()
+        .filter_map(|&n| {
+            const UNSUPPORTED_MSG: &str = "unsupported form layout property";
+            let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
+            if let Some((n, _)) = attached.column_span {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
+            if let Some((n, _)) = attached.row_span {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
+            Some(LayoutItem::new(attached, content))
+        })
+        .collect()
+}
+
+fn process_grid_layout_children(
+    ctx: &BuildContext,
+    layout_obj: &UiObjectDefinition,
+    diagnostics: &mut Diagnostics,
+) -> Vec<LayoutItem> {
+    layout_obj
+        .child_object_nodes()
+        .iter()
+        .filter_map(|&n| {
+            let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
+            Some(LayoutItem::new(attached, content))
+        })
+        .collect()
 }
 
 fn make_layout_item_pair<'t>(
