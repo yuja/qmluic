@@ -86,25 +86,36 @@ fn generate_object_rec(
     diagnostics: &mut Diagnostics,
 ) -> Option<UiObject> {
     let (obj, cls) = resolve_object_definition(ctx, node, diagnostics)?;
-    let mut ui_obj = UiObject::from_object_definition(&cls, &obj, ctx.source, diagnostics)?;
-    match &mut ui_obj {
-        UiObject::Action(_) => confine_children(&cls, &obj, diagnostics),
-        UiObject::Layout(layout) => {
-            layout.children.extend(
-                obj.child_object_nodes()
-                    .iter()
-                    .filter_map(|&n| generate_layout_item_rec(ctx, n, diagnostics)),
-            );
-        }
-        UiObject::Widget(widget) => {
-            widget.children.extend(
-                obj.child_object_nodes()
-                    .iter()
-                    .filter_map(|&n| generate_object_rec(ctx, n, diagnostics)),
-            );
-        }
+    if cls.is_derived_from(&ctx.action_class) {
+        let action = Action::from_object_definition(&cls, &obj, ctx.source, diagnostics)?;
+        confine_children(&cls, &obj, diagnostics);
+        Some(UiObject::Action(action))
+    } else if cls.is_derived_from(&ctx.layout_class) {
+        let mut layout = Layout::from_object_definition(&cls, &obj, ctx.source, diagnostics)?;
+        layout.children.extend(
+            obj.child_object_nodes()
+                .iter()
+                .filter_map(|&n| generate_layout_item_rec(ctx, n, diagnostics)),
+        );
+        Some(UiObject::Layout(layout))
+    } else if cls.is_derived_from(&ctx.widget_class) {
+        let mut widget = Widget::from_object_definition(&cls, &obj, ctx.source, diagnostics)?;
+        widget.children.extend(
+            obj.child_object_nodes()
+                .iter()
+                .filter_map(|&n| generate_object_rec(ctx, n, diagnostics)),
+        );
+        Some(UiObject::Widget(widget))
+    } else {
+        diagnostics.push(Diagnostic::error(
+            node.byte_range(),
+            format!(
+                "class '{}' is not a QAction, QLayout, nor QWidget",
+                cls.qualified_name()
+            ),
+        ));
+        None
     }
-    Some(ui_obj)
 }
 
 fn generate_layout_item_rec(
@@ -113,25 +124,37 @@ fn generate_layout_item_rec(
     diagnostics: &mut Diagnostics,
 ) -> Option<LayoutItem> {
     let (obj, cls) = resolve_object_definition(ctx, node, diagnostics)?;
-    let mut item = LayoutItem::from_object_definition(&cls, &obj, ctx.source, diagnostics)?;
-    match &mut item.content {
-        LayoutItemContent::Layout(layout) => {
-            layout.children.extend(
-                obj.child_object_nodes()
-                    .iter()
-                    .filter_map(|&n| generate_layout_item_rec(ctx, n, diagnostics)),
-            );
-        }
-        LayoutItemContent::SpacerItem(_) => confine_children(&cls, &obj, diagnostics),
-        LayoutItemContent::Widget(widget) => {
-            widget.children.extend(
-                obj.child_object_nodes()
-                    .iter()
-                    .filter_map(|&n| generate_object_rec(ctx, n, diagnostics)),
-            );
-        }
-    }
-    Some(item)
+    let content = if cls.is_derived_from(&ctx.layout_class) {
+        let mut layout = Layout::from_object_definition(&cls, &obj, ctx.source, diagnostics)?;
+        layout.children.extend(
+            obj.child_object_nodes()
+                .iter()
+                .filter_map(|&n| generate_layout_item_rec(ctx, n, diagnostics)),
+        );
+        LayoutItemContent::Layout(layout)
+    } else if cls.is_derived_from(&ctx.spacer_item_class) {
+        let spacer = SpacerItem::from_object_definition(&cls, &obj, ctx.source, diagnostics)?;
+        confine_children(&cls, &obj, diagnostics);
+        LayoutItemContent::SpacerItem(spacer)
+    } else if cls.is_derived_from(&ctx.widget_class) {
+        let mut widget = Widget::from_object_definition(&cls, &obj, ctx.source, diagnostics)?;
+        widget.children.extend(
+            obj.child_object_nodes()
+                .iter()
+                .filter_map(|&n| generate_object_rec(ctx, n, diagnostics)),
+        );
+        LayoutItemContent::Widget(widget)
+    } else {
+        diagnostics.push(Diagnostic::error(
+            node.byte_range(),
+            format!(
+                "class '{}' is not a QLayout, QSpacerItem, nor QWidget",
+                cls.qualified_name()
+            ),
+        ));
+        return None;
+    };
+    LayoutItem::from_object_definition(&cls, &obj, ctx.source, content, diagnostics)
 }
 
 fn confine_children(cls: &Class, obj: &UiObjectDefinition, diagnostics: &mut Diagnostics) {

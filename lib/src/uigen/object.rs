@@ -41,25 +41,6 @@ pub enum UiObject {
 }
 
 impl UiObject {
-    /// Generates object of `cls` type from the given `obj` definition.
-    ///
-    /// Child objects are NOT generated recursively.
-    pub fn from_object_definition(
-        cls: &Class,
-        obj: &UiObjectDefinition,
-        source: &str,
-        diagnostics: &mut Diagnostics,
-    ) -> Option<Self> {
-        // TODO: leverage type map to dispatch
-        if cls.name() == "QAction" {
-            Action::from_object_definition(cls, obj, source, diagnostics).map(UiObject::Action)
-        } else if cls.name().ends_with("Layout") {
-            Layout::from_object_definition(cls, obj, source, diagnostics).map(UiObject::Layout)
-        } else {
-            Widget::from_object_definition(cls, obj, source, diagnostics).map(UiObject::Widget)
-        }
-    }
-
     /// Serializes this to UI XML.
     pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
     where
@@ -191,6 +172,7 @@ impl LayoutItem {
         cls: &Class,
         obj: &UiObjectDefinition,
         source: &str,
+        content: LayoutItemContent,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let attached_type_map = diagnostics.consume_err(obj.build_attached_type_map(source))?;
@@ -199,7 +181,7 @@ impl LayoutItem {
                 .get(["QLayoutItem"].as_ref()) // TODO: resolve against imported types
                 .map(|m| LayoutItemProperties::from_binding_map(cls, m, source, diagnostics))
                 .unwrap_or_default(),
-            content: LayoutItemContent::from_object_definition(cls, obj, source, diagnostics)?,
+            content,
         })
     }
 
@@ -308,25 +290,6 @@ pub enum LayoutItemContent {
 }
 
 impl LayoutItemContent {
-    fn from_object_definition(
-        cls: &Class,
-        obj: &UiObjectDefinition,
-        source: &str,
-        diagnostics: &mut Diagnostics,
-    ) -> Option<Self> {
-        // TODO: leverage type map to dispatch
-        if cls.name().ends_with("Layout") {
-            Layout::from_object_definition(cls, obj, source, diagnostics)
-                .map(LayoutItemContent::Layout)
-        } else if cls.name() == "QSpacerItem" {
-            SpacerItem::from_object_definition(cls, obj, source, diagnostics)
-                .map(LayoutItemContent::SpacerItem)
-        } else {
-            Widget::from_object_definition(cls, obj, source, diagnostics)
-                .map(LayoutItemContent::Widget)
-        }
-    }
-
     pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
     where
         W: io::Write,
