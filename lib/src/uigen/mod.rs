@@ -6,11 +6,13 @@ use crate::typemap::{Class, Type, TypeMap, TypeSpace};
 
 mod expr;
 mod gadget;
+mod layout;
 mod object;
 mod xmlutil;
 
 pub use self::expr::*; // re-export
 pub use self::gadget::*; // re-export
+pub use self::layout::*; // re-export
 pub use self::object::*; // re-export
 
 pub type XmlError = quick_xml::Error;
