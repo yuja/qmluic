@@ -23,9 +23,24 @@ pub fn build(
     doc: &UiDocument,
     diagnostics: &mut Diagnostics,
 ) -> Option<UiForm> {
+    let mut get_class = |name| {
+        if let Some(Type::Class(cls)) = type_map.get_type(name) {
+            Some(cls)
+        } else {
+            diagnostics.push(Diagnostic::error(
+                0..0, // TODO: or None?
+                format!("required class cannot be resolved: {name} (missing metatypes?)"),
+            ));
+            None
+        }
+    };
     let ctx = BuildContext {
         type_map,
         source: doc.source(),
+        action_class: get_class("QAction")?,
+        layout_class: get_class("QLayout")?,
+        spacer_item_class: get_class("QSpacerItem")?,
+        widget_class: get_class("QWidget")?,
     };
     let program = diagnostics.consume_err(UiProgram::from_node(doc.root_node()))?;
     let root_object = generate_object_rec(&ctx, program.root_object_node(), diagnostics)?;
@@ -40,6 +55,10 @@ pub fn build(
 struct BuildContext<'a, 's> {
     type_map: &'a TypeMap,
     source: &'s str,
+    action_class: Class<'a>,
+    layout_class: Class<'a>,
+    spacer_item_class: Class<'a>,
+    widget_class: Class<'a>,
 }
 
 fn resolve_object_definition<'a, 't>(
