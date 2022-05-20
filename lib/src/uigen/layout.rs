@@ -19,21 +19,32 @@ pub struct Layout {
 }
 
 impl Layout {
-    /// Generates layout of `cls` type from the given `obj` definition.
-    ///
-    /// Child items are NOT constructed recursively.
-    pub fn from_object_definition(
+    /// Generates layout of `cls` type and its children recursively from the given `obj`
+    /// definition.
+    pub(super) fn from_object_definition(
+        ctx: &BuildContext,
         cls: &Class,
         obj: &UiObjectDefinition,
-        source: &str,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let binding_map = diagnostics.consume_err(obj.build_binding_map(source))?;
+        let binding_map = diagnostics.consume_err(obj.build_binding_map(ctx.source))?;
         Some(Layout {
             class: cls.name().to_owned(),
-            name: obj.object_id().map(|n| n.to_str(source).to_owned()),
-            properties: object::collect_properties(cls, &binding_map, source, diagnostics),
-            children: vec![],
+            name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
+            properties: object::collect_properties(cls, &binding_map, ctx.source, diagnostics),
+            children: obj
+                .child_object_nodes()
+                .iter()
+                .filter_map(|&n| {
+                    let (obj, cls) = object::resolve_object_definition(ctx, n, diagnostics)?;
+                    let attached =
+                        LayoutItemAttached::from_object_definition(ctx, &cls, &obj, diagnostics)
+                            .unwrap_or_default();
+                    let content =
+                        LayoutItemContent::from_object_definition(ctx, &cls, &obj, diagnostics)?;
+                    Some(LayoutItem::new(attached, content))
+                })
+                .collect(),
         })
     }
 
@@ -72,7 +83,7 @@ pub struct LayoutItem {
 }
 
 impl LayoutItem {
-    pub(super) fn new(mut attached: LayoutItemAttached, content: LayoutItemContent) -> Self {
+    fn new(mut attached: LayoutItemAttached, content: LayoutItemContent) -> Self {
         LayoutItem {
             alignment: attached.alignment.take().map(|(_, v)| v),
             column: attached.column.take().map(|(_, v)| v),
@@ -115,7 +126,7 @@ impl LayoutItem {
 
 /// Layout properties to be resolved into [`Layout`] and [`LayoutItem`].
 #[derive(Clone, Debug, Default)]
-pub(super) struct LayoutItemAttached<'t> {
+struct LayoutItemAttached<'t> {
     pub alignment: Option<(Node<'t>, String)>,
     pub column: Option<(Node<'t>, i32)>,
     pub column_span: Option<(Node<'t>, i32)>,
@@ -124,7 +135,7 @@ pub(super) struct LayoutItemAttached<'t> {
 }
 
 impl<'t> LayoutItemAttached<'t> {
-    pub fn from_object_definition<'a, P>(
+    fn from_object_definition<'a, P>(
         ctx: &BuildContext,
         parent_space: &P, // TODO: should be QML space, not C++ metatype space
         obj: &UiObjectDefinition<'t>,
@@ -198,6 +209,34 @@ pub enum LayoutItemContent {
 }
 
 impl LayoutItemContent {
+    /// Generates layout content and its children recursively from the given `node`.
+    fn from_object_definition(
+        ctx: &BuildContext,
+        cls: &Class,
+        obj: &UiObjectDefinition,
+        diagnostics: &mut Diagnostics,
+    ) -> Option<Self> {
+        if cls.is_derived_from(&ctx.layout_class) {
+            Layout::from_object_definition(ctx, cls, obj, diagnostics)
+                .map(LayoutItemContent::Layout)
+        } else if cls.is_derived_from(&ctx.spacer_item_class) {
+            SpacerItem::from_object_definition(ctx, cls, obj, diagnostics)
+                .map(LayoutItemContent::SpacerItem)
+        } else if cls.is_derived_from(&ctx.widget_class) {
+            Widget::from_object_definition(ctx, cls, obj, diagnostics)
+                .map(LayoutItemContent::Widget)
+        } else {
+            diagnostics.push(Diagnostic::error(
+                obj.node().byte_range(),
+                format!(
+                    "class '{}' is not a QLayout, QSpacerItem, nor QWidget",
+                    cls.qualified_name()
+                ),
+            ));
+            None
+        }
+    }
+
     pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
     where
         W: io::Write,
@@ -222,16 +261,17 @@ impl SpacerItem {
     /// Generates spacer item of `cls` type from the given `obj` definition.
     ///
     /// The given `cls` is supposed to be of `QSpacerItem` type.
-    pub fn from_object_definition(
+    fn from_object_definition(
+        ctx: &BuildContext,
         cls: &Class,
         obj: &UiObjectDefinition,
-        source: &str,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let binding_map = diagnostics.consume_err(obj.build_binding_map(source))?;
+        let binding_map = diagnostics.consume_err(obj.build_binding_map(ctx.source))?;
+        object::confine_children(cls, obj, diagnostics);
         Some(SpacerItem {
-            name: obj.object_id().map(|n| n.to_str(source).to_owned()),
-            properties: object::collect_properties(cls, &binding_map, source, diagnostics),
+            name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
+            properties: object::collect_properties(cls, &binding_map, ctx.source, diagnostics),
         })
     }
 

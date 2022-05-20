@@ -1,10 +1,11 @@
 use super::expr::ConstantExpression;
 use super::layout::Layout;
 use super::xmlutil;
+use super::BuildContext;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Expression, Node, UiBindingMap, UiBindingValue, UiObjectDefinition};
-use crate::typemap::{Class, TypeSpace};
+use crate::typemap::{Class, Type, TypeSpace};
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
 use std::io;
@@ -42,6 +43,31 @@ pub enum UiObject {
 }
 
 impl UiObject {
+    /// Generates object and its children recursively from the given `obj` definition.
+    pub(super) fn from_object_definition(
+        ctx: &BuildContext,
+        cls: &Class,
+        obj: &UiObjectDefinition,
+        diagnostics: &mut Diagnostics,
+    ) -> Option<Self> {
+        if cls.is_derived_from(&ctx.action_class) {
+            Action::from_object_definition(ctx, cls, obj, diagnostics).map(UiObject::Action)
+        } else if cls.is_derived_from(&ctx.layout_class) {
+            Layout::from_object_definition(ctx, cls, obj, diagnostics).map(UiObject::Layout)
+        } else if cls.is_derived_from(&ctx.widget_class) {
+            Widget::from_object_definition(ctx, cls, obj, diagnostics).map(UiObject::Widget)
+        } else {
+            diagnostics.push(Diagnostic::error(
+                obj.node().byte_range(),
+                format!(
+                    "class '{}' is not a QAction, QLayout, nor QWidget",
+                    cls.qualified_name()
+                ),
+            ));
+            None
+        }
+    }
+
     /// Serializes this to UI XML.
     pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
     where
@@ -67,16 +93,17 @@ impl Action {
     /// Generates action of `cls` type from the given `obj` definition.
     ///
     /// The given `cls` is supposed to be of `QAction` type.
-    pub fn from_object_definition(
+    fn from_object_definition(
+        ctx: &BuildContext,
         cls: &Class,
         obj: &UiObjectDefinition,
-        source: &str,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let binding_map = diagnostics.consume_err(obj.build_binding_map(source))?;
+        let binding_map = diagnostics.consume_err(obj.build_binding_map(ctx.source))?;
+        confine_children(cls, obj, diagnostics);
         Some(Action {
-            name: obj.object_id().map(|n| n.to_str(source).to_owned()),
-            properties: collect_properties(cls, &binding_map, source, diagnostics),
+            name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
+            properties: collect_properties(cls, &binding_map, ctx.source, diagnostics),
         })
     }
 
@@ -109,25 +136,31 @@ pub struct Widget {
 }
 
 impl Widget {
-    /// Generates widget of `cls` type from the given `obj` definition.
-    ///
-    /// Child objects are NOT constructed recursively.
-    pub fn from_object_definition(
+    /// Generates widget of `cls` type and its children recursively from the given `obj`
+    /// definition.
+    pub(super) fn from_object_definition(
+        ctx: &BuildContext,
         cls: &Class,
         obj: &UiObjectDefinition,
-        source: &str,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let binding_map = diagnostics.consume_err(obj.build_binding_map(source))?;
+        let binding_map = diagnostics.consume_err(obj.build_binding_map(ctx.source))?;
         Some(Widget {
             class: cls.name().to_owned(),
-            name: obj.object_id().map(|n| n.to_str(source).to_owned()),
-            properties: collect_properties(cls, &binding_map, source, diagnostics),
+            name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
+            properties: collect_properties(cls, &binding_map, ctx.source, diagnostics),
             actions: binding_map
                 .get("actions")
-                .map(|v| collect_identifiers(v, source, diagnostics))
+                .map(|v| collect_identifiers(v, ctx.source, diagnostics))
                 .unwrap_or_default(),
-            children: vec![],
+            children: obj
+                .child_object_nodes()
+                .iter()
+                .filter_map(|&n| {
+                    let (obj, cls) = resolve_object_definition(ctx, n, diagnostics)?;
+                    UiObject::from_object_definition(ctx, &cls, &obj, diagnostics)
+                })
+                .collect(),
         })
     }
 
@@ -157,6 +190,39 @@ impl Widget {
 
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
+    }
+}
+
+pub(super) fn resolve_object_definition<'a, 't>(
+    ctx: &BuildContext<'a, '_>,
+    node: Node<'t>,
+    diagnostics: &mut Diagnostics,
+) -> Option<(UiObjectDefinition<'t>, Class<'a>)> {
+    let obj = diagnostics.consume_err(UiObjectDefinition::from_node(node, ctx.source))?;
+    // TODO: resolve against imported types: Qml.Type -> Cxx::Type -> type object
+    let type_name = obj.type_name().to_string(ctx.source);
+    if let Some(Type::Class(cls)) = ctx.type_map.get_type(&type_name) {
+        Some((obj, cls))
+    } else {
+        diagnostics.push(Diagnostic::error(
+            obj.node().byte_range(), // TODO: on identifier node
+            format!("unknown object type: {type_name}"),
+        ));
+        None
+    }
+}
+
+pub(super) fn confine_children(
+    cls: &Class,
+    obj: &UiObjectDefinition,
+    diagnostics: &mut Diagnostics,
+) {
+    if let Some(n) = obj.child_object_nodes().first() {
+        // TODO: error on obj.node(), and add hint to child nodes
+        diagnostics.push(Diagnostic::error(
+            n.byte_range(),
+            format!("'{}' should have no children", cls.qualified_name()),
+        ));
     }
 }
 
