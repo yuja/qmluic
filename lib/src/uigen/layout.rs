@@ -32,18 +32,8 @@ impl Layout {
             class: cls.name().to_owned(),
             name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
             properties: object::collect_properties(cls, &binding_map, ctx.source, diagnostics),
-            children: obj
-                .child_object_nodes()
-                .iter()
-                .filter_map(|&n| {
-                    let (obj, cls) = object::resolve_object_definition(ctx, n, diagnostics)?;
-                    let attached =
-                        LayoutItemAttached::from_object_definition(ctx, &cls, &obj, diagnostics)
-                            .unwrap_or_default();
-                    let content =
-                        LayoutItemContent::from_object_definition(ctx, &cls, &obj, diagnostics)?;
-                    Some(LayoutItem::new(attached, content))
-                })
+            children: iter_layout_children(ctx, obj, diagnostics)
+                .map(|(a, c)| LayoutItem::new(a, c))
                 .collect(),
         })
     }
@@ -291,4 +281,27 @@ impl SpacerItem {
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
     }
+}
+
+fn iter_layout_children<'a, 't>(
+    ctx: &'a BuildContext,
+    layout_obj: &'a UiObjectDefinition<'t>,
+    diagnostics: &'a mut Diagnostics,
+) -> impl Iterator<Item = (LayoutItemAttached<'t>, LayoutItemContent)> + 'a {
+    layout_obj
+        .child_object_nodes()
+        .iter()
+        .filter_map(|&n| make_layout_item_pair(ctx, n, diagnostics))
+}
+
+fn make_layout_item_pair<'t>(
+    ctx: &BuildContext,
+    node: Node<'t>,
+    diagnostics: &mut Diagnostics,
+) -> Option<(LayoutItemAttached<'t>, LayoutItemContent)> {
+    let (obj, cls) = object::resolve_object_definition(ctx, node, diagnostics)?;
+    let attached = LayoutItemAttached::from_object_definition(ctx, &cls, &obj, diagnostics)
+        .unwrap_or_default();
+    let content = LayoutItemContent::from_object_definition(ctx, &cls, &obj, diagnostics)?;
+    Some((attached, content))
 }
