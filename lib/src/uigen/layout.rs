@@ -174,15 +174,15 @@ impl LayoutItem {
 #[derive(Clone, Debug, Default)]
 struct LayoutItemAttached<'t> {
     // binding node is stored for error reporting
-    pub alignment: Option<(Node<'t>, String)>,
-    pub column: Option<(Node<'t>, i32)>,
-    pub column_minimum_width: Option<(Node<'t>, i32)>,
-    pub column_span: Option<(Node<'t>, i32)>,
-    pub column_stretch: Option<(Node<'t>, i32)>,
-    pub row: Option<(Node<'t>, i32)>,
-    pub row_minimum_height: Option<(Node<'t>, i32)>,
-    pub row_span: Option<(Node<'t>, i32)>,
-    pub row_stretch: Option<(Node<'t>, i32)>,
+    alignment: Option<(Node<'t>, String)>,
+    column: Option<(Node<'t>, i32)>,
+    column_minimum_width: Option<(Node<'t>, i32)>,
+    column_span: Option<(Node<'t>, i32)>,
+    column_stretch: Option<(Node<'t>, i32)>,
+    row: Option<(Node<'t>, i32)>,
+    row_minimum_height: Option<(Node<'t>, i32)>,
+    row_span: Option<(Node<'t>, i32)>,
+    row_stretch: Option<(Node<'t>, i32)>,
 }
 
 impl<'t> LayoutItemAttached<'t> {
