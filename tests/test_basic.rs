@@ -22,6 +22,7 @@ fn translate_file(path: impl AsRef<Path>) -> String {
     let mut buf = Vec::new();
     form.serialize_to_xml(&mut XmlWriter::new_with_indent(&mut buf, b' ', 1))
         .unwrap();
+    assert!(diagnostics.is_empty());
     String::from_utf8(buf).unwrap()
 }
 
