@@ -235,6 +235,20 @@ impl Property {
             ..Default::default()
         }
     }
+
+    /// Creates property metadata of final.
+    pub fn new_final<S, T>(name: S, type_name: T) -> Self
+    where
+        S: Into<String>,
+        T: Into<String>,
+    {
+        Property {
+            name: name.into(),
+            r#type: type_name.into(),
+            r#final: true,
+            ..Default::default()
+        }
+    }
 }
 
 impl Default for Property {

@@ -1,5 +1,6 @@
 use qmluic::diagnostic::Diagnostics;
 use qmluic::metatype;
+use qmluic::metatype_tweak;
 use qmluic::qmlast::UiDocument;
 use qmluic::typemap::TypeMap;
 use qmluic::uigen::{self, XmlWriter};
@@ -15,7 +16,9 @@ fn test_translate_example() {
 
 fn translate_file(path: impl AsRef<Path>) -> String {
     let mut type_map = TypeMap::with_primitive_types();
-    type_map.extend(load_metatypes());
+    let mut classes = load_metatypes();
+    metatype_tweak::apply_all(&mut classes);
+    type_map.extend(classes);
     let doc = UiDocument::read(path).unwrap();
     let mut diagnostics = Diagnostics::new();
     let form = uigen::build(&type_map, &doc, &mut diagnostics).unwrap();
@@ -28,7 +31,6 @@ fn translate_file(path: impl AsRef<Path>) -> String {
 
 fn load_metatypes() -> Vec<metatype::Class> {
     let paths = [
-        "contrib/metatypes/qmluic_metatypes.json",
         "contrib/metatypes/qt5core_metatypes.json",
         "contrib/metatypes/qt5gui_metatypes.json",
         "contrib/metatypes/qt5widgets_metatypes.json",

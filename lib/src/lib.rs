@@ -2,6 +2,7 @@
 
 pub mod diagnostic;
 pub mod metatype;
+pub mod metatype_tweak;
 pub mod qmlast;
 pub mod typedexpr;
 pub mod typemap;

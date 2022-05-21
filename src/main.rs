@@ -3,6 +3,7 @@
 use clap::Parser;
 use qmluic::diagnostic::{Diagnostic, DiagnosticKind, Diagnostics};
 use qmluic::metatype;
+use qmluic::metatype_tweak;
 use qmluic::qmlast;
 use qmluic::typemap::TypeMap;
 use qmluic::uigen::{self, XmlResult, XmlWriter};
@@ -24,7 +25,9 @@ fn main() -> XmlResult<()> {
     let args = Args::parse();
 
     let mut type_map = TypeMap::with_primitive_types();
-    type_map.extend(load_metatypes(&args.foreign_types)?);
+    let mut classes = load_metatypes(&args.foreign_types)?;
+    metatype_tweak::apply_all(&mut classes);
+    type_map.extend(classes);
 
     let doc = qmlast::UiDocument::read(&args.file)?;
     if doc.has_syntax_error() {
