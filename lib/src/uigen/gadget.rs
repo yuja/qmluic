@@ -4,6 +4,7 @@ use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
 use crate::typemap::{Class, TypeSpace};
+use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
 use std::io;
@@ -57,9 +58,7 @@ impl ConstantGadget {
     {
         let tag = BytesStart::borrowed_name(self.name.as_ref());
         writer.write_event(Event::Start(tag.to_borrowed()))?;
-        let mut pairs: Vec<_> = self.properties.iter().collect();
-        pairs.sort_by_key(|&(k, _)| k);
-        for (k, v) in pairs {
+        for (k, v) in self.properties.iter().sorted_by_key(|&(k, _)| k) {
             xmlutil::write_tagged_str(writer, k, v.to_string())?;
         }
         writer.write_event(Event::End(tag.to_end()))?;

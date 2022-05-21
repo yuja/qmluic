@@ -6,6 +6,7 @@ use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Expression, Node, UiBindingMap, UiBindingValue, UiObjectDefinition};
 use crate::typemap::{Class, Type, TypeSpace};
+use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
 use std::io;
@@ -325,9 +326,7 @@ pub(super) fn serialize_properties_to_xml<W>(
 where
     W: io::Write,
 {
-    let mut pairs: Vec<_> = properties.iter().collect();
-    pairs.sort_by_key(|&(k, _)| k);
-    for (k, v) in pairs {
+    for (k, v) in properties.iter().sorted_by_key(|&(k, _)| k) {
         let tag = BytesStart::borrowed_name(b"property").with_attributes([("name", k.as_ref())]);
         writer.write_event(Event::Start(tag.to_borrowed()))?;
         v.serialize_to_xml(writer)?;
