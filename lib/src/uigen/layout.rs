@@ -379,6 +379,8 @@ fn process_form_layout_children(
         .filter_map(|&n| {
             const UNSUPPORTED_MSG: &str = "unsupported form layout property";
             let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
+            expect_layout_index("column", attached.column, 1, n, diagnostics)?;
+            expect_layout_index("row", attached.row, i32::MAX, n, diagnostics)?;
             if let Some((n, _)) = attached.column_span {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
