@@ -1,4 +1,4 @@
-use super::gadget::{ConstantGadget, ConstantSizePolicy};
+use super::gadget::{Gadget, SizePolicy};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
@@ -12,8 +12,8 @@ use std::io;
 #[derive(Clone, Debug)]
 pub enum ConstantExpression {
     Value(ConstantValue),
-    Gadget(ConstantGadget),
-    SizePolicy(ConstantSizePolicy),
+    Gadget(Gadget),
+    SizePolicy(SizePolicy),
 }
 
 impl ConstantExpression {
@@ -58,11 +58,10 @@ impl ConstantExpression {
     ) -> Option<Self> {
         match cls.name() {
             "QSizePolicy" => {
-                let policy =
-                    ConstantSizePolicy::from_binding_map(cls, binding_map, source, diagnostics);
+                let policy = SizePolicy::from_binding_map(cls, binding_map, source, diagnostics);
                 Some(ConstantExpression::SizePolicy(policy))
             }
-            _ => ConstantGadget::from_binding_map(cls, node, binding_map, source, diagnostics)
+            _ => Gadget::from_binding_map(cls, node, binding_map, source, diagnostics)
                 .map(ConstantExpression::Gadget),
         }
     }

@@ -11,14 +11,14 @@ use std::io;
 
 /// Constant map-like object which can be serialized to UI XML.
 #[derive(Clone, Debug)]
-pub struct ConstantGadget {
+pub struct Gadget {
     pub name: String,
     pub properties: HashMap<String, ConstantValue>,
 }
 
-impl ConstantGadget {
+impl Gadget {
     fn new(name: &str, properties: HashMap<String, ConstantValue>) -> Self {
-        ConstantGadget {
+        Gadget {
             name: name.to_owned(),
             properties,
         }
@@ -103,14 +103,14 @@ fn collect_constant_properties(
 /// - it is registered as gadget type but have no useful property,
 /// - UI XML attribute names are diverged from the method/property names.
 #[derive(Clone, Debug, Default)]
-pub struct ConstantSizePolicy {
+pub struct SizePolicy {
     pub horizontal_policy: Option<String>,
     pub vertical_policy: Option<String>,
     pub horizontal_stretch: Option<f64>,
     pub vertical_stretch: Option<f64>,
 }
 
-impl ConstantSizePolicy {
+impl SizePolicy {
     /// Generates size policy from the given `binding_map`.
     ///
     /// The `cls` is supposed to be of `QSizePolicy` type.
@@ -120,7 +120,7 @@ impl ConstantSizePolicy {
         source: &str,
         diagnostics: &mut Diagnostics,
     ) -> Self {
-        let mut policy = ConstantSizePolicy::default();
+        let mut policy = SizePolicy::default();
         for (&name, value) in binding_map {
             match name {
                 "horizontalPolicy" => {
