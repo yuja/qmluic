@@ -704,8 +704,8 @@ mod tests {
         root_meta.enums.push(metatype::Enum::new("RootEnum"));
         type_map.extend([
             root_meta,
-            metatype::Class::with_supers("Sub1", &["Root"]),
-            metatype::Class::with_supers("Sub2", &["Sub1"]),
+            metatype::Class::with_supers("Sub1", ["Root"]),
+            metatype::Class::with_supers("Sub2", ["Sub1"]),
         ]);
 
         let root_class = unwrap_class(type_map.get_type("Root"));
@@ -725,9 +725,9 @@ mod tests {
         let mut type_map = TypeMap::with_primitive_types();
         type_map.extend([
             metatype::Class::new("Root"),
-            metatype::Class::with_supers("Sub1", &["Root"]),
-            metatype::Class::with_supers("Sub2", &["Sub1"]),
-            metatype::Class::with_supers("Sub3", &["Root"]),
+            metatype::Class::with_supers("Sub1", ["Root"]),
+            metatype::Class::with_supers("Sub2", ["Sub1"]),
+            metatype::Class::with_supers("Sub3", ["Root"]),
         ]);
 
         let root_class = unwrap_class(type_map.get_type("Root"));
@@ -753,7 +753,7 @@ mod tests {
         foo_meta
             .properties
             .push(metatype::Property::new("foo_prop", "int"));
-        let mut bar_meta = metatype::Class::with_supers("Bar", &["Foo"]);
+        let mut bar_meta = metatype::Class::with_supers("Bar", ["Foo"]);
         bar_meta
             .properties
             .push(metatype::Property::new("bar_prop", "bool"));

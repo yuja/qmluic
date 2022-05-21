@@ -45,11 +45,12 @@ impl Class {
     /// Creates class metadata of object type.
     pub fn new<S>(name: S) -> Self
     where
-        S: AsRef<str>,
+        S: Into<String>,
     {
+        let name: String = name.into();
         Class {
-            class_name: unqualify_name(name.as_ref()).to_owned(),
-            qualified_class_name: name.as_ref().to_owned(),
+            class_name: unqualify_name(&name).to_owned(),
+            qualified_class_name: name,
             object: true,
             ..Default::default()
         }
@@ -58,11 +59,12 @@ impl Class {
     /// Creates class metadata of gadget type.
     pub fn new_gadget<S>(name: S) -> Self
     where
-        S: AsRef<str>,
+        S: Into<String>,
     {
+        let name: String = name.into();
         Class {
-            class_name: unqualify_name(name.as_ref()).to_owned(),
-            qualified_class_name: name.as_ref().to_owned(),
+            class_name: unqualify_name(&name).to_owned(),
+            qualified_class_name: name,
             gadget: true,
             ..Default::default()
         }
@@ -71,20 +73,21 @@ impl Class {
     /// Creates class metadata of object type with public super classes.
     pub fn with_supers<S, I>(name: S, supers: I) -> Self
     where
-        S: AsRef<str>,
+        S: Into<String>,
         I: IntoIterator,
-        I::Item: AsRef<str>,
+        I::Item: Into<String>,
     {
+        let name: String = name.into();
         let super_classes = supers
             .into_iter()
             .map(|n| SuperClassSpecifier {
-                name: n.as_ref().to_owned(),
+                name: n.into(),
                 access: AccessSpecifier::Public,
             })
             .collect();
         Class {
-            class_name: unqualify_name(name.as_ref()).to_owned(),
-            qualified_class_name: name.as_ref().to_owned(),
+            class_name: unqualify_name(&name).to_owned(),
+            qualified_class_name: name,
             object: true,
             super_classes,
             ..Default::default()
@@ -119,10 +122,10 @@ impl Enum {
     /// Creates enum metadata.
     pub fn new<S>(name: S) -> Self
     where
-        S: AsRef<str>,
+        S: Into<String>,
     {
         Enum {
-            name: name.as_ref().to_owned(),
+            name: name.into(),
             ..Default::default()
         }
     }
@@ -130,12 +133,12 @@ impl Enum {
     /// Creates flag metadata.
     pub fn new_flag<S, T>(name: S, alias: T) -> Self
     where
-        S: AsRef<str>,
-        T: AsRef<str>,
+        S: Into<String>,
+        T: Into<String>,
     {
         Enum {
-            name: name.as_ref().to_owned(),
-            alias: Some(alias.as_ref().to_owned()),
+            name: name.into(),
+            alias: Some(alias.into()),
             is_flag: true,
             ..Default::default()
         }
@@ -144,13 +147,13 @@ impl Enum {
     /// Creates enum metadata with values.
     pub fn with_values<S, I>(name: S, values: I) -> Self
     where
-        S: AsRef<str>,
+        S: Into<String>,
         I: IntoIterator,
-        I::Item: AsRef<str>,
+        I::Item: Into<String>,
     {
         Enum {
-            name: name.as_ref().to_owned(),
-            values: values.into_iter().map(|n| n.as_ref().to_owned()).collect(),
+            name: name.into(),
+            values: values.into_iter().map(|n| n.into()).collect(),
             ..Default::default()
         }
     }
@@ -184,12 +187,12 @@ impl Property {
     /// Creates property metadata.
     pub fn new<S, T>(name: S, type_name: T) -> Self
     where
-        S: AsRef<str>,
-        T: AsRef<str>,
+        S: Into<String>,
+        T: Into<String>,
     {
         Property {
-            name: name.as_ref().to_owned(),
-            r#type: type_name.as_ref().to_owned(),
+            name: name.into(),
+            r#type: type_name.into(),
             ..Default::default()
         }
     }
