@@ -79,7 +79,7 @@ expression: "translate_file(\"examples/VariousLayouts.qml\")"
     </widget>
    </item>
    <item column="1" row="2">
-    <layout class="QGridLayout" name="gridLayout" columnstretch="3,4,5" rowstretch="1,2">
+    <layout class="QGridLayout" name="gridLayout" columnminimumwidth="50,50,50" columnstretch="3,4,5" rowminimumheight="20,0,20" rowstretch="1,2">
      <property name="sizeConstraint">
       <enum>QLayout::SetFixedSize</enum>
      </property>

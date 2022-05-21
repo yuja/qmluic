@@ -211,8 +211,8 @@ QWidget {
                 QLayoutItem.column: 0
                 QLayoutItem.rowStretch: 1
                 QLayoutItem.columnStretch: 3
-                // TODO: QGridLayout.rowMinimumHeight: 20
-                // TODO: QGridLayout.columnMinimumWidth: 50
+                QLayoutItem.rowMinimumHeight: 20
+                QLayoutItem.columnMinimumWidth: 50
                 text: qsTr("PushButton")
             }
 
@@ -229,8 +229,8 @@ QWidget {
                 QLayoutItem.column: 0
                 QLayoutItem.rowStretch: 2
                 QLayoutItem.columnStretch: 3
-                // TODO: QGridLayout.rowMinimumHeight: 20
-                // TODO: QGridLayout.columnMinimumWidth: 50
+                QLayoutItem.rowMinimumHeight: 20
+                QLayoutItem.columnMinimumWidth: 50
                 text: qsTr("PushButton")
             }
 
@@ -250,7 +250,7 @@ QWidget {
                 QLayoutItem.alignment: Qt.AlignTop
                 QLayoutItem.rowStretch: 1
                 QLayoutItem.columnStretch: 4
-                // TODO: QGridLayout.columnMinimumWidth: 50
+                QLayoutItem.columnMinimumWidth: 50
                 text: qsTr("RowSpan\nButton")
             }
 
@@ -267,8 +267,8 @@ QWidget {
                 QLayoutItem.column: 2
                 QLayoutItem.rowStretch: 1
                 QLayoutItem.columnStretch: 5
-                // TODO: QGridLayout.rowMinimumHeight: 20
-                // TODO: QGridLayout.columnMinimumWidth: 50
+                QLayoutItem.rowMinimumHeight: 20
+                QLayoutItem.columnMinimumWidth: 50
                 text: qsTr("PushButton")
             }
 

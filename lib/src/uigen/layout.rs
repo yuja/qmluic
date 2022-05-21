@@ -22,7 +22,9 @@ pub struct Layout {
 
 #[derive(Clone, Debug, Default)]
 pub struct LayoutAttributes {
+    column_minimum_width: Vec<Option<i32>>,
     column_stretch: Vec<Option<i32>>,
+    row_minimum_height: Vec<Option<i32>>,
     row_stretch: Vec<Option<i32>>,
     stretch: Vec<Option<i32>>, // for vbox/hbox
 }
@@ -72,10 +74,22 @@ impl Layout {
         if let Some(n) = &self.name {
             tag.push_attribute(("name", n.as_ref()));
         }
+        if !self.attributes.column_minimum_width.is_empty() {
+            tag.push_attribute((
+                "columnminimumwidth",
+                format_opt_i32_array(&self.attributes.column_minimum_width, 0).as_ref(),
+            ));
+        }
         if !self.attributes.column_stretch.is_empty() {
             tag.push_attribute((
                 "columnstretch",
                 format_opt_i32_array(&self.attributes.column_stretch, 1).as_ref(),
+            ));
+        }
+        if !self.attributes.row_minimum_height.is_empty() {
+            tag.push_attribute((
+                "rowminimumheight",
+                format_opt_i32_array(&self.attributes.row_minimum_height, 0).as_ref(),
             ));
         }
         if !self.attributes.row_stretch.is_empty() {
@@ -162,9 +176,11 @@ struct LayoutItemAttached<'t> {
     // binding node is stored for error reporting
     pub alignment: Option<(Node<'t>, String)>,
     pub column: Option<(Node<'t>, i32)>,
+    pub column_minimum_width: Option<(Node<'t>, i32)>,
     pub column_span: Option<(Node<'t>, i32)>,
     pub column_stretch: Option<(Node<'t>, i32)>,
     pub row: Option<(Node<'t>, i32)>,
+    pub row_minimum_height: Option<(Node<'t>, i32)>,
     pub row_span: Option<(Node<'t>, i32)>,
     pub row_stretch: Option<(Node<'t>, i32)>,
 }
@@ -208,6 +224,11 @@ impl<'t> LayoutItemAttached<'t> {
                         expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
                             .map(|v| (value.binding_node(), v));
                 }
+                "columnMinimumWidth" => {
+                    properties.column_minimum_width =
+                        expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
+                            .map(|v| (value.binding_node(), v));
+                }
                 "columnSpan" => {
                     properties.column_span =
                         expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
@@ -220,6 +241,11 @@ impl<'t> LayoutItemAttached<'t> {
                 }
                 "row" => {
                     properties.row =
+                        expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
+                            .map(|v| (value.binding_node(), v));
+                }
+                "rowMinimumHeight" => {
+                    properties.row_minimum_height =
                         expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
                             .map(|v| (value.binding_node(), v));
                 }
@@ -354,6 +380,9 @@ fn process_vbox_layout_children(
             if let Some((n, _)) = attached.column {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
+            if let Some((n, _)) = attached.column_minimum_width {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
             if let Some((n, _)) = attached.column_span {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
@@ -361,6 +390,9 @@ fn process_vbox_layout_children(
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
             if let Some((n, _)) = attached.row {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
+            if let Some((n, _)) = attached.row_minimum_height {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
             if let Some((n, _)) = attached.row_span {
@@ -394,6 +426,9 @@ fn process_hbox_layout_children(
             if let Some((n, _)) = attached.column {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
+            if let Some((n, _)) = attached.column_minimum_width {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
             if let Some((n, _)) = attached.column_span {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
@@ -404,6 +439,9 @@ fn process_hbox_layout_children(
                 diagnostics,
             );
             if let Some((n, _)) = attached.row {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
+            if let Some((n, _)) = attached.row_minimum_height {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
             if let Some((n, _)) = attached.row_span {
@@ -432,10 +470,16 @@ fn process_form_layout_children(
             let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
             expect_layout_index("column", attached.column, 1, n, diagnostics)?;
             expect_layout_index("row", attached.row, i32::MAX, n, diagnostics)?;
+            if let Some((n, _)) = attached.column_minimum_width {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
             if let Some((n, _)) = attached.column_span {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
             if let Some((n, _)) = attached.column_stretch {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
+            if let Some((n, _)) = attached.row_minimum_height {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
             if let Some((n, _)) = attached.row_span {
@@ -465,9 +509,21 @@ fn process_grid_layout_children(
             let column = expect_layout_index("column", attached.column, MAX_INDEX, n, diagnostics)?;
             let row = expect_layout_index("row", attached.row, MAX_INDEX, n, diagnostics)?;
             maybe_insert_into_opt_i32_array(
+                &mut attributes.column_minimum_width,
+                column,
+                attached.column_minimum_width,
+                diagnostics,
+            );
+            maybe_insert_into_opt_i32_array(
                 &mut attributes.column_stretch,
                 column,
                 attached.column_stretch,
+                diagnostics,
+            );
+            maybe_insert_into_opt_i32_array(
+                &mut attributes.row_minimum_height,
+                column,
+                attached.row_minimum_height,
                 diagnostics,
             );
             maybe_insert_into_opt_i32_array(
