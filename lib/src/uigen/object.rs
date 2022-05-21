@@ -103,7 +103,7 @@ impl Action {
         confine_children(cls, obj, diagnostics);
         Some(Action {
             name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
-            properties: collect_properties(cls, &binding_map, ctx.source, diagnostics),
+            properties: collect_properties(cls, &binding_map, &[], ctx.source, diagnostics),
         })
     }
 
@@ -148,7 +148,13 @@ impl Widget {
         Some(Widget {
             class: cls.name().to_owned(),
             name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
-            properties: collect_properties(cls, &binding_map, ctx.source, diagnostics),
+            properties: collect_properties(
+                cls,
+                &binding_map,
+                &["actions"],
+                ctx.source,
+                diagnostics,
+            ),
             actions: binding_map
                 .get("actions")
                 .map(|v| collect_identifiers(v, ctx.source, diagnostics))
@@ -228,17 +234,21 @@ pub(super) fn confine_children(
 
 /// Parses the given `binding_map` into a map of constant expressions.
 ///
+/// `exclude_names` is a list of property names which have to be processed in a special
+/// manner by the caller. The list should be small.
+///
 /// Unparsable properties are excluded from the resulting map so as many diagnostic messages
 /// will be generated as possible.
 pub(super) fn collect_properties(
     cls: &Class,
     binding_map: &UiBindingMap,
+    exclude_names: &[&str],
     source: &str,
     diagnostics: &mut Diagnostics,
 ) -> HashMap<String, ConstantExpression> {
     binding_map
         .iter()
-        .filter(|(&name, _)| name != "actions") // TODO: only for QWidget subclasses
+        .filter(|(name, _)| !exclude_names.contains(name))
         .filter_map(|(&name, value)| {
             if let Some(ty) = cls.get_property_type(name) {
                 ConstantExpression::from_binding_value(cls, &ty, value, source, diagnostics)

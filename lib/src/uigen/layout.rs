@@ -59,7 +59,7 @@ impl Layout {
             class: cls.name().to_owned(),
             name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
             attributes,
-            properties: object::collect_properties(cls, &binding_map, ctx.source, diagnostics),
+            properties: object::collect_properties(cls, &binding_map, &[], ctx.source, diagnostics),
             children,
         })
     }
@@ -342,7 +342,7 @@ impl SpacerItem {
         object::confine_children(cls, obj, diagnostics);
         Some(SpacerItem {
             name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
-            properties: object::collect_properties(cls, &binding_map, ctx.source, diagnostics),
+            properties: object::collect_properties(cls, &binding_map, &[], ctx.source, diagnostics),
         })
     }
 
