@@ -22,17 +22,23 @@ pub struct Class {
     pub qualified_class_name: String,
     #[serde(default)]
     pub super_classes: Vec<SuperClassSpecifier>,
-    // TODO: class_infos
-    // TODO: interfaces
+    #[serde(default)]
+    pub class_infos: Vec<ClassInfo>,
+    #[serde(default)]
+    pub interfaces: Vec<Vec<Interface>>, // no idea why this is nested array
     #[serde(default)]
     pub object: bool,
     #[serde(default)]
     pub gadget: bool,
+    #[serde(default)]
+    pub namespace: bool,
 
     #[serde(default)]
     pub enums: Vec<Enum>,
     #[serde(default)]
     pub properties: Vec<Property>,
+    #[serde(default)]
+    pub constructors: Vec<Method>, // only QObject appears to define this
     #[serde(default)]
     pub signals: Vec<Method>,
     #[serde(default)]
@@ -117,6 +123,22 @@ impl SuperClassSpecifier {
     }
 }
 
+/// Extra class metadata. (e.g. `""QML.Element"`" name)
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ClassInfo {
+    pub name: String,
+    pub value: String,
+}
+
+/// Qt plugin interface identifier. (see `Q_DECLARE_INTERFACE()`)
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Interface {
+    pub class_name: String,
+    pub id: String,
+}
+
 /// Enum (and flag) metadata.
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -176,11 +198,15 @@ pub struct Property {
     pub name: String,
     pub r#type: String,
 
+    /// See `Q_PRIVATE_PROPERTY()`.
+    pub private_class: Option<String>,
+
     pub member: Option<String>,
     pub read: Option<String>,
     pub write: Option<String>,
     pub reset: Option<String>,
     pub notify: Option<String>,
+    pub bindable: Option<String>,
 
     #[serde(default)]
     pub revision: u32,
@@ -191,6 +217,9 @@ pub struct Property {
     pub constant: bool,
     pub r#final: bool,
     pub required: bool,
+
+    /// Property index in the current meta object. (new in Qt 6)
+    pub index: Option<i32>,
 }
 
 impl Property {
@@ -213,11 +242,13 @@ impl Default for Property {
         Self {
             name: String::new(),
             r#type: String::new(),
+            private_class: None,
             member: None,
             read: None,
             write: None,
             reset: None,
             notify: None,
+            bindable: None,
             revision: 0,
             designable: true,
             scriptable: true,
@@ -226,6 +257,7 @@ impl Default for Property {
             constant: false,
             r#final: false,
             required: false,
+            index: None,
         }
     }
 }
@@ -265,8 +297,12 @@ pub struct Argument {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct CompilationUnit {
-    classes: Vec<Class>,
+pub struct CompilationUnit {
+    #[serde(default)]
+    pub classes: Vec<Class>,
+    pub input_file: Option<String>,
+    #[serde(default)]
+    pub output_revision: i32,
 }
 
 /// Collects all classes from metatypes.json document.
