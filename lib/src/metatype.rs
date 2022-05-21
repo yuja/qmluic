@@ -15,7 +15,7 @@ pub enum AccessSpecifier {
 }
 
 /// Class metadata.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Class {
     pub class_name: String,
@@ -47,7 +47,12 @@ impl Class {
     where
         S: AsRef<str>,
     {
-        Self::with_basic_params(name.as_ref(), true)
+        Class {
+            class_name: unqualify_name(name.as_ref()).to_owned(),
+            qualified_class_name: name.as_ref().to_owned(),
+            object: true,
+            ..Default::default()
+        }
     }
 
     /// Creates class metadata of gadget type.
@@ -55,7 +60,12 @@ impl Class {
     where
         S: AsRef<str>,
     {
-        Self::with_basic_params(name.as_ref(), false)
+        Class {
+            class_name: unqualify_name(name.as_ref()).to_owned(),
+            qualified_class_name: name.as_ref().to_owned(),
+            gadget: true,
+            ..Default::default()
+        }
     }
 
     /// Creates class metadata of object type with public super classes.
@@ -65,29 +75,19 @@ impl Class {
         I: IntoIterator,
         I::Item: AsRef<str>,
     {
-        let mut cls = Self::with_basic_params(name.as_ref(), true);
-        cls.super_classes = supers
+        let super_classes = supers
             .into_iter()
             .map(|n| SuperClassSpecifier {
                 name: n.as_ref().to_owned(),
                 access: AccessSpecifier::Public,
             })
             .collect();
-        cls
-    }
-
-    fn with_basic_params(name: &str, object: bool) -> Self {
         Class {
-            class_name: unqualify_name(name).to_owned(),
-            qualified_class_name: name.to_owned(),
-            super_classes: vec![],
-            object,
-            gadget: !object,
-            enums: vec![],
-            properties: vec![],
-            signals: vec![],
-            slots: vec![],
-            methods: vec![],
+            class_name: unqualify_name(name.as_ref()).to_owned(),
+            qualified_class_name: name.as_ref().to_owned(),
+            object: true,
+            super_classes,
+            ..Default::default()
         }
     }
 }
@@ -105,7 +105,7 @@ pub struct SuperClassSpecifier {
 }
 
 /// Enum (and flag) metadata.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Enum {
     pub name: String,
@@ -123,10 +123,7 @@ impl Enum {
     {
         Enum {
             name: name.as_ref().to_owned(),
-            alias: None,
-            is_class: false,
-            is_flag: false,
-            values: vec![],
+            ..Default::default()
         }
     }
 
@@ -139,9 +136,8 @@ impl Enum {
         Enum {
             name: name.as_ref().to_owned(),
             alias: Some(alias.as_ref().to_owned()),
-            is_class: false,
             is_flag: true,
-            values: vec![],
+            ..Default::default()
         }
     }
 
@@ -154,10 +150,8 @@ impl Enum {
     {
         Enum {
             name: name.as_ref().to_owned(),
-            alias: None,
-            is_class: false,
-            is_flag: false,
             values: values.into_iter().map(|n| n.as_ref().to_owned()).collect(),
+            ..Default::default()
         }
     }
 }
@@ -196,6 +190,16 @@ impl Property {
         Property {
             name: name.as_ref().to_owned(),
             r#type: type_name.as_ref().to_owned(),
+            ..Default::default()
+        }
+    }
+}
+
+impl Default for Property {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            r#type: String::new(),
             member: None,
             read: None,
             write: None,
@@ -224,6 +228,18 @@ pub struct Method {
     pub arguments: Vec<Argument>,
     #[serde(default)]
     pub revision: u32,
+}
+
+impl Default for Method {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            access: AccessSpecifier::Public,
+            return_type: String::new(),
+            arguments: vec![],
+            revision: 0,
+        }
+    }
 }
 
 /// Signal, slot, or callable function argument.
