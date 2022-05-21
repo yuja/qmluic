@@ -196,7 +196,7 @@ impl<'t> LayoutItemAttached<'t> {
         P: TypeSpace<'a>,
     {
         let attached_type_map = diagnostics.consume_err(obj.build_attached_type_map(ctx.source))?;
-        let binding_map = attached_type_map.get(["QLayoutItem"].as_ref())?; // TODO: resolve against imported types
+        let binding_map = attached_type_map.get(["QLayout"].as_ref())?; // TODO: resolve against imported types
         let mut properties = LayoutItemAttached::default();
         for (&name, value) in binding_map {
             match name {

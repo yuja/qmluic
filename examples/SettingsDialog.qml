@@ -34,8 +34,8 @@ QDialog {
             QLabel {
                 id: hgExecutableLabel
 
-                QLayoutItem.row: 0
-                QLayoutItem.column: 0
+                QLayout.row: 0
+                QLayout.column: 0
 
                 //        <property name="text">
                 //         <string>Hg executable:</string>
@@ -51,8 +51,8 @@ QDialog {
             QHBoxLayout {
                 id: hgExecutableLayout
 
-                QLayoutItem.row: 0
-                QLayoutItem.column: 1
+                QLayout.row: 0
+                QLayout.column: 1
 
                 //        <item>
                 //         <widget class="QLineEdit" name="hgExecutableEdit"/>
@@ -82,8 +82,8 @@ QDialog {
             QLabel {
                 id: textFontLabel
 
-                QLayoutItem.row: 1
-                QLayoutItem.column: 0
+                QLayout.row: 1
+                QLayout.column: 0
 
                 //        <property name="text">
                 //         <string>Text font:</string>
@@ -99,8 +99,8 @@ QDialog {
             QHBoxLayout {
                 id: textFontLayout
 
-                QLayoutItem.row: 1
-                QLayoutItem.column: 1
+                QLayout.row: 1
+                QLayout.column: 1
 
                 //        <item>
                 //         <widget class="QFontComboBox" name="textFontFamilyEdit"/>

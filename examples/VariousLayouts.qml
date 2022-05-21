@@ -29,8 +29,8 @@ QWidget {
         QLabel {
             id: verticalLabel
 
-            QLayoutItem.row: 0
-            QLayoutItem.column: 0
+            QLayout.row: 0
+            QLayout.column: 0
 
             //      <property name="text">
             //       <string>Vertical</string>
@@ -46,8 +46,8 @@ QWidget {
         QVBoxLayout {
             id: verticalLayout
 
-            QLayoutItem.row: 0
-            QLayoutItem.column: 1
+            QLayout.row: 0
+            QLayout.column: 1
 
             //      <property name="spacing">
             //       <number>4</number>
@@ -104,8 +104,8 @@ QWidget {
         QLabel {
             id: horizontalLabel
 
-            QLayoutItem.row: 1
-            QLayoutItem.column: 0
+            QLayout.row: 1
+            QLayout.column: 0
 
             //      <property name="text">
             //       <string>Horizontal</string>
@@ -121,15 +121,15 @@ QWidget {
         QHBoxLayout {
             id: horizontalLayout
 
-            QLayoutItem.row: 1
-            QLayoutItem.column: 1
+            QLayout.row: 1
+            QLayout.column: 1
 
             //      <item>
             //       <widget class="QPlainTextEdit" name="plainTextEdit"/>
             //      </item>
             QPlainTextEdit {
                 id: plainTextEdit
-                QLayoutItem.columnStretch: 2
+                QLayout.columnStretch: 2
             }
 
             //      <item>
@@ -137,7 +137,7 @@ QWidget {
             //      </item>
             QPlainTextEdit {
                 id: plainTextEdit_2
-                QLayoutItem.columnStretch: 3
+                QLayout.columnStretch: 3
             }
 
             //     </layout>
@@ -149,8 +149,8 @@ QWidget {
         QLabel {
             id: gridLabel
 
-            QLayoutItem.row: 2
-            QLayoutItem.column: 0
+            QLayout.row: 2
+            QLayout.column: 0
 
             //      <property name="text">
             //       <string>Grid</string>
@@ -166,8 +166,8 @@ QWidget {
         QGridLayout {
             id: gridLayout
 
-            QLayoutItem.row: 2
-            QLayoutItem.column: 1
+            QLayout.row: 2
+            QLayout.column: 1
 
             //      <property name="sizeConstraint">
             //       <enum>QLayout::SetFixedSize</enum>
@@ -207,12 +207,12 @@ QWidget {
             //      </item>
             QPushButton {
                 id: pushButton
-                QLayoutItem.row: 0
-                QLayoutItem.column: 0
-                QLayoutItem.rowStretch: 1
-                QLayoutItem.columnStretch: 3
-                QLayoutItem.rowMinimumHeight: 20
-                QLayoutItem.columnMinimumWidth: 50
+                QLayout.row: 0
+                QLayout.column: 0
+                QLayout.rowStretch: 1
+                QLayout.columnStretch: 3
+                QLayout.rowMinimumHeight: 20
+                QLayout.columnMinimumWidth: 50
                 text: qsTr("PushButton")
             }
 
@@ -225,12 +225,12 @@ QWidget {
             //      </item>
             QPushButton {
                 id: pushButton_2
-                QLayoutItem.row: 1
-                QLayoutItem.column: 0
-                QLayoutItem.rowStretch: 2
-                QLayoutItem.columnStretch: 3
-                QLayoutItem.rowMinimumHeight: 20
-                QLayoutItem.columnMinimumWidth: 50
+                QLayout.row: 1
+                QLayout.column: 0
+                QLayout.rowStretch: 2
+                QLayout.columnStretch: 3
+                QLayout.rowMinimumHeight: 20
+                QLayout.columnMinimumWidth: 50
                 text: qsTr("PushButton")
             }
 
@@ -244,13 +244,13 @@ QWidget {
             //      </item>
             QPushButton {
                 id: pushButton_3
-                QLayoutItem.row: 0
-                QLayoutItem.column: 1
-                QLayoutItem.rowSpan: 2
-                QLayoutItem.alignment: Qt.AlignTop
-                QLayoutItem.rowStretch: 1
-                QLayoutItem.columnStretch: 4
-                QLayoutItem.columnMinimumWidth: 50
+                QLayout.row: 0
+                QLayout.column: 1
+                QLayout.rowSpan: 2
+                QLayout.alignment: Qt.AlignTop
+                QLayout.rowStretch: 1
+                QLayout.columnStretch: 4
+                QLayout.columnMinimumWidth: 50
                 text: qsTr("RowSpan\nButton")
             }
 
@@ -263,12 +263,12 @@ QWidget {
             //      </item>
             QPushButton {
                 id: pushButton_4
-                QLayoutItem.row: 0
-                QLayoutItem.column: 2
-                QLayoutItem.rowStretch: 1
-                QLayoutItem.columnStretch: 5
-                QLayoutItem.rowMinimumHeight: 20
-                QLayoutItem.columnMinimumWidth: 50
+                QLayout.row: 0
+                QLayout.column: 2
+                QLayout.rowStretch: 1
+                QLayout.columnStretch: 5
+                QLayout.rowMinimumHeight: 20
+                QLayout.columnMinimumWidth: 50
                 text: qsTr("PushButton")
             }
 
