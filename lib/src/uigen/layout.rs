@@ -1,4 +1,5 @@
-use super::expr::{self, ConstantExpression};
+use super::expr::{self, ConstantExpression, ConstantValue};
+use super::gadget::Margins;
 use super::object::{self, Widget};
 use super::BuildContext;
 use super::{XmlResult, XmlWriter};
@@ -55,11 +56,30 @@ impl Layout {
             // use the most restricted one to report as many errors as possible
             process_vbox_layout_children(ctx, obj, diagnostics)
         };
+
+        let mut properties = object::collect_properties(
+            cls,
+            &binding_map,
+            &["contentsMargins"],
+            ctx.source,
+            diagnostics,
+        );
+        if let Some(m) = binding_map
+            .get("contentsMargins")
+            .and_then(|v| Margins::from_binding_value(ctx, cls, v, diagnostics))
+        {
+            let to_v = |d| ConstantExpression::Value(ConstantValue::Number(d as f64));
+            properties.insert("leftMargin".to_owned(), to_v(m.left));
+            properties.insert("topMargin".to_owned(), to_v(m.top));
+            properties.insert("rightMargin".to_owned(), to_v(m.right));
+            properties.insert("bottomMargin".to_owned(), to_v(m.bottom));
+        }
+
         Some(Layout {
             class: cls.name().to_owned(),
             name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
             attributes,
-            properties: object::collect_properties(cls, &binding_map, &[], ctx.source, diagnostics),
+            properties,
             children,
         })
     }

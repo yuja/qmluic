@@ -1,6 +1,6 @@
 use super::expr::{self, ConstantValue};
 use super::xmlutil;
-use super::{XmlResult, XmlWriter};
+use super::{BuildContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
 use crate::typemap::{Class, TypeSpace};
@@ -95,6 +95,85 @@ fn collect_constant_properties(
             .map(|v| (name.to_owned(), v))
         })
         .collect()
+}
+
+/// Struct representing `QMargins`.
+///
+/// This is primarily designed for the `QLayout.contentsMargins` property, which needs to
+/// be serialized to UI XML in a special manner.
+#[derive(Clone, Debug, Default)]
+pub struct Margins {
+    pub left: i32,
+    pub top: i32,
+    pub right: i32,
+    pub bottom: i32,
+}
+
+impl Margins {
+    pub(super) fn from_binding_value<'a, P>(
+        ctx: &BuildContext,
+        parent_space: &P, // TODO: should be QML space, not C++ metatype space
+        binding_value: &UiBindingValue,
+        diagnostics: &mut Diagnostics,
+    ) -> Option<Self>
+    where
+        P: TypeSpace<'a>,
+    {
+        match binding_value {
+            UiBindingValue::Node(n) => {
+                diagnostics.push(Diagnostic::error(
+                    n.byte_range(),
+                    "expression cannot be parsed as QMargins",
+                ));
+                None
+            }
+            UiBindingValue::Map(_, m) => {
+                Some(Self::from_binding_map(ctx, parent_space, m, diagnostics))
+            }
+        }
+    }
+
+    pub(super) fn from_binding_map<'a, P>(
+        ctx: &BuildContext,
+        parent_space: &P, // TODO: should be QML space, not C++ metatype space
+        binding_map: &UiBindingMap,
+        diagnostics: &mut Diagnostics,
+    ) -> Self
+    where
+        P: TypeSpace<'a>,
+    {
+        // TODO: maybe add a proc macro for this kind of gadget types?
+        let mut margins = Margins::default();
+        for (&name, value) in binding_map {
+            match name {
+                "left" => {
+                    margins.left = expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
+                        .unwrap_or(0);
+                }
+                "top" => {
+                    margins.top = expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
+                        .unwrap_or(0);
+                }
+                "right" => {
+                    margins.right =
+                        expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
+                            .unwrap_or(0);
+                }
+                "bottom" => {
+                    margins.bottom =
+                        expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
+                            .unwrap_or(0);
+                }
+                _ => {
+                    diagnostics.push(Diagnostic::error(
+                        value.binding_node().byte_range(),
+                        "unknown property of class 'QMargins'",
+                    ));
+                }
+            }
+        }
+        margins
+    }
 }
 
 /// Constant size policy which can be serialized to UI XML.

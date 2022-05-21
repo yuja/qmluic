@@ -66,7 +66,7 @@ QWidget {
             //      <property name="bottomMargin">
             //       <number>4</number>
             //      </property>
-            // TODO: contentsMargins { left: 1; top: 2; right: 3; bottom: 4 }
+            contentsMargins { left: 1; top: 2; right: 3; bottom: 4 }
 
             //      <item>
             //       <widget class="QRadioButton" name="radioButton">
@@ -186,7 +186,7 @@ QWidget {
             //      <property name="bottomMargin">
             //       <number>2</number>
             //      </property>
-            // TODO: contentsMargins { left: 2; top: 2; right: 2; bottom: 2 }
+            contentsMargins { left: 2; top: 2; right: 2; bottom: 2 }
 
             //      <property name="horizontalSpacing">
             //       <number>10</number>
