@@ -80,10 +80,7 @@ impl Class {
         let name: String = name.into();
         let super_classes = supers
             .into_iter()
-            .map(|n| SuperClassSpecifier {
-                name: n.into(),
-                access: AccessSpecifier::Public,
-            })
+            .map(SuperClassSpecifier::public)
             .collect();
         Class {
             class_name: unqualify_name(&name).to_owned(),
@@ -105,6 +102,19 @@ fn unqualify_name(name: &str) -> &str {
 pub struct SuperClassSpecifier {
     pub name: String,
     pub access: AccessSpecifier,
+}
+
+impl SuperClassSpecifier {
+    /// Creates public super class specifier.
+    pub fn public<S>(name: S) -> Self
+    where
+        S: Into<String>,
+    {
+        SuperClassSpecifier {
+            name: name.into(),
+            access: AccessSpecifier::Public,
+        }
+    }
 }
 
 /// Enum (and flag) metadata.
