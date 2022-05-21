@@ -60,7 +60,7 @@ expression: "translate_file(\"examples/VariousLayouts.qml\")"
     </widget>
    </item>
    <item column="1" row="1">
-    <layout class="QHBoxLayout" name="horizontalLayout">
+    <layout class="QHBoxLayout" name="horizontalLayout" stretch="2,3">
      <item>
       <widget class="QPlainTextEdit" name="plainTextEdit">
       </widget>

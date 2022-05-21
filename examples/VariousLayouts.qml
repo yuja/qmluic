@@ -129,7 +129,7 @@ QWidget {
             //      </item>
             QPlainTextEdit {
                 id: plainTextEdit
-                // TODO: QBoxLayout.stretch: 2  // TODO: or columnStretch?
+                QLayoutItem.columnStretch: 2
             }
 
             //      <item>
@@ -137,7 +137,7 @@ QWidget {
             //      </item>
             QPlainTextEdit {
                 id: plainTextEdit_2
-                // TODO: QBoxLayout.stretch: 3  // TODO: or columnStretch?
+                QLayoutItem.columnStretch: 3
             }
 
             //     </layout>

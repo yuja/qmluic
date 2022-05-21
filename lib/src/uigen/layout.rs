@@ -24,6 +24,7 @@ pub struct Layout {
 pub struct LayoutAttributes {
     column_stretch: Vec<Option<i32>>,
     row_stretch: Vec<Option<i32>>,
+    stretch: Vec<Option<i32>>, // for vbox/hbox
 }
 
 impl Layout {
@@ -36,10 +37,10 @@ impl Layout {
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let binding_map = diagnostics.consume_err(obj.build_binding_map(ctx.source))?;
-        let (attributes, children) = if cls.is_derived_from(&ctx.vbox_layout_class)
-            || cls.is_derived_from(&ctx.hbox_layout_class)
-        {
-            process_box_layout_children(ctx, obj, diagnostics)
+        let (attributes, children) = if cls.is_derived_from(&ctx.vbox_layout_class) {
+            process_vbox_layout_children(ctx, obj, diagnostics)
+        } else if cls.is_derived_from(&ctx.hbox_layout_class) {
+            process_hbox_layout_children(ctx, obj, diagnostics)
         } else if cls.is_derived_from(&ctx.form_layout_class) {
             process_form_layout_children(ctx, obj, diagnostics)
         } else if cls.is_derived_from(&ctx.grid_layout_class) {
@@ -50,7 +51,7 @@ impl Layout {
                 format!("unknown layout class: {}", cls.qualified_name()),
             ));
             // use the most restricted one to report as many errors as possible
-            process_box_layout_children(ctx, obj, diagnostics)
+            process_vbox_layout_children(ctx, obj, diagnostics)
         };
         Some(Layout {
             class: cls.name().to_owned(),
@@ -81,6 +82,12 @@ impl Layout {
             tag.push_attribute((
                 "rowstretch",
                 format_opt_i32_array(&self.attributes.row_stretch, 1).as_ref(),
+            ));
+        }
+        if !self.attributes.stretch.is_empty() {
+            tag.push_attribute((
+                "stretch",
+                format_opt_i32_array(&self.attributes.stretch, 1).as_ref(),
             ));
         }
         writer.write_event(Event::Start(tag.to_borrowed()))?;
@@ -331,17 +338,18 @@ impl SpacerItem {
     }
 }
 
-fn process_box_layout_children(
+fn process_vbox_layout_children(
     ctx: &BuildContext,
     layout_obj: &UiObjectDefinition,
     diagnostics: &mut Diagnostics,
 ) -> (LayoutAttributes, Vec<LayoutItem>) {
-    let attributes = LayoutAttributes::default();
+    let mut attributes = LayoutAttributes::default();
     let children = layout_obj
         .child_object_nodes()
         .iter()
-        .filter_map(|&n| {
-            const UNSUPPORTED_MSG: &str = "unsupported box layout property";
+        .enumerate()
+        .filter_map(|(row, &n)| {
+            const UNSUPPORTED_MSG: &str = "unsupported vbox layout property";
             let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
             if let Some((n, _)) = attached.column {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
@@ -352,6 +360,49 @@ fn process_box_layout_children(
             if let Some((n, _)) = attached.column_stretch {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
+            if let Some((n, _)) = attached.row {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
+            if let Some((n, _)) = attached.row_span {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
+            maybe_insert_into_opt_i32_array(
+                &mut attributes./*row_*/stretch,
+                row,
+                attached.row_stretch,
+                diagnostics,
+            );
+            Some(LayoutItem::new(attached, content))
+        })
+        .collect();
+    (attributes, children)
+}
+
+fn process_hbox_layout_children(
+    ctx: &BuildContext,
+    layout_obj: &UiObjectDefinition,
+    diagnostics: &mut Diagnostics,
+) -> (LayoutAttributes, Vec<LayoutItem>) {
+    let mut attributes = LayoutAttributes::default();
+    let children = layout_obj
+        .child_object_nodes()
+        .iter()
+        .enumerate()
+        .filter_map(|(column, &n)| {
+            const UNSUPPORTED_MSG: &str = "unsupported hbox layout property";
+            let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
+            if let Some((n, _)) = attached.column {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
+            if let Some((n, _)) = attached.column_span {
+                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            }
+            maybe_insert_into_opt_i32_array(
+                &mut attributes./*column_*/stretch,
+                column,
+                attached.column_stretch,
+                diagnostics,
+            );
             if let Some((n, _)) = attached.row {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
