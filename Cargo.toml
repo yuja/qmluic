@@ -7,6 +7,7 @@ edition = "2021"
 ariadne = "0.1"
 clap = { version = "3.1", features = ["derive"] }
 qmluic = { version = "=0.1.0", path = "lib" }
+thiserror = "1.0"
 
 [dev-dependencies]
 insta = "1.14"
