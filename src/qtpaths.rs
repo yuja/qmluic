@@ -54,31 +54,31 @@ impl QtPaths {
     fn parse(data: &str) -> Self {
         let mut paths = QtPaths::default();
         for line in data.lines() {
-            match line.split_once(':') {
-                Some(("QT_SYSROOT", v)) => paths.sysroot = to_path_buf(v),
-                Some(("QT_INSTALL_PREFIX", v)) => paths.install_prefix = to_path_buf(v),
-                Some(("QT_INSTALL_ARCHDATA", v)) => paths.install_archdata = to_path_buf(v),
-                Some(("QT_INSTALL_DATA", v)) => paths.install_data = to_path_buf(v),
-                Some(("QT_INSTALL_DOCS", v)) => paths.install_docs = to_path_buf(v),
-                Some(("QT_INSTALL_HEADERS", v)) => paths.install_headers = to_path_buf(v),
-                Some(("QT_INSTALL_LIBS", v)) => paths.install_libs = to_path_buf(v),
-                Some(("QT_INSTALL_LIBEXECS", v)) => paths.install_libexecs = to_path_buf(v),
-                Some(("QT_INSTALL_BINS", v)) => paths.install_bins = to_path_buf(v),
-                Some(("QT_INSTALL_TESTS", v)) => paths.install_tests = to_path_buf(v),
-                Some(("QT_INSTALL_PLUGINS", v)) => paths.install_plugins = to_path_buf(v),
-                Some(("QT_INSTALL_IMPORTS", v)) => paths.install_imports = to_path_buf(v),
-                Some(("QT_INSTALL_QML", v)) => paths.install_qml = to_path_buf(v),
-                Some(("QT_INSTALL_TRANSLATIONS", v)) => paths.install_translations = to_path_buf(v),
-                Some(("QT_INSTALL_CONFIGURATION", v)) => {
-                    paths.install_configuration = to_path_buf(v)
+            if let Some((k, v)) = line.split_once(':') {
+                match k {
+                    "QT_SYSROOT" => paths.sysroot = to_path_buf(v),
+                    "QT_INSTALL_PREFIX" => paths.install_prefix = to_path_buf(v),
+                    "QT_INSTALL_ARCHDATA" => paths.install_archdata = to_path_buf(v),
+                    "QT_INSTALL_DATA" => paths.install_data = to_path_buf(v),
+                    "QT_INSTALL_DOCS" => paths.install_docs = to_path_buf(v),
+                    "QT_INSTALL_HEADERS" => paths.install_headers = to_path_buf(v),
+                    "QT_INSTALL_LIBS" => paths.install_libs = to_path_buf(v),
+                    "QT_INSTALL_LIBEXECS" => paths.install_libexecs = to_path_buf(v),
+                    "QT_INSTALL_BINS" => paths.install_bins = to_path_buf(v),
+                    "QT_INSTALL_TESTS" => paths.install_tests = to_path_buf(v),
+                    "QT_INSTALL_PLUGINS" => paths.install_plugins = to_path_buf(v),
+                    "QT_INSTALL_IMPORTS" => paths.install_imports = to_path_buf(v),
+                    "QT_INSTALL_QML" => paths.install_qml = to_path_buf(v),
+                    "QT_INSTALL_TRANSLATIONS" => paths.install_translations = to_path_buf(v),
+                    "QT_INSTALL_CONFIGURATION" => paths.install_configuration = to_path_buf(v),
+                    "QT_INSTALL_EXAMPLES" => paths.install_examples = to_path_buf(v),
+                    "QT_INSTALL_DEMOS" => paths.install_demos = to_path_buf(v),
+                    "QT_HOST_PREFIX" => paths.host_prefix = to_path_buf(v),
+                    "QT_HOST_DATA" => paths.host_data = to_path_buf(v),
+                    "QT_HOST_BINS" => paths.host_bins = to_path_buf(v),
+                    "QT_HOST_LIBS" => paths.host_libs = to_path_buf(v),
+                    _ => {}
                 }
-                Some(("QT_INSTALL_EXAMPLES", v)) => paths.install_examples = to_path_buf(v),
-                Some(("QT_INSTALL_DEMOS", v)) => paths.install_demos = to_path_buf(v),
-                Some(("QT_HOST_PREFIX", v)) => paths.host_prefix = to_path_buf(v),
-                Some(("QT_HOST_DATA", v)) => paths.host_data = to_path_buf(v),
-                Some(("QT_HOST_BINS", v)) => paths.host_bins = to_path_buf(v),
-                Some(("QT_HOST_LIBS", v)) => paths.host_libs = to_path_buf(v),
-                _ => {}
             }
         }
         paths
