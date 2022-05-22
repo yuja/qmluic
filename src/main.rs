@@ -1,17 +1,19 @@
 #![forbid(unsafe_code)]
 
+use anyhow::Context as _;
 use clap::Parser;
 use qmluic::diagnostic::{Diagnostic, DiagnosticKind, Diagnostics};
 use qmluic::metatype;
 use qmluic::metatype_tweak;
 use qmluic::qmlast;
 use qmluic::typemap::TypeMap;
-use qmluic::uigen::{self, BuildContext, XmlResult, XmlWriter};
+use qmluic::uigen::{self, BuildContext, XmlWriter};
 use qmluic_cli::QtPaths;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process;
+use thiserror::Error;
 
 #[derive(Parser, Clone, Debug, Eq, PartialEq)]
 struct Args {
@@ -22,12 +24,27 @@ struct Args {
     foreign_types: Vec<PathBuf>,
 }
 
-fn main() -> XmlResult<()> {
-    let args = Args::parse();
+#[derive(Debug, Error)]
+enum CommandError {
+    #[error("(see diagnostic messages)")]
+    DiagnosticGenerated,
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
 
+fn main() -> anyhow::Result<()> {
+    let args = Args::parse();
+    match generate_ui(&args) {
+        Ok(()) => Ok(()),
+        Err(CommandError::DiagnosticGenerated) => process::exit(1),
+        Err(CommandError::Other(e)) => Err(e),
+    }
+}
+
+fn generate_ui(args: &Args) -> Result<(), CommandError> {
     let mut type_map = TypeMap::with_primitive_types();
     let mut classes = if args.foreign_types.is_empty() {
-        let paths = QtPaths::query()?;
+        let paths = QtPaths::query().context("failed to query Qt paths")?;
         if let Some(p) = &paths.install_libs {
             load_metatypes(&[p.join("metatypes")])?
         } else {
@@ -40,38 +57,35 @@ fn main() -> XmlResult<()> {
     metatype_tweak::apply_all(&mut classes);
     type_map.extend(classes);
 
-    let doc = qmlast::UiDocument::read(&args.file)?;
+    let doc = qmlast::UiDocument::read(&args.file)
+        .with_context(|| format!("failed to load QML source: {}", args.file.display()))?;
     if doc.has_syntax_error() {
-        print_syntax_errors(&doc)?;
-        process::exit(1);
+        print_syntax_errors(&doc).map_err(anyhow::Error::from)?;
+        return Err(CommandError::DiagnosticGenerated);
     }
 
-    let ctx = BuildContext::prepare(&type_map, &doc)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let ctx = BuildContext::prepare(&type_map, &doc).map_err(anyhow::Error::from)?;
     let stdout = io::stdout();
     let mut diagnostics = Diagnostics::new();
     let form_opt = uigen::build(&ctx, &doc, &mut diagnostics);
     if form_opt.is_none() || !diagnostics.is_empty() {
         for d in &diagnostics {
-            print_diagnostic(&doc, d)?;
+            print_diagnostic(&doc, d).map_err(anyhow::Error::from)?;
         }
-        process::exit(1);
+        return Err(CommandError::DiagnosticGenerated);
     }
 
     form_opt
         .map(|f| f.serialize_to_xml(&mut XmlWriter::new_with_indent(stdout.lock(), b' ', 1)))
         .unwrap_or(Ok(()))
+        .context("failed to write UI XML")?;
+    Ok(())
 }
 
-fn load_metatypes(paths: &[PathBuf]) -> io::Result<Vec<metatype::Class>> {
+fn load_metatypes(paths: &[PathBuf]) -> anyhow::Result<Vec<metatype::Class>> {
     fn load_into(classes: &mut Vec<metatype::Class>, path: &Path) -> io::Result<()> {
         let data = fs::read_to_string(path)?;
-        let cs = metatype::extract_classes_from_str(&data).map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("failed to load {}: {}", path.display(), e),
-            )
-        })?;
+        let cs = metatype::extract_classes_from_str(&data)?;
         classes.extend(cs);
         Ok(())
     }
