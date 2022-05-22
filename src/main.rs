@@ -6,7 +6,7 @@ use qmluic::metatype;
 use qmluic::metatype_tweak;
 use qmluic::qmlast;
 use qmluic::typemap::TypeMap;
-use qmluic::uigen::{self, XmlResult, XmlWriter};
+use qmluic::uigen::{self, BuildContext, XmlResult, XmlWriter};
 use qmluic_cli::QtPaths;
 use std::fs;
 use std::io;
@@ -46,9 +46,11 @@ fn main() -> XmlResult<()> {
         process::exit(1);
     }
 
+    let ctx = BuildContext::prepare(&type_map, &doc)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     let stdout = io::stdout();
     let mut diagnostics = Diagnostics::new();
-    let form_opt = uigen::build(&type_map, &doc, &mut diagnostics);
+    let form_opt = uigen::build(&ctx, &doc, &mut diagnostics);
     if form_opt.is_none() || !diagnostics.is_empty() {
         for d in &diagnostics {
             print_diagnostic(&doc, d)?;
