@@ -191,12 +191,12 @@ QWidget {
             //      <property name="horizontalSpacing">
             //       <number>10</number>
             //      </property>
-            // TODO: horizontalSpacing: 10
+            horizontalSpacing: 10
 
             //      <property name="verticalSpacing">
             //       <number>4</number>
             //      </property>
-            // TODO: verticalSpacing: 4
+            verticalSpacing: 4
 
             //      <item row="0" column="0">
             //       <widget class="QPushButton" name="pushButton">
