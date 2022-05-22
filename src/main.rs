@@ -7,6 +7,7 @@ use qmluic::metatype_tweak;
 use qmluic::qmlast;
 use qmluic::typemap::TypeMap;
 use qmluic::uigen::{self, XmlResult, XmlWriter};
+use qmluic_cli::QtPaths;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -17,7 +18,7 @@ struct Args {
     /// File to parse
     file: PathBuf,
     #[clap(long)]
-    /// Qt metatypes.json file to load
+    /// Qt metatypes.json file to load (default: QT_INSTALL_LIBS/metatypes)
     foreign_types: Vec<PathBuf>,
 }
 
@@ -25,7 +26,17 @@ fn main() -> XmlResult<()> {
     let args = Args::parse();
 
     let mut type_map = TypeMap::with_primitive_types();
-    let mut classes = load_metatypes(&args.foreign_types)?;
+    let mut classes = if args.foreign_types.is_empty() {
+        let paths = QtPaths::query()?;
+        if let Some(p) = &paths.install_libs {
+            load_metatypes(&[p.join("metatypes")])?
+        } else {
+            eprintln!("Qt metatypes path cannot be detected");
+            process::exit(1);
+        }
+    } else {
+        load_metatypes(&args.foreign_types)?
+    };
     metatype_tweak::apply_all(&mut classes);
     type_map.extend(classes);
 
