@@ -214,7 +214,10 @@ struct GenerateUiArgs {
     #[clap(required = true, action)]
     sources: Vec<Utf8PathBuf>,
     #[clap(long, action)]
-    /// Qt metatypes.json file to load (default: QT_INSTALL_LIBS/metatypes)
+    /// Qt metatypes.json files/directories to load
+    ///
+    /// By default, qt${major}core/gui/widgets_*.json will be loaded from the
+    /// QT_INSTALL_LIBS/metatypes directory.
     foreign_types: Vec<Utf8PathBuf>,
     /// Do not convert output file names to lowercase
     #[clap(long, action)]
@@ -301,7 +304,10 @@ struct PreviewArgs {
     #[clap(action)]
     source: Utf8PathBuf,
     #[clap(long, action)]
-    /// Qt metatypes.json file to load (default: QT_INSTALL_LIBS/metatypes)
+    /// Qt metatypes.json files/directories to load
+    ///
+    /// By default, qt${major}core/gui/widgets_*.json will be loaded from the
+    /// QT_INSTALL_LIBS/metatypes directory.
     foreign_types: Vec<Utf8PathBuf>,
 }
 
@@ -401,11 +407,7 @@ fn load_type_map(foreign_type_paths: &[Utf8PathBuf]) -> anyhow::Result<TypeMap> 
     let mut type_map = TypeMap::with_primitive_types();
     let mut classes = if foreign_type_paths.is_empty() {
         let paths = QtPaths::query().context("failed to query Qt paths")?;
-        if let Some(p) = &paths.install_libs {
-            load_metatypes(&[p.join("metatypes")])?
-        } else {
-            return Err(anyhow!("Qt metatypes path cannot be detected"));
-        }
+        load_metatypes(&find_installed_metatype_files(&paths)?)?
     } else {
         load_metatypes(foreign_type_paths)?
     };
@@ -443,6 +445,37 @@ fn load_metatypes(paths: &[Utf8PathBuf]) -> anyhow::Result<Vec<metatype::Class>>
             Ok(classes)
         })
     })
+}
+
+fn find_installed_metatype_files(paths: &QtPaths) -> anyhow::Result<Vec<Utf8PathBuf>> {
+    let base_path = paths
+        .install_libs
+        .as_ref()
+        .map(|p| p.join("metatypes"))
+        .ok_or_else(|| anyhow!("Qt metatypes path cannot be detected"))?;
+    let major = paths
+        .version
+        .as_ref()
+        .map(|v| v.major)
+        .ok_or_else(|| anyhow!("Qt metatypes version cannot be detected"))?;
+    let prefixes = [
+        format!("qt{major}core_"),
+        format!("qt{major}gui_"),
+        format!("qt{major}widgets_"),
+    ];
+
+    let mut file_paths = Vec::new();
+    for r in base_path.read_dir_utf8()? {
+        let e = r?;
+        let p = e.path();
+        if p.file_name()
+            .map(|s| prefixes.iter().any(|p| s.starts_with(p)) && s.ends_with(".json"))
+            .unwrap_or(false)
+        {
+            file_paths.push(p.to_owned());
+        }
+    }
+    Ok(file_paths)
 }
 
 fn with_output_file<P, F, E>(path: P, perm: fs::Permissions, f: F) -> anyhow::Result<()>
