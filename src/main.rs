@@ -26,16 +26,6 @@ enum Command {
     GenerateUi(GenerateUiArgs),
 }
 
-/// Generate UI XML (.ui) from QML (.qml)
-#[derive(Args, Clone, Debug)]
-struct GenerateUiArgs {
-    /// QML File to parse
-    file: PathBuf,
-    #[clap(long)]
-    /// Qt metatypes.json file to load (default: QT_INSTALL_LIBS/metatypes)
-    foreign_types: Vec<PathBuf>,
-}
-
 #[derive(Debug, Error)]
 enum CommandError {
     #[error("(see diagnostic messages)")]
@@ -57,6 +47,16 @@ fn dispatch(cli: &Cli) -> Result<(), CommandError> {
     match &cli.command {
         Command::GenerateUi(args) => generate_ui(args),
     }
+}
+
+/// Generate UI XML (.ui) from QML (.qml)
+#[derive(Args, Clone, Debug)]
+struct GenerateUiArgs {
+    /// QML File to parse
+    file: PathBuf,
+    #[clap(long)]
+    /// Qt metatypes.json file to load (default: QT_INSTALL_LIBS/metatypes)
+    foreign_types: Vec<PathBuf>,
 }
 
 fn generate_ui(args: &GenerateUiArgs) -> Result<(), CommandError> {
