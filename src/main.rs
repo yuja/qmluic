@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use anyhow::Context as _;
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
 use qmluic::diagnostic::{Diagnostic, DiagnosticKind, Diagnostics};
 use qmluic::metatype;
 use qmluic::metatype_tweak;
@@ -15,9 +15,21 @@ use std::path::{Path, PathBuf};
 use std::process;
 use thiserror::Error;
 
-#[derive(Parser, Clone, Debug, Eq, PartialEq)]
-struct Args {
-    /// File to parse
+#[derive(Clone, Debug, Parser)]
+struct Cli {
+    #[clap(subcommand)]
+    command: Command,
+}
+
+#[derive(Clone, Debug, Subcommand)]
+enum Command {
+    GenerateUi(GenerateUiArgs),
+}
+
+/// Generate UI XML (.ui) from QML (.qml)
+#[derive(Args, Clone, Debug)]
+struct GenerateUiArgs {
+    /// QML File to parse
     file: PathBuf,
     #[clap(long)]
     /// Qt metatypes.json file to load (default: QT_INSTALL_LIBS/metatypes)
@@ -33,15 +45,21 @@ enum CommandError {
 }
 
 fn main() -> anyhow::Result<()> {
-    let args = Args::parse();
-    match generate_ui(&args) {
+    let cli = Cli::parse();
+    match dispatch(&cli) {
         Ok(()) => Ok(()),
         Err(CommandError::DiagnosticGenerated) => process::exit(1),
         Err(CommandError::Other(e)) => Err(e),
     }
 }
 
-fn generate_ui(args: &Args) -> Result<(), CommandError> {
+fn dispatch(cli: &Cli) -> Result<(), CommandError> {
+    match &cli.command {
+        Command::GenerateUi(args) => generate_ui(args),
+    }
+}
+
+fn generate_ui(args: &GenerateUiArgs) -> Result<(), CommandError> {
     let mut type_map = TypeMap::with_primitive_types();
     let mut classes = if args.foreign_types.is_empty() {
         let paths = QtPaths::query().context("failed to query Qt paths")?;
