@@ -68,6 +68,12 @@ fn dump_metatypes(args: &DumpMetatypesArgs) -> Result<(), CommandError> {
     // TODO: report ignored: https://github.com/dtolnay/serde-ignored ?
     let mut units: Vec<metatype::CompilationUnit> = serde_json::from_str(&data)
         .with_context(|| format!("failed to parse metatypes file: {}", args.input.display()))?;
+    units.push(metatype::CompilationUnit {
+        classes: metatype_tweak::internal_widgets_classes()
+            .into_iter()
+            .collect(),
+        ..Default::default()
+    });
     for u in units.iter_mut() {
         metatype_tweak::fix_classes(&mut u.classes);
         for c in u.classes.iter_mut() {

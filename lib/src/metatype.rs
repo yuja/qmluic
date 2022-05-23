@@ -323,7 +323,7 @@ pub struct Argument {
     pub r#type: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompilationUnit {
     #[serde(default)]

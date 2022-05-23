@@ -5,7 +5,8 @@ use crate::metatype::{Class, Property};
 /// Applies all modifications on the given `classes` data.
 pub fn apply_all(classes: &mut Vec<Class>) {
     fix_classes(classes);
-    classes.extend(internal_classes());
+    classes.extend(internal_core_classes());
+    classes.extend(internal_widgets_classes());
 }
 
 /// Updates existing class meta data.
@@ -38,9 +39,9 @@ fn fix_grid_layout(cls: &mut Class) {
     ]);
 }
 
-/// Creates meta data for classes which are internally required, but not defined in
-/// the Qt metatypes.json.
-pub fn internal_classes() -> impl IntoIterator<Item = Class> {
+/// Creates meta data for QtCore classes which are internally required, but not defined
+/// in the Qt metatypes.json.
+pub fn internal_core_classes() -> impl IntoIterator<Item = Class> {
     [
         Class {
             class_name: "QRect".to_owned(),
@@ -62,9 +63,17 @@ pub fn internal_classes() -> impl IntoIterator<Item = Class> {
             ],
             ..Default::default()
         },
+    ]
+}
+
+/// Creates meta data for QtWidgets classes which are internally required, but not defined
+/// in the Qt metatypes.json.
+pub fn internal_widgets_classes() -> impl IntoIterator<Item = Class> {
+    [
         Class {
             class_name: "QSpacerItem".to_owned(),
             qualified_class_name: "QSpacerItem".to_owned(),
+            object: true, // mark as "creatable" object in .qmltypes
             properties: vec![
                 // follows uic names
                 Property::new("orientation", "Qt::Orientation"),
