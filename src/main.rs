@@ -66,9 +66,15 @@ fn dump_metatypes(args: &DumpMetatypesArgs) -> Result<(), CommandError> {
     let data = fs::read_to_string(&args.input)
         .with_context(|| format!("failed to load metatypes file: {}", args.input.display()))?;
     // TODO: report ignored: https://github.com/dtolnay/serde-ignored ?
-    let units: Vec<metatype::CompilationUnit> = serde_json::from_str(&data)
+    let mut units: Vec<metatype::CompilationUnit> = serde_json::from_str(&data)
         .with_context(|| format!("failed to parse metatypes file: {}", args.input.display()))?;
-    // TODO
+    for u in units.iter_mut() {
+        metatype_tweak::fix_classes(&mut u.classes);
+        for c in u.classes.iter_mut() {
+            c.class_infos
+                .push(metatype::ClassInfo::new("QML.Element", "auto"));
+        }
+    }
     if let Some(p) = &args.output {
         with_output_file(p, |out| {
             serde_json::to_writer_pretty(BufWriter::new(out), &units)

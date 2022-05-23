@@ -131,6 +131,20 @@ pub struct ClassInfo {
     pub value: String,
 }
 
+impl ClassInfo {
+    /// Creates class info pair.
+    pub fn new<S, T>(name: S, value: T) -> Self
+    where
+        S: Into<String>,
+        T: Into<String>,
+    {
+        ClassInfo {
+            name: name.into(),
+            value: value.into(),
+        }
+    }
+}
+
 /// Qt plugin interface identifier. (see `Q_DECLARE_INTERFACE()`)
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
