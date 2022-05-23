@@ -95,7 +95,10 @@ fn dump_metatypes(args: &DumpMetatypesArgs) -> Result<(), CommandError> {
     });
 
     if let Some(metatypes_path) = &args.output_metatypes {
-        with_output_file(metatypes_path, |out| {
+        let perm = fs::metadata(&args.input)
+            .context("failed to get source file permission")?
+            .permissions(); // assume this is the default file permissions
+        with_output_file(metatypes_path, perm, |out| {
             serde_json::to_writer_pretty(BufWriter::new(out), &units)
         })
         .with_context(|| format!("failed to dump metatypes to file: {metatypes_path}"))?;
@@ -274,7 +277,7 @@ fn print_diagnostic(doc: &qmlast::UiDocument, diag: &Diagnostic) -> io::Result<(
     report.eprint(Source::from(doc.source()))
 }
 
-fn with_output_file<P, F, E>(path: P, f: F) -> anyhow::Result<()>
+fn with_output_file<P, F, E>(path: P, perm: fs::Permissions, f: F) -> anyhow::Result<()>
 where
     P: AsRef<Path>,
     F: FnOnce(&mut NamedTempFile) -> Result<(), E>,
@@ -284,6 +287,7 @@ where
     let mut out =
         NamedTempFile::new_in(path.parent().ok_or_else(|| anyhow!("invalid file name"))?)?;
     f(&mut out)?;
+    out.as_file().set_permissions(perm)?;
     out.persist(path)?;
     Ok(())
 }
