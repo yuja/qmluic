@@ -9,6 +9,3 @@
 
 # Qt Creator
 *.qmlproject.user
-
-# Generated files
-/contrib/imports/**/plugins.qmltypes
