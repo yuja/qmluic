@@ -1,6 +1,6 @@
+use camino::Utf8PathBuf;
 use std::fmt;
 use std::io;
-use std::path::PathBuf;
 use std::process::Command;
 use std::str;
 use thiserror::Error;
@@ -8,27 +8,27 @@ use thiserror::Error;
 /// Information about Qt installation.
 #[derive(Clone, Debug, Default)]
 pub struct QtPaths {
-    pub sysroot: Option<PathBuf>,
-    pub install_prefix: Option<PathBuf>,
-    pub install_archdata: Option<PathBuf>,
-    pub install_data: Option<PathBuf>,
-    pub install_docs: Option<PathBuf>,
-    pub install_headers: Option<PathBuf>,
-    pub install_libs: Option<PathBuf>,
-    pub install_libexecs: Option<PathBuf>,
-    pub install_bins: Option<PathBuf>,
-    pub install_tests: Option<PathBuf>,
-    pub install_plugins: Option<PathBuf>,
-    pub install_imports: Option<PathBuf>,
-    pub install_qml: Option<PathBuf>,
-    pub install_translations: Option<PathBuf>,
-    pub install_configuration: Option<PathBuf>,
-    pub install_examples: Option<PathBuf>,
-    pub install_demos: Option<PathBuf>,
-    pub host_prefix: Option<PathBuf>,
-    pub host_data: Option<PathBuf>,
-    pub host_bins: Option<PathBuf>,
-    pub host_libs: Option<PathBuf>,
+    pub sysroot: Option<Utf8PathBuf>,
+    pub install_prefix: Option<Utf8PathBuf>,
+    pub install_archdata: Option<Utf8PathBuf>,
+    pub install_data: Option<Utf8PathBuf>,
+    pub install_docs: Option<Utf8PathBuf>,
+    pub install_headers: Option<Utf8PathBuf>,
+    pub install_libs: Option<Utf8PathBuf>,
+    pub install_libexecs: Option<Utf8PathBuf>,
+    pub install_bins: Option<Utf8PathBuf>,
+    pub install_tests: Option<Utf8PathBuf>,
+    pub install_plugins: Option<Utf8PathBuf>,
+    pub install_imports: Option<Utf8PathBuf>,
+    pub install_qml: Option<Utf8PathBuf>,
+    pub install_translations: Option<Utf8PathBuf>,
+    pub install_configuration: Option<Utf8PathBuf>,
+    pub install_examples: Option<Utf8PathBuf>,
+    pub install_demos: Option<Utf8PathBuf>,
+    pub host_prefix: Option<Utf8PathBuf>,
+    pub host_data: Option<Utf8PathBuf>,
+    pub host_bins: Option<Utf8PathBuf>,
+    pub host_libs: Option<Utf8PathBuf>,
     // QMAKE_SPEC:linux-g++
     // QMAKE_XSPEC:linux-g++
     // QMAKE_VERSION:3.1
@@ -134,10 +134,10 @@ impl fmt::Display for QtVersion {
     }
 }
 
-fn to_path_buf(s: &str) -> Option<PathBuf> {
+fn to_path_buf(s: &str) -> Option<Utf8PathBuf> {
     if s.is_empty() {
         None
     } else {
-        Some(PathBuf::from(s.to_owned()))
+        Some(Utf8PathBuf::from(s))
     }
 }

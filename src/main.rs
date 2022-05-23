@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use anyhow::{anyhow, Context as _};
+use camino::{Utf8Path, Utf8PathBuf};
 use clap::{Args, Parser, Subcommand};
 use qmluic::diagnostic::{Diagnostic, DiagnosticKind, Diagnostics};
 use qmluic::metatype;
@@ -11,7 +12,7 @@ use qmluic::uigen::{self, BuildContext, XmlWriter};
 use qmluic_cli::QtPaths;
 use std::fs;
 use std::io::{self, BufWriter, Write as _};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process;
 use tempfile::NamedTempFile;
 use thiserror::Error;
@@ -60,21 +61,21 @@ fn dispatch(cli: &Cli) -> Result<(), CommandError> {
 #[derive(Args, Clone, Debug)]
 struct DumpMetatypesArgs {
     /// Source metatypes file (.json)
-    input: PathBuf,
+    input: Utf8PathBuf,
     #[clap(short = 'o', long)]
     /// Write metatypes output to file (e.g. metatypes.json)
-    output_metatypes: Option<PathBuf>,
+    output_metatypes: Option<Utf8PathBuf>,
     #[clap(long)]
     /// Write qmltypes output to file (e.g. plugins.qmltypes)
-    output_qmltypes: Option<PathBuf>,
+    output_qmltypes: Option<Utf8PathBuf>,
 }
 
 fn dump_metatypes(args: &DumpMetatypesArgs) -> Result<(), CommandError> {
     let data = fs::read_to_string(&args.input)
-        .with_context(|| format!("failed to load metatypes file: {}", args.input.display()))?;
+        .with_context(|| format!("failed to load metatypes file: {}", args.input))?;
     // TODO: report ignored: https://github.com/dtolnay/serde-ignored ?
     let mut units: Vec<metatype::CompilationUnit> = serde_json::from_str(&data)
-        .with_context(|| format!("failed to parse metatypes file: {}", args.input.display()))?;
+        .with_context(|| format!("failed to parse metatypes file: {}", args.input))?;
 
     for u in units.iter_mut() {
         metatype_tweak::fix_classes(&mut u.classes);
@@ -97,12 +98,7 @@ fn dump_metatypes(args: &DumpMetatypesArgs) -> Result<(), CommandError> {
         with_output_file(metatypes_path, |out| {
             serde_json::to_writer_pretty(BufWriter::new(out), &units)
         })
-        .with_context(|| {
-            format!(
-                "failed to dump metatypes to file: {}",
-                metatypes_path.display()
-            )
-        })?;
+        .with_context(|| format!("failed to dump metatypes to file: {metatypes_path}"))?;
         if let Some(qmltypes_path) = &args.output_qmltypes {
             generate_qmltypes(
                 &QtPaths::query().context("failed to query Qt paths")?,
@@ -121,7 +117,10 @@ fn dump_metatypes(args: &DumpMetatypesArgs) -> Result<(), CommandError> {
         generate_qmltypes(
             &QtPaths::query().context("failed to query Qt paths")?,
             qmltypes_path,
-            metatypes_file.path(),
+            metatypes_file
+                .path()
+                .try_into()
+                .expect("temporary file name should be valid utf-8"),
         )?;
     } else {
         let stdout = io::stdout();
@@ -133,8 +132,8 @@ fn dump_metatypes(args: &DumpMetatypesArgs) -> Result<(), CommandError> {
 
 fn generate_qmltypes(
     qt_paths: &QtPaths,
-    output_qmltypes: &Path,
-    source_metatypes: &Path,
+    output_qmltypes: &Utf8Path,
+    source_metatypes: &Utf8Path,
 ) -> Result<(), CommandError> {
     let bin_path = qt_paths
         .install_bins
@@ -148,15 +147,10 @@ fn generate_qmltypes(
     let qt_version = qt_paths
         .version
         .ok_or_else(|| anyhow!("Qt version cannot be detected"))?;
-    if output_qmltypes
-        .to_str()
-        .map(|s| s.starts_with('-'))
-        .unwrap_or(true)
-    {
+    if output_qmltypes.as_str().starts_with('-') {
         // qmltyperegistrar doesn't support "--" separator
         return Err(CommandError::Other(anyhow!(
-            "invalid output file name: {}",
-            output_qmltypes.display()
+            "invalid output file name: {output_qmltypes}"
         )));
     }
     let mut cmd = process::Command::new(bin_path.join("qmltyperegistrar"));
@@ -186,10 +180,10 @@ fn generate_qmltypes(
 #[derive(Args, Clone, Debug)]
 struct GenerateUiArgs {
     /// QML File to parse
-    file: PathBuf,
+    file: Utf8PathBuf,
     #[clap(long)]
     /// Qt metatypes.json file to load (default: QT_INSTALL_LIBS/metatypes)
-    foreign_types: Vec<PathBuf>,
+    foreign_types: Vec<Utf8PathBuf>,
 }
 
 fn generate_ui(args: &GenerateUiArgs) -> Result<(), CommandError> {
@@ -209,7 +203,7 @@ fn generate_ui(args: &GenerateUiArgs) -> Result<(), CommandError> {
     type_map.extend(classes);
 
     let doc = qmlast::UiDocument::read(&args.file)
-        .with_context(|| format!("failed to load QML source: {}", args.file.display()))?;
+        .with_context(|| format!("failed to load QML source: {}", args.file))?;
     if doc.has_syntax_error() {
         print_syntax_errors(&doc).map_err(anyhow::Error::from)?;
         return Err(CommandError::DiagnosticGenerated);
@@ -233,8 +227,8 @@ fn generate_ui(args: &GenerateUiArgs) -> Result<(), CommandError> {
     Ok(())
 }
 
-fn load_metatypes(paths: &[PathBuf]) -> anyhow::Result<Vec<metatype::Class>> {
-    fn load_into(classes: &mut Vec<metatype::Class>, path: &Path) -> io::Result<()> {
+fn load_metatypes(paths: &[Utf8PathBuf]) -> anyhow::Result<Vec<metatype::Class>> {
+    fn load_into(classes: &mut Vec<metatype::Class>, path: &Utf8Path) -> io::Result<()> {
         let data = fs::read_to_string(path)?;
         let cs = metatype::extract_classes_from_str(&data)?;
         classes.extend(cs);
@@ -244,10 +238,11 @@ fn load_metatypes(paths: &[PathBuf]) -> anyhow::Result<Vec<metatype::Class>> {
     paths.iter().fold(Ok(vec![]), |acc, path| {
         acc.and_then(|mut classes| {
             if path.is_dir() {
-                for e in fs::read_dir(path)? {
-                    let p = e?.path();
-                    if p.extension().map(|e| e == "json").unwrap_or(false) {
-                        load_into(&mut classes, &p)?;
+                for r in path.read_dir_utf8()? {
+                    let e = r?;
+                    let p = e.path();
+                    if p.as_str().ends_with(".json") {
+                        load_into(&mut classes, p)?;
                     }
                 }
             } else {
