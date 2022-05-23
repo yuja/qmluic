@@ -14,6 +14,7 @@ pub fn fix_classes(classes: &mut [Class]) {
     for cls in classes.iter_mut() {
         match cls.qualified_class_name.as_ref() {
             "QGridLayout" => fix_grid_layout(cls),
+            "QLayout" => fix_layout(cls),
             "QWidget" => fix_widget(cls),
             _ => {}
         }
@@ -38,6 +39,19 @@ fn fix_grid_layout(cls: &mut Class) {
             ..Default::default()
         },
     ]);
+}
+
+fn fix_layout(cls: &mut Class) {
+    if !cls.properties.iter().any(|p| p.name == "contentsMargins") {
+        // Qt 5
+        cls.properties.push(Property {
+            name: "contentsMargins".to_owned(),
+            r#type: "QMargins".to_owned(),
+            read: Some("contentsMargins".to_owned()),
+            write: Some("setContentsMargins".to_owned()),
+            ..Default::default()
+        });
+    }
 }
 
 fn fix_widget(cls: &mut Class) {
