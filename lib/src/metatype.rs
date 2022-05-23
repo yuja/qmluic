@@ -1,12 +1,12 @@
 //! Qt metatypes.json data types.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 // TODO: Symbols are stored as owned strings, but we'll eventually want to intern them,
 // where we can probably remove these temporary owned strings at all.
 
 /// C++ access specifier.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AccessSpecifier {
     Private,
@@ -15,7 +15,7 @@ pub enum AccessSpecifier {
 }
 
 /// Class metadata.
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Class {
     pub class_name: String,
@@ -103,7 +103,7 @@ fn unqualify_name(name: &str) -> &str {
 }
 
 /// Super class reference with the access specifier.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SuperClassSpecifier {
     pub name: String,
@@ -124,7 +124,7 @@ impl SuperClassSpecifier {
 }
 
 /// Extra class metadata. (e.g. `""QML.Element"`" name)
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClassInfo {
     pub name: String,
@@ -132,7 +132,7 @@ pub struct ClassInfo {
 }
 
 /// Qt plugin interface identifier. (see `Q_DECLARE_INTERFACE()`)
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Interface {
     pub class_name: String,
@@ -140,7 +140,7 @@ pub struct Interface {
 }
 
 /// Enum (and flag) metadata.
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Enum {
     pub name: String,
@@ -192,7 +192,7 @@ impl Enum {
 }
 
 /// Property metadata.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Property {
     pub name: String,
@@ -277,7 +277,7 @@ impl Default for Property {
 }
 
 /// Signal, slot, or callable function metadata.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Method {
     pub name: String,
@@ -302,14 +302,14 @@ impl Default for Method {
 }
 
 /// Signal, slot, or callable function argument.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Argument {
     pub name: Option<String>,
     pub r#type: String,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompilationUnit {
     #[serde(default)]
