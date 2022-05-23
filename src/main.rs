@@ -170,7 +170,7 @@ fn generate_qmltypes(
         .arg(output_qmltypes)
         .arg(source_metatypes)
         .stdout(process::Stdio::null());
-    eprintln!("executing {cmd:?}"); // TODO: maybe use log?
+    log::info!("executing {cmd:?}");
     let status = cmd.status().context("failed to run qmltyperegistrar")?;
     if status.success() {
         Ok(())

@@ -38,7 +38,10 @@ pub struct QtPaths {
 impl QtPaths {
     /// Queries paths by executing `qmake -query`.
     pub fn query() -> Result<Self, QueryError> {
-        let output = Command::new("qmake").arg("-query").output()?;
+        let mut cmd = Command::new("qmake");
+        cmd.arg("-query");
+        log::info!("executing {cmd:?}");
+        let output = cmd.output()?;
         if !output.status.success() {
             return Err(QueryError::CommandFailed(
                 String::from_utf8_lossy(&output.stderr).to_string(),
