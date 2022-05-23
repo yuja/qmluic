@@ -1,7 +1,9 @@
+use std::fmt;
 use std::io;
 use std::path::PathBuf;
 use std::process::Command;
 use std::str;
+use thiserror::Error;
 
 /// Information about Qt installation.
 #[derive(Clone, Debug, Default)]
@@ -30,28 +32,22 @@ pub struct QtPaths {
     // QMAKE_SPEC:linux-g++
     // QMAKE_XSPEC:linux-g++
     // QMAKE_VERSION:3.1
-    // QT_VERSION:5.15.2
+    pub version: Option<QtVersion>,
 }
 
 impl QtPaths {
     /// Queries paths by executing `qmake -query`.
-    pub fn query() -> io::Result<Self> {
+    pub fn query() -> Result<Self, QueryError> {
         let output = Command::new("qmake").arg("-query").output()?;
         if !output.status.success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "qmake -query failed: {}",
-                    String::from_utf8_lossy(&output.stderr)
-                ),
+            return Err(QueryError::CommandFailed(
+                String::from_utf8_lossy(&output.stderr).to_string(),
             ));
         }
-        Ok(Self::parse(str::from_utf8(&output.stdout).map_err(
-            |e| io::Error::new(io::ErrorKind::InvalidData, e),
-        )?))
+        Self::parse(str::from_utf8(&output.stdout)?)
     }
 
-    fn parse(data: &str) -> Self {
+    fn parse(data: &str) -> Result<Self, QueryError> {
         let mut paths = QtPaths::default();
         for line in data.lines() {
             if let Some((k, v)) = line.split_once(':') {
@@ -77,11 +73,61 @@ impl QtPaths {
                     "QT_HOST_DATA" => paths.host_data = to_path_buf(v),
                     "QT_HOST_BINS" => paths.host_bins = to_path_buf(v),
                     "QT_HOST_LIBS" => paths.host_libs = to_path_buf(v),
+                    "QT_VERSION" => paths.version = Some(v.try_into()?),
                     _ => {}
                 }
             }
         }
-        paths
+        Ok(paths)
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum QueryError {
+    #[error(transparent)]
+    Io(#[from] io::Error),
+    #[error("qmake -query failed: {0}")]
+    CommandFailed(String),
+    #[error("invalid content: {0}")]
+    InvalidData(#[from] str::Utf8Error),
+    #[error("invalid version digits: {0}")]
+    ParseVersion(String),
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct QtVersion {
+    pub major: u8,
+    pub minor: u8,
+    pub patch: u8,
+}
+
+impl TryFrom<&str> for QtVersion {
+    type Error = QueryError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let parse_one = |x: Option<&str>| {
+            x.and_then(|s| s.parse().ok())
+                .ok_or_else(|| QueryError::ParseVersion(value.to_owned()))
+        };
+        let mut digits = value.splitn(3, '.');
+        let major = parse_one(digits.next())?;
+        let minor = parse_one(digits.next())?;
+        let patch = parse_one(digits.next())?;
+        if digits.next().is_none() {
+            Ok(QtVersion {
+                major,
+                minor,
+                patch,
+            })
+        } else {
+            Err(QueryError::ParseVersion(value.to_owned()))
+        }
+    }
+}
+
+impl fmt::Display for QtVersion {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
     }
 }
 
