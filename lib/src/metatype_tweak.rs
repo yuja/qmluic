@@ -113,6 +113,7 @@ pub fn internal_widgets_classes() -> impl IntoIterator<Item = Class> {
         Class {
             class_name: "QSpacerItem".to_owned(),
             qualified_class_name: "QSpacerItem".to_owned(),
+            class_infos: vec![ClassInfo::new("QML.Element", "auto")],
             object: true, // mark as "creatable" object in .qmltypes
             properties: vec![
                 // follows uic names
