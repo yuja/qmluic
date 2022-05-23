@@ -14,6 +14,7 @@ pub fn fix_classes(classes: &mut [Class]) {
     for cls in classes.iter_mut() {
         match cls.qualified_class_name.as_ref() {
             "QGridLayout" => fix_grid_layout(cls),
+            "QWidget" => fix_widget(cls),
             _ => {}
         }
     }
@@ -36,6 +37,12 @@ fn fix_grid_layout(cls: &mut Class) {
             write: Some("setVerticalSpacing".to_owned()),
             ..Default::default()
         },
+    ]);
+}
+
+fn fix_widget(cls: &mut Class) {
+    cls.properties.extend([
+        Property::new("actions", "QList<QAction*>"), // handled by uigen
     ]);
 }
 
