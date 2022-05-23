@@ -10,7 +10,7 @@ use qmluic::typemap::TypeMap;
 use qmluic::uigen::{self, BuildContext, XmlWriter};
 use qmluic_cli::QtPaths;
 use std::fs;
-use std::io::{self, BufWriter};
+use std::io::{self, BufWriter, Write as _};
 use std::path::{Path, PathBuf};
 use std::process;
 use tempfile::NamedTempFile;
@@ -52,14 +52,20 @@ fn dispatch(cli: &Cli) -> Result<(), CommandError> {
     }
 }
 
-/// Apply tweaks on QtWidgets metatypes and output modified version (.json)
+/// Apply tweaks on QtWidgets metatypes and output modified version
+///
+/// If --output-qmltypes is specified, qmltyperegistrar will be invoked with the metatypes
+/// to generate qmltypes.
 #[derive(Args, Clone, Debug)]
 struct DumpMetatypesArgs {
     /// Source metatypes file (.json)
     input: PathBuf,
     #[clap(short = 'o', long)]
-    /// Write output to file (default: stdout)
-    output: Option<PathBuf>,
+    /// Write metatypes output to file (e.g. metatypes.json)
+    output_metatypes: Option<PathBuf>,
+    #[clap(long)]
+    /// Write qmltypes output to file (e.g. plugins.qmltypes)
+    output_qmltypes: Option<PathBuf>,
 }
 
 fn dump_metatypes(args: &DumpMetatypesArgs) -> Result<(), CommandError> {
@@ -86,17 +92,93 @@ fn dump_metatypes(args: &DumpMetatypesArgs) -> Result<(), CommandError> {
         ..Default::default()
     });
 
-    if let Some(p) = &args.output {
-        with_output_file(p, |out| {
+    if let Some(metatypes_path) = &args.output_metatypes {
+        with_output_file(metatypes_path, |out| {
             serde_json::to_writer_pretty(BufWriter::new(out), &units)
         })
-        .with_context(|| format!("failed to dump metatypes to file: {}", p.display()))?;
+        .with_context(|| {
+            format!(
+                "failed to dump metatypes to file: {}",
+                metatypes_path.display()
+            )
+        })?;
+        if let Some(qmltypes_path) = &args.output_qmltypes {
+            generate_qmltypes(
+                &QtPaths::query().context("failed to query Qt paths")?,
+                qmltypes_path,
+                metatypes_path,
+            )?;
+        }
+    } else if let Some(qmltypes_path) = &args.output_qmltypes {
+        let mut metatypes_file =
+            NamedTempFile::new().context("failed to create temporary metatypes file")?;
+        serde_json::to_writer_pretty(BufWriter::new(&mut metatypes_file), &units)
+            .context("failed to dump temporary metatypes")?;
+        metatypes_file
+            .flush()
+            .context("failed to dump temporary metatypes")?;
+        generate_qmltypes(
+            &QtPaths::query().context("failed to query Qt paths")?,
+            qmltypes_path,
+            metatypes_file.path(),
+        )?;
     } else {
         let stdout = io::stdout();
         serde_json::to_writer_pretty(BufWriter::new(stdout.lock()), &units)
             .context("failed to dump metatypes")?;
     }
     Ok(())
+}
+
+fn generate_qmltypes(
+    qt_paths: &QtPaths,
+    output_qmltypes: &Path,
+    source_metatypes: &Path,
+) -> Result<(), CommandError> {
+    let bin_path = qt_paths
+        .install_bins
+        .as_ref()
+        .ok_or_else(|| anyhow!("qmltyperegistrar path cannot be detected"))?;
+    let metatypes_path = qt_paths
+        .install_libs
+        .as_ref()
+        .map(|p| p.join("metatypes"))
+        .ok_or_else(|| anyhow!("Qt metatypes path cannot be detected"))?;
+    let qt_version = qt_paths
+        .version
+        .ok_or_else(|| anyhow!("Qt version cannot be detected"))?;
+    if output_qmltypes
+        .to_str()
+        .map(|s| s.starts_with('-'))
+        .unwrap_or(true)
+    {
+        // qmltyperegistrar doesn't support "--" separator
+        return Err(CommandError::Other(anyhow!(
+            "invalid output file name: {}",
+            output_qmltypes.display()
+        )));
+    }
+    let mut cmd = process::Command::new(bin_path.join("qmltyperegistrar"));
+    cmd.arg("--import-name")
+        .arg("qmluic.QtWidgets")
+        .arg("--major-version")
+        .arg(qt_version.major.to_string())
+        .arg("--foreign-types")
+        .arg(metatypes_path.join(format!("qt{}core_metatypes.json", qt_version.major)))
+        .arg("--generate-qmltypes")
+        .arg(output_qmltypes)
+        .arg(source_metatypes)
+        .stdout(process::Stdio::null());
+    eprintln!("executing {cmd:?}"); // TODO: maybe use log?
+    let status = cmd.status().context("failed to run qmltyperegistrar")?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(CommandError::Other(anyhow!(
+            "qmltyperegistrar exited with {}",
+            status.code().unwrap_or(-1)
+        )))
+    }
 }
 
 /// Generate UI XML (.ui) from QML (.qml)
