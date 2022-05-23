@@ -1,6 +1,6 @@
 //! Modifications on Qt metatypes data.
 
-use crate::metatype::{Class, Property};
+use crate::metatype::{Class, ClassInfo, Property};
 
 /// Applies all modifications on the given `classes` data.
 pub fn apply_all(classes: &mut Vec<Class>) {
@@ -42,6 +42,8 @@ fn fix_grid_layout(cls: &mut Class) {
 }
 
 fn fix_layout(cls: &mut Class) {
+    cls.class_infos
+        .push(ClassInfo::new("QML.Attached", "QLayoutAttached"));
     if !cls.properties.iter().any(|p| p.name == "contentsMargins") {
         // Qt 5
         cls.properties.push(Property {
@@ -91,6 +93,23 @@ pub fn internal_core_classes() -> impl IntoIterator<Item = Class> {
 /// in the Qt metatypes.json.
 pub fn internal_widgets_classes() -> impl IntoIterator<Item = Class> {
     [
+        Class {
+            class_name: "QLayoutAttached".to_owned(),
+            qualified_class_name: "QLayoutAttached".to_owned(),
+            object: true,
+            properties: vec![
+                Property::new("alignment", "Qt::Alignment"),
+                Property::new("column", "int"),
+                Property::new("columnMinimumWidth", "int"),
+                Property::new("columnSpan", "int"),
+                Property::new("columnStretch", "int"),
+                Property::new("row", "int"),
+                Property::new("rowMinimumHeight", "int"),
+                Property::new("rowSpan", "int"),
+                Property::new("rowStretch", "int"),
+            ],
+            ..Default::default()
+        },
         Class {
             class_name: "QSpacerItem".to_owned(),
             qualified_class_name: "QSpacerItem".to_owned(),

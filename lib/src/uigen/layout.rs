@@ -219,6 +219,7 @@ impl<'t> LayoutItemAttached<'t> {
         let binding_map = attached_type_map.get(["QLayout"].as_ref())?; // TODO: resolve against imported types
         let mut properties = LayoutItemAttached::default();
         for (&name, value) in binding_map {
+            // should be kept sync with QLayoutAttached definition in metatype_tweak.rs
             match name {
                 "alignment" => {
                     // type name is resolved within C++ metatype space, which is correct
