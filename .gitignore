@@ -9,3 +9,6 @@
 
 # Qt Creator
 *.qmlproject.user
+
+# qmluic
+/examples/*.ui

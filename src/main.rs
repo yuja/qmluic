@@ -182,8 +182,9 @@ fn generate_qmltypes(
 /// Generate UI XML (.ui) from QML (.qml)
 #[derive(Args, Clone, Debug)]
 struct GenerateUiArgs {
-    /// QML File to parse
-    file: Utf8PathBuf,
+    /// QML files to parse
+    #[clap(required = true)]
+    sources: Vec<Utf8PathBuf>,
     #[clap(long)]
     /// Qt metatypes.json file to load (default: QT_INSTALL_LIBS/metatypes)
     foreign_types: Vec<Utf8PathBuf>,
@@ -205,28 +206,40 @@ fn generate_ui(args: &GenerateUiArgs) -> Result<(), CommandError> {
     metatype_tweak::apply_all(&mut classes);
     type_map.extend(classes);
 
-    let doc = qmlast::UiDocument::read(&args.file)
-        .with_context(|| format!("failed to load QML source: {}", args.file))?;
+    for p in &args.sources {
+        generate_ui_file(&type_map, p)?;
+    }
+    Ok(())
+}
+
+fn generate_ui_file(type_map: &TypeMap, source: &Utf8Path) -> Result<(), CommandError> {
+    let doc = qmlast::UiDocument::read(source)
+        .with_context(|| format!("failed to load QML source: {source}"))?;
     if doc.has_syntax_error() {
         print_syntax_errors(&doc).map_err(anyhow::Error::from)?;
         return Err(CommandError::DiagnosticGenerated);
     }
 
-    let ctx = BuildContext::prepare(&type_map, &doc).map_err(anyhow::Error::from)?;
-    let stdout = io::stdout();
+    let ctx = BuildContext::prepare(type_map, &doc).map_err(anyhow::Error::from)?;
     let mut diagnostics = Diagnostics::new();
-    let form_opt = uigen::build(&ctx, &doc, &mut diagnostics);
-    if form_opt.is_none() || !diagnostics.is_empty() {
-        for d in &diagnostics {
-            print_diagnostic(&doc, d).map_err(anyhow::Error::from)?;
+    let form = match uigen::build(&ctx, &doc, &mut diagnostics) {
+        Some(form) if diagnostics.is_empty() => form,
+        _ => {
+            for d in &diagnostics {
+                print_diagnostic(&doc, d).map_err(anyhow::Error::from)?;
+            }
+            return Err(CommandError::DiagnosticGenerated);
         }
-        return Err(CommandError::DiagnosticGenerated);
-    }
+    };
 
-    form_opt
-        .map(|f| f.serialize_to_xml(&mut XmlWriter::new_with_indent(stdout.lock(), b' ', 1)))
-        .unwrap_or(Ok(()))
-        .context("failed to write UI XML")?;
+    let perm = fs::metadata(source)
+        .context("failed to get source file permission")?
+        .permissions(); // assume this is the default file permissions
+    with_output_file(source.with_extension("ui"), perm, |out| {
+        let mut writer = XmlWriter::new_with_indent(BufWriter::new(out), b' ', 1);
+        form.serialize_to_xml(&mut writer)
+    })
+    .context("failed to write UI XML")?;
     Ok(())
 }
 
