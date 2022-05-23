@@ -37,6 +37,7 @@ enum CommandError {
 }
 
 fn main() -> anyhow::Result<()> {
+    pretty_env_logger::init_custom_env("QMLUIC_LOG");
     let cli = Cli::parse();
     match dispatch(&cli) {
         Ok(()) => Ok(()),
