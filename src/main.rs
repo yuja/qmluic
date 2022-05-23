@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use anyhow::Context as _;
+use anyhow::{anyhow, Context as _};
 use clap::{Args, Parser, Subcommand};
 use qmluic::diagnostic::{Diagnostic, DiagnosticKind, Diagnostics};
 use qmluic::metatype;
@@ -10,9 +10,10 @@ use qmluic::typemap::TypeMap;
 use qmluic::uigen::{self, BuildContext, XmlWriter};
 use qmluic_cli::QtPaths;
 use std::fs;
-use std::io;
+use std::io::{self, BufWriter};
 use std::path::{Path, PathBuf};
 use std::process;
+use tempfile::NamedTempFile;
 use thiserror::Error;
 
 #[derive(Clone, Debug, Parser)]
@@ -23,6 +24,7 @@ struct Cli {
 
 #[derive(Clone, Debug, Subcommand)]
 enum Command {
+    DumpMetatypes(DumpMetatypesArgs),
     GenerateUi(GenerateUiArgs),
 }
 
@@ -45,8 +47,39 @@ fn main() -> anyhow::Result<()> {
 
 fn dispatch(cli: &Cli) -> Result<(), CommandError> {
     match &cli.command {
+        Command::DumpMetatypes(args) => dump_metatypes(args),
         Command::GenerateUi(args) => generate_ui(args),
     }
+}
+
+/// Apply tweaks on QtWidgets metatypes and output modified version (.json)
+#[derive(Args, Clone, Debug)]
+struct DumpMetatypesArgs {
+    /// Source metatypes file (.json)
+    input: PathBuf,
+    #[clap(short = 'o', long)]
+    /// Write output to file (default: stdout)
+    output: Option<PathBuf>,
+}
+
+fn dump_metatypes(args: &DumpMetatypesArgs) -> Result<(), CommandError> {
+    let data = fs::read_to_string(&args.input)
+        .with_context(|| format!("failed to load metatypes file: {}", args.input.display()))?;
+    // TODO: report ignored: https://github.com/dtolnay/serde-ignored ?
+    let units: Vec<metatype::CompilationUnit> = serde_json::from_str(&data)
+        .with_context(|| format!("failed to parse metatypes file: {}", args.input.display()))?;
+    // TODO
+    if let Some(p) = &args.output {
+        with_output_file(p, |out| {
+            serde_json::to_writer_pretty(BufWriter::new(out), &units)
+        })
+        .with_context(|| format!("failed to dump metatypes to file: {}", p.display()))?;
+    } else {
+        let stdout = io::stdout();
+        serde_json::to_writer_pretty(BufWriter::new(stdout.lock()), &units)
+            .context("failed to dump metatypes")?;
+    }
+    Ok(())
 }
 
 /// Generate UI XML (.ui) from QML (.qml)
@@ -144,4 +177,18 @@ fn print_diagnostic(doc: &qmlast::UiDocument, diag: &Diagnostic) -> io::Result<(
         .with_label(Label::new(start_char_index..end_char_index).with_color(Color::Yellow))
         .finish();
     report.eprint(Source::from(doc.source()))
+}
+
+fn with_output_file<P, F, E>(path: P, f: F) -> anyhow::Result<()>
+where
+    P: AsRef<Path>,
+    F: FnOnce(&mut NamedTempFile) -> Result<(), E>,
+    E: std::error::Error + Send + Sync + 'static,
+{
+    let path = path.as_ref();
+    let mut out =
+        NamedTempFile::new_in(path.parent().ok_or_else(|| anyhow!("invalid file name"))?)?;
+    f(&mut out)?;
+    out.persist(path)?;
+    Ok(())
 }
