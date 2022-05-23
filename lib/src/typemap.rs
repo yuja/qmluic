@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 use std::ptr;
 
 /// Storage to map type name to class or enum representation.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct TypeMap {
     data: TypeMapData,
 }
