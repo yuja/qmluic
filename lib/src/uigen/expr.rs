@@ -282,20 +282,6 @@ fn describe_primitive_type(t: PrimitiveType) -> Option<TypeDesc<'static>> {
     }
 }
 
-/// Evaluates the given `binding_value` to number.
-pub(super) fn evaluate_number<'a, P>(
-    parent_space: &P, // TODO: should be QML space, not C++ metatype space
-    binding_value: &UiBindingValue,
-    source: &str,
-    diagnostics: &mut Diagnostics,
-) -> Option<f64>
-where
-    P: TypeSpace<'a>,
-{
-    let ty = Type::Primitive(PrimitiveType::QReal); // don't care for the exact type
-    evaluate_number_of_type(parent_space, &ty, binding_value, source, diagnostics)
-}
-
 /// Evaluates the given `binding_value` to `i32`.
 pub(super) fn evaluate_i32<'a, P>(
     parent_space: &P, // TODO: should be QML space, not C++ metatype space
@@ -326,46 +312,6 @@ where
         Some(v)
     } else {
         None // diagnostic message should have been pushed
-    }
-}
-
-/// Formats the given `binding_value` as expression of enum `ty` type.
-pub(super) fn format_enum_expression<'a, P>(
-    parent_space: &P, // TODO: should be QML space, not C++ metatype space
-    ty: &Type,
-    binding_value: &UiBindingValue,
-    source: &str,
-    diagnostics: &mut Diagnostics,
-) -> Option<String>
-where
-    P: TypeSpace<'a>,
-{
-    let c =
-        ConstantValue::from_binding_value(parent_space, ty, binding_value, source, diagnostics)?;
-    match c {
-        ConstantValue::Enum(v) | ConstantValue::Set(v) => Some(v),
-        _ => None, // diagnostic message should have been pushed (so long as ty is enum)
-    }
-}
-
-/// Resolves type by `scoped_name`. Diagnostic message is generated for the given `node`.
-pub(super) fn resolve_type_scoped_for_node<'a, P>(
-    parent_space: &P,
-    scoped_name: &str,
-    node: Node,
-    diagnostics: &mut Diagnostics,
-) -> Option<Type<'a>>
-where
-    P: TypeSpace<'a>,
-{
-    if let Some(ty) = parent_space.resolve_type_scoped(scoped_name) {
-        Some(ty)
-    } else {
-        diagnostics.push(Diagnostic::error(
-            node.byte_range(),
-            format!("type cannot be resolved from type map: {scoped_name}"),
-        ));
-        None
     }
 }
 

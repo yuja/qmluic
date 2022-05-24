@@ -1,4 +1,5 @@
 use super::expr::{self, ConstantValue};
+use super::object;
 use super::xmlutil;
 use super::{BuildContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
@@ -199,36 +200,29 @@ impl SizePolicy {
         source: &str,
         diagnostics: &mut Diagnostics,
     ) -> Self {
-        let mut policy = SizePolicy::default();
-        for (&name, value) in binding_map {
-            match name {
-                "horizontalPolicy" => {
-                    policy.horizontal_policy = extract_size_policy(cls, value, source, diagnostics);
-                }
-                "verticalPolicy" => {
-                    policy.vertical_policy = extract_size_policy(cls, value, source, diagnostics);
-                }
-                "horizontalStretch" => {
-                    policy.horizontal_stretch =
-                        expr::evaluate_number(cls, value, source, diagnostics);
-                }
-                "verticalStretch" => {
-                    policy.vertical_stretch =
-                        expr::evaluate_number(cls, value, source, diagnostics);
-                }
-                _ => {
-                    diagnostics.push(Diagnostic::error(
-                        value.node().byte_range(),
-                        format!(
-                            "unknown property of class '{}': {}",
-                            cls.qualified_name(),
-                            name
-                        ),
-                    ));
-                }
-            }
+        let properties_map =
+            object::collect_properties(cls, binding_map, &[], source, diagnostics);
+        let expect_size_policy_property = |name| {
+            properties_map.get(name).map(|v| {
+                let s = v
+                    .as_enum()
+                    .expect("internal QSizePolicy property should be typed as enum");
+                s.strip_prefix("QSizePolicy::").unwrap_or(s).to_owned()
+            })
+        };
+        let expect_f64_property = |name| {
+            properties_map.get(name).map(|v| {
+                v.as_number()
+                    .expect("internal QSizePolicy property should be typed as number")
+            })
+        };
+        SizePolicy {
+            // should be kept sync with QSizePolicy definition in metatype_tweak.rs
+            horizontal_policy: expect_size_policy_property("horizontalPolicy"),
+            vertical_policy: expect_size_policy_property("verticalPolicy"),
+            horizontal_stretch: expect_f64_property("horizontalStretch"),
+            vertical_stretch: expect_f64_property("verticalStretch"),
         }
-        policy
     }
 
     /// Serializes this to UI XML.
@@ -255,16 +249,4 @@ impl SizePolicy {
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
     }
-}
-
-fn extract_size_policy(
-    cls: &Class,
-    value: &UiBindingValue,
-    source: &str,
-    diagnostics: &mut Diagnostics,
-) -> Option<String> {
-    let ty =
-        expr::resolve_type_scoped_for_node(cls, "QSizePolicy::Policy", value.node(), diagnostics)?;
-    expr::format_enum_expression(cls, &ty, value, source, diagnostics)
-        .and_then(|s| s.strip_prefix("QSizePolicy::").map(|t| t.to_owned()))
 }
