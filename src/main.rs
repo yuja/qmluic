@@ -3,13 +3,13 @@
 use anyhow::{anyhow, Context as _};
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::{Args, Parser, Subcommand};
-use qmluic::diagnostic::{Diagnostic, DiagnosticKind, Diagnostics};
+use qmluic::diagnostic::Diagnostics;
 use qmluic::metatype;
 use qmluic::metatype_tweak;
 use qmluic::qmlast;
 use qmluic::typemap::TypeMap;
 use qmluic::uigen::{self, BuildContext, XmlWriter};
-use qmluic_cli::QtPaths;
+use qmluic_cli::{reporting, QtPaths};
 use std::fs;
 use std::io::{self, BufWriter, Write as _};
 use std::path::Path;
@@ -216,7 +216,7 @@ fn generate_ui_file(type_map: &TypeMap, source: &Utf8Path) -> Result<(), Command
     let doc = qmlast::UiDocument::read(source)
         .with_context(|| format!("failed to load QML source: {source}"))?;
     if doc.has_syntax_error() {
-        print_syntax_errors(&doc).map_err(anyhow::Error::from)?;
+        reporting::print_syntax_errors(&doc)?;
         return Err(CommandError::DiagnosticGenerated);
     }
 
@@ -225,9 +225,7 @@ fn generate_ui_file(type_map: &TypeMap, source: &Utf8Path) -> Result<(), Command
     let form = match uigen::build(&ctx, &doc, &mut diagnostics) {
         Some(form) if diagnostics.is_empty() => form,
         _ => {
-            for d in &diagnostics {
-                print_diagnostic(&doc, d).map_err(anyhow::Error::from)?;
-            }
+            reporting::print_diagnostics(&doc, &diagnostics)?;
             return Err(CommandError::DiagnosticGenerated);
         }
     };
@@ -267,27 +265,6 @@ fn load_metatypes(paths: &[Utf8PathBuf]) -> anyhow::Result<Vec<metatype::Class>>
             Ok(classes)
         })
     })
-}
-
-fn print_syntax_errors(doc: &qmlast::UiDocument) -> io::Result<()> {
-    for e in &doc.collect_syntax_errors::<Vec<_>>() {
-        print_diagnostic(doc, &e.into())?;
-    }
-    Ok(())
-}
-
-fn print_diagnostic(doc: &qmlast::UiDocument, diag: &Diagnostic) -> io::Result<()> {
-    use ariadne::{Color, Label, Report, ReportKind, Source};
-    let kind = match diag.kind() {
-        DiagnosticKind::Error => ReportKind::Error,
-    };
-    let start_char_index = doc.source()[..diag.start_byte()].chars().count();
-    let end_char_index = start_char_index + doc.source()[diag.byte_range()].chars().count();
-    let report = Report::build(kind, (), start_char_index)
-        .with_message(diag.message())
-        .with_label(Label::new(start_char_index..end_char_index).with_color(Color::Yellow))
-        .finish();
-    report.eprint(Source::from(doc.source()))
 }
 
 fn with_output_file<P, F, E>(path: P, perm: fs::Permissions, f: F) -> anyhow::Result<()>
