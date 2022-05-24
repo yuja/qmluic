@@ -1,4 +1,4 @@
-use super::expr::{self, ConstantExpression, ConstantValue};
+use super::expr::{ConstantExpression, ConstantValue};
 use super::gadget::Margins;
 use super::object::{self, Widget};
 use super::BuildContext;
@@ -211,89 +211,52 @@ struct LayoutItemAttached<'t> {
 }
 
 impl<'t> LayoutItemAttached<'t> {
-    fn from_object_definition<'a, P>(
+    fn from_object_definition(
         ctx: &BuildContext,
-        parent_space: &P, // TODO: should be QML space, not C++ metatype space
         obj: &UiObjectDefinition<'t>,
         diagnostics: &mut Diagnostics,
-    ) -> Option<Self>
-    where
-        P: TypeSpace<'a>,
-    {
+    ) -> Option<Self> {
         let attached_type_map = diagnostics.consume_err(obj.build_attached_type_map(ctx.source))?;
         let binding_map = attached_type_map.get(["QLayout"].as_ref())?; // TODO: resolve against imported types
-        let mut properties = LayoutItemAttached::default();
-        for (&name, value) in binding_map {
+        let properties_map = object::collect_properties_with_binding_node(
+            &ctx.layout_attached_class,
+            binding_map,
+            &[],
+            ctx.source,
+            diagnostics,
+        );
+        let expect_enum_property = |name| {
+            properties_map.get(name).map(|(n, v)| {
+                (
+                    *n,
+                    v.as_enum()
+                        .expect("internal QLayoutAttached property should be typed as enum")
+                        .to_owned(),
+                )
+            })
+        };
+        let expect_i32_property = |name| {
+            properties_map.get(name).map(|(n, v)| {
+                (
+                    *n,
+                    v.as_number()
+                        .expect("internal QLayoutAttached property should be typed as number")
+                        as i32,
+                )
+            })
+        };
+        Some(LayoutItemAttached {
             // should be kept sync with QLayoutAttached definition in metatype_tweak.rs
-            match name {
-                "alignment" => {
-                    // type name is resolved within C++ metatype space, which is correct
-                    properties.alignment = expr::resolve_type_scoped_for_node(
-                        parent_space,
-                        "Qt::Alignment",
-                        value.node(),
-                        diagnostics,
-                    )
-                    .and_then(|ty| {
-                        expr::format_enum_expression(
-                            parent_space,
-                            &ty,
-                            value,
-                            ctx.source,
-                            diagnostics,
-                        )
-                    })
-                    .map(|v| (value.binding_node(), v));
-                }
-                "column" => {
-                    properties.column =
-                        expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
-                            .map(|v| (value.binding_node(), v));
-                }
-                "columnMinimumWidth" => {
-                    properties.column_minimum_width =
-                        expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
-                            .map(|v| (value.binding_node(), v));
-                }
-                "columnSpan" => {
-                    properties.column_span =
-                        expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
-                            .map(|v| (value.binding_node(), v));
-                }
-                "columnStretch" => {
-                    properties.column_stretch =
-                        expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
-                            .map(|v| (value.binding_node(), v));
-                }
-                "row" => {
-                    properties.row =
-                        expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
-                            .map(|v| (value.binding_node(), v));
-                }
-                "rowMinimumHeight" => {
-                    properties.row_minimum_height =
-                        expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
-                            .map(|v| (value.binding_node(), v));
-                }
-                "rowSpan" => {
-                    properties.row_span =
-                        expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
-                            .map(|v| (value.binding_node(), v));
-                }
-                "rowStretch" => {
-                    properties.row_stretch =
-                        expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
-                            .map(|v| (value.binding_node(), v));
-                }
-                _ => {
-                    diagnostics.push(Diagnostic::error(
-                        value.binding_node().byte_range(),
-                        "unknown layout property",
-                    ));
-                }
-            }
-        }
-        Some(properties)
+            alignment: expect_enum_property("alignment"),
+            column: expect_i32_property("column"),
+            column_minimum_width: expect_i32_property("columnMinimumWidth"),
+            column_span: expect_i32_property("columnSpan"),
+            column_stretch: expect_i32_property("columnStretch"),
+            row: expect_i32_property("row"),
+            row_minimum_height: expect_i32_property("rowMinimumHeight"),
+            row_span: expect_i32_property("rowSpan"),
+            row_stretch: expect_i32_property("rowStretch"),
+        })
     }
 }
 
@@ -569,8 +532,8 @@ fn make_layout_item_pair<'t>(
     diagnostics: &mut Diagnostics,
 ) -> Option<(LayoutItemAttached<'t>, LayoutItemContent)> {
     let (obj, cls) = object::resolve_object_definition(ctx, node, diagnostics)?;
-    let attached = LayoutItemAttached::from_object_definition(ctx, &cls, &obj, diagnostics)
-        .unwrap_or_default();
+    let attached =
+        LayoutItemAttached::from_object_definition(ctx, &obj, diagnostics).unwrap_or_default();
     let content = LayoutItemContent::from_object_definition(ctx, &cls, &obj, diagnostics)?;
     Some((attached, content))
 }

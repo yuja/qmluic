@@ -93,6 +93,20 @@ impl ConstantExpression {
             SizePolicy(x) => x.serialize_to_xml(writer),
         }
     }
+
+    pub fn as_number(&self) -> Option<f64> {
+        match self {
+            ConstantExpression::Value(ConstantValue::Number(x)) => Some(*x),
+            _ => None,
+        }
+    }
+
+    pub fn as_enum(&self) -> Option<&str> {
+        match self {
+            ConstantExpression::Value(ConstantValue::Enum(x) | ConstantValue::Set(x)) => Some(x),
+            _ => None,
+        }
+    }
 }
 
 /// Constant expression which can be serialized to UI XML as a simple tagged value.
