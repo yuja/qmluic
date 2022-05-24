@@ -1,5 +1,4 @@
 use super::expr::{ConstantExpression, ConstantValue};
-use super::gadget::Margins;
 use super::object::{self, Widget};
 use super::BuildContext;
 use super::{XmlResult, XmlWriter};
@@ -43,7 +42,7 @@ impl Layout {
         let mut properties_map = object::collect_properties_with_binding_node(
             cls,
             &binding_map,
-            &["contentsMargins"],
+            &[],
             ctx.source,
             diagnostics,
         );
@@ -70,10 +69,8 @@ impl Layout {
             .into_iter()
             .map(|(k, (_, x))| (k, x))
             .collect();
-        if let Some(m) = binding_map
-            .get("contentsMargins")
-            .and_then(|v| Margins::from_binding_value(ctx, cls, v, diagnostics))
-        {
+        // TODO: if metatypes were broken, contentsMargins could be of different type
+        if let Some(ConstantExpression::Margins(m)) = properties.remove("contentsMargins") {
             let to_v = |d| ConstantExpression::Value(ConstantValue::Number(d as f64));
             properties.insert("leftMargin".to_owned(), to_v(m.left));
             properties.insert("topMargin".to_owned(), to_v(m.top));

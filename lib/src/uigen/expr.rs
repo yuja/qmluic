@@ -1,4 +1,4 @@
-use super::gadget::{Gadget, SizePolicy};
+use super::gadget::{Gadget, Margins, SizePolicy};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
@@ -13,6 +13,7 @@ use std::io;
 pub enum ConstantExpression {
     Value(ConstantValue),
     Gadget(Gadget),
+    Margins(Margins),
     SizePolicy(SizePolicy),
 }
 
@@ -57,6 +58,10 @@ impl ConstantExpression {
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         match cls.name() {
+            "QMargins" => {
+                let margins = Margins::from_binding_map(cls, binding_map, source, diagnostics);
+                Some(ConstantExpression::Margins(margins))
+            }
             "QSizePolicy" => {
                 let policy = SizePolicy::from_binding_map(cls, binding_map, source, diagnostics);
                 Some(ConstantExpression::SizePolicy(policy))
@@ -90,6 +95,7 @@ impl ConstantExpression {
         match self {
             Value(x) => x.serialize_to_xml(writer),
             Gadget(x) => x.serialize_to_xml(writer),
+            Margins(x) => x.serialize_to_xml(writer),
             SizePolicy(x) => x.serialize_to_xml(writer),
         }
     }
@@ -279,39 +285,6 @@ fn describe_primitive_type(t: PrimitiveType) -> Option<TypeDesc<'static>> {
         PrimitiveType::QString => Some(TypeDesc::String),
         PrimitiveType::UInt => Some(TypeDesc::Number),
         PrimitiveType::Void => None,
-    }
-}
-
-/// Evaluates the given `binding_value` to `i32`.
-pub(super) fn evaluate_i32<'a, P>(
-    parent_space: &P, // TODO: should be QML space, not C++ metatype space
-    binding_value: &UiBindingValue,
-    source: &str,
-    diagnostics: &mut Diagnostics,
-) -> Option<i32>
-where
-    P: TypeSpace<'a>,
-{
-    let ty = Type::Primitive(PrimitiveType::Int);
-    evaluate_number_of_type(parent_space, &ty, binding_value, source, diagnostics).map(|d| d as i32)
-}
-
-fn evaluate_number_of_type<'a, P>(
-    parent_space: &P, // TODO: should be QML space, not C++ metatype space
-    ty: &Type,
-    binding_value: &UiBindingValue,
-    source: &str,
-    diagnostics: &mut Diagnostics,
-) -> Option<f64>
-where
-    P: TypeSpace<'a>,
-{
-    let c =
-        ConstantValue::from_binding_value(parent_space, ty, binding_value, source, diagnostics)?;
-    if let ConstantValue::Number(v) = c {
-        Some(v)
-    } else {
-        None // diagnostic message should have been pushed
     }
 }
 

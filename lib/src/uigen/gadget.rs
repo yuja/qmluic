@@ -1,9 +1,9 @@
-use super::expr::{self, ConstantValue};
+use super::expr::ConstantValue;
 use super::object;
 use super::xmlutil;
-use super::{BuildContext, XmlResult, XmlWriter};
+use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
+use crate::qmlast::{Node, UiBindingMap};
 use crate::typemap::{Class, TypeSpace};
 use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
@@ -111,69 +111,50 @@ pub struct Margins {
 }
 
 impl Margins {
-    pub(super) fn from_binding_value<'a, P>(
-        ctx: &BuildContext,
-        parent_space: &P, // TODO: should be QML space, not C++ metatype space
-        binding_value: &UiBindingValue,
+    /// Generates margins from the given `binding_map`.
+    ///
+    /// The `cls` is supposed to be of `QMargins` type.
+    pub(super) fn from_binding_map(
+        cls: &Class,
+        binding_map: &UiBindingMap,
+        source: &str,
         diagnostics: &mut Diagnostics,
-    ) -> Option<Self>
-    where
-        P: TypeSpace<'a>,
-    {
-        match binding_value {
-            UiBindingValue::Node(n) => {
-                diagnostics.push(Diagnostic::error(
-                    n.byte_range(),
-                    "expression cannot be parsed as QMargins",
-                ));
-                None
-            }
-            UiBindingValue::Map(_, m) => {
-                Some(Self::from_binding_map(ctx, parent_space, m, diagnostics))
-            }
+    ) -> Self {
+        // TODO: better to create a properties map by caller, and extract it per gadget type?
+        let properties_map =
+            object::collect_properties(cls, binding_map, &[], source, diagnostics);
+        let expect_i32_property = |name| {
+            properties_map
+                .get(name)
+                .map(|v| {
+                    v.as_number()
+                        .expect("internal QMargins property should be typed as number")
+                        as i32
+                })
+                .unwrap_or(0)
+        };
+        Margins {
+            // should be kept sync with QMargins definition in metatype_tweak.rs
+            left: expect_i32_property("left"),
+            top: expect_i32_property("top"),
+            right: expect_i32_property("right"),
+            bottom: expect_i32_property("bottom"),
         }
     }
 
-    pub(super) fn from_binding_map<'a, P>(
-        ctx: &BuildContext,
-        parent_space: &P, // TODO: should be QML space, not C++ metatype space
-        binding_map: &UiBindingMap,
-        diagnostics: &mut Diagnostics,
-    ) -> Self
+    /// Serializes this to UI XML.
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
     where
-        P: TypeSpace<'a>,
+        W: io::Write,
     {
-        // TODO: maybe add a proc macro for this kind of gadget types?
-        let mut margins = Margins::default();
-        for (&name, value) in binding_map {
-            match name {
-                "left" => {
-                    margins.left = expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
-                        .unwrap_or(0);
-                }
-                "top" => {
-                    margins.top = expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
-                        .unwrap_or(0);
-                }
-                "right" => {
-                    margins.right =
-                        expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
-                            .unwrap_or(0);
-                }
-                "bottom" => {
-                    margins.bottom =
-                        expr::evaluate_i32(parent_space, value, ctx.source, diagnostics)
-                            .unwrap_or(0);
-                }
-                _ => {
-                    diagnostics.push(Diagnostic::error(
-                        value.binding_node().byte_range(),
-                        "unknown property of class 'QMargins'",
-                    ));
-                }
-            }
-        }
-        margins
+        let tag = BytesStart::borrowed_name(b"margins");
+        writer.write_event(Event::Start(tag.to_borrowed()))?;
+        xmlutil::write_tagged_str(writer, "left", self.left.to_string())?;
+        xmlutil::write_tagged_str(writer, "top", self.top.to_string())?;
+        xmlutil::write_tagged_str(writer, "right", self.right.to_string())?;
+        xmlutil::write_tagged_str(writer, "bottom", self.bottom.to_string())?;
+        writer.write_event(Event::End(tag.to_end()))?;
+        Ok(())
     }
 }
 
