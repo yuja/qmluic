@@ -240,6 +240,9 @@ pub(super) fn confine_children(
 ///
 /// Unparsable properties are excluded from the resulting map so as many diagnostic messages
 /// will be generated as possible.
+///
+/// Use `collect_properties_with_binding_node()` if you need to inspect resulting values
+/// further.
 pub(super) fn collect_properties(
     cls: &Class,
     binding_map: &UiBindingMap,
@@ -247,6 +250,30 @@ pub(super) fn collect_properties(
     source: &str,
     diagnostics: &mut Diagnostics,
 ) -> HashMap<String, ConstantExpression> {
+    resolve_properties(cls, binding_map, exclude_names, source, diagnostics)
+        .map(|(name, (_, x))| (name.to_owned(), x))
+        .collect()
+}
+
+pub(super) fn collect_properties_with_binding_node<'t>(
+    cls: &Class,
+    binding_map: &UiBindingMap<'t, '_>,
+    exclude_names: &[&str],
+    source: &str,
+    diagnostics: &mut Diagnostics,
+) -> HashMap<String, (Node<'t>, ConstantExpression)> {
+    resolve_properties(cls, binding_map, exclude_names, source, diagnostics)
+        .map(|(name, (v, x))| (name.to_owned(), (v.binding_node(), x)))
+        .collect()
+}
+
+fn resolve_properties<'a, 't, 's>(
+    cls: &'a Class,
+    binding_map: &'a UiBindingMap<'t, 's>,
+    exclude_names: &'a [&str],
+    source: &'a str,
+    diagnostics: &'a mut Diagnostics,
+) -> impl Iterator<Item = (&'s str, (&'a UiBindingValue<'t, 's>, ConstantExpression))> + 'a {
     binding_map
         .iter()
         .filter(|(name, _)| !exclude_names.contains(name))
@@ -264,9 +291,8 @@ pub(super) fn collect_properties(
                 ));
                 None
             }
-            .map(|v| (name.to_owned(), v))
+            .map(|x| (name, (value, x)))
         })
-        .collect()
 }
 
 fn collect_identifiers(
