@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
-ariadne = "0.1"
 camino = "1.0"
 clap = { version = "3.1", features = ["derive"] }
 codespan-reporting = "0.11"
