@@ -24,7 +24,7 @@ impl<'tree> Expression<'tree> {
         Self::with_cursor(&mut node.walk(), source)
     }
 
-    pub(crate) fn with_cursor(
+    pub(super) fn with_cursor(
         cursor: &mut TreeCursor<'tree>,
         source: &str,
     ) -> Result<Self, ParseError<'tree>> {

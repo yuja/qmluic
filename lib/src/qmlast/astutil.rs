@@ -3,7 +3,7 @@
 use super::{ParseError, ParseErrorKind};
 use tree_sitter::{Node, TreeCursor};
 
-pub(crate) fn get_child_by_field_name<'tree>(
+pub(super) fn get_child_by_field_name<'tree>(
     node: Node<'tree>,
     name: &'static str,
 ) -> Result<Node<'tree>, ParseError<'tree>> {
@@ -11,12 +11,12 @@ pub(crate) fn get_child_by_field_name<'tree>(
         .ok_or_else(|| ParseError::new(node, ParseErrorKind::MissingField(name)))
 }
 
-pub(crate) fn node_text<'tree, 'source>(node: Node<'tree>, source: &'source str) -> &'source str {
+pub(super) fn node_text<'tree, 'source>(node: Node<'tree>, source: &'source str) -> &'source str {
     node.utf8_text(source.as_bytes())
         .expect("source range must be valid utf-8 string")
 }
 
-pub(crate) fn skip_until_named<'tree>(
+pub(super) fn skip_until_named<'tree>(
     cursor: &mut TreeCursor<'tree>,
 ) -> Result<(), ParseError<'tree>> {
     while cursor.node().is_extra() || !cursor.node().is_named() {
@@ -28,7 +28,7 @@ pub(crate) fn skip_until_named<'tree>(
     Ok(())
 }
 
-pub(crate) fn handle_uninteresting_node(node: Node) -> Result<(), ParseError> {
+pub(super) fn handle_uninteresting_node(node: Node) -> Result<(), ParseError> {
     if node.is_extra() || !node.is_named() {
         Ok(())
     } else {
@@ -36,7 +36,7 @@ pub(crate) fn handle_uninteresting_node(node: Node) -> Result<(), ParseError> {
     }
 }
 
-pub(crate) fn parse_number<'tree, 'source>(
+pub(super) fn parse_number<'tree, 'source>(
     node: Node<'tree>,
     source: &'source str,
 ) -> Result<f64, ParseError<'tree>> {
@@ -77,7 +77,7 @@ fn strip_radix_prefix(s: &str) -> Option<(u32, &str)> {
     }
 }
 
-pub(crate) fn parse_string<'tree, 'source>(
+pub(super) fn parse_string<'tree, 'source>(
     node: Node<'tree>,
     source: &'source str,
 ) -> Result<String, ParseError<'tree>> {
