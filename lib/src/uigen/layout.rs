@@ -149,12 +149,17 @@ pub struct LayoutItem {
 }
 
 impl LayoutItem {
-    fn new(mut attached: LayoutItemAttached, content: LayoutItemContent) -> Self {
+    fn new(
+        row: Option<i32>,
+        column: Option<i32>,
+        mut attached: LayoutItemAttached,
+        content: LayoutItemContent,
+    ) -> Self {
         LayoutItem {
             alignment: attached.alignment.take().map(|(_, v)| v),
-            column: attached.column.take().map(|(_, v)| v),
+            column,
             column_span: attached.column_span.take().map(|(_, v)| v),
-            row: attached.row.take().map(|(_, v)| v),
+            row,
             row_span: attached.row_span.take().map(|(_, v)| v),
             content,
         }
@@ -425,7 +430,7 @@ fn process_vbox_layout_children(
                 attached.row_stretch,
                 diagnostics,
             );
-            Some(LayoutItem::new(attached, content))
+            Some(LayoutItem::new(None, None, attached, content))
         })
         .collect();
     (attributes, children)
@@ -471,7 +476,7 @@ fn process_hbox_layout_children(
             if let Some((n, _)) = attached.row_stretch {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
-            Some(LayoutItem::new(attached, content))
+            Some(LayoutItem::new(None, None, attached, content))
         })
         .collect();
     (attributes, children)
@@ -483,14 +488,14 @@ fn process_form_layout_children(
     diagnostics: &mut Diagnostics,
 ) -> (LayoutAttributes, Vec<LayoutItem>) {
     let attributes = LayoutAttributes::default();
+    let mut index_counter = LayoutIndexCounter::new(LayoutFlow::LeftToRight { columns: 2 });
     let children = layout_obj
         .child_object_nodes()
         .iter()
         .filter_map(|&n| {
             const UNSUPPORTED_MSG: &str = "unsupported form layout property";
             let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
-            expect_layout_index("column", attached.column, 1, n, diagnostics)?;
-            expect_layout_index("row", attached.row, i32::MAX, n, diagnostics)?;
+            let (row, column) = index_counter.parse_next(&attached, diagnostics)?;
             if let Some((n, _)) = attached.column_minimum_width {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
@@ -509,7 +514,7 @@ fn process_form_layout_children(
             if let Some((n, _)) = attached.row_stretch {
                 diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
             }
-            Some(LayoutItem::new(attached, content))
+            Some(LayoutItem::new(Some(row), Some(column), attached, content))
         })
         .collect();
     (attributes, children)
@@ -520,40 +525,39 @@ fn process_grid_layout_children(
     layout_obj: &UiObjectDefinition,
     diagnostics: &mut Diagnostics,
 ) -> (LayoutAttributes, Vec<LayoutItem>) {
-    const MAX_INDEX: i32 = 65535; // arbitrary value to avoid excessive allocation
     let mut attributes = LayoutAttributes::default();
+    let mut index_counter = LayoutIndexCounter::new(LayoutFlow::LeftToRight { columns: 65536 }); // TODO
     let children = layout_obj
         .child_object_nodes()
         .iter()
         .filter_map(|&n| {
             let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
-            let column = expect_layout_index("column", attached.column, MAX_INDEX, n, diagnostics)?;
-            let row = expect_layout_index("row", attached.row, MAX_INDEX, n, diagnostics)?;
+            let (row, column) = index_counter.parse_next(&attached, diagnostics)?;
             maybe_insert_into_opt_i32_array(
                 &mut attributes.column_minimum_width,
-                column,
+                column as usize,
                 attached.column_minimum_width,
                 diagnostics,
             );
             maybe_insert_into_opt_i32_array(
                 &mut attributes.column_stretch,
-                column,
+                column as usize,
                 attached.column_stretch,
                 diagnostics,
             );
             maybe_insert_into_opt_i32_array(
                 &mut attributes.row_minimum_height,
-                column,
+                column as usize,
                 attached.row_minimum_height,
                 diagnostics,
             );
             maybe_insert_into_opt_i32_array(
                 &mut attributes.row_stretch,
-                row,
+                row as usize,
                 attached.row_stretch,
                 diagnostics,
             );
-            Some(LayoutItem::new(attached, content))
+            Some(LayoutItem::new(Some(row), Some(column), attached, content))
         })
         .collect();
     (attributes, children)
@@ -571,13 +575,84 @@ fn make_layout_item_pair<'t>(
     Some((attached, content))
 }
 
-fn expect_layout_index(
+/// Generates contiguous `(row, column)` of layout items.
+#[derive(Clone, Debug)]
+struct LayoutIndexCounter {
+    flow: LayoutFlow,
+    next_row: i32,
+    next_column: i32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum LayoutFlow {
+    LeftToRight { columns: i32 },
+    TopToBottom { rows: i32 },
+}
+
+impl LayoutIndexCounter {
+    fn new(flow: LayoutFlow) -> Self {
+        LayoutIndexCounter {
+            flow,
+            next_row: 0,
+            next_column: 0,
+        }
+    }
+
+    fn next(&mut self, row: Option<i32>, column: Option<i32>) -> (i32, i32) {
+        if let (Some(r), Some(c)) = (row, column) {
+            self.next_row = r;
+            self.next_column = c;
+        } else if let Some(r) = row {
+            self.next_row = r;
+            self.next_column = match self.flow {
+                LayoutFlow::LeftToRight { .. } => 0,
+                LayoutFlow::TopToBottom { .. } => self.next_column,
+            };
+        } else if let Some(c) = column {
+            self.next_column = c;
+            self.next_row = match self.flow {
+                LayoutFlow::LeftToRight { .. } => self.next_row,
+                LayoutFlow::TopToBottom { .. } => 0,
+            };
+        }
+
+        let cur = (self.next_row, self.next_column);
+        match self.flow {
+            LayoutFlow::LeftToRight { columns } => {
+                self.next_column = (self.next_column + 1) % columns;
+                self.next_row += (self.next_column == 0) as i32;
+            }
+            LayoutFlow::TopToBottom { rows } => {
+                self.next_row = (self.next_row + 1) % rows;
+                self.next_column += (self.next_row == 0) as i32;
+            }
+        }
+        cur
+    }
+
+    fn parse_next(
+        &mut self,
+        attached: &LayoutItemAttached,
+        diagnostics: &mut Diagnostics,
+    ) -> Option<(i32, i32)> {
+        const MAX_INDEX: i32 = 65535; // arbitrary value to avoid excessive allocation
+        let (max_row, max_column) = match self.flow {
+            LayoutFlow::LeftToRight { columns } => (MAX_INDEX, columns - 1),
+            LayoutFlow::TopToBottom { rows } => (rows - 1, MAX_INDEX),
+        };
+        Some(self.next(
+            maybe_parse_layout_index("row", attached.row, max_row, diagnostics)?,
+            maybe_parse_layout_index("column", attached.column, max_column, diagnostics)?,
+        ))
+    }
+}
+
+fn maybe_parse_layout_index(
     field_name: &str,
     index: Option<(Node, i32)>,
     max_index: i32,
-    content_node: Node,
     diagnostics: &mut Diagnostics,
-) -> Option<usize> {
+) -> Option<Option<i32>> {
     match index {
         Some((n, i)) if i < 0 => {
             diagnostics.push(Diagnostic::error(
@@ -593,14 +668,8 @@ fn expect_layout_index(
             ));
             None
         }
-        Some((_, i)) => Some(i as usize),
-        None => {
-            diagnostics.push(Diagnostic::error(
-                content_node.byte_range(),
-                format!("{field_name} is not set"),
-            ));
-            None
-        }
+        Some((_, i)) => Some(Some(i)),
+        None => Some(None),
     }
 }
 
@@ -630,4 +699,33 @@ fn maybe_insert_into_opt_i32_array(
 
 fn format_opt_i32_array(array: &[Option<i32>], default: i32) -> String {
     array.iter().map(|x| x.unwrap_or(default)).join(",")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn index_counter_left_to_right() {
+        let mut counter = LayoutIndexCounter::new(LayoutFlow::LeftToRight { columns: 2 });
+        assert_eq!(counter.next(None, None), (0, 0));
+        assert_eq!(counter.next(None, None), (0, 1));
+        assert_eq!(counter.next(None, None), (1, 0));
+        assert_eq!(counter.next(Some(2), None), (2, 0));
+        assert_eq!(counter.next(None, None), (2, 1));
+        assert_eq!(counter.next(None, Some(1)), (3, 1));
+        assert_eq!(counter.next(Some(4), Some(1)), (4, 1));
+    }
+
+    #[test]
+    fn index_counter_top_to_bottom() {
+        let mut counter = LayoutIndexCounter::new(LayoutFlow::TopToBottom { rows: 3 });
+        assert_eq!(counter.next(None, None), (0, 0));
+        assert_eq!(counter.next(None, None), (1, 0));
+        assert_eq!(counter.next(None, None), (2, 0));
+        assert_eq!(counter.next(None, None), (0, 1));
+        assert_eq!(counter.next(None, Some(3)), (0, 3));
+        assert_eq!(counter.next(Some(2), None), (2, 3));
+        assert_eq!(counter.next(Some(3), Some(4)), (3, 4));
+    }
 }

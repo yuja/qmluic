@@ -12,6 +12,7 @@ fn test_translate_example() {
     insta::assert_snapshot!(translate_file("examples/SettingsDialog.qml",));
     insta::assert_snapshot!(translate_file("examples/MainWindow.qml"));
     insta::assert_snapshot!(translate_file("examples/VariousLayouts.qml"));
+    insta::assert_snapshot!(translate_file("examples/LayoutFlow.qml"));
 }
 
 fn translate_file(path: impl AsRef<Path>) -> String {
