@@ -7,6 +7,3 @@ pub mod qmlast;
 pub mod typedexpr;
 pub mod typemap;
 pub mod uigen;
-
-#[cfg(test)]
-mod tests {}
