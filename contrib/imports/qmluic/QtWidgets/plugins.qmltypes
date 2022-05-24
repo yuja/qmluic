@@ -3107,8 +3107,15 @@ Module {
         prototype: "QLayout"
         exports: ["qmluic.QtWidgets/QGridLayout 5.0"]
         exportMetaObjectRevisions: [0]
+        Enum {
+            name: "Flow"
+            values: ["LeftToRight", "TopToBottom"]
+        }
         Property { name: "horizontalSpacing"; type: "int" }
         Property { name: "verticalSpacing"; type: "int" }
+        Property { name: "columns"; type: "int"; isReadonly: true }
+        Property { name: "rows"; type: "int"; isReadonly: true }
+        Property { name: "flow"; type: "QGridLayout::Flow"; isReadonly: true }
     }
     Component {
         file: "qgroupbox.h"

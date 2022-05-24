@@ -1,6 +1,6 @@
 //! Modifications on Qt metatypes data.
 
-use crate::metatype::{Class, ClassInfo, Property};
+use crate::metatype::{Class, ClassInfo, Enum, Property};
 
 /// Applies all modifications on the given `classes` data.
 pub fn apply_all(classes: &mut Vec<Class>) {
@@ -23,6 +23,9 @@ pub fn fix_classes(classes: &mut [Class]) {
 }
 
 fn fix_grid_layout(cls: &mut Class) {
+    cls.enums.extend([
+        Enum::with_values("Flow", ["LeftToRight", "TopToBottom"]), // handled by uigen
+    ]);
     cls.properties.extend([
         // declared as QDOC_PROPERTY()
         Property {
@@ -39,6 +42,10 @@ fn fix_grid_layout(cls: &mut Class) {
             write: Some("setVerticalSpacing".to_owned()),
             ..Default::default()
         },
+        // handled by uigen
+        Property::new("columns", "int"),
+        Property::new("rows", "int"),
+        Property::new("flow", "QGridLayout::Flow"),
     ]);
 }
 
