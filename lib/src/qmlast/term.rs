@@ -139,7 +139,7 @@ mod tests {
     use crate::qmlast::UiDocument;
 
     fn parse(source: &str) -> UiDocument {
-        UiDocument::parse(source.to_owned(), None)
+        UiDocument::parse(source, None)
     }
 
     fn extract_type_id(doc: &UiDocument) -> Result<NestedIdentifier, ParseError> {

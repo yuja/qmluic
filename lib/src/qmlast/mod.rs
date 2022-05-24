@@ -31,7 +31,11 @@ impl UiDocument {
     ///
     /// The parsing doesn't fail even if the QML source has a syntax error. Instead, a node
     /// representing the error is inserted.
-    pub fn parse(source: String, type_name: Option<String>) -> Self {
+    pub fn parse<S>(source: S, type_name: Option<String>) -> Self
+    where
+        S: Into<String>,
+    {
+        let source = source.into();
         let mut parser = new_parser();
         let tree = parser
             .parse(source.as_bytes(), None)
@@ -163,7 +167,7 @@ mod tests {
     use super::*;
 
     fn parse(source: &str) -> UiDocument {
-        UiDocument::parse(source.to_owned(), None)
+        UiDocument::parse(source, None)
     }
 
     #[test]

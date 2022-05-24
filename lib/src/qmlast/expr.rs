@@ -362,7 +362,7 @@ mod tests {
     }
 
     fn parse(source: &str) -> UiDocument {
-        UiDocument::parse(source.to_owned(), None)
+        UiDocument::parse(source, None)
     }
 
     fn extract_expr<'a>(doc: &'a UiDocument, name: &str) -> Result<Expression<'a>, ParseError<'a>> {

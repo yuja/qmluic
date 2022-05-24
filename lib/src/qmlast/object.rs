@@ -484,7 +484,7 @@ mod tests {
     use crate::qmlast::UiDocument;
 
     fn parse(source: &str) -> UiDocument {
-        UiDocument::parse(source.to_owned(), None)
+        UiDocument::parse(source, None)
     }
 
     fn extract_root_object(doc: &UiDocument) -> Result<UiObjectDefinition, ParseError> {
