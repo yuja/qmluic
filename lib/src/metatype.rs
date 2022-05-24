@@ -14,6 +14,20 @@ pub enum AccessSpecifier {
     Public,
 }
 
+/// Revision number of method or property.
+#[derive(
+    Clone, Copy, Debug, Default, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
+)]
+#[repr(transparent)]
+#[serde(transparent)]
+pub struct Revision(pub u32);
+
+impl Revision {
+    pub fn is_zero(&self) -> bool {
+        self.0 == 0
+    }
+}
+
 /// Class metadata.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -230,8 +244,8 @@ pub struct Property {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bindable: Option<String>,
 
-    #[serde(default)]
-    pub revision: u32,
+    #[serde(default, skip_serializing_if = "Revision::is_zero")]
+    pub revision: Revision,
     pub designable: bool,
     pub scriptable: bool,
     pub stored: bool,
@@ -285,7 +299,7 @@ impl Default for Property {
             reset: None,
             notify: None,
             bindable: None,
-            revision: 0,
+            revision: Revision(0),
             designable: true,
             scriptable: true,
             stored: true,
@@ -307,8 +321,8 @@ pub struct Method {
     pub return_type: String,
     #[serde(default)]
     pub arguments: Vec<Argument>,
-    #[serde(default)]
-    pub revision: u32,
+    #[serde(default, skip_serializing_if = "Revision::is_zero")]
+    pub revision: Revision,
 }
 
 impl Default for Method {
@@ -318,7 +332,7 @@ impl Default for Method {
             access: AccessSpecifier::Public,
             return_type: String::new(),
             arguments: vec![],
-            revision: 0,
+            revision: Revision(0),
         }
     }
 }
