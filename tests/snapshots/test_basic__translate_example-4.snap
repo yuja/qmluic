@@ -50,6 +50,52 @@ expression: "translate_file(\"examples/LayoutFlow.qml\")"
        </property>
       </widget>
      </item>
+     <item column="0" row="2">
+      <widget class="QLabel">
+       <property name="text">
+        <string>row: 2, column: 0</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item column="0" row="1">
+    <widget class="QLabel">
+     <property name="text">
+      <string>TopToBottom</string>
+     </property>
+    </widget>
+   </item>
+   <item column="1" row="1">
+    <layout class="QGridLayout">
+     <item column="0" row="0">
+      <widget class="QLabel">
+       <property name="text">
+        <string>row: 0, column: 0</string>
+       </property>
+      </widget>
+     </item>
+     <item column="0" row="1">
+      <widget class="QLabel">
+       <property name="text">
+        <string>row: 1, column: 0</string>
+       </property>
+      </widget>
+     </item>
+     <item column="1" row="0">
+      <widget class="QLabel">
+       <property name="text">
+        <string>row: 0, column: 1</string>
+       </property>
+      </widget>
+     </item>
+     <item column="1" row="1">
+      <widget class="QLabel">
+       <property name="text">
+        <string>row: 1, column: 1</string>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
   </layout>

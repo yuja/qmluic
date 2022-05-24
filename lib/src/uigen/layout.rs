@@ -40,6 +40,14 @@ impl Layout {
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let binding_map = diagnostics.consume_err(obj.build_binding_map(ctx.source))?;
+        let mut properties_map = object::collect_properties_with_binding_node(
+            cls,
+            &binding_map,
+            &["contentsMargins"],
+            ctx.source,
+            diagnostics,
+        );
+
         let (attributes, children) = if cls.is_derived_from(&ctx.vbox_layout_class) {
             process_vbox_layout_children(ctx, obj, diagnostics)
         } else if cls.is_derived_from(&ctx.hbox_layout_class) {
@@ -47,7 +55,8 @@ impl Layout {
         } else if cls.is_derived_from(&ctx.form_layout_class) {
             process_form_layout_children(ctx, obj, diagnostics)
         } else if cls.is_derived_from(&ctx.grid_layout_class) {
-            process_grid_layout_children(ctx, obj, diagnostics)
+            let flow = LayoutFlow::parse(&mut properties_map, diagnostics);
+            process_grid_layout_children(ctx, obj, flow, diagnostics)
         } else {
             diagnostics.push(Diagnostic::error(
                 obj.node().byte_range(),
@@ -57,13 +66,10 @@ impl Layout {
             process_vbox_layout_children(ctx, obj, diagnostics)
         };
 
-        let mut properties = object::collect_properties(
-            cls,
-            &binding_map,
-            &["contentsMargins"],
-            ctx.source,
-            diagnostics,
-        );
+        let mut properties: HashMap<_, _> = properties_map
+            .into_iter()
+            .map(|(k, (_, x))| (k, x))
+            .collect();
         if let Some(m) = binding_map
             .get("contentsMargins")
             .and_then(|v| Margins::from_binding_value(ctx, cls, v, diagnostics))
@@ -486,10 +492,11 @@ fn process_form_layout_children(
 fn process_grid_layout_children(
     ctx: &BuildContext,
     layout_obj: &UiObjectDefinition,
+    flow: LayoutFlow,
     diagnostics: &mut Diagnostics,
 ) -> (LayoutAttributes, Vec<LayoutItem>) {
     let mut attributes = LayoutAttributes::default();
-    let mut index_counter = LayoutIndexCounter::new(LayoutFlow::LeftToRight { columns: 65536 }); // TODO
+    let mut index_counter = LayoutIndexCounter::new(flow);
     let children = layout_obj
         .child_object_nodes()
         .iter()
@@ -607,6 +614,70 @@ impl LayoutIndexCounter {
             maybe_parse_layout_index("row", attached.row, max_row, diagnostics)?,
             maybe_parse_layout_index("column", attached.column, max_column, diagnostics)?,
         ))
+    }
+}
+
+impl LayoutFlow {
+    fn parse(
+        properties_map: &mut HashMap<String, (Node, ConstantExpression)>,
+        diagnostics: &mut Diagnostics,
+    ) -> Self {
+        // should be kept sync with QGridLayout definition in metatype_tweak.rs
+        let left_to_right = if let Some((n, v)) = properties_map.remove("flow") {
+            match v
+                .as_enum()
+                .expect("internal QGridLayout property should be typed as enum")
+            {
+                "QGridLayout::LeftToRight" => true,
+                "QGridLayout::TopToBottom" => false,
+                s => {
+                    diagnostics.push(Diagnostic::error(
+                        n.byte_range(),
+                        format!("unsupported layout flow expression: {s}"),
+                    ));
+                    true // don't care
+                }
+            }
+        } else {
+            true // LeftToRight by default
+        };
+
+        const MAX_COUNT: i32 = 65536; // arbitrary value to avoid excessive allocation if any
+        let mut pop_count_property = |name| {
+            properties_map
+                .remove(name)
+                .map(|(n, v)| {
+                    let c = v
+                        .as_number()
+                        .expect("internal QGridLayout property should be typed as number")
+                        as i32;
+                    if c <= 0 {
+                        diagnostics.push(Diagnostic::error(
+                            n.byte_range(),
+                            format!("negative or zero {name} is not allowed"),
+                        ));
+                        MAX_COUNT
+                    } else if c > MAX_COUNT {
+                        diagnostics.push(Diagnostic::error(
+                            n.byte_range(),
+                            format!("{name} is too large"),
+                        ));
+                        MAX_COUNT
+                    } else {
+                        c
+                    }
+                })
+                .unwrap_or(MAX_COUNT)
+        };
+
+        // TODO: maybe warn unused columns/rows?
+        let columns = pop_count_property("columns");
+        let rows = pop_count_property("rows");
+        if left_to_right {
+            LayoutFlow::LeftToRight { columns }
+        } else {
+            LayoutFlow::TopToBottom { rows }
+        }
     }
 }
 
