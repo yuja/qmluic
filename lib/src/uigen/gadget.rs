@@ -1,5 +1,5 @@
 use super::expr::ConstantValue;
-use super::object;
+use super::property;
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
@@ -122,7 +122,7 @@ impl Margins {
     ) -> Self {
         // TODO: better to create a properties map by caller, and extract it per gadget type?
         let properties_map =
-            object::collect_properties(cls, binding_map, &[], source, diagnostics);
+            property::collect_properties(cls, binding_map, &[], source, diagnostics);
         let expect_i32_property = |name| {
             properties_map
                 .get(name)
@@ -182,7 +182,7 @@ impl SizePolicy {
         diagnostics: &mut Diagnostics,
     ) -> Self {
         let properties_map =
-            object::collect_properties(cls, binding_map, &[], source, diagnostics);
+            property::collect_properties(cls, binding_map, &[], source, diagnostics);
         let expect_size_policy_property = |name| {
             properties_map.get(name).map(|v| {
                 let s = v

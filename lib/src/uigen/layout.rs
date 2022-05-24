@@ -1,5 +1,6 @@
 use super::expr::{ConstantExpression, ConstantValue};
 use super::object::{self, Widget};
+use super::property;
 use super::BuildContext;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
@@ -39,7 +40,7 @@ impl Layout {
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let binding_map = diagnostics.consume_err(obj.build_binding_map(ctx.source))?;
-        let mut properties_map = object::collect_properties_with_binding_node(
+        let mut properties_map = property::collect_properties_with_binding_node(
             cls,
             &binding_map,
             &[],
@@ -129,7 +130,7 @@ impl Layout {
         }
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
-        object::serialize_properties_to_xml(writer, &self.properties)?;
+        property::serialize_properties_to_xml(writer, &self.properties)?;
 
         for c in &self.children {
             c.serialize_to_xml(writer)?;
@@ -221,7 +222,7 @@ impl<'t> LayoutItemAttached<'t> {
     ) -> Option<Self> {
         let attached_type_map = diagnostics.consume_err(obj.build_attached_type_map(ctx.source))?;
         let binding_map = attached_type_map.get(["QLayout"].as_ref())?; // TODO: resolve against imported types
-        let properties_map = object::collect_properties_with_binding_node(
+        let properties_map = property::collect_properties_with_binding_node(
             &ctx.layout_attached_class,
             binding_map,
             &[],
@@ -334,7 +335,13 @@ impl SpacerItem {
         object::confine_children(cls, obj, diagnostics);
         Some(SpacerItem {
             name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
-            properties: object::collect_properties(cls, &binding_map, &[], ctx.source, diagnostics),
+            properties: property::collect_properties(
+                cls,
+                &binding_map,
+                &[],
+                ctx.source,
+                diagnostics,
+            ),
         })
     }
 
@@ -349,7 +356,7 @@ impl SpacerItem {
         }
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
-        object::serialize_properties_to_xml(writer, &self.properties)?;
+        property::serialize_properties_to_xml(writer, &self.properties)?;
 
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())

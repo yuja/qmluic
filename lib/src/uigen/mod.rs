@@ -9,6 +9,7 @@ mod expr;
 mod gadget;
 mod layout;
 mod object;
+mod property;
 mod xmlutil;
 
 pub use self::expr::*; // re-export

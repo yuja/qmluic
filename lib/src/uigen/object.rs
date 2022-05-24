@@ -1,12 +1,12 @@
 use super::expr::ConstantExpression;
 use super::layout::Layout;
+use super::property;
 use super::xmlutil;
 use super::BuildContext;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::qmlast::{Expression, Node, UiBindingMap, UiBindingValue, UiObjectDefinition};
+use crate::qmlast::{Expression, Node, UiBindingValue, UiObjectDefinition};
 use crate::typemap::{Class, Type, TypeSpace};
-use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
 use std::io;
@@ -104,7 +104,13 @@ impl Action {
         confine_children(cls, obj, diagnostics);
         Some(Action {
             name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
-            properties: collect_properties(cls, &binding_map, &[], ctx.source, diagnostics),
+            properties: property::collect_properties(
+                cls,
+                &binding_map,
+                &[],
+                ctx.source,
+                diagnostics,
+            ),
         })
     }
 
@@ -119,7 +125,7 @@ impl Action {
         }
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
-        serialize_properties_to_xml(writer, &self.properties)?;
+        property::serialize_properties_to_xml(writer, &self.properties)?;
 
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
@@ -149,7 +155,7 @@ impl Widget {
         Some(Widget {
             class: cls.name().to_owned(),
             name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
-            properties: collect_properties(
+            properties: property::collect_properties(
                 cls,
                 &binding_map,
                 &["actions"],
@@ -183,7 +189,7 @@ impl Widget {
         }
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
-        serialize_properties_to_xml(writer, &self.properties)?;
+        property::serialize_properties_to_xml(writer, &self.properties)?;
 
         for n in &self.actions {
             writer.write_event(Event::Empty(
@@ -231,68 +237,6 @@ pub(super) fn confine_children(
             format!("'{}' should have no children", cls.qualified_name()),
         ));
     }
-}
-
-/// Parses the given `binding_map` into a map of constant expressions.
-///
-/// `exclude_names` is a list of property names which have to be processed in a special
-/// manner by the caller. The list should be small.
-///
-/// Unparsable properties are excluded from the resulting map so as many diagnostic messages
-/// will be generated as possible.
-///
-/// Use `collect_properties_with_binding_node()` if you need to inspect resulting values
-/// further.
-pub(super) fn collect_properties(
-    cls: &Class,
-    binding_map: &UiBindingMap,
-    exclude_names: &[&str],
-    source: &str,
-    diagnostics: &mut Diagnostics,
-) -> HashMap<String, ConstantExpression> {
-    resolve_properties(cls, binding_map, exclude_names, source, diagnostics)
-        .map(|(name, (_, x))| (name.to_owned(), x))
-        .collect()
-}
-
-pub(super) fn collect_properties_with_binding_node<'t>(
-    cls: &Class,
-    binding_map: &UiBindingMap<'t, '_>,
-    exclude_names: &[&str],
-    source: &str,
-    diagnostics: &mut Diagnostics,
-) -> HashMap<String, (Node<'t>, ConstantExpression)> {
-    resolve_properties(cls, binding_map, exclude_names, source, diagnostics)
-        .map(|(name, (v, x))| (name.to_owned(), (v.binding_node(), x)))
-        .collect()
-}
-
-fn resolve_properties<'a, 't, 's>(
-    cls: &'a Class,
-    binding_map: &'a UiBindingMap<'t, 's>,
-    exclude_names: &'a [&str],
-    source: &'a str,
-    diagnostics: &'a mut Diagnostics,
-) -> impl Iterator<Item = (&'s str, (&'a UiBindingValue<'t, 's>, ConstantExpression))> + 'a {
-    binding_map
-        .iter()
-        .filter(|(name, _)| !exclude_names.contains(name))
-        .filter_map(|(&name, value)| {
-            if let Some(ty) = cls.get_property_type(name) {
-                ConstantExpression::from_binding_value(cls, &ty, value, source, diagnostics)
-            } else {
-                diagnostics.push(Diagnostic::error(
-                    value.node().byte_range(),
-                    format!(
-                        "unknown property of class '{}': {}",
-                        cls.qualified_name(),
-                        name
-                    ),
-                ));
-                None
-            }
-            .map(|x| (name, (value, x)))
-        })
 }
 
 fn collect_identifiers(
@@ -343,20 +287,4 @@ fn parse_as_identifier_array(
             None
         }
     }
-}
-
-pub(super) fn serialize_properties_to_xml<W>(
-    writer: &mut XmlWriter<W>,
-    properties: &HashMap<String, ConstantExpression>,
-) -> XmlResult<()>
-where
-    W: io::Write,
-{
-    for (k, v) in properties.iter().sorted_by_key(|&(k, _)| k) {
-        let tag = BytesStart::borrowed_name(b"property").with_attributes([("name", k.as_ref())]);
-        writer.write_event(Event::Start(tag.to_borrowed()))?;
-        v.serialize_to_xml(writer)?;
-        writer.write_event(Event::End(tag.to_end()))?;
-    }
-    Ok(())
 }
