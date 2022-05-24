@@ -373,6 +373,10 @@ mod tests {
         Expression::from_node(node, doc.source())
     }
 
+    fn unwrap_expr<'a>(doc: &'a UiDocument, name: &str) -> Expression<'a> {
+        extract_expr(doc, name).unwrap()
+    }
+
     #[test]
     fn trivial_expressions() {
         let doc = parse(
@@ -392,28 +396,21 @@ mod tests {
             "###,
         );
         assert_eq!(
-            extract_expr(&doc, "identifier")
-                .unwrap()
+            unwrap_expr(&doc, "identifier")
                 .unwrap_identifier()
                 .to_str(doc.source()),
             "foo"
         );
-        assert_eq!(extract_expr(&doc, "number_").unwrap().unwrap_number(), 123.);
+        assert_eq!(unwrap_expr(&doc, "number_").unwrap_number(), 123.);
+        assert_eq!(unwrap_expr(&doc, "string_").unwrap_string(), "whatever");
         assert_eq!(
-            extract_expr(&doc, "string_").unwrap().unwrap_string(),
-            "whatever"
-        );
-        assert_eq!(
-            extract_expr(&doc, "escaped_string")
-                .unwrap()
-                .unwrap_string(),
+            unwrap_expr(&doc, "escaped_string").unwrap_string(),
             "foo\nbar"
         );
-        assert_eq!(extract_expr(&doc, "true_").unwrap().unwrap_bool(), true);
-        assert_eq!(extract_expr(&doc, "false_").unwrap().unwrap_bool(), false);
+        assert_eq!(unwrap_expr(&doc, "true_").unwrap_bool(), true);
+        assert_eq!(unwrap_expr(&doc, "false_").unwrap_bool(), false);
         assert_eq!(
-            extract_expr(&doc, "array")
-                .unwrap()
+            unwrap_expr(&doc, "array")
                 .unwrap_array()
                 .iter()
                 .map(|&n| Expression::from_node(n, doc.source())
@@ -436,7 +433,7 @@ mod tests {
             }
             "###,
         );
-        match extract_expr(&doc, "member").unwrap() {
+        match unwrap_expr(&doc, "member") {
             Expression::MemberExpression(x) => {
                 assert_eq!(
                     Identifier::from_node(x.object)
@@ -459,7 +456,7 @@ mod tests {
             }
             "###,
         );
-        match extract_expr(&doc, "call").unwrap() {
+        match unwrap_expr(&doc, "call") {
             Expression::CallExpression(x) => {
                 assert_eq!(
                     Identifier::from_node(x.function)
@@ -482,7 +479,7 @@ mod tests {
             }
             "###,
         );
-        match extract_expr(&doc, "logical_not").unwrap() {
+        match unwrap_expr(&doc, "logical_not") {
             Expression::UnaryExpression(x) => {
                 assert_eq!(x.operator, UnaryOperator::LogicalNot);
             }
@@ -499,7 +496,7 @@ mod tests {
             }
             "###,
         );
-        match extract_expr(&doc, "add").unwrap() {
+        match unwrap_expr(&doc, "add") {
             Expression::BinaryExpression(x) => {
                 assert_eq!(x.operator, BinaryOperator::Add);
                 assert_ne!(x.left, x.right);
