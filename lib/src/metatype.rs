@@ -158,6 +158,7 @@ pub struct Interface {
 #[serde(rename_all = "camelCase")]
 pub struct Enum {
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub alias: Option<String>,
     pub is_class: bool,
     pub is_flag: bool,
@@ -213,13 +214,20 @@ pub struct Property {
     pub r#type: String,
 
     /// See `Q_PRIVATE_PROPERTY()`.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub private_class: Option<String>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub member: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub read: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub write: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub reset: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub notify: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub bindable: Option<String>,
 
     #[serde(default)]
@@ -319,6 +327,7 @@ impl Default for Method {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Argument {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     pub r#type: String,
 }
@@ -328,6 +337,7 @@ pub struct Argument {
 pub struct CompilationUnit {
     #[serde(default)]
     pub classes: Vec<Class>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub input_file: Option<String>,
     #[serde(default)]
     pub output_revision: i32,
