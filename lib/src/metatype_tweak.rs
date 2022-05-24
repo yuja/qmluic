@@ -108,6 +108,17 @@ fn fix_widget(cls: &mut Class) {
 pub fn internal_core_classes() -> impl IntoIterator<Item = Class> {
     [
         Class {
+            class_name: "QMargins".to_owned(),
+            qualified_class_name: "QMargins".to_owned(),
+            properties: vec![
+                Property::new_final("left", "int"),
+                Property::new_final("top", "int"),
+                Property::new_final("right", "int"),
+                Property::new_final("bottom", "int"),
+            ],
+            ..Default::default()
+        },
+        Class {
             class_name: "QRect".to_owned(),
             qualified_class_name: "QRect".to_owned(),
             properties: vec![
