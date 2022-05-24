@@ -106,41 +106,6 @@ impl<'tree> Expression<'tree> {
         };
         Ok(expr)
     }
-
-    pub fn get_identifier(&self) -> Option<Identifier> {
-        match self {
-            Expression::Identifier(x) => Some(*x),
-            _ => None,
-        }
-    }
-
-    pub fn get_number(&self) -> Option<f64> {
-        match self {
-            Expression::Number(x) => Some(*x),
-            _ => None,
-        }
-    }
-
-    pub fn get_string(&self) -> Option<&String> {
-        match self {
-            Expression::String(x) => Some(x),
-            _ => None,
-        }
-    }
-
-    pub fn get_bool(&self) -> Option<bool> {
-        match self {
-            Expression::Bool(x) => Some(*x),
-            _ => None,
-        }
-    }
-
-    pub fn get_array(&self) -> Option<&[Node<'tree>]> {
-        match self {
-            Expression::Array(xs) => Some(xs),
-            _ => None,
-        }
-    }
 }
 
 /// Represents a member expression.
@@ -359,6 +324,43 @@ mod tests {
     use super::*;
     use crate::qmlast::{UiDocument, UiObjectDefinition, UiProgram};
 
+    impl<'tree> Expression<'tree> {
+        fn unwrap_identifier(self) -> Identifier<'tree> {
+            match self {
+                Expression::Identifier(x) => x,
+                _ => panic!("unexpected expression: {self:?}"),
+            }
+        }
+
+        fn unwrap_number(self) -> f64 {
+            match self {
+                Expression::Number(x) => x,
+                _ => panic!("unexpected expression: {self:?}"),
+            }
+        }
+
+        fn unwrap_string(self) -> String {
+            match self {
+                Expression::String(x) => x,
+                _ => panic!("unexpected expression: {self:?}"),
+            }
+        }
+
+        fn unwrap_bool(self) -> bool {
+            match self {
+                Expression::Bool(x) => x,
+                _ => panic!("unexpected expression: {self:?}"),
+            }
+        }
+
+        fn unwrap_array(self) -> Vec<Node<'tree>> {
+            match self {
+                Expression::Array(xs) => xs,
+                _ => panic!("unexpected expression: {self:?}"),
+            }
+        }
+    }
+
     fn parse(source: &str) -> UiDocument {
         UiDocument::parse(source.to_owned(), None)
     }
@@ -392,44 +394,31 @@ mod tests {
         assert_eq!(
             extract_expr(&doc, "identifier")
                 .unwrap()
-                .get_identifier()
-                .unwrap()
+                .unwrap_identifier()
                 .to_str(doc.source()),
             "foo"
         );
+        assert_eq!(extract_expr(&doc, "number_").unwrap().unwrap_number(), 123.);
         assert_eq!(
-            extract_expr(&doc, "number_").unwrap().get_number().unwrap(),
-            123.
-        );
-        assert_eq!(
-            extract_expr(&doc, "string_").unwrap().get_string().unwrap(),
+            extract_expr(&doc, "string_").unwrap().unwrap_string(),
             "whatever"
         );
         assert_eq!(
             extract_expr(&doc, "escaped_string")
                 .unwrap()
-                .get_string()
-                .unwrap(),
+                .unwrap_string(),
             "foo\nbar"
         );
-        assert_eq!(
-            extract_expr(&doc, "true_").unwrap().get_bool().unwrap(),
-            true
-        );
-        assert_eq!(
-            extract_expr(&doc, "false_").unwrap().get_bool().unwrap(),
-            false
-        );
+        assert_eq!(extract_expr(&doc, "true_").unwrap().unwrap_bool(), true);
+        assert_eq!(extract_expr(&doc, "false_").unwrap().unwrap_bool(), false);
         assert_eq!(
             extract_expr(&doc, "array")
                 .unwrap()
-                .get_array()
-                .unwrap()
+                .unwrap_array()
                 .iter()
                 .map(|&n| Expression::from_node(n, doc.source())
                     .unwrap()
-                    .get_number()
-                    .unwrap())
+                    .unwrap_number())
                 .collect::<Vec<_>>(),
             [0., 1., 2.]
         );
