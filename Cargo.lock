@@ -333,8 +333,6 @@ dependencies = [
 name = "qmluic"
 version = "0.1.0"
 dependencies = [
- "ariadne",
- "clap",
  "itertools",
  "quick-xml",
  "serde",
