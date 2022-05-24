@@ -15,6 +15,7 @@ pub fn fix_classes(classes: &mut [Class]) {
         match cls.qualified_class_name.as_ref() {
             "QGridLayout" => fix_grid_layout(cls),
             "QLayout" => fix_layout(cls),
+            "QSizePolicy" => fix_size_policy(cls),
             "QWidget" => fix_widget(cls),
             _ => {}
         }
@@ -54,6 +55,39 @@ fn fix_layout(cls: &mut Class) {
             ..Default::default()
         });
     }
+}
+
+fn fix_size_policy(cls: &mut Class) {
+    cls.properties.extend([
+        Property {
+            name: "horizontalPolicy".to_owned(),
+            r#type: "QSizePolicy::Policy".to_owned(),
+            read: Some("horizontalPolicy".to_owned()),
+            write: Some("setHorizontalPolicy".to_owned()),
+            ..Default::default()
+        },
+        Property {
+            name: "horizontalStretch".to_owned(),
+            r#type: "int".to_owned(),
+            read: Some("horizontalStretch".to_owned()),
+            write: Some("setHorizontalStretch".to_owned()),
+            ..Default::default()
+        },
+        Property {
+            name: "verticalPolicy".to_owned(),
+            r#type: "QSizePolicy::Policy".to_owned(),
+            read: Some("verticalPolicy".to_owned()),
+            write: Some("setVerticalPolicy".to_owned()),
+            ..Default::default()
+        },
+        Property {
+            name: "verticalStretch".to_owned(),
+            r#type: "int".to_owned(),
+            read: Some("verticalStretch".to_owned()),
+            write: Some("setVerticalStretch".to_owned()),
+            ..Default::default()
+        },
+    ]);
 }
 
 fn fix_widget(cls: &mut Class) {

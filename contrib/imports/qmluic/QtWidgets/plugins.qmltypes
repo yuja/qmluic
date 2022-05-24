@@ -4698,6 +4698,10 @@ Module {
                 "ToolButton"
             ]
         }
+        Property { name: "horizontalPolicy"; type: "QSizePolicy::Policy" }
+        Property { name: "horizontalStretch"; type: "int" }
+        Property { name: "verticalPolicy"; type: "QSizePolicy::Policy" }
+        Property { name: "verticalStretch"; type: "int" }
     }
     Component {
         file: "qslider.h"
