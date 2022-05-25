@@ -160,7 +160,7 @@ fn resolve_properties<'a, 't, 's>(
                 ConstantExpression::from_binding_value(cls, &ty, value, source, diagnostics)
             } else {
                 diagnostics.push(Diagnostic::error(
-                    value.node().byte_range(),
+                    value.binding_node().byte_range(),
                     format!(
                         "unknown property of class '{}': {}",
                         cls.qualified_name(),
@@ -190,7 +190,7 @@ pub(super) fn collect_gadget_properties(
                 ConstantValue::from_binding_value(cls, &ty, value, source, diagnostics)
             } else {
                 diagnostics.push(Diagnostic::error(
-                    value.node().byte_range(),
+                    value.binding_node().byte_range(),
                     format!(
                         "unknown property of class '{}': {}",
                         cls.qualified_name(),
