@@ -18,13 +18,6 @@ pub struct Gadget {
 }
 
 impl Gadget {
-    fn new(name: &str, properties: HashMap<String, ConstantValue>) -> Self {
-        Gadget {
-            name: name.to_owned(),
-            properties,
-        }
-    }
-
     /// Generates gadget of `cls` type from the given `binding_map`.
     pub fn from_binding_map(
         cls: &Class,
@@ -33,15 +26,16 @@ impl Gadget {
         source: &str,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
+        let properties = collect_constant_properties(cls, binding_map, source, diagnostics);
         match cls.name() {
-            "QRect" => Some(Self::new(
-                "rect",
-                collect_constant_properties(cls, binding_map, source, diagnostics),
-            )),
-            "QSize" => Some(Self::new(
-                "size",
-                collect_constant_properties(cls, binding_map, source, diagnostics),
-            )),
+            "QRect" => Some(Gadget {
+                name: "rect".to_owned(),
+                properties,
+            }),
+            "QSize" => Some(Gadget {
+                name: "size".to_owned(),
+                properties,
+            }),
             _ => {
                 diagnostics.push(Diagnostic::error(
                     node.byte_range(),
