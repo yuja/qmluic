@@ -15,6 +15,7 @@ use std::io;
 pub struct Gadget {
     pub name: String,
     pub properties: HashMap<String, ConstantValue>,
+    pub no_enum_prefix: bool,
 }
 
 impl Gadget {
@@ -28,13 +29,20 @@ impl Gadget {
     ) -> Option<Self> {
         let properties = collect_constant_properties(cls, binding_map, source, diagnostics);
         match cls.name() {
+            "QFont" => Some(Gadget {
+                name: "font".to_owned(),
+                properties,
+                no_enum_prefix: true,
+            }),
             "QRect" => Some(Gadget {
                 name: "rect".to_owned(),
                 properties,
+                no_enum_prefix: false,
             }),
             "QSize" => Some(Gadget {
                 name: "size".to_owned(),
                 properties,
+                no_enum_prefix: false,
             }),
             _ => {
                 diagnostics.push(Diagnostic::error(
@@ -54,7 +62,15 @@ impl Gadget {
         let tag = BytesStart::borrowed_name(self.name.as_ref());
         writer.write_event(Event::Start(tag.to_borrowed()))?;
         for (k, v) in self.properties.iter().sorted_by_key(|&(k, _)| k) {
-            xmlutil::write_tagged_str(writer, k, v.to_string())?;
+            let s = if self.no_enum_prefix {
+                v.as_enum()
+                    .map(|s| strip_enum_prefix(s).to_owned())
+                    .unwrap_or_else(|| v.to_string())
+            } else {
+                v.to_string()
+            };
+            // apparently tag name of .ui is lowercase
+            xmlutil::write_tagged_str(writer, k.to_ascii_lowercase(), s)?;
         }
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
@@ -200,10 +216,10 @@ impl SizePolicy {
     {
         let mut tag = BytesStart::borrowed_name(b"sizepolicy");
         if let Some(s) = &self.horizontal_policy {
-            tag.push_attribute(("hsizetype", s.strip_prefix("QSizePolicy::").unwrap_or(s)));
+            tag.push_attribute(("hsizetype", strip_enum_prefix(s)));
         }
         if let Some(s) = &self.vertical_policy {
-            tag.push_attribute(("vsizetype", s.strip_prefix("QSizePolicy::").unwrap_or(s)));
+            tag.push_attribute(("vsizetype", strip_enum_prefix(s)));
         }
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
@@ -217,4 +233,8 @@ impl SizePolicy {
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
     }
+}
+
+fn strip_enum_prefix(s: &str) -> &str {
+    s.split_once("::").map(|(_, t)| t).unwrap_or(s)
 }

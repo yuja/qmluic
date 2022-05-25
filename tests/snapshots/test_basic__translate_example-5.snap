@@ -1,0 +1,31 @@
+---
+source: tests/test_basic.rs
+expression: "translate_file(\"examples/GadgetProperties.qml\")"
+---
+<ui version="4.0">
+ <class>GadgetProperties</class>
+ <widget class="QWidget">
+  <layout class="QVBoxLayout">
+   <item>
+    <widget class="QLabel">
+     <property name="font">
+      <font>
+       <bold>true</bold>
+       <family>Monospace</family>
+       <italic>false</italic>
+       <kerning>true</kerning>
+       <pointsize>9</pointsize>
+       <strikeout>true</strikeout>
+       <stylestrategy>PreferDefault</stylestrategy>
+       <weight>75</weight>
+      </font>
+     </property>
+     <property name="text">
+      <string>Font properties</string>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+</ui>
+
