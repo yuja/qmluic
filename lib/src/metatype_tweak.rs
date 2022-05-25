@@ -13,6 +13,7 @@ pub fn apply_all(classes: &mut Vec<Class>) {
 pub fn fix_classes(classes: &mut [Class]) {
     for cls in classes.iter_mut() {
         match cls.qualified_class_name.as_ref() {
+            "QFont" => fix_font(cls),
             "QGridLayout" => fix_grid_layout(cls),
             "QLayout" => fix_layout(cls),
             "QSizePolicy" => fix_size_policy(cls),
@@ -20,6 +21,74 @@ pub fn fix_classes(classes: &mut [Class]) {
             _ => {}
         }
     }
+}
+
+fn fix_font(cls: &mut Class) {
+    cls.properties.extend([
+        Property {
+            name: "family".to_owned(),
+            r#type: "QString".to_owned(),
+            read: Some("family".to_owned()),
+            write: Some("setFamily".to_owned()),
+            ..Default::default()
+        },
+        Property {
+            name: "pointSize".to_owned(),
+            r#type: "int".to_owned(),
+            read: Some("pointSize".to_owned()),
+            write: Some("setPointSize".to_owned()),
+            ..Default::default()
+        },
+        Property {
+            name: "weight".to_owned(),
+            r#type: "int".to_owned(), // TODO: enum QFont::Weight on Qt 6
+            read: Some("weight".to_owned()),
+            write: Some("setWeight".to_owned()),
+            ..Default::default()
+        },
+        Property {
+            name: "italic".to_owned(),
+            r#type: "bool".to_owned(),
+            read: Some("italic".to_owned()),
+            write: Some("setItalic".to_owned()),
+            ..Default::default()
+        },
+        Property {
+            name: "bold".to_owned(),
+            r#type: "bool".to_owned(),
+            read: Some("bold".to_owned()),
+            write: Some("setBold".to_owned()),
+            ..Default::default()
+        },
+        Property {
+            name: "underline".to_owned(),
+            r#type: "bool".to_owned(),
+            read: Some("underline".to_owned()),
+            write: Some("setUnderline".to_owned()),
+            ..Default::default()
+        },
+        Property {
+            name: "strikeout".to_owned(), // follows QML name
+            r#type: "bool".to_owned(),
+            read: Some("strikeOut".to_owned()),
+            write: Some("setStrikeOut".to_owned()),
+            ..Default::default()
+        },
+        Property {
+            name: "styleStrategy".to_owned(),
+            r#type: "QFont::StyleStrategy".to_owned(),
+            read: Some("styleStrategy".to_owned()),
+            write: Some("setStyleStrategy".to_owned()),
+            ..Default::default()
+        },
+        Property {
+            name: "kerning".to_owned(),
+            r#type: "bool".to_owned(),
+            read: Some("kerning".to_owned()),
+            write: Some("setKerning".to_owned()),
+            ..Default::default()
+        },
+    ]);
 }
 
 fn fix_grid_layout(cls: &mut Class) {
