@@ -11,4 +11,4 @@
 *.qmlproject.user
 
 # qmluic
-/examples/*.ui
+/examples/**/*.ui
