@@ -167,8 +167,8 @@ impl Margins {
 pub struct SizePolicy {
     pub horizontal_policy: Option<String>,
     pub vertical_policy: Option<String>,
-    pub horizontal_stretch: Option<f64>,
-    pub vertical_stretch: Option<f64>,
+    pub horizontal_stretch: Option<i32>,
+    pub vertical_stretch: Option<i32>,
 }
 
 impl SizePolicy {
@@ -191,18 +191,19 @@ impl SizePolicy {
                 s.strip_prefix("QSizePolicy::").unwrap_or(s).to_owned()
             })
         };
-        let expect_f64_property = |name| {
+        let expect_i32_property = |name| {
             properties_map.get(name).map(|v| {
                 v.as_number()
                     .expect("internal QSizePolicy property should be typed as number")
+                    as i32
             })
         };
         SizePolicy {
             // should be kept sync with QSizePolicy definition in metatype_tweak.rs
             horizontal_policy: expect_size_policy_property("horizontalPolicy"),
             vertical_policy: expect_size_policy_property("verticalPolicy"),
-            horizontal_stretch: expect_f64_property("horizontalStretch"),
-            vertical_stretch: expect_f64_property("verticalStretch"),
+            horizontal_stretch: expect_i32_property("horizontalStretch"),
+            vertical_stretch: expect_i32_property("verticalStretch"),
         }
     }
 
