@@ -218,7 +218,7 @@ pub(super) fn resolve_object_definition<'a, 't>(
         Some((obj, cls))
     } else {
         diagnostics.push(Diagnostic::error(
-            obj.node().byte_range(), // TODO: on identifier node
+            obj.type_name().node().byte_range(),
             format!("unknown object type: {type_name}"),
         ));
         None

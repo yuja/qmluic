@@ -80,6 +80,25 @@ impl<'tree> NestedIdentifier<'tree> {
         Ok(NestedIdentifier { components })
     }
 
+    /// Node representing the (possibly nested) identifier.
+    ///
+    /// If this has been split previously, the returned node may point to a wider
+    /// identifier range.
+    pub fn node(&self) -> Node<'tree> {
+        if self.components.len() == 1 {
+            // (identifier)
+            self.components[0].node()
+        } else {
+            // (nested_identifier (nested_identifier (identifier) (identifier)) (identifier))
+            self.components
+                .last()
+                .expect("nested identifier shouldn't be empty")
+                .node()
+                .parent()
+                .expect("nested identifier node should have parent")
+        }
+    }
+
     pub fn components(&self) -> &[Identifier<'tree>] {
         &self.components
     }
