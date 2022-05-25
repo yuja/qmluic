@@ -122,23 +122,19 @@ impl Margins {
     ) -> Self {
         // TODO: better to create a properties map by caller, and extract it per gadget type?
         let properties_map =
-            property::collect_properties(cls, binding_map, &[], source, diagnostics);
-        let expect_i32_property = |name| {
+            property::collect_properties_with_node(cls, binding_map, &[], source, diagnostics);
+        let get_i32_property = |name, diagnostics: &mut Diagnostics| {
             properties_map
                 .get(name)
-                .map(|v| {
-                    v.as_number()
-                        .expect("internal QMargins property should be typed as number")
-                        as i32
-                })
+                .and_then(|v| diagnostics.consume_err(v.to_i32()))
                 .unwrap_or(0)
         };
         Margins {
             // should be kept sync with QMargins definition in metatype_tweak.rs
-            left: expect_i32_property("left"),
-            top: expect_i32_property("top"),
-            right: expect_i32_property("right"),
-            bottom: expect_i32_property("bottom"),
+            left: get_i32_property("left", diagnostics),
+            top: get_i32_property("top", diagnostics),
+            right: get_i32_property("right", diagnostics),
+            bottom: get_i32_property("bottom", diagnostics),
         }
     }
 
@@ -182,28 +178,24 @@ impl SizePolicy {
         diagnostics: &mut Diagnostics,
     ) -> Self {
         let properties_map =
-            property::collect_properties(cls, binding_map, &[], source, diagnostics);
-        let expect_size_policy_property = |name| {
-            properties_map.get(name).map(|v| {
-                let s = v
-                    .as_enum()
-                    .expect("internal QSizePolicy property should be typed as enum");
-                s.strip_prefix("QSizePolicy::").unwrap_or(s).to_owned()
-            })
+            property::collect_properties_with_node(cls, binding_map, &[], source, diagnostics);
+        let get_size_policy_property = |name, diagnostics: &mut Diagnostics| {
+            properties_map
+                .get(name)
+                .and_then(|v| diagnostics.consume_err(v.to_enum()))
+                .map(|s| s.strip_prefix("QSizePolicy::").unwrap_or(s).to_owned())
         };
-        let expect_i32_property = |name| {
-            properties_map.get(name).map(|v| {
-                v.as_number()
-                    .expect("internal QSizePolicy property should be typed as number")
-                    as i32
-            })
+        let get_i32_property = |name, diagnostics: &mut Diagnostics| {
+            properties_map
+                .get(name)
+                .and_then(|v| diagnostics.consume_err(v.to_i32()))
         };
         SizePolicy {
             // should be kept sync with QSizePolicy definition in metatype_tweak.rs
-            horizontal_policy: expect_size_policy_property("horizontalPolicy"),
-            vertical_policy: expect_size_policy_property("verticalPolicy"),
-            horizontal_stretch: expect_i32_property("horizontalStretch"),
-            vertical_stretch: expect_i32_property("verticalStretch"),
+            horizontal_policy: get_size_policy_property("horizontalPolicy", diagnostics),
+            vertical_policy: get_size_policy_property("verticalPolicy", diagnostics),
+            horizontal_stretch: get_i32_property("horizontalStretch", diagnostics),
+            vertical_stretch: get_i32_property("verticalStretch", diagnostics),
         }
     }
 
