@@ -34,6 +34,11 @@ impl Gadget {
                 properties,
                 no_enum_prefix: true,
             }),
+            "QMargins" => Some(Gadget {
+                name: "margins".to_owned(), // not supported by uic
+                properties,
+                no_enum_prefix: false,
+            }),
             "QRect" => Some(Gadget {
                 name: "rect".to_owned(),
                 properties,
@@ -72,62 +77,6 @@ impl Gadget {
             // apparently tag name of .ui is lowercase
             xmlutil::write_tagged_str(writer, k.to_ascii_lowercase(), s)?;
         }
-        writer.write_event(Event::End(tag.to_end()))?;
-        Ok(())
-    }
-}
-
-/// Struct representing `QMargins`.
-///
-/// This is primarily designed for the `QLayout.contentsMargins` property, which needs to
-/// be serialized to UI XML in a special manner.
-#[derive(Clone, Debug, Default)]
-pub struct Margins {
-    pub left: i32,
-    pub top: i32,
-    pub right: i32,
-    pub bottom: i32,
-}
-
-impl Margins {
-    /// Generates margins from the given `binding_map`.
-    ///
-    /// The `cls` is supposed to be of `QMargins` type.
-    pub(super) fn from_binding_map(
-        cls: &Class,
-        binding_map: &UiBindingMap,
-        source: &str,
-        diagnostics: &mut Diagnostics,
-    ) -> Self {
-        // TODO: better to create a properties map by caller, and extract it per gadget type?
-        let properties_map =
-            property::collect_properties_with_node(cls, binding_map, &[], source, diagnostics);
-        let get_i32_property = |name, diagnostics: &mut Diagnostics| {
-            properties_map
-                .get(name)
-                .and_then(|v| diagnostics.consume_err(v.to_i32()))
-                .unwrap_or(0)
-        };
-        Margins {
-            // should be kept sync with QMargins definition in metatype_tweak.rs
-            left: get_i32_property("left", diagnostics),
-            top: get_i32_property("top", diagnostics),
-            right: get_i32_property("right", diagnostics),
-            bottom: get_i32_property("bottom", diagnostics),
-        }
-    }
-
-    /// Serializes this to UI XML.
-    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
-    where
-        W: io::Write,
-    {
-        let tag = BytesStart::borrowed_name(b"margins");
-        writer.write_event(Event::Start(tag.to_borrowed()))?;
-        xmlutil::write_tagged_str(writer, "left", self.left.to_string())?;
-        xmlutil::write_tagged_str(writer, "top", self.top.to_string())?;
-        xmlutil::write_tagged_str(writer, "right", self.right.to_string())?;
-        xmlutil::write_tagged_str(writer, "bottom", self.bottom.to_string())?;
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
     }

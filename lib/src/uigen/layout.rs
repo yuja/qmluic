@@ -1,4 +1,4 @@
-use super::expr::{ConstantExpression, ConstantValue};
+use super::expr::ConstantExpression;
 use super::object::{self, Widget};
 use super::property::{self, WithNode};
 use super::BuildContext;
@@ -66,12 +66,12 @@ impl Layout {
             .map(|(k, v)| (k, v.into_value()))
             .collect();
         // TODO: if metatypes were broken, contentsMargins could be of different type
-        if let Some(ConstantExpression::Margins(m)) = properties.remove("contentsMargins") {
-            let to_v = |d| ConstantExpression::Value(ConstantValue::Number(d as f64));
-            properties.insert("leftMargin".to_owned(), to_v(m.left));
-            properties.insert("topMargin".to_owned(), to_v(m.top));
-            properties.insert("rightMargin".to_owned(), to_v(m.right));
-            properties.insert("bottomMargin".to_owned(), to_v(m.bottom));
+        if let Some(ConstantExpression::Gadget(m)) = properties.remove("contentsMargins") {
+            properties.extend(
+                m.properties
+                    .into_iter()
+                    .map(|(k, v)| (k + "Margin", ConstantExpression::Value(v))),
+            );
         }
 
         Some(Layout {
