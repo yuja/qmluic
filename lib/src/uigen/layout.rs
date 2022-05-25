@@ -361,50 +361,14 @@ fn process_vbox_layout_children(
         .iter()
         .enumerate()
         .filter_map(|(row, &n)| {
-            const UNSUPPORTED_MSG: &str = "unsupported vbox layout property";
             let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
-            if let Some(v) = attached.column {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
-            if let Some(v) = attached.column_minimum_width {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
-            if let Some(v) = attached.column_span {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
-            if let Some(v) = attached.column_stretch {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
-            if let Some(v) = attached.row {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
-            if let Some(v) = attached.row_minimum_height {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
-            if let Some(v) = attached.row_span {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
+            check_unsupported_property(&attached.column, diagnostics);
+            check_unsupported_property(&attached.column_minimum_width, diagnostics);
+            check_unsupported_property(&attached.column_span, diagnostics);
+            check_unsupported_property(&attached.column_stretch, diagnostics);
+            check_unsupported_property(&attached.row, diagnostics);
+            check_unsupported_property(&attached.row_minimum_height, diagnostics);
+            check_unsupported_property(&attached.row_span, diagnostics);
             maybe_insert_into_opt_i32_array(
                 &mut attributes./*row_*/stretch,
                 row,
@@ -428,56 +392,20 @@ fn process_hbox_layout_children(
         .iter()
         .enumerate()
         .filter_map(|(column, &n)| {
-            const UNSUPPORTED_MSG: &str = "unsupported hbox layout property";
             let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
-            if let Some(v) = attached.column {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
-            if let Some(v) = attached.column_minimum_width {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
-            if let Some(v) = attached.column_span {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
+            check_unsupported_property(&attached.column, diagnostics);
+            check_unsupported_property(&attached.column_minimum_width, diagnostics);
+            check_unsupported_property(&attached.column_span, diagnostics);
             maybe_insert_into_opt_i32_array(
                 &mut attributes./*column_*/stretch,
                 column,
                 attached.column_stretch,
                 diagnostics,
             );
-            if let Some(v) = attached.row {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
-            if let Some(v) = attached.row_minimum_height {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
-            if let Some(v) = attached.row_span {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
-            if let Some(v) = attached.row_stretch {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
+            check_unsupported_property(&attached.row, diagnostics);
+            check_unsupported_property(&attached.row_minimum_height, diagnostics);
+            check_unsupported_property(&attached.row_span, diagnostics);
+            check_unsupported_property(&attached.row_stretch, diagnostics);
             Some(LayoutItem::new(None, None, attached, content))
         })
         .collect();
@@ -495,45 +423,14 @@ fn process_form_layout_children(
         .child_object_nodes()
         .iter()
         .filter_map(|&n| {
-            const UNSUPPORTED_MSG: &str = "unsupported form layout property";
             let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
             let (row, column) = index_counter.parse_next(&attached, diagnostics)?;
-            if let Some(v) = attached.column_minimum_width {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
-            if let Some(v) = attached.column_span {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
-            if let Some(v) = attached.column_stretch {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
-            if let Some(v) = attached.row_minimum_height {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
-            if let Some(v) = attached.row_span {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
-            if let Some(v) = attached.row_stretch {
-                diagnostics.push(Diagnostic::error(
-                    v.binding_node().byte_range(),
-                    UNSUPPORTED_MSG,
-                ));
-            }
+            check_unsupported_property(&attached.column_minimum_width, diagnostics);
+            check_unsupported_property(&attached.column_span, diagnostics);
+            check_unsupported_property(&attached.column_stretch, diagnostics);
+            check_unsupported_property(&attached.row_minimum_height, diagnostics);
+            check_unsupported_property(&attached.row_span, diagnostics);
+            check_unsupported_property(&attached.row_stretch, diagnostics);
             Some(LayoutItem::new(Some(row), Some(column), attached, content))
         })
         .collect();
@@ -594,6 +491,15 @@ fn make_layout_item_pair<'t>(
         LayoutItemAttached::from_object_definition(ctx, &obj, diagnostics).unwrap_or_default();
     let content = LayoutItemContent::from_object_definition(ctx, &cls, &obj, diagnostics)?;
     Some((attached, content))
+}
+
+fn check_unsupported_property<V>(value: &Option<WithNode<V>>, diagnostics: &mut Diagnostics) {
+    if let Some(v) = value {
+        diagnostics.push(Diagnostic::error(
+            v.binding_node().byte_range(),
+            "unsupported layout property",
+        ));
+    }
 }
 
 /// Generates contiguous `(row, column)` of layout items.
