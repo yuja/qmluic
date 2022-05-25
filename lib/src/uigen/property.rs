@@ -6,7 +6,43 @@ use crate::typemap::{Class, TypeSpace};
 use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::io;
+
+/// Parsed property value with its AST node.
+#[derive(Clone, Copy,  Debug)]
+pub(super) struct WithNode<'t, V> {
+    node: Node<'t>,
+    value: V,
+}
+
+impl<'t, V> WithNode<'t, V> {
+    fn new(binding_value: &UiBindingValue<'t, '_>, value: V) -> Self {
+        WithNode {
+            node: binding_value.node(),
+            value,
+        }
+    }
+
+    pub fn node(&self) -> Node<'t> {
+        self.node
+    }
+
+    pub fn binding_node(&self) -> Node<'t> {
+        // see UiBindingValue::binding_node()
+        self.node
+            .parent()
+            .expect("binding value node should have parent")
+    }
+
+    pub fn value(&self) -> &V {
+        &self.value
+    }
+
+    pub fn into_value(self) -> V {
+        self.value
+    }
+}
 
 /// Parses the given `binding_map` into a map of constant expressions.
 ///
@@ -16,8 +52,7 @@ use std::io;
 /// Unparsable properties are excluded from the resulting map so as many diagnostic messages
 /// will be generated as possible.
 ///
-/// Use `collect_properties_with_binding_node()` if you need to inspect resulting values
-/// further.
+/// Use `collect_properties_with_node()` if you need to inspect resulting values further.
 pub(super) fn collect_properties(
     cls: &Class,
     binding_map: &UiBindingMap,
@@ -30,15 +65,15 @@ pub(super) fn collect_properties(
         .collect()
 }
 
-pub(super) fn collect_properties_with_binding_node<'t>(
+pub(super) fn collect_properties_with_node<'t>(
     cls: &Class,
     binding_map: &UiBindingMap<'t, '_>,
     exclude_names: &[&str],
     source: &str,
     diagnostics: &mut Diagnostics,
-) -> HashMap<String, (Node<'t>, ConstantExpression)> {
+) -> HashMap<String, WithNode<'t, ConstantExpression>> {
     resolve_properties(cls, binding_map, exclude_names, source, diagnostics)
-        .map(|(name, (v, x))| (name.to_owned(), (v.binding_node(), x)))
+        .map(|(name, (v, x))| (name.to_owned(), WithNode::new(v, x)))
         .collect()
 }
 

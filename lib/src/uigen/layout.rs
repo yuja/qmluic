@@ -1,6 +1,6 @@
 use super::expr::{ConstantExpression, ConstantValue};
 use super::object::{self, Widget};
-use super::property;
+use super::property::{self, WithNode};
 use super::BuildContext;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
@@ -40,13 +40,8 @@ impl Layout {
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let binding_map = diagnostics.consume_err(obj.build_binding_map(ctx.source))?;
-        let mut properties_map = property::collect_properties_with_binding_node(
-            cls,
-            &binding_map,
-            &[],
-            ctx.source,
-            diagnostics,
-        );
+        let mut properties_map =
+            property::collect_properties_with_node(cls, &binding_map, &[], ctx.source, diagnostics);
 
         let (attributes, children) = if cls.is_derived_from(&ctx.vbox_layout_class) {
             process_vbox_layout_children(ctx, obj, diagnostics)
@@ -68,7 +63,7 @@ impl Layout {
 
         let mut properties: HashMap<_, _> = properties_map
             .into_iter()
-            .map(|(k, (_, x))| (k, x))
+            .map(|(k, v)| (k, v.into_value()))
             .collect();
         // TODO: if metatypes were broken, contentsMargins could be of different type
         if let Some(ConstantExpression::Margins(m)) = properties.remove("contentsMargins") {
@@ -222,7 +217,7 @@ impl<'t> LayoutItemAttached<'t> {
     ) -> Option<Self> {
         let attached_type_map = diagnostics.consume_err(obj.build_attached_type_map(ctx.source))?;
         let binding_map = attached_type_map.get(["QLayout"].as_ref())?; // TODO: resolve against imported types
-        let properties_map = property::collect_properties_with_binding_node(
+        let properties_map = property::collect_properties_with_node(
             &ctx.layout_attached_class,
             binding_map,
             &[],
@@ -230,20 +225,22 @@ impl<'t> LayoutItemAttached<'t> {
             diagnostics,
         );
         let expect_enum_property = |name| {
-            properties_map.get(name).map(|(n, v)| {
+            properties_map.get(name).map(|v| {
                 (
-                    *n,
-                    v.as_enum()
+                    v.binding_node(),
+                    v.value()
+                        .as_enum()
                         .expect("internal QLayoutAttached property should be typed as enum")
                         .to_owned(),
                 )
             })
         };
         let expect_i32_property = |name| {
-            properties_map.get(name).map(|(n, v)| {
+            properties_map.get(name).map(|v| {
                 (
-                    *n,
-                    v.as_number()
+                    v.binding_node(),
+                    v.value()
+                        .as_number()
                         .expect("internal QLayoutAttached property should be typed as number")
                         as i32,
                 )
@@ -623,12 +620,13 @@ impl LayoutIndexCounter {
 
 impl LayoutFlow {
     fn parse(
-        properties_map: &mut HashMap<String, (Node, ConstantExpression)>,
+        properties_map: &mut HashMap<String, WithNode<ConstantExpression>>,
         diagnostics: &mut Diagnostics,
     ) -> Self {
         // should be kept sync with QGridLayout definition in metatype_tweak.rs
-        let left_to_right = if let Some((n, v)) = properties_map.remove("flow") {
+        let left_to_right = if let Some(v) = properties_map.remove("flow") {
             match v
+                .value()
                 .as_enum()
                 .expect("internal QGridLayout property should be typed as enum")
             {
@@ -636,7 +634,7 @@ impl LayoutFlow {
                 "QGridLayout::TopToBottom" => false,
                 s => {
                     diagnostics.push(Diagnostic::error(
-                        n.byte_range(),
+                        v.node().byte_range(),
                         format!("unsupported layout flow expression: {s}"),
                     ));
                     true // don't care
@@ -650,20 +648,21 @@ impl LayoutFlow {
         let mut pop_count_property = |name| {
             properties_map
                 .remove(name)
-                .map(|(n, v)| {
+                .map(|v| {
                     let c = v
+                        .value()
                         .as_number()
                         .expect("internal QGridLayout property should be typed as number")
                         as i32;
                     if c <= 0 {
                         diagnostics.push(Diagnostic::error(
-                            n.byte_range(),
+                            v.node().byte_range(),
                             format!("negative or zero {name} is not allowed"),
                         ));
                         MAX_COUNT
                     } else if c > MAX_COUNT {
                         diagnostics.push(Diagnostic::error(
-                            n.byte_range(),
+                            v.node().byte_range(),
                             format!("{name} is too large"),
                         ));
                         MAX_COUNT
