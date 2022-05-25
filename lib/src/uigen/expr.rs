@@ -102,7 +102,7 @@ impl ConstantExpression {
 
     pub fn as_number(&self) -> Option<f64> {
         match self {
-            ConstantExpression::Value(ConstantValue::Number(x)) => Some(*x),
+            ConstantExpression::Value(x) => x.as_number(),
             _ => None,
         }
     }
@@ -242,6 +242,13 @@ impl ConstantValue {
             String(_) => xmlutil::write_tagged_str(writer, "string", self.to_string()),
             Enum(_) => xmlutil::write_tagged_str(writer, "enum", self.to_string()),
             Set(_) => xmlutil::write_tagged_str(writer, "set", self.to_string()),
+        }
+    }
+
+    pub fn as_number(&self) -> Option<f64> {
+        match self {
+            ConstantValue::Number(x) => Some(*x),
+            _ => None,
         }
     }
 
