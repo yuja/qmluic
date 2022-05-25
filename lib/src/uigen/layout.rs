@@ -581,20 +581,17 @@ impl LayoutFlow {
     ) -> Self {
         // should be kept sync with QGridLayout definition in metatype_tweak.rs
         let left_to_right = if let Some(v) = properties_map.remove("flow") {
-            match v
-                .value()
-                .as_enum()
-                .expect("internal QGridLayout property should be typed as enum")
-            {
-                "QGridLayout::LeftToRight" => true,
-                "QGridLayout::TopToBottom" => false,
-                s => {
+            match diagnostics.consume_err(v.to_enum()) {
+                Some("QGridLayout::LeftToRight") => true,
+                Some("QGridLayout::TopToBottom") => false,
+                Some(s) => {
                     diagnostics.push(Diagnostic::error(
                         v.node().byte_range(),
                         format!("unsupported layout flow expression: {s}"),
                     ));
                     true // don't care
                 }
+                None => true, // don't care
             }
         } else {
             true // LeftToRight by default
@@ -604,26 +601,22 @@ impl LayoutFlow {
         let mut pop_count_property = |name| {
             properties_map
                 .remove(name)
-                .map(|v| {
-                    let c = v
-                        .value()
-                        .as_number()
-                        .expect("internal QGridLayout property should be typed as number")
-                        as i32;
+                .and_then(|v| {
+                    let c = diagnostics.consume_err(v.to_i32())?;
                     if c <= 0 {
                         diagnostics.push(Diagnostic::error(
                             v.node().byte_range(),
                             format!("negative or zero {name} is not allowed"),
                         ));
-                        MAX_COUNT
+                        None
                     } else if c > MAX_COUNT {
                         diagnostics.push(Diagnostic::error(
                             v.node().byte_range(),
                             format!("{name} is too large"),
                         ));
-                        MAX_COUNT
+                        None
                     } else {
-                        c
+                        Some(c)
                     }
                 })
                 .unwrap_or(MAX_COUNT)
