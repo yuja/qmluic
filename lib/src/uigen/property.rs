@@ -8,9 +8,11 @@ use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::io;
+use std::ops::Range;
+use thiserror::Error;
 
 /// Parsed property value with its AST node.
-#[derive(Clone, Copy,  Debug)]
+#[derive(Clone, Copy, Debug)]
 pub(super) struct WithNode<'t, V> {
     node: Node<'t>,
     value: V,
@@ -41,6 +43,72 @@ impl<'t, V> WithNode<'t, V> {
 
     pub fn into_value(self) -> V {
         self.value
+    }
+
+    pub fn map_value<U, F>(self, f: F) -> WithNode<'t, U>
+    where
+        F: FnOnce(V) -> U,
+    {
+        WithNode {
+            node: self.node,
+            value: f(self.value),
+        }
+    }
+
+    fn rewrap<U>(&self, value: U) -> WithNode<'t, U> {
+        WithNode {
+            node: self.node,
+            value,
+        }
+    }
+
+    fn make_type_error(&self) -> ValueTypeError<'t> {
+        ValueTypeError { node: self.node }
+    }
+}
+
+impl<'t> WithNode<'t, ConstantExpression> {
+    pub fn to_enum(&self) -> Result<&str, ValueTypeError<'t>> {
+        self.value.as_enum().ok_or_else(|| self.make_type_error())
+    }
+
+    pub fn to_enum_with_node(&self) -> Result<WithNode<'t, &str>, ValueTypeError<'t>> {
+        Ok(self.rewrap(self.to_enum()?))
+    }
+
+    pub fn to_i32(&self) -> Result<i32, ValueTypeError<'t>> {
+        self.value
+            .as_number()
+            .map(|d| d as i32)
+            .ok_or_else(|| self.make_type_error())
+    }
+
+    pub fn to_i32_with_node(&self) -> Result<WithNode<'t, i32>, ValueTypeError<'t>> {
+        Ok(self.rewrap(self.to_i32()?))
+    }
+}
+
+#[derive(Clone, Debug, Error)]
+#[error("unexpected type of value")]
+pub(super) struct ValueTypeError<'t> {
+    node: Node<'t>,
+}
+
+impl<'t> ValueTypeError<'t> {
+    pub fn byte_range(&self) -> Range<usize> {
+        self.node.byte_range()
+    }
+}
+
+impl From<&ValueTypeError<'_>> for Diagnostic {
+    fn from(error: &ValueTypeError) -> Self {
+        Self::error(error.byte_range(), error.to_string())
+    }
+}
+
+impl From<ValueTypeError<'_>> for Diagnostic {
+    fn from(error: ValueTypeError) -> Self {
+        Self::from(&error)
     }
 }
 

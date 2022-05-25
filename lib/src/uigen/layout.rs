@@ -155,11 +155,11 @@ impl LayoutItem {
         content: LayoutItemContent,
     ) -> Self {
         LayoutItem {
-            alignment: attached.alignment.take().map(|(_, v)| v),
+            alignment: attached.alignment.take().map(|v| v.into_value()),
             column,
-            column_span: attached.column_span.take().map(|(_, v)| v),
+            column_span: attached.column_span.take().map(|v| v.into_value()),
             row,
-            row_span: attached.row_span.take().map(|(_, v)| v),
+            row_span: attached.row_span.take().map(|v| v.into_value()),
             content,
         }
     }
@@ -198,15 +198,15 @@ impl LayoutItem {
 #[derive(Clone, Debug, Default)]
 struct LayoutItemAttached<'t> {
     // binding node is stored for error reporting
-    alignment: Option<(Node<'t>, String)>,
-    column: Option<(Node<'t>, i32)>,
-    column_minimum_width: Option<(Node<'t>, i32)>,
-    column_span: Option<(Node<'t>, i32)>,
-    column_stretch: Option<(Node<'t>, i32)>,
-    row: Option<(Node<'t>, i32)>,
-    row_minimum_height: Option<(Node<'t>, i32)>,
-    row_span: Option<(Node<'t>, i32)>,
-    row_stretch: Option<(Node<'t>, i32)>,
+    alignment: Option<WithNode<'t, String>>,
+    column: Option<WithNode<'t, i32>>,
+    column_minimum_width: Option<WithNode<'t, i32>>,
+    column_span: Option<WithNode<'t, i32>>,
+    column_stretch: Option<WithNode<'t, i32>>,
+    row: Option<WithNode<'t, i32>>,
+    row_minimum_height: Option<WithNode<'t, i32>>,
+    row_span: Option<WithNode<'t, i32>>,
+    row_stretch: Option<WithNode<'t, i32>>,
 }
 
 impl<'t> LayoutItemAttached<'t> {
@@ -224,39 +224,29 @@ impl<'t> LayoutItemAttached<'t> {
             ctx.source,
             diagnostics,
         );
-        let expect_enum_property = |name| {
-            properties_map.get(name).map(|v| {
-                (
-                    v.binding_node(),
-                    v.value()
-                        .as_enum()
-                        .expect("internal QLayoutAttached property should be typed as enum")
-                        .to_owned(),
-                )
-            })
+        let get_enum_property = |name, diagnostics: &mut Diagnostics| {
+            properties_map
+                .get(name)
+                .and_then(|v| diagnostics.consume_err(v.to_enum_with_node()))
+                .map(|v| v.map_value(|s| s.to_owned()))
         };
-        let expect_i32_property = |name| {
-            properties_map.get(name).map(|v| {
-                (
-                    v.binding_node(),
-                    v.value()
-                        .as_number()
-                        .expect("internal QLayoutAttached property should be typed as number")
-                        as i32,
-                )
-            })
+        let get_i32_property = |name, diagnostics: &mut Diagnostics| {
+            properties_map
+                .get(name)
+                .and_then(|v| diagnostics.consume_err(v.to_i32_with_node()))
         };
+
         Some(LayoutItemAttached {
             // should be kept sync with QLayoutAttached definition in metatype_tweak.rs
-            alignment: expect_enum_property("alignment"),
-            column: expect_i32_property("column"),
-            column_minimum_width: expect_i32_property("columnMinimumWidth"),
-            column_span: expect_i32_property("columnSpan"),
-            column_stretch: expect_i32_property("columnStretch"),
-            row: expect_i32_property("row"),
-            row_minimum_height: expect_i32_property("rowMinimumHeight"),
-            row_span: expect_i32_property("rowSpan"),
-            row_stretch: expect_i32_property("rowStretch"),
+            alignment: get_enum_property("alignment", diagnostics),
+            column: get_i32_property("column", diagnostics),
+            column_minimum_width: get_i32_property("columnMinimumWidth", diagnostics),
+            column_span: get_i32_property("columnSpan", diagnostics),
+            column_stretch: get_i32_property("columnStretch", diagnostics),
+            row: get_i32_property("row", diagnostics),
+            row_minimum_height: get_i32_property("rowMinimumHeight", diagnostics),
+            row_span: get_i32_property("rowSpan", diagnostics),
+            row_stretch: get_i32_property("rowStretch", diagnostics),
         })
     }
 }
@@ -373,26 +363,47 @@ fn process_vbox_layout_children(
         .filter_map(|(row, &n)| {
             const UNSUPPORTED_MSG: &str = "unsupported vbox layout property";
             let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
-            if let Some((n, _)) = attached.column {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.column {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
-            if let Some((n, _)) = attached.column_minimum_width {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.column_minimum_width {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
-            if let Some((n, _)) = attached.column_span {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.column_span {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
-            if let Some((n, _)) = attached.column_stretch {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.column_stretch {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
-            if let Some((n, _)) = attached.row {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.row {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
-            if let Some((n, _)) = attached.row_minimum_height {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.row_minimum_height {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
-            if let Some((n, _)) = attached.row_span {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.row_span {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
             maybe_insert_into_opt_i32_array(
                 &mut attributes./*row_*/stretch,
@@ -419,14 +430,23 @@ fn process_hbox_layout_children(
         .filter_map(|(column, &n)| {
             const UNSUPPORTED_MSG: &str = "unsupported hbox layout property";
             let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
-            if let Some((n, _)) = attached.column {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.column {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
-            if let Some((n, _)) = attached.column_minimum_width {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.column_minimum_width {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
-            if let Some((n, _)) = attached.column_span {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.column_span {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
             maybe_insert_into_opt_i32_array(
                 &mut attributes./*column_*/stretch,
@@ -434,17 +454,29 @@ fn process_hbox_layout_children(
                 attached.column_stretch,
                 diagnostics,
             );
-            if let Some((n, _)) = attached.row {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.row {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
-            if let Some((n, _)) = attached.row_minimum_height {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.row_minimum_height {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
-            if let Some((n, _)) = attached.row_span {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.row_span {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
-            if let Some((n, _)) = attached.row_stretch {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.row_stretch {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
             Some(LayoutItem::new(None, None, attached, content))
         })
@@ -466,23 +498,41 @@ fn process_form_layout_children(
             const UNSUPPORTED_MSG: &str = "unsupported form layout property";
             let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
             let (row, column) = index_counter.parse_next(&attached, diagnostics)?;
-            if let Some((n, _)) = attached.column_minimum_width {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.column_minimum_width {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
-            if let Some((n, _)) = attached.column_span {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.column_span {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
-            if let Some((n, _)) = attached.column_stretch {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.column_stretch {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
-            if let Some((n, _)) = attached.row_minimum_height {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.row_minimum_height {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
-            if let Some((n, _)) = attached.row_span {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.row_span {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
-            if let Some((n, _)) = attached.row_stretch {
-                diagnostics.push(Diagnostic::error(n.byte_range(), UNSUPPORTED_MSG));
+            if let Some(v) = attached.row_stretch {
+                diagnostics.push(Diagnostic::error(
+                    v.binding_node().byte_range(),
+                    UNSUPPORTED_MSG,
+                ));
             }
             Some(LayoutItem::new(Some(row), Some(column), attached, content))
         })
@@ -686,26 +736,26 @@ impl LayoutFlow {
 
 fn maybe_parse_layout_index(
     field_name: &str,
-    index: Option<(Node, i32)>,
+    index: Option<WithNode<i32>>,
     max_index: i32,
     diagnostics: &mut Diagnostics,
 ) -> Option<Option<i32>> {
     match index {
-        Some((n, i)) if i < 0 => {
+        Some(i) if *i.value() < 0 => {
             diagnostics.push(Diagnostic::error(
-                n.byte_range(),
+                i.node().byte_range(),
                 format!("negative {field_name} is not allowed"),
             ));
             None
         }
-        Some((n, i)) if i > max_index => {
+        Some(i) if *i.value() > max_index => {
             diagnostics.push(Diagnostic::error(
-                n.byte_range(),
+                i.node().byte_range(),
                 format!("{field_name} is too large"),
             ));
             None
         }
-        Some((_, i)) => Some(Some(i)),
+        Some(i) => Some(Some(*i.value())),
         None => Some(None),
     }
 }
@@ -713,22 +763,22 @@ fn maybe_parse_layout_index(
 fn maybe_insert_into_opt_i32_array(
     array: &mut Vec<Option<i32>>,
     index: usize,
-    value: Option<(Node, i32)>,
+    value: Option<WithNode<i32>>,
     diagnostics: &mut Diagnostics,
 ) {
-    if let Some((n, v1)) = value {
+    if let Some(v1) = value {
         if index >= array.len() {
             array.resize_with(index + 1, Default::default);
         }
         match array[index] {
-            Some(v0) if v0 != v1 => {
+            Some(v0) if v0 != *v1.value() => {
                 diagnostics.push(Diagnostic::error(
-                    n.byte_range(),
+                    v1.node().byte_range(),
                     format!("mismatched with the value previously set: {v0}"),
                 ));
             }
             _ => {
-                array[index] = Some(v1);
+                array[index] = Some(*v1.value());
             }
         }
     }
