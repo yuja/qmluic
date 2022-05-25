@@ -179,11 +179,11 @@ impl SizePolicy {
     ) -> Self {
         let properties_map =
             property::collect_properties_with_node(cls, binding_map, &[], source, diagnostics);
-        let get_size_policy_property = |name, diagnostics: &mut Diagnostics| {
+        let get_enum_property = |name, diagnostics: &mut Diagnostics| {
             properties_map
                 .get(name)
                 .and_then(|v| diagnostics.consume_err(v.to_enum()))
-                .map(|s| s.strip_prefix("QSizePolicy::").unwrap_or(s).to_owned())
+                .map(|s| s.to_owned())
         };
         let get_i32_property = |name, diagnostics: &mut Diagnostics| {
             properties_map
@@ -192,8 +192,8 @@ impl SizePolicy {
         };
         SizePolicy {
             // should be kept sync with QSizePolicy definition in metatype_tweak.rs
-            horizontal_policy: get_size_policy_property("horizontalPolicy", diagnostics),
-            vertical_policy: get_size_policy_property("verticalPolicy", diagnostics),
+            horizontal_policy: get_enum_property("horizontalPolicy", diagnostics),
+            vertical_policy: get_enum_property("verticalPolicy", diagnostics),
             horizontal_stretch: get_i32_property("horizontalStretch", diagnostics),
             vertical_stretch: get_i32_property("verticalStretch", diagnostics),
         }
@@ -206,10 +206,10 @@ impl SizePolicy {
     {
         let mut tag = BytesStart::borrowed_name(b"sizepolicy");
         if let Some(s) = &self.horizontal_policy {
-            tag.push_attribute(("hsizetype", s.as_ref()));
+            tag.push_attribute(("hsizetype", s.strip_prefix("QSizePolicy::").unwrap_or(s)));
         }
         if let Some(s) = &self.vertical_policy {
-            tag.push_attribute(("vsizetype", s.as_ref()));
+            tag.push_attribute(("vsizetype", s.strip_prefix("QSizePolicy::").unwrap_or(s)));
         }
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
