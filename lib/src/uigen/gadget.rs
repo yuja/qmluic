@@ -27,7 +27,7 @@ impl Gadget {
         source: &str,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let properties = collect_constant_properties(cls, binding_map, source, diagnostics);
+        let properties = property::collect_gadget_properties(cls, binding_map, source, diagnostics);
         match cls.name() {
             "QFont" => Some(Gadget {
                 name: "font".to_owned(),
@@ -75,37 +75,6 @@ impl Gadget {
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
     }
-}
-
-/// Parses the given `binding_map` into a map of constant values.
-///
-/// Unparsable properties are excluded from the resulting map so as many diagnostic messages
-/// will be generated as possible.
-fn collect_constant_properties(
-    cls: &Class,
-    binding_map: &UiBindingMap,
-    source: &str,
-    diagnostics: &mut Diagnostics,
-) -> HashMap<String, ConstantValue> {
-    binding_map
-        .iter()
-        .filter_map(|(&name, value)| {
-            if let Some(ty) = cls.get_property_type(name) {
-                ConstantValue::from_binding_value(cls, &ty, value, source, diagnostics)
-            } else {
-                diagnostics.push(Diagnostic::error(
-                    value.node().byte_range(),
-                    format!(
-                        "unknown property of class '{}': {}",
-                        cls.qualified_name(),
-                        name
-                    ),
-                ));
-                None
-            }
-            .map(|v| (name.to_owned(), v))
-        })
-        .collect()
 }
 
 /// Struct representing `QMargins`.
