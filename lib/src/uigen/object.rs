@@ -183,40 +183,34 @@ impl Widget {
         };
 
         let binding_map = diagnostics.consume_err(obj.build_binding_map(ctx.source))?;
+        let properties =
+            property::collect_properties(cls, &binding_map, &["actions"], ctx.source, diagnostics);
+        let actions = binding_map
+            .get("actions")
+            .map(|v| collect_identifiers(v, ctx.source, diagnostics))
+            .unwrap_or_default();
+
         let child_container_kind = if cls.is_derived_from(&ctx.tab_widget_class) {
             ContainerKind::TabWidget
         } else {
             ContainerKind::Any
         };
+        let children = obj
+            .child_object_nodes()
+            .iter()
+            .filter_map(|&n| {
+                let (obj, cls) = resolve_object_definition(ctx, n, diagnostics)?;
+                UiObject::from_object_definition(ctx, &cls, &obj, child_container_kind, diagnostics)
+            })
+            .collect();
+
         Some(Widget {
             class: cls.name().to_owned(),
             name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
             attributes,
-            properties: property::collect_properties(
-                cls,
-                &binding_map,
-                &["actions"],
-                ctx.source,
-                diagnostics,
-            ),
-            actions: binding_map
-                .get("actions")
-                .map(|v| collect_identifiers(v, ctx.source, diagnostics))
-                .unwrap_or_default(),
-            children: obj
-                .child_object_nodes()
-                .iter()
-                .filter_map(|&n| {
-                    let (obj, cls) = resolve_object_definition(ctx, n, diagnostics)?;
-                    UiObject::from_object_definition(
-                        ctx,
-                        &cls,
-                        &obj,
-                        child_container_kind,
-                        diagnostics,
-                    )
-                })
-                .collect(),
+            properties,
+            actions,
+            children,
         })
     }
 
