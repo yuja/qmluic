@@ -260,7 +260,7 @@ QDialog {
         QHBoxLayout {
             QPushButton {
                 id: settingButton
-                // TODO: default: false
+                default_: false
                 text: qsTr("&Settings")
                 toolTip: qsTr("Configure email settings")
             }
@@ -272,14 +272,14 @@ QDialog {
 
             QPushButton {
                 id: sendButton
-                // TODO: default: false
+                default_: false
                 enabled: false
                 text: qsTr("Send &Email")
             }
 
             QPushButton {
                 id: closeButton
-                // TODO: default: true
+                default_: true
                 text: qsTr("&Close")
             }
         }

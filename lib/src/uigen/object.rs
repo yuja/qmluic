@@ -183,8 +183,15 @@ impl Widget {
         };
 
         let binding_map = diagnostics.consume_err(obj.build_binding_map(ctx.source))?;
-        let properties =
+        let mut properties =
             property::collect_properties(cls, &binding_map, &["actions"], ctx.source, diagnostics);
+        if cls.is_derived_from(&ctx.push_button_class) {
+            // see metatype_tweak.rs, "default" is a reserved word
+            if let Some((mut k, v)) = properties.remove_entry("default_") {
+                k.pop();
+                properties.insert(k, v);
+            }
+        }
         let actions = binding_map
             .get("actions")
             .map(|v| collect_identifiers(v, ctx.source, diagnostics))

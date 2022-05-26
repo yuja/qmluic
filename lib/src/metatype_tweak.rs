@@ -16,6 +16,7 @@ pub fn fix_classes(classes: &mut [Class]) {
             "QFont" => fix_font(cls),
             "QGridLayout" => fix_grid_layout(cls),
             "QLayout" => fix_layout(cls),
+            "QPushButton" => fix_push_button(cls),
             "QSizePolicy" => fix_size_policy(cls),
             "QTabWidget" => fix_tab_widget(cls),
             "QWidget" => fix_widget(cls),
@@ -131,6 +132,12 @@ fn fix_layout(cls: &mut Class) {
             write: Some("setContentsMargins".to_owned()),
             ..Default::default()
         });
+    }
+}
+
+fn fix_push_button(cls: &mut Class) {
+    if let Some(p) = cls.properties.iter_mut().find(|p| p.name == "default") {
+        p.name += "_"; // reserved world
     }
 }
 

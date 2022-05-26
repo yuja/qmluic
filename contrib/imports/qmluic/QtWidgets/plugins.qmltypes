@@ -4513,7 +4513,7 @@ Module {
         exports: ["qmluic.QtWidgets/QPushButton 5.0"]
         exportMetaObjectRevisions: [0]
         Property { name: "autoDefault"; type: "bool" }
-        Property { name: "default"; type: "bool" }
+        Property { name: "default_"; type: "bool" }
         Property { name: "flat"; type: "bool" }
         Method { name: "showMenu" }
         Method { name: "_q_popupPressed" }

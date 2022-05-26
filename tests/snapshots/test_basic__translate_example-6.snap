@@ -1,6 +1,6 @@
 ---
 source: tests/test_basic.rs
-expression: "translate_file(\"examples/thg/HgEmailDialog.qml\")"
+expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()"
 ---
 <ui version="4.0">
  <class>HgEmailDialog</class>
@@ -387,6 +387,9 @@ expression: "translate_file(\"examples/thg/HgEmailDialog.qml\")"
     <layout class="QHBoxLayout">
      <item>
       <widget class="QPushButton" name="settingButton">
+       <property name="default">
+        <bool>false</bool>
+       </property>
        <property name="text">
         <string>&amp;Settings</string>
        </property>
@@ -404,6 +407,9 @@ expression: "translate_file(\"examples/thg/HgEmailDialog.qml\")"
      </item>
      <item>
       <widget class="QPushButton" name="sendButton">
+       <property name="default">
+        <bool>false</bool>
+       </property>
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -414,6 +420,9 @@ expression: "translate_file(\"examples/thg/HgEmailDialog.qml\")"
      </item>
      <item>
       <widget class="QPushButton" name="closeButton">
+       <property name="default">
+        <bool>true</bool>
+       </property>
        <property name="text">
         <string>&amp;Close</string>
        </property>
