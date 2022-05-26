@@ -1,0 +1,421 @@
+---
+source: tests/test_basic.rs
+expression: "translate_file(\"examples/thg/HgEmailDialog.qml\")"
+---
+<ui version="4.0">
+ <class>HgEmailDialog</class>
+ <widget class="QDialog">
+  <property name="height">
+   <number>520</number>
+  </property>
+  <property name="sizeGripEnabled">
+   <bool>true</bool>
+  </property>
+  <property name="width">
+   <number>660</number>
+  </property>
+  <property name="windowTitle">
+   <string>Email</string>
+  </property>
+  <layout class="QVBoxLayout">
+   <item>
+    <widget class="QTabWidget" name="mainTabs">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <property name="documentMode">
+      <bool>false</bool>
+     </property>
+     <property name="movable">
+      <bool>false</bool>
+     </property>
+     <property name="tabsClosable">
+      <bool>false</bool>
+     </property>
+     <widget class="QWidget" name="editTab">
+      <layout class="QGridLayout">
+       <item column="0" row="0">
+        <widget class="QGroupBox" name="envelopeBox">
+         <layout class="QFormLayout">
+          <property name="fieldGrowthPolicy">
+           <enum>QFormLayout::ExpandingFieldsGrow</enum>
+          </property>
+          <item column="0" row="0">
+           <widget class="QLabel">
+            <property name="text">
+             <string>To:</string>
+            </property>
+           </widget>
+          </item>
+          <item column="1" row="0">
+           <widget class="QComboBox" name="toEdit">
+            <property name="editable">
+             <bool>true</bool>
+            </property>
+            <property name="insertPolicy">
+             <enum>QComboBox::InsertAtTop</enum>
+            </property>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+             </sizepolicy>
+            </property>
+           </widget>
+          </item>
+          <item column="0" row="1">
+           <widget class="QLabel">
+            <property name="text">
+             <string>Cc:</string>
+            </property>
+           </widget>
+          </item>
+          <item column="1" row="1">
+           <widget class="QComboBox" name="ccEdit">
+            <property name="editable">
+             <bool>true</bool>
+            </property>
+            <property name="insertPolicy">
+             <enum>QComboBox::InsertAtTop</enum>
+            </property>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+             </sizepolicy>
+            </property>
+           </widget>
+          </item>
+          <item column="0" row="2">
+           <widget class="QLabel">
+            <property name="text">
+             <string>From:</string>
+            </property>
+           </widget>
+          </item>
+          <item column="1" row="2">
+           <widget class="QComboBox" name="fromEdit">
+            <property name="editable">
+             <bool>true</bool>
+            </property>
+            <property name="insertPolicy">
+             <enum>QComboBox::InsertAtTop</enum>
+            </property>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+             </sizepolicy>
+            </property>
+           </widget>
+          </item>
+          <item column="0" row="3">
+           <widget class="QLabel">
+            <property name="text">
+             <string>In-Reply-To:</string>
+            </property>
+           </widget>
+          </item>
+          <item column="1" row="3">
+           <widget class="QLineEdit" name="inReplyToEdit">
+            <property name="toolTip">
+             <string>Message identifier to reply to, for threading</string>
+            </property>
+           </widget>
+          </item>
+          <item column="0" row="4">
+           <widget class="QLabel">
+            <property name="text">
+             <string>Flag:</string>
+            </property>
+           </widget>
+          </item>
+          <item column="1" row="4">
+           <widget class="QComboBox" name="flagEdit">
+            <property name="editable">
+             <bool>true</bool>
+            </property>
+            <property name="insertPolicy">
+             <enum>QComboBox::InsertAtTop</enum>
+            </property>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+             </sizepolicy>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item column="1" row="0">
+        <widget class="QGroupBox" name="optionsEdit">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+          </sizepolicy>
+         </property>
+         <layout class="QVBoxLayout">
+          <item>
+           <widget class="QFrame" name="patchFrame">
+            <property name="frameShadow">
+             <enum>QFrame::Raised</enum>
+            </property>
+            <property name="frameShape">
+             <enum>QFrame::NoFrame</enum>
+            </property>
+            <layout class="QVBoxLayout">
+             <item>
+              <widget class="QRadioButton" name="hgPatchRadio">
+               <property name="text">
+                <string>Send changesets as Hg patches</string>
+               </property>
+               <property name="whatsThis">
+                <string>Hg patches (as generated by export command) are compatible with most patch programs. They include a header which contains the most important changeset metadata.</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="gitPatchRadio">
+               <property name="text">
+                <string>Use extended (git) patch format</string>
+               </property>
+               <property name="whatsThis">
+                <string>Git patches can describe binary files, copies, and permission changes, but recipients may not be able to use them if they are not using git or Mercurial.</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="plainPatchRadio">
+               <property name="text">
+                <string>Plain, do not prepend Hg header</string>
+               </property>
+               <property name="whatsThis">
+                <string>Stripping Mercurial header removes username and parent information.  Only useful if recipient is not using Mercurial (and does not like to see the headers).</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="bundleRadio">
+               <property name="text">
+                <string>Send single binary bundle, not patches</string>
+               </property>
+               <property name="whatsThis">
+                <string>Bundles store complete changesets in binary form. Upstream users can pull from them. This is the safest way to send changes to recipient Mercurial users.</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QFrame" name="extraFrame">
+            <property name="frameShadow">
+             <enum>QFrame::Raised</enum>
+            </property>
+            <property name="frameShape">
+             <enum>QFrame::NoFrame</enum>
+            </property>
+            <layout class="QHBoxLayout">
+             <item>
+              <widget class="QCheckBox" name="bodyCheck">
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+               <property name="text">
+                <string>body</string>
+               </property>
+               <property name="toolTip">
+                <string>Send patches as part of the email body</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="attachCheck">
+               <property name="text">
+                <string>attach</string>
+               </property>
+               <property name="toolTip">
+                <string>Send patches as attachments</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="inlineCheck">
+               <property name="text">
+                <string>inline</string>
+               </property>
+               <property name="toolTip">
+                <string>Send patches as inline attachments</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="diffstatCheck">
+               <property name="text">
+                <string>diffstat</string>
+               </property>
+               <property name="toolTip">
+                <string>Add diffstat output to messages</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer>
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item column="0" colspan="2" row="1">
+        <widget class="QCheckBox" name="writeIntroCheck">
+         <property name="text">
+          <string>Write patch series (bundle) description</string>
+         </property>
+         <property name="whatsThis">
+          <string>Patch series description is sent in initial summary email with [PATCH 0 of N] subject.  It should describe the effects of the entire patch series.  When emailing a bundle, these fields make up the message subject and body. Flags is a comma separated list of tags which are inserted into the message subject prefix.</string>
+         </property>
+        </widget>
+       </item>
+       <item column="0" colspan="2" row="2">
+        <widget class="QSplitter">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <widget class="QGroupBox" name="introBox">
+          <layout class="QVBoxLayout">
+           <item>
+            <layout class="QHBoxLayout">
+             <item>
+              <widget class="QLabel">
+               <property name="text">
+                <string>Subject:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QComboBox" name="subjectEdit">
+               <property name="editable">
+                <bool>true</bool>
+               </property>
+               <property name="insertPolicy">
+                <enum>QComboBox::InsertAtTop</enum>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                </sizepolicy>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QPlainTextEdit">
+             <property name="font">
+              <font>
+               <family>Monospace</family>
+              </font>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QGroupBox" name="changesetsBox">
+          <property name="title">
+           <string>Changesets</string>
+          </property>
+          <layout class="QVBoxLayout">
+           <item>
+            <widget class="QTreeView" name="changesetsView">
+             <property name="indentation">
+              <number>0</number>
+             </property>
+             <property name="itemsExpandable">
+              <bool>false</bool>
+             </property>
+             <property name="rootIsDecorated">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout">
+             <item>
+              <widget class="QPushButton" name="selectAllButton">
+               <property name="text">
+                <string>Select &amp;All</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="selectNoneButton">
+               <property name="text">
+                <string>Select &amp;None</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer>
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="previewTab">
+      <layout class="QGridLayout">
+       <item column="0" row="0">
+        <widget class="QPlainTextEdit" name="previewEdit">
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout">
+     <item>
+      <widget class="QPushButton" name="settingButton">
+       <property name="text">
+        <string>&amp;Settings</string>
+       </property>
+       <property name="toolTip">
+        <string>Configure email settings</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer>
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="sendButton">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="text">
+        <string>Send &amp;Email</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="closeButton">
+       <property name="text">
+        <string>&amp;Close</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+</ui>
+
