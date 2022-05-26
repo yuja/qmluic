@@ -5,6 +5,7 @@ use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{BinaryOperator, Node, UiBindingMap, UiBindingValue, UnaryOperator};
 use crate::typedexpr::{self, DescribeType, ExpressionVisitor, TypeDesc};
 use crate::typemap::{Class, Enum, PrimitiveType, Type, TypeSpace};
+use quick_xml::events::{BytesStart, BytesText, Event};
 use std::fmt;
 use std::io;
 
@@ -114,7 +115,7 @@ impl ConstantExpression {
 pub enum ConstantValue {
     Bool(bool),
     Number(f64),
-    String(String),
+    String { s: String, tr: bool },
     Enum(String),
     Set(String),
 }
@@ -218,7 +219,8 @@ impl ConstantValue {
                 match res {
                     EvaluatedValue::Bool(v) => Some(ConstantValue::Bool(v)),
                     EvaluatedValue::Number(v) => Some(ConstantValue::Number(v)),
-                    EvaluatedValue::String(v) => Some(ConstantValue::String(v)),
+                    EvaluatedValue::String(s) => Some(ConstantValue::String { s, tr: false }),
+                    EvaluatedValue::TrString(s) => Some(ConstantValue::String { s, tr: true }),
                 }
             }
         }
@@ -233,7 +235,15 @@ impl ConstantValue {
         match self {
             Bool(_) => xmlutil::write_tagged_str(writer, "bool", self.to_string()),
             Number(_) => xmlutil::write_tagged_str(writer, "number", self.to_string()),
-            String(_) => xmlutil::write_tagged_str(writer, "string", self.to_string()),
+            String { s, tr } => {
+                let mut tag = BytesStart::borrowed_name(b"string");
+                if !tr {
+                    tag.push_attribute(("notr", "true"));
+                }
+                writer.write_event(Event::Start(tag.to_borrowed()))?;
+                writer.write_event(Event::Text(BytesText::from_plain_str(s)))?;
+                writer.write_event(Event::End(tag.to_end()))
+            }
             Enum(_) => xmlutil::write_tagged_str(writer, "enum", self.to_string()),
             Set(_) => xmlutil::write_tagged_str(writer, "set", self.to_string()),
         }
@@ -260,7 +270,7 @@ impl fmt::Display for ConstantValue {
         match self {
             Bool(b) => write!(f, "{}", if *b { "true" } else { "false" }),
             Number(d) => write!(f, "{}", d),
-            String(s) | Enum(s) | Set(s) => write!(f, "{}", s),
+            String { s, .. } | Enum(s) | Set(s) => write!(f, "{}", s),
         }
     }
 }
@@ -307,6 +317,7 @@ enum EvaluatedValue {
     Bool(bool),
     Number(f64),
     String(String),
+    TrString(String),
 }
 
 impl DescribeType<'_> for EvaluatedValue {
@@ -315,6 +326,7 @@ impl DescribeType<'_> for EvaluatedValue {
             EvaluatedValue::Bool(_) => TypeDesc::Bool,
             EvaluatedValue::Number(_) => TypeDesc::Number,
             EvaluatedValue::String(_) => TypeDesc::String,
+            EvaluatedValue::TrString(_) => TypeDesc::String,
         }
     }
 }
@@ -344,7 +356,10 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
         mut arguments: Vec<Self::Item>,
     ) -> Option<Self::Item> {
         match function {
-            "qsTr" if arguments.len() == 1 => arguments.pop(),
+            "qsTr" if arguments.len() == 1 => match arguments.pop() {
+                Some(EvaluatedValue::String(a)) => Some(EvaluatedValue::TrString(a)),
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -371,6 +386,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
                 Typeof | Void | Delete => None,
             },
             EvaluatedValue::String(_) => None,
+            EvaluatedValue::TrString(_) => None, // can't evaluate as constant
         }
     }
 
@@ -448,6 +464,8 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
                 Instanceof => None,
                 In => None,
             },
+            (EvaluatedValue::TrString(_), _) => None, // can't evaluate as constant
+            (_, EvaluatedValue::TrString(_)) => None, // can't evaluate as constant
             _ => None,
         }
     }

@@ -30,7 +30,6 @@ import qmluic.QtWidgets
 
 // Top-level widget
 QDialog {
-    // qsTr() is optional since .ui has no corresponding item.
     windowTitle: qsTr("Settings")
 
     QFormLayout {
