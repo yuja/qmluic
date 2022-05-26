@@ -177,7 +177,7 @@ impl LayoutItem {
             tag.push_attribute(("column", v.to_string().as_ref()));
         }
         if let Some(v) = self.column_span {
-            tag.push_attribute(("columnspan", v.to_string().as_ref()));
+            tag.push_attribute(("colspan", v.to_string().as_ref())); // not "columnspan"
         }
         if let Some(v) = self.row {
             tag.push_attribute(("row", v.to_string().as_ref()));
