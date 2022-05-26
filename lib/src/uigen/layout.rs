@@ -1,5 +1,5 @@
 use super::expr::ConstantExpression;
-use super::object::{self, Widget};
+use super::object::{self, ContainerKind, Widget};
 use super::property::{self, WithNode};
 use super::BuildContext;
 use super::{XmlResult, XmlWriter};
@@ -274,7 +274,7 @@ impl LayoutItemContent {
             SpacerItem::from_object_definition(ctx, cls, obj, diagnostics)
                 .map(LayoutItemContent::SpacerItem)
         } else if cls.is_derived_from(&ctx.widget_class) {
-            Widget::from_object_definition(ctx, cls, obj, diagnostics)
+            Widget::from_object_definition(ctx, cls, obj, ContainerKind::Any, diagnostics)
                 .map(LayoutItemContent::Widget)
         } else {
             diagnostics.push(Diagnostic::error(

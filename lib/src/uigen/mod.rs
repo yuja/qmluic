@@ -30,7 +30,8 @@ pub fn build(
     let program = diagnostics.consume_err(UiProgram::from_node(doc.root_node()))?;
     let (obj, cls) =
         object::resolve_object_definition(ctx, program.root_object_node(), diagnostics)?;
-    let root_object = UiObject::from_object_definition(ctx, &cls, &obj, diagnostics)?;
+    let root_object =
+        UiObject::from_object_definition(ctx, &cls, &obj, ContainerKind::Any, diagnostics)?;
     Some(UiForm {
         class: doc.type_name().map(|s| s.to_owned()),
         root_object,
@@ -49,6 +50,8 @@ pub struct BuildContext<'a, 's> {
     layout_class: Class<'a>,
     layout_attached_class: Class<'a>,
     spacer_item_class: Class<'a>,
+    tab_widget_class: Class<'a>,
+    tab_widget_attached_class: Class<'a>,
     vbox_layout_class: Class<'a>,
     widget_class: Class<'a>,
 }
@@ -73,6 +76,8 @@ impl<'a, 's> BuildContext<'a, 's> {
             layout_class: get_class("QLayout")?,
             layout_attached_class: get_class("QLayoutAttached")?,
             spacer_item_class: get_class("QSpacerItem")?,
+            tab_widget_class: get_class("QTabWidget")?,
+            tab_widget_attached_class: get_class("QTabWidgetAttached")?,
             vbox_layout_class: get_class("QVBoxLayout")?,
             widget_class: get_class("QWidget")?,
         })

@@ -33,6 +33,9 @@ expression: "translate_file(\"examples/thg/HgEmailDialog.qml\")"
       <bool>false</bool>
      </property>
      <widget class="QWidget" name="editTab">
+      <attribute name="title">
+       <string>Edit</string>
+      </attribute>
       <layout class="QGridLayout">
        <item column="0" row="0">
         <widget class="QGroupBox" name="envelopeBox">
@@ -368,6 +371,9 @@ expression: "translate_file(\"examples/thg/HgEmailDialog.qml\")"
       </layout>
      </widget>
      <widget class="QWidget" name="previewTab">
+      <attribute name="title">
+       <string>Preview</string>
+      </attribute>
       <layout class="QGridLayout">
        <item column="0" row="0">
         <widget class="QPlainTextEdit" name="previewEdit">

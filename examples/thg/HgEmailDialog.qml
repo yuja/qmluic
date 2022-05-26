@@ -21,11 +21,7 @@ QDialog {
 
             QWidget {
                 id: editTab
-
-                // TODO
-                // <attribute name="title">
-                //  <string>Edit</string>
-                // </attribute>
+                QTabWidget.title: qsTr("Edit")
 
                 QGridLayout {
                     columns: 2
@@ -252,11 +248,7 @@ QDialog {
 
             QWidget {
                 id: previewTab
-
-                // TODO
-                // <attribute name="title">
-                //  <string>Preview</string>
-                // </attribute>
+                QTabWidget.title: qsTr("Preview")
 
                 QGridLayout {
                     // TODO: <widget class="QsciScintilla" name="preview_edit"/>

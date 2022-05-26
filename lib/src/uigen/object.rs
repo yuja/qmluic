@@ -35,6 +35,13 @@ impl UiForm {
     }
 }
 
+/// Type of the object parent.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum ContainerKind {
+    Any,
+    TabWidget,
+}
+
 /// Variant for the object definitions which can be serialized to UI XML.
 #[derive(Clone, Debug)]
 pub enum UiObject {
@@ -49,6 +56,7 @@ impl UiObject {
         ctx: &BuildContext,
         cls: &Class,
         obj: &UiObjectDefinition,
+        container_kind: ContainerKind,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         if cls.is_derived_from(&ctx.action_class) {
@@ -56,7 +64,8 @@ impl UiObject {
         } else if cls.is_derived_from(&ctx.layout_class) {
             Layout::from_object_definition(ctx, cls, obj, diagnostics).map(UiObject::Layout)
         } else if cls.is_derived_from(&ctx.widget_class) {
-            Widget::from_object_definition(ctx, cls, obj, diagnostics).map(UiObject::Widget)
+            Widget::from_object_definition(ctx, cls, obj, container_kind, diagnostics)
+                .map(UiObject::Widget)
         } else {
             diagnostics.push(Diagnostic::error(
                 obj.node().byte_range(),
@@ -137,6 +146,7 @@ impl Action {
 pub struct Widget {
     pub class: String,
     pub name: Option<String>,
+    pub attributes: HashMap<String, ConstantExpression>,
     pub properties: HashMap<String, ConstantExpression>,
     pub actions: Vec<String>,
     pub children: Vec<UiObject>,
@@ -149,12 +159,39 @@ impl Widget {
         ctx: &BuildContext,
         cls: &Class,
         obj: &UiObjectDefinition,
+        container_kind: ContainerKind,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
+        let attached_type_map = diagnostics.consume_err(obj.build_attached_type_map(ctx.source))?;
+        let attributes = match container_kind {
+            ContainerKind::Any => HashMap::new(),
+            ContainerKind::TabWidget => {
+                // TODO: resolve against imported types,
+                attached_type_map
+                    .get(["QTabWidget"].as_ref())
+                    .map(|m| {
+                        property::collect_properties(
+                            &ctx.tab_widget_attached_class,
+                            m,
+                            &[],
+                            ctx.source,
+                            diagnostics,
+                        )
+                    })
+                    .unwrap_or_default()
+            }
+        };
+
         let binding_map = diagnostics.consume_err(obj.build_binding_map(ctx.source))?;
+        let child_container_kind = if cls.is_derived_from(&ctx.tab_widget_class) {
+            ContainerKind::TabWidget
+        } else {
+            ContainerKind::Any
+        };
         Some(Widget {
             class: cls.name().to_owned(),
             name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
+            attributes,
             properties: property::collect_properties(
                 cls,
                 &binding_map,
@@ -171,7 +208,13 @@ impl Widget {
                 .iter()
                 .filter_map(|&n| {
                     let (obj, cls) = resolve_object_definition(ctx, n, diagnostics)?;
-                    UiObject::from_object_definition(ctx, &cls, &obj, diagnostics)
+                    UiObject::from_object_definition(
+                        ctx,
+                        &cls,
+                        &obj,
+                        child_container_kind,
+                        diagnostics,
+                    )
                 })
                 .collect(),
         })
@@ -189,6 +232,7 @@ impl Widget {
         }
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
+        property::serialize_properties_to_xml(writer, "attribute", &self.attributes)?;
         property::serialize_properties_to_xml(writer, "property", &self.properties)?;
 
         for n in &self.actions {
