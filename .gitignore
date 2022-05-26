@@ -1,5 +1,6 @@
 # Cargo
 **/snapshots/*.snap.new
+*.pending-snap
 /target
 
 # Emacs, etc.
