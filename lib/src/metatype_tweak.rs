@@ -17,6 +17,7 @@ pub fn fix_classes(classes: &mut [Class]) {
             "QGridLayout" => fix_grid_layout(cls),
             "QLayout" => fix_layout(cls),
             "QSizePolicy" => fix_size_policy(cls),
+            "QTabWidget" => fix_tab_widget(cls),
             "QWidget" => fix_widget(cls),
             _ => {}
         }
@@ -166,6 +167,11 @@ fn fix_size_policy(cls: &mut Class) {
     ]);
 }
 
+fn fix_tab_widget(cls: &mut Class) {
+    cls.class_infos
+        .push(ClassInfo::new("QML.Attached", "QTabWidgetAttached"));
+}
+
 fn fix_widget(cls: &mut Class) {
     cls.properties.extend([
         Property::new("actions", "QList<QAction*>"), // handled by uigen
@@ -241,6 +247,18 @@ pub fn internal_widgets_classes() -> impl IntoIterator<Item = Class> {
                 Property::new("orientation", "Qt::Orientation"),
                 Property::new("sizeHint", "QSize"),
                 Property::new("sizeType", "QSizePolicy"),
+            ],
+            ..Default::default()
+        },
+        Class {
+            class_name: "QTabWidgetAttached".to_owned(),
+            qualified_class_name: "QTabWidgetAttached".to_owned(),
+            object: true,
+            properties: vec![
+                Property::new("icon", "QIcon"),
+                Property::new("title", "QString"),
+                Property::new("toolTip", "QString"),
+                Property::new("whatsThis", "QString"),
             ],
             ..Default::default()
         },

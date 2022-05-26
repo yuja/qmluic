@@ -5726,6 +5726,7 @@ Module {
         prototype: "QWidget"
         exports: ["qmluic.QtWidgets/QTabWidget 5.0"]
         exportMetaObjectRevisions: [0]
+        attachedType: "QTabWidgetAttached"
         Enum {
             name: "TabPosition"
             values: ["North", "South", "West", "East"]
@@ -5782,6 +5783,13 @@ Module {
             Parameter { type: "int" }
             Parameter { type: "int" }
         }
+    }
+    Component {
+        name: "QTabWidgetAttached"
+        Property { name: "icon"; type: "QIcon"; isReadonly: true }
+        Property { name: "title"; type: "string"; isReadonly: true }
+        Property { name: "toolTip"; type: "string"; isReadonly: true }
+        Property { name: "whatsThis"; type: "string"; isReadonly: true }
     }
     Component {
         file: "qtableview.cpp"
