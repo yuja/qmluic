@@ -204,15 +204,18 @@ pub(super) fn collect_gadget_properties(
         .collect()
 }
 
-pub(super) fn serialize_properties_to_xml<W>(
+pub(super) fn serialize_properties_to_xml<W, T>(
     writer: &mut XmlWriter<W>,
+    tag_name: T,
     properties: &HashMap<String, ConstantExpression>,
 ) -> XmlResult<()>
 where
     W: io::Write,
+    T: AsRef<[u8]>,
 {
+    let tag_name = tag_name.as_ref();
     for (k, v) in properties.iter().sorted_by_key(|&(k, _)| k) {
-        let tag = BytesStart::borrowed_name(b"property").with_attributes([("name", k.as_ref())]);
+        let tag = BytesStart::borrowed_name(tag_name).with_attributes([("name", k.as_ref())]);
         writer.write_event(Event::Start(tag.to_borrowed()))?;
         v.serialize_to_xml(writer)?;
         writer.write_event(Event::End(tag.to_end()))?;

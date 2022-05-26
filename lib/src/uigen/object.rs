@@ -125,7 +125,7 @@ impl Action {
         }
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
-        property::serialize_properties_to_xml(writer, &self.properties)?;
+        property::serialize_properties_to_xml(writer, "property", &self.properties)?;
 
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
@@ -189,7 +189,7 @@ impl Widget {
         }
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
-        property::serialize_properties_to_xml(writer, &self.properties)?;
+        property::serialize_properties_to_xml(writer, "property", &self.properties)?;
 
         for n in &self.actions {
             writer.write_event(Event::Empty(

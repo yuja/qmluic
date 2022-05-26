@@ -125,7 +125,7 @@ impl Layout {
         }
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
-        property::serialize_properties_to_xml(writer, &self.properties)?;
+        property::serialize_properties_to_xml(writer, "property", &self.properties)?;
 
         for c in &self.children {
             c.serialize_to_xml(writer)?;
@@ -343,7 +343,7 @@ impl SpacerItem {
         }
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
-        property::serialize_properties_to_xml(writer, &self.properties)?;
+        property::serialize_properties_to_xml(writer, "property", &self.properties)?;
 
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
