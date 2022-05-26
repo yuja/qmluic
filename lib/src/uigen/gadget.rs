@@ -89,8 +89,7 @@ impl Gadget {
 /// - UI XML attribute names are diverged from the method/property names.
 #[derive(Clone, Debug, Default)]
 pub struct SizePolicy {
-    pub horizontal_policy: Option<String>,
-    pub vertical_policy: Option<String>,
+    pub policy: Option<(String, String)>,
     pub horizontal_stretch: Option<i32>,
     pub vertical_stretch: Option<i32>,
 }
@@ -110,18 +109,30 @@ impl SizePolicy {
         let get_enum_property = |name, diagnostics: &mut Diagnostics| {
             properties_map
                 .get(name)
-                .and_then(|v| diagnostics.consume_err(v.to_enum()))
-                .map(|s| s.to_owned())
+                .and_then(|v| diagnostics.consume_err(v.to_enum_with_node()))
         };
         let get_i32_property = |name, diagnostics: &mut Diagnostics| {
             properties_map
                 .get(name)
                 .and_then(|v| diagnostics.consume_err(v.to_i32()))
         };
+        let policy = match (
+            get_enum_property("horizontalPolicy", diagnostics),
+            get_enum_property("verticalPolicy", diagnostics),
+        ) {
+            (Some(h), Some(v)) => Some((h.into_value().to_owned(), v.into_value().to_owned())),
+            (Some(x), _) | (_, Some(x)) => {
+                diagnostics.push(Diagnostic::error(
+                    x.binding_node().byte_range(),
+                    "both horizontal and vertical policies must be specified",
+                ));
+                None
+            }
+            (None, None) => None,
+        };
         SizePolicy {
             // should be kept sync with QSizePolicy definition in metatype_tweak.rs
-            horizontal_policy: get_enum_property("horizontalPolicy", diagnostics),
-            vertical_policy: get_enum_property("verticalPolicy", diagnostics),
+            policy,
             horizontal_stretch: get_i32_property("horizontalStretch", diagnostics),
             vertical_stretch: get_i32_property("verticalStretch", diagnostics),
         }
@@ -133,11 +144,9 @@ impl SizePolicy {
         W: io::Write,
     {
         let mut tag = BytesStart::borrowed_name(b"sizepolicy");
-        if let Some(s) = &self.horizontal_policy {
-            tag.push_attribute(("hsizetype", strip_enum_prefix(s)));
-        }
-        if let Some(s) = &self.vertical_policy {
-            tag.push_attribute(("vsizetype", strip_enum_prefix(s)));
+        if let Some((h, v)) = &self.policy {
+            tag.push_attribute(("hsizetype", strip_enum_prefix(h)));
+            tag.push_attribute(("vsizetype", strip_enum_prefix(v)));
         }
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
