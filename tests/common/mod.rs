@@ -18,6 +18,7 @@ pub fn translate_str(source: impl Into<String>) -> Result<String, Diagnostics> {
 }
 
 fn translate_doc(doc: &UiDocument) -> Result<String, Diagnostics> {
+    assert!(!doc.has_syntax_error());
     let mut type_map = TypeMap::with_primitive_types();
     let mut classes = load_metatypes();
     metatype_tweak::apply_all(&mut classes);
