@@ -21,7 +21,7 @@ expression: "translate_file(\"examples/GadgetProperties.qml\")"
       </font>
      </property>
      <property name="text">
-      <string>Font properties</string>
+      <string notr="true">Font properties</string>
      </property>
     </widget>
    </item>
