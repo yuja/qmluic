@@ -1,49 +1,11 @@
-use qmluic::diagnostic::Diagnostics;
-use qmluic::metatype;
-use qmluic::metatype_tweak;
-use qmluic::qmlast::UiDocument;
-use qmluic::typemap::TypeMap;
-use qmluic::uigen::{self, BuildContext, XmlWriter};
-use std::fs;
-use std::path::Path;
+pub mod common;
 
 #[test]
 fn test_translate_example() {
-    insta::assert_snapshot!(translate_file("examples/SettingsDialog.qml",));
-    insta::assert_snapshot!(translate_file("examples/MainWindow.qml"));
-    insta::assert_snapshot!(translate_file("examples/VariousLayouts.qml"));
-    insta::assert_snapshot!(translate_file("examples/LayoutFlow.qml"));
-    insta::assert_snapshot!(translate_file("examples/GadgetProperties.qml"));
-    insta::assert_snapshot!(translate_file("examples/thg/HgEmailDialog.qml"));
-}
-
-fn translate_file(path: impl AsRef<Path>) -> String {
-    let mut type_map = TypeMap::with_primitive_types();
-    let mut classes = load_metatypes();
-    metatype_tweak::apply_all(&mut classes);
-    type_map.extend(classes);
-    let doc = UiDocument::read(path).unwrap();
-    let ctx = BuildContext::prepare(&type_map, &doc).unwrap();
-    let mut diagnostics = Diagnostics::new();
-    let form = uigen::build(&ctx, &doc, &mut diagnostics).unwrap();
-    let mut buf = Vec::new();
-    form.serialize_to_xml(&mut XmlWriter::new_with_indent(&mut buf, b' ', 1))
-        .unwrap();
-    assert!(diagnostics.is_empty());
-    String::from_utf8(buf).unwrap()
-}
-
-fn load_metatypes() -> Vec<metatype::Class> {
-    let paths = [
-        "contrib/metatypes/qt5core_metatypes.json",
-        "contrib/metatypes/qt5gui_metatypes.json",
-        "contrib/metatypes/qt5widgets_metatypes.json",
-    ];
-    paths
-        .iter()
-        .flat_map(|p| {
-            let data = fs::read_to_string(p).unwrap();
-            metatype::extract_classes_from_str(&data).unwrap()
-        })
-        .collect()
+    insta::assert_snapshot!(common::translate_file("examples/SettingsDialog.qml").unwrap());
+    insta::assert_snapshot!(common::translate_file("examples/MainWindow.qml").unwrap());
+    insta::assert_snapshot!(common::translate_file("examples/VariousLayouts.qml").unwrap());
+    insta::assert_snapshot!(common::translate_file("examples/LayoutFlow.qml").unwrap());
+    insta::assert_snapshot!(common::translate_file("examples/GadgetProperties.qml").unwrap());
+    insta::assert_snapshot!(common::translate_file("examples/thg/HgEmailDialog.qml").unwrap());
 }
