@@ -33,29 +33,30 @@ pub trait DescribeType<'a> {
 
 /// Translates each expression node to [`Self::Item`].
 pub trait ExpressionVisitor<'a> {
-    type Item: DescribeType<'a>;
+    type Item: DescribeType<'a>; // TODO: do we want to check type error by walk()?
+    type Error: ToString;
 
-    fn visit_number(&self, value: f64) -> Option<Self::Item>;
-    fn visit_string(&self, value: String) -> Option<Self::Item>;
-    fn visit_bool(&self, value: bool) -> Option<Self::Item>;
-    fn visit_enum(&self, enum_ty: Enum<'a>, variant: &str) -> Option<Self::Item>;
+    fn visit_number(&self, value: f64) -> Result<Self::Item, Self::Error>;
+    fn visit_string(&self, value: String) -> Result<Self::Item, Self::Error>;
+    fn visit_bool(&self, value: bool) -> Result<Self::Item, Self::Error>;
+    fn visit_enum(&self, enum_ty: Enum<'a>, variant: &str) -> Result<Self::Item, Self::Error>;
 
     fn visit_call_expression(
         &self,
         function: &str,
         arguments: Vec<Self::Item>,
-    ) -> Option<Self::Item>;
+    ) -> Result<Self::Item, Self::Error>;
     fn visit_unary_expression(
         &self,
         operator: UnaryOperator,
         argument: Self::Item,
-    ) -> Option<Self::Item>;
+    ) -> Result<Self::Item, Self::Error>;
     fn visit_binary_expression(
         &self,
         operator: BinaryOperator,
         left: Self::Item,
         right: Self::Item,
-    ) -> Option<Self::Item>;
+    ) -> Result<Self::Item, Self::Error>;
 }
 
 /// Walks expression nodes recursively from the specified `node`.
@@ -80,36 +81,9 @@ where
             ));
             None
         }
-        Expression::Number(v) => {
-            let res = visitor.visit_number(v);
-            if res.is_none() {
-                diagnostics.push(Diagnostic::error(
-                    node.byte_range(),
-                    "unsupported constant expression: number",
-                ));
-            }
-            res
-        }
-        Expression::String(v) => {
-            let res = visitor.visit_string(v);
-            if res.is_none() {
-                diagnostics.push(Diagnostic::error(
-                    node.byte_range(),
-                    "unsupported constant expression: string",
-                ));
-            }
-            res
-        }
-        Expression::Bool(v) => {
-            let res = visitor.visit_bool(v);
-            if res.is_none() {
-                diagnostics.push(Diagnostic::error(
-                    node.byte_range(),
-                    "unsupported constant expression: bool",
-                ));
-            }
-            res
-        }
+        Expression::Number(v) => diagnostics.consume_node_err(node, visitor.visit_number(v)),
+        Expression::String(v) => diagnostics.consume_node_err(node, visitor.visit_string(v)),
+        Expression::Bool(v) => diagnostics.consume_node_err(node, visitor.visit_bool(v)),
         Expression::Array(_) => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
@@ -121,14 +95,7 @@ where
             let mid_ty = parse_type(parent_space, x.object, source, diagnostics)?;
             let name = x.property.to_str(source);
             if let Some(en) = mid_ty.get_enum_by_variant(name) {
-                let res = visitor.visit_enum(en, name);
-                if res.is_none() {
-                    diagnostics.push(Diagnostic::error(
-                        node.byte_range(),
-                        "unsupported constant expression: enum",
-                    ));
-                }
-                res
+                diagnostics.consume_node_err(node, visitor.visit_enum(en, name))
             } else {
                 diagnostics.push(Diagnostic::error(
                     node.byte_range(),
@@ -151,49 +118,21 @@ where
                 .map(|&n| walk(parent_space, n, source, visitor, diagnostics))
                 .collect::<Option<Vec<_>>>()?;
             // TODO: confine type error?
-            let res = visitor.visit_call_expression(function, arguments);
-            if res.is_none() {
-                diagnostics.push(Diagnostic::error(
-                    node.byte_range(),
-                    "unsupported function call",
-                ));
-            }
-            res
+            diagnostics.consume_node_err(node, visitor.visit_call_expression(function, arguments))
         }
         Expression::UnaryExpression(x) => {
             let argument = walk(parent_space, x.argument, source, visitor, diagnostics)?;
-            let argument_t = argument.type_desc();
             // TODO: confine type error?
-            let res = visitor.visit_unary_expression(x.operator, argument);
-            if res.is_none() {
-                diagnostics.push(Diagnostic::error(
-                    node.byte_range(),
-                    format!(
-                        "unsupported unary operation on type: {}",
-                        argument_t.qualified_name()
-                    ),
-                ));
-            }
-            res
+            diagnostics.consume_node_err(node, visitor.visit_unary_expression(x.operator, argument))
         }
         Expression::BinaryExpression(x) => {
             let left = walk(parent_space, x.left, source, visitor, diagnostics)?;
             let right = walk(parent_space, x.right, source, visitor, diagnostics)?;
-            let left_t = left.type_desc();
-            let right_t = right.type_desc();
             // TODO: confine type error?
-            let res = visitor.visit_binary_expression(x.operator, left, right);
-            if res.is_none() {
-                diagnostics.push(Diagnostic::error(
-                    node.byte_range(),
-                    format!(
-                        "unsupported binary operation on types: {} and {}",
-                        left_t.qualified_name(),
-                        right_t.qualified_name(),
-                    ),
-                ));
-            }
-            res
+            diagnostics.consume_node_err(
+                node,
+                visitor.visit_binary_expression(x.operator, left, right),
+            )
         }
     }
 }
@@ -287,5 +226,14 @@ fn expect_identifier<'t>(
             diagnostics.push(Diagnostic::error(node.byte_range(), "not an identifier"));
             None
         }
+    }
+}
+
+impl Diagnostics {
+    fn consume_node_err<T, E>(&mut self, node: Node, result: Result<T, E>) -> Option<T>
+    where
+        E: ToString,
+    {
+        self.consume_err(result.map_err(|e| Diagnostic::error(node.byte_range(), e.to_string())))
     }
 }
