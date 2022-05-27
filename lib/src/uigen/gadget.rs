@@ -1,4 +1,4 @@
-use super::expr::{ConstantExpression, ConstantValue};
+use super::expr::{ConstantExpression, SimpleValue};
 use super::property;
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
@@ -81,7 +81,7 @@ impl Gadget {
         for (k, v) in self.properties.iter().sorted_by_key(|&(k, _)| k) {
             let t = k.to_ascii_lowercase(); // apparently tag name of .ui is lowercase
             match v {
-                ConstantExpression::Value(ConstantValue::Enum(s)) if self.no_enum_prefix => {
+                ConstantExpression::Simple(SimpleValue::Enum(s)) if self.no_enum_prefix => {
                     xmlutil::write_tagged_str(writer, &t, strip_enum_prefix(s))?;
                 }
                 _ => v.serialize_to_xml_as(writer, &t)?,

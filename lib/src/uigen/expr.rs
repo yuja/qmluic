@@ -12,7 +12,7 @@ use std::io;
 /// Variant for the constant expressions which can be serialized to UI XML.
 #[derive(Clone, Debug)]
 pub enum ConstantExpression {
-    Value(ConstantValue),
+    Simple(SimpleValue),
     Gadget(Gadget),
     SizePolicy(SizePolicy),
 }
@@ -78,8 +78,8 @@ impl ConstantExpression {
     where
         P: TypeSpace<'a>,
     {
-        ConstantValue::from_expression(parent_space, ty, node, source, diagnostics)
-            .map(ConstantExpression::Value)
+        SimpleValue::from_expression(parent_space, ty, node, source, diagnostics)
+            .map(ConstantExpression::Simple)
     }
 
     /// Serializes this to UI XML.
@@ -89,7 +89,7 @@ impl ConstantExpression {
     {
         use ConstantExpression::*;
         match self {
-            Value(x) => x.serialize_to_xml(writer),
+            Simple(x) => x.serialize_to_xml(writer),
             Gadget(x) => x.serialize_to_xml(writer),
             SizePolicy(x) => x.serialize_to_xml(writer),
         }
@@ -106,7 +106,7 @@ impl ConstantExpression {
     {
         use ConstantExpression::*;
         match self {
-            Value(x) => x.serialize_to_xml_as(writer, tag_name),
+            Simple(x) => x.serialize_to_xml_as(writer, tag_name),
             Gadget(x) => x.serialize_to_xml_as(writer, tag_name),
             SizePolicy(x) => x.serialize_to_xml_as(writer, tag_name),
         }
@@ -114,14 +114,14 @@ impl ConstantExpression {
 
     pub fn as_number(&self) -> Option<f64> {
         match self {
-            ConstantExpression::Value(x) => x.as_number(),
+            ConstantExpression::Simple(x) => x.as_number(),
             _ => None,
         }
     }
 
     pub fn as_enum(&self) -> Option<&str> {
         match self {
-            ConstantExpression::Value(x) => x.as_enum(),
+            ConstantExpression::Simple(x) => x.as_enum(),
             _ => None,
         }
     }
@@ -129,7 +129,7 @@ impl ConstantExpression {
 
 /// Constant expression which can be serialized to UI XML as a simple tagged value.
 #[derive(Clone, Debug)]
-pub enum ConstantValue {
+pub enum SimpleValue {
     Bool(bool),
     Number(f64),
     String { s: String, tr: bool },
@@ -137,7 +137,7 @@ pub enum ConstantValue {
     Set(String),
 }
 
-impl ConstantValue {
+impl SimpleValue {
     /// Generates value of `ty` type from the given expression `node`.
     pub fn from_expression<'a, P>(
         parent_space: &P, // TODO: should be QML space, not C++ metatype space
@@ -171,9 +171,9 @@ impl ConstantValue {
                 match &res_t {
                     TypeDesc::Enum(res_en) if is_compatible_enum(res_en, en) => {
                         if en.is_flag() {
-                            Some(ConstantValue::Set(res_expr))
+                            Some(SimpleValue::Set(res_expr))
                         } else {
-                            Some(ConstantValue::Enum(res_expr))
+                            Some(SimpleValue::Enum(res_expr))
                         }
                     }
                     _ => {
@@ -219,10 +219,10 @@ impl ConstantValue {
                     return None;
                 }
                 match res {
-                    EvaluatedValue::Bool(v) => Some(ConstantValue::Bool(v)),
-                    EvaluatedValue::Number(v) => Some(ConstantValue::Number(v)),
-                    EvaluatedValue::String(s) => Some(ConstantValue::String { s, tr: false }),
-                    EvaluatedValue::TrString(s) => Some(ConstantValue::String { s, tr: true }),
+                    EvaluatedValue::Bool(v) => Some(SimpleValue::Bool(v)),
+                    EvaluatedValue::Number(v) => Some(SimpleValue::Number(v)),
+                    EvaluatedValue::String(s) => Some(SimpleValue::String { s, tr: false }),
+                    EvaluatedValue::TrString(s) => Some(SimpleValue::String { s, tr: true }),
                 }
             }
         }
@@ -233,7 +233,7 @@ impl ConstantValue {
     where
         W: io::Write,
     {
-        use ConstantValue::*;
+        use SimpleValue::*;
         let tag_name = match self {
             Bool(_) => "bool",
             Number(_) => "number",
@@ -253,7 +253,7 @@ impl ConstantValue {
         W: io::Write,
         T: AsRef<[u8]>,
     {
-        use ConstantValue::*;
+        use SimpleValue::*;
         match self {
             String { s, tr } => {
                 let mut tag = BytesStart::borrowed_name(tag_name.as_ref());
@@ -270,22 +270,22 @@ impl ConstantValue {
 
     pub fn as_number(&self) -> Option<f64> {
         match self {
-            ConstantValue::Number(x) => Some(*x),
+            SimpleValue::Number(x) => Some(*x),
             _ => None,
         }
     }
 
     pub fn as_enum(&self) -> Option<&str> {
         match self {
-            ConstantValue::Enum(x) | ConstantValue::Set(x) => Some(x),
+            SimpleValue::Enum(x) | SimpleValue::Set(x) => Some(x),
             _ => None,
         }
     }
 }
 
-impl fmt::Display for ConstantValue {
+impl fmt::Display for SimpleValue {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use ConstantValue::*;
+        use SimpleValue::*;
         match self {
             Bool(b) => write!(f, "{}", if *b { "true" } else { "false" }),
             Number(d) => write!(f, "{}", d),
