@@ -1,5 +1,5 @@
 use super::expr::Value;
-use super::{XmlResult, XmlWriter};
+use super::{BuildContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
 use crate::typemap::{Class, TypeSpace};
@@ -122,34 +122,34 @@ impl From<ValueTypeError<'_>> for Diagnostic {
 ///
 /// Use `collect_properties_with_node()` if you need to inspect resulting values further.
 pub(super) fn collect_properties(
+    ctx: &BuildContext,
     cls: &Class,
     binding_map: &UiBindingMap,
     exclude_names: &[&str],
-    source: &str,
     diagnostics: &mut Diagnostics,
 ) -> HashMap<String, Value> {
-    resolve_properties(cls, binding_map, exclude_names, source, diagnostics)
+    resolve_properties(ctx, cls, binding_map, exclude_names, diagnostics)
         .map(|(name, (_, x))| (name.to_owned(), x))
         .collect()
 }
 
 pub(super) fn collect_properties_with_node<'t>(
+    ctx: &BuildContext,
     cls: &Class,
     binding_map: &UiBindingMap<'t, '_>,
     exclude_names: &[&str],
-    source: &str,
     diagnostics: &mut Diagnostics,
 ) -> HashMap<String, WithNode<'t, Value>> {
-    resolve_properties(cls, binding_map, exclude_names, source, diagnostics)
+    resolve_properties(ctx, cls, binding_map, exclude_names, diagnostics)
         .map(|(name, (v, x))| (name.to_owned(), WithNode::new(v, x)))
         .collect()
 }
 
 fn resolve_properties<'a, 't, 's>(
+    ctx: &'a BuildContext,
     cls: &'a Class,
     binding_map: &'a UiBindingMap<'t, 's>,
     exclude_names: &'a [&str],
-    source: &'a str,
     diagnostics: &'a mut Diagnostics,
 ) -> impl Iterator<Item = (&'s str, (&'a UiBindingValue<'t, 's>, Value))> + 'a {
     binding_map
@@ -157,7 +157,7 @@ fn resolve_properties<'a, 't, 's>(
         .filter(|(name, _)| !exclude_names.contains(name))
         .filter_map(|(&name, value)| {
             if let Some(ty) = cls.get_property_type(name) {
-                Value::from_binding_value(cls, &ty, value, source, diagnostics)
+                Value::from_binding_value(ctx, &ty, value, diagnostics)
             } else {
                 diagnostics.push(Diagnostic::error(
                     value.binding_node().byte_range(),

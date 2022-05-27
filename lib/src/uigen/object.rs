@@ -2,8 +2,7 @@ use super::expr::Value;
 use super::layout::Layout;
 use super::property;
 use super::xmlutil;
-use super::BuildContext;
-use super::{XmlResult, XmlWriter};
+use super::{BuildContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Expression, Node, UiBindingValue, UiObjectDefinition};
 use crate::typemap::{Class, Type, TypeSpace};
@@ -113,13 +112,7 @@ impl Action {
         confine_children(cls, obj, diagnostics);
         Some(Action {
             name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
-            properties: property::collect_properties(
-                cls,
-                &binding_map,
-                &[],
-                ctx.source,
-                diagnostics,
-            ),
+            properties: property::collect_properties(ctx, cls, &binding_map, &[], diagnostics),
         })
     }
 
@@ -171,10 +164,10 @@ impl Widget {
                     .get(["QTabWidget"].as_ref())
                     .map(|m| {
                         property::collect_properties(
+                            ctx,
                             &ctx.tab_widget_attached_class,
                             m,
                             &[],
-                            ctx.source,
                             diagnostics,
                         )
                     })
@@ -184,7 +177,7 @@ impl Widget {
 
         let binding_map = diagnostics.consume_err(obj.build_binding_map(ctx.source))?;
         let mut properties =
-            property::collect_properties(cls, &binding_map, &["actions"], ctx.source, diagnostics);
+            property::collect_properties(ctx, cls, &binding_map, &["actions"], diagnostics);
         if cls.is_derived_from(&ctx.push_button_class) {
             // see metatype_tweak.rs, "default" is a reserved word
             if let Some((mut k, v)) = properties.remove_entry("default_") {

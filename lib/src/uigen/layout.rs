@@ -1,8 +1,7 @@
 use super::expr::Value;
 use super::object::{self, ContainerKind, Widget};
 use super::property::{self, WithNode};
-use super::BuildContext;
-use super::{XmlResult, XmlWriter};
+use super::{BuildContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiObjectDefinition};
 use crate::typemap::{Class, TypeSpace};
@@ -41,7 +40,7 @@ impl Layout {
     ) -> Option<Self> {
         let binding_map = diagnostics.consume_err(obj.build_binding_map(ctx.source))?;
         let mut properties_map =
-            property::collect_properties_with_node(cls, &binding_map, &[], ctx.source, diagnostics);
+            property::collect_properties_with_node(ctx, cls, &binding_map, &[], diagnostics);
 
         let (attributes, children) = if cls.is_derived_from(&ctx.vbox_layout_class) {
             process_vbox_layout_children(ctx, obj, diagnostics)
@@ -214,10 +213,10 @@ impl<'t> LayoutItemAttached<'t> {
         let attached_type_map = diagnostics.consume_err(obj.build_attached_type_map(ctx.source))?;
         let binding_map = attached_type_map.get(["QLayout"].as_ref())?; // TODO: resolve against imported types
         let properties_map = property::collect_properties_with_node(
+            ctx,
             &ctx.layout_attached_class,
             binding_map,
             &[],
-            ctx.source,
             diagnostics,
         );
         let get_enum_property = |name, diagnostics: &mut Diagnostics| {
@@ -318,13 +317,7 @@ impl SpacerItem {
         object::confine_children(cls, obj, diagnostics);
         Some(SpacerItem {
             name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
-            properties: property::collect_properties(
-                cls,
-                &binding_map,
-                &[],
-                ctx.source,
-                diagnostics,
-            ),
+            properties: property::collect_properties(ctx, cls, &binding_map, &[], diagnostics),
         })
     }
 

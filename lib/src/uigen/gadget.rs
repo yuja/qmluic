@@ -1,7 +1,7 @@
 use super::expr::{SimpleValue, Value};
 use super::property;
 use super::xmlutil;
-use super::{XmlResult, XmlWriter};
+use super::{BuildContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiBindingMap};
 use crate::typemap::{Class, TypeSpace};
@@ -21,13 +21,13 @@ pub struct Gadget {
 impl Gadget {
     /// Generates gadget of `cls` type from the given `binding_map`.
     pub fn from_binding_map(
+        ctx: &BuildContext,
         cls: &Class,
         node: Node,
         binding_map: &UiBindingMap,
-        source: &str,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let properties = property::collect_properties(cls, binding_map, &[], source, diagnostics);
+        let properties = property::collect_properties(ctx, cls, binding_map, &[], diagnostics);
         match cls.name() {
             "QFont" => Some(Gadget {
                 name: "font".to_owned(),
@@ -109,13 +109,13 @@ impl SizePolicy {
     ///
     /// The `cls` is supposed to be of `QSizePolicy` type.
     pub fn from_binding_map(
+        ctx: &BuildContext,
         cls: &Class,
         binding_map: &UiBindingMap,
-        source: &str,
         diagnostics: &mut Diagnostics,
     ) -> Self {
         let properties_map =
-            property::collect_properties_with_node(cls, binding_map, &[], source, diagnostics);
+            property::collect_properties_with_node(ctx, cls, binding_map, &[], diagnostics);
         let get_enum_property = |name, diagnostics: &mut Diagnostics| {
             properties_map
                 .get(name)

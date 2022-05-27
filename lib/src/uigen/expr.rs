@@ -1,6 +1,6 @@
 use super::gadget::{Gadget, SizePolicy};
 use super::xmlutil;
-use super::{XmlResult, XmlWriter};
+use super::{BuildContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{BinaryOperator, Node, UiBindingMap, UiBindingValue, UnaryOperator};
 use crate::typedexpr::{self, DescribeType, ExpressionVisitor, TypeDesc};
@@ -19,23 +19,18 @@ pub enum Value {
 
 impl Value {
     /// Generates constant expression of `ty` type from the given `binding_value`.
-    pub(super) fn from_binding_value<'a, P>(
-        parent_space: &P, // TODO: should be QML space, not C++ metatype space
+    pub(super) fn from_binding_value(
+        ctx: &BuildContext,
         ty: &Type,
         binding_value: &UiBindingValue,
-        source: &str,
         diagnostics: &mut Diagnostics,
-    ) -> Option<Self>
-    where
-        P: TypeSpace<'a>,
-    {
+    ) -> Option<Self> {
         match binding_value {
             UiBindingValue::Node(n) => {
-                SimpleValue::from_expression(parent_space, ty, *n, source, diagnostics)
-                    .map(Value::Simple)
+                SimpleValue::from_expression(ctx, ty, *n, diagnostics).map(Value::Simple)
             }
             UiBindingValue::Map(n, m) => match ty {
-                Type::Class(cls) => Self::from_binding_map(cls, *n, m, source, diagnostics),
+                Type::Class(cls) => Self::from_binding_map(ctx, cls, *n, m, diagnostics),
                 _ => {
                     diagnostics.push(Diagnostic::error(
                         n.byte_range(),
@@ -52,18 +47,18 @@ impl Value {
 
     /// Generates constant expression of `cls` type from the given `binding_map`.
     fn from_binding_map(
+        ctx: &BuildContext,
         cls: &Class,
         node: Node,
         binding_map: &UiBindingMap,
-        source: &str,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         match cls.name() {
             "QSizePolicy" => {
-                let policy = SizePolicy::from_binding_map(cls, binding_map, source, diagnostics);
+                let policy = SizePolicy::from_binding_map(ctx, cls, binding_map, diagnostics);
                 Some(Value::SizePolicy(policy))
             }
-            _ => Gadget::from_binding_map(cls, node, binding_map, source, diagnostics)
+            _ => Gadget::from_binding_map(ctx, cls, node, binding_map, diagnostics)
                 .map(Value::Gadget),
         }
     }
@@ -125,16 +120,12 @@ pub enum SimpleValue {
 
 impl SimpleValue {
     /// Generates value of `ty` type from the given expression `node`.
-    fn from_expression<'a, P>(
-        parent_space: &P, // TODO: should be QML space, not C++ metatype space
+    fn from_expression(
+        ctx: &BuildContext,
         ty: &Type,
         node: Node,
-        source: &str,
         diagnostics: &mut Diagnostics,
-    ) -> Option<Self>
-    where
-        P: TypeSpace<'a>,
-    {
+    ) -> Option<Self> {
         match ty {
             Type::Class(_) => {
                 diagnostics.push(Diagnostic::error(
@@ -148,9 +139,9 @@ impl SimpleValue {
             }
             Type::Enum(en) => {
                 let (res_t, res_expr, _) = typedexpr::walk(
-                    parent_space,
+                    &ctx.type_map.root(), // TODO: should be QML space, not C++ metatype space
                     node,
-                    source,
+                    ctx.source,
                     &ExpressionFormatter,
                     diagnostics,
                 )?;
@@ -187,9 +178,9 @@ impl SimpleValue {
             }
             Type::Primitive(p) => {
                 let res = typedexpr::walk(
-                    parent_space,
+                    &ctx.type_map.root(), // TODO: should be QML space, not C++ metatype space
                     node,
-                    source,
+                    ctx.source,
                     &ExpressionEvaluator,
                     diagnostics,
                 )?;
