@@ -19,7 +19,7 @@ pub enum ConstantExpression {
 
 impl ConstantExpression {
     /// Generates constant expression of `ty` type from the given `binding_value`.
-    pub fn from_binding_value<'a, P>(
+    pub(super) fn from_binding_value<'a, P>(
         parent_space: &P, // TODO: should be QML space, not C++ metatype space
         ty: &Type,
         binding_value: &UiBindingValue,
@@ -31,7 +31,8 @@ impl ConstantExpression {
     {
         match binding_value {
             UiBindingValue::Node(n) => {
-                Self::from_expression(parent_space, ty, *n, source, diagnostics)
+                SimpleValue::from_expression(parent_space, ty, *n, source, diagnostics)
+                    .map(ConstantExpression::Simple)
             }
             UiBindingValue::Map(n, m) => match ty {
                 Type::Class(cls) => Self::from_binding_map(cls, *n, m, source, diagnostics),
@@ -50,7 +51,7 @@ impl ConstantExpression {
     }
 
     /// Generates constant expression of `cls` type from the given `binding_map`.
-    pub fn from_binding_map(
+    fn from_binding_map(
         cls: &Class,
         node: Node,
         binding_map: &UiBindingMap,
@@ -65,21 +66,6 @@ impl ConstantExpression {
             _ => Gadget::from_binding_map(cls, node, binding_map, source, diagnostics)
                 .map(ConstantExpression::Gadget),
         }
-    }
-
-    /// Generates constant expression of `ty` type from the given expression `node`.
-    pub fn from_expression<'a, P>(
-        parent_space: &P, // TODO: should be QML space, not C++ metatype space
-        ty: &Type,
-        node: Node,
-        source: &str,
-        diagnostics: &mut Diagnostics,
-    ) -> Option<Self>
-    where
-        P: TypeSpace<'a>,
-    {
-        SimpleValue::from_expression(parent_space, ty, node, source, diagnostics)
-            .map(ConstantExpression::Simple)
     }
 
     /// Serializes this to UI XML.
@@ -139,7 +125,7 @@ pub enum SimpleValue {
 
 impl SimpleValue {
     /// Generates value of `ty` type from the given expression `node`.
-    pub fn from_expression<'a, P>(
+    fn from_expression<'a, P>(
         parent_space: &P, // TODO: should be QML space, not C++ metatype space
         ty: &Type,
         node: Node,
