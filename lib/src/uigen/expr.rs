@@ -138,21 +138,6 @@ pub enum ConstantValue {
 }
 
 impl ConstantValue {
-    /// Generates value of `ty` type from the given `binding_value`.
-    pub fn from_binding_value<'a, P>(
-        parent_space: &P, // TODO: should be QML space, not C++ metatype space
-        ty: &Type,
-        binding_value: &UiBindingValue,
-        source: &str,
-        diagnostics: &mut Diagnostics,
-    ) -> Option<Self>
-    where
-        P: TypeSpace<'a>,
-    {
-        extract_expression_node_for_type(ty, binding_value, diagnostics)
-            .and_then(|n| Self::from_expression(parent_space, ty, n, source, diagnostics))
-    }
-
     /// Generates value of `ty` type from the given expression `node`.
     pub fn from_expression<'a, P>(
         parent_space: &P, // TODO: should be QML space, not C++ metatype space
@@ -305,26 +290,6 @@ impl fmt::Display for ConstantValue {
             Bool(b) => write!(f, "{}", if *b { "true" } else { "false" }),
             Number(d) => write!(f, "{}", d),
             String { s, .. } | Enum(s) | Set(s) => write!(f, "{}", s),
-        }
-    }
-}
-
-fn extract_expression_node_for_type<'t>(
-    ty: &Type,
-    binding_value: &UiBindingValue<'t, '_>,
-    diagnostics: &mut Diagnostics,
-) -> Option<Node<'t>> {
-    match binding_value {
-        UiBindingValue::Node(n) => Some(*n),
-        UiBindingValue::Map(n, _) => {
-            diagnostics.push(Diagnostic::error(
-                n.byte_range(),
-                format!(
-                    "binding map cannot be parsed as value type '{}'",
-                    ty.qualified_name()
-                ),
-            ));
-            None
         }
     }
 }

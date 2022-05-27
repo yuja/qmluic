@@ -67,11 +67,7 @@ impl Layout {
             .collect();
         // TODO: if metatypes were broken, contentsMargins could be of different type
         if let Some(ConstantExpression::Gadget(m)) = properties.remove("contentsMargins") {
-            properties.extend(
-                m.properties
-                    .into_iter()
-                    .map(|(k, v)| (k + "Margin", ConstantExpression::Value(v))),
-            );
+            properties.extend(m.properties.into_iter().map(|(k, v)| (k + "Margin", v)));
         }
 
         Some(Layout {

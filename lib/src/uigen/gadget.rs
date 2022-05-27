@@ -1,4 +1,4 @@
-use super::expr::ConstantValue;
+use super::expr::{ConstantExpression, ConstantValue};
 use super::property;
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
@@ -14,7 +14,7 @@ use std::io;
 #[derive(Clone, Debug)]
 pub struct Gadget {
     pub name: String,
-    pub properties: HashMap<String, ConstantValue>,
+    pub properties: HashMap<String, ConstantExpression>,
     pub no_enum_prefix: bool,
 }
 
@@ -27,7 +27,7 @@ impl Gadget {
         source: &str,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let properties = property::collect_gadget_properties(cls, binding_map, source, diagnostics);
+        let properties = property::collect_properties(cls, binding_map, &[], source, diagnostics);
         match cls.name() {
             "QFont" => Some(Gadget {
                 name: "font".to_owned(),
@@ -79,15 +79,13 @@ impl Gadget {
         let tag = BytesStart::borrowed_name(tag_name.as_ref());
         writer.write_event(Event::Start(tag.to_borrowed()))?;
         for (k, v) in self.properties.iter().sorted_by_key(|&(k, _)| k) {
-            let s = if self.no_enum_prefix {
-                v.as_enum()
-                    .map(|s| strip_enum_prefix(s).to_owned())
-                    .unwrap_or_else(|| v.to_string())
-            } else {
-                v.to_string()
-            };
-            // apparently tag name of .ui is lowercase
-            xmlutil::write_tagged_str(writer, k.to_ascii_lowercase(), s)?;
+            let t = k.to_ascii_lowercase(); // apparently tag name of .ui is lowercase
+            match v {
+                ConstantExpression::Value(ConstantValue::Enum(s)) if self.no_enum_prefix => {
+                    xmlutil::write_tagged_str(writer, &t, strip_enum_prefix(s))?;
+                }
+                _ => v.serialize_to_xml_as(writer, &t)?,
+            }
         }
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())

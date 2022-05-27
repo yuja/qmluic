@@ -1,6 +1,6 @@
 ---
 source: tests/test_basic.rs
-expression: "translate_file(\"examples/GadgetProperties.qml\")"
+expression: "common::translate_file(\"examples/GadgetProperties.qml\").unwrap()"
 ---
 <ui version="4.0">
  <class>GadgetProperties</class>
@@ -11,7 +11,7 @@ expression: "translate_file(\"examples/GadgetProperties.qml\")"
      <property name="font">
       <font>
        <bold>true</bold>
-       <family>Monospace</family>
+       <family notr="true">Monospace</family>
        <italic>false</italic>
        <kerning>true</kerning>
        <pointsize>9</pointsize>

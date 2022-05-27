@@ -314,7 +314,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
             <widget class="QPlainTextEdit">
              <property name="font">
               <font>
-               <family>Monospace</family>
+               <family notr="true">Monospace</family>
               </font>
              </property>
             </widget>
