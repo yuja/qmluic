@@ -95,6 +95,23 @@ impl ConstantExpression {
         }
     }
 
+    pub(super) fn serialize_to_xml_as<W, T>(
+        &self,
+        writer: &mut XmlWriter<W>,
+        tag_name: T,
+    ) -> XmlResult<()>
+    where
+        W: io::Write,
+        T: AsRef<[u8]>,
+    {
+        use ConstantExpression::*;
+        match self {
+            Value(x) => x.serialize_to_xml_as(writer, tag_name),
+            Gadget(x) => x.serialize_to_xml_as(writer, tag_name),
+            SizePolicy(x) => x.serialize_to_xml_as(writer, tag_name),
+        }
+    }
+
     pub fn as_number(&self) -> Option<f64> {
         match self {
             ConstantExpression::Value(x) => x.as_number(),
@@ -232,11 +249,29 @@ impl ConstantValue {
         W: io::Write,
     {
         use ConstantValue::*;
+        let tag_name = match self {
+            Bool(_) => "bool",
+            Number(_) => "number",
+            String { .. } => "string",
+            Enum(_) => "enum",
+            Set(_) => "set",
+        };
+        self.serialize_to_xml_as(writer, tag_name)
+    }
+
+    pub(super) fn serialize_to_xml_as<W, T>(
+        &self,
+        writer: &mut XmlWriter<W>,
+        tag_name: T,
+    ) -> XmlResult<()>
+    where
+        W: io::Write,
+        T: AsRef<[u8]>,
+    {
+        use ConstantValue::*;
         match self {
-            Bool(_) => xmlutil::write_tagged_str(writer, "bool", self.to_string()),
-            Number(_) => xmlutil::write_tagged_str(writer, "number", self.to_string()),
             String { s, tr } => {
-                let mut tag = BytesStart::borrowed_name(b"string");
+                let mut tag = BytesStart::borrowed_name(tag_name.as_ref());
                 if !tr {
                     tag.push_attribute(("notr", "true"));
                 }
@@ -244,8 +279,7 @@ impl ConstantValue {
                 writer.write_event(Event::Text(BytesText::from_plain_str(s)))?;
                 writer.write_event(Event::End(tag.to_end()))
             }
-            Enum(_) => xmlutil::write_tagged_str(writer, "enum", self.to_string()),
-            Set(_) => xmlutil::write_tagged_str(writer, "set", self.to_string()),
+            _ => xmlutil::write_tagged_str(writer, tag_name, self.to_string()),
         }
     }
 

@@ -64,7 +64,19 @@ impl Gadget {
     where
         W: io::Write,
     {
-        let tag = BytesStart::borrowed_name(self.name.as_ref());
+        self.serialize_to_xml_as(writer, &self.name)
+    }
+
+    pub(super) fn serialize_to_xml_as<W, T>(
+        &self,
+        writer: &mut XmlWriter<W>,
+        tag_name: T,
+    ) -> XmlResult<()>
+    where
+        W: io::Write,
+        T: AsRef<[u8]>,
+    {
+        let tag = BytesStart::borrowed_name(tag_name.as_ref());
         writer.write_event(Event::Start(tag.to_borrowed()))?;
         for (k, v) in self.properties.iter().sorted_by_key(|&(k, _)| k) {
             let s = if self.no_enum_prefix {
@@ -143,7 +155,19 @@ impl SizePolicy {
     where
         W: io::Write,
     {
-        let mut tag = BytesStart::borrowed_name(b"sizepolicy");
+        self.serialize_to_xml_as(writer, "sizepolicy")
+    }
+
+    pub(super) fn serialize_to_xml_as<W, T>(
+        &self,
+        writer: &mut XmlWriter<W>,
+        tag_name: T,
+    ) -> XmlResult<()>
+    where
+        W: io::Write,
+        T: AsRef<[u8]>,
+    {
+        let mut tag = BytesStart::borrowed_name(tag_name.as_ref());
         if let Some((h, v)) = &self.policy {
             tag.push_attribute(("hsizetype", strip_enum_prefix(h)));
             tag.push_attribute(("vsizetype", strip_enum_prefix(v)));
