@@ -11,13 +11,13 @@ use std::io;
 
 /// Variant for the constant expressions which can be serialized to UI XML.
 #[derive(Clone, Debug)]
-pub enum ConstantExpression {
+pub enum Value {
     Simple(SimpleValue),
     Gadget(Gadget),
     SizePolicy(SizePolicy),
 }
 
-impl ConstantExpression {
+impl Value {
     /// Generates constant expression of `ty` type from the given `binding_value`.
     pub(super) fn from_binding_value<'a, P>(
         parent_space: &P, // TODO: should be QML space, not C++ metatype space
@@ -32,7 +32,7 @@ impl ConstantExpression {
         match binding_value {
             UiBindingValue::Node(n) => {
                 SimpleValue::from_expression(parent_space, ty, *n, source, diagnostics)
-                    .map(ConstantExpression::Simple)
+                    .map(Value::Simple)
             }
             UiBindingValue::Map(n, m) => match ty {
                 Type::Class(cls) => Self::from_binding_map(cls, *n, m, source, diagnostics),
@@ -61,10 +61,10 @@ impl ConstantExpression {
         match cls.name() {
             "QSizePolicy" => {
                 let policy = SizePolicy::from_binding_map(cls, binding_map, source, diagnostics);
-                Some(ConstantExpression::SizePolicy(policy))
+                Some(Value::SizePolicy(policy))
             }
             _ => Gadget::from_binding_map(cls, node, binding_map, source, diagnostics)
-                .map(ConstantExpression::Gadget),
+                .map(Value::Gadget),
         }
     }
 
@@ -73,7 +73,7 @@ impl ConstantExpression {
     where
         W: io::Write,
     {
-        use ConstantExpression::*;
+        use Value::*;
         match self {
             Simple(x) => x.serialize_to_xml(writer),
             Gadget(x) => x.serialize_to_xml(writer),
@@ -90,7 +90,7 @@ impl ConstantExpression {
         W: io::Write,
         T: AsRef<[u8]>,
     {
-        use ConstantExpression::*;
+        use Value::*;
         match self {
             Simple(x) => x.serialize_to_xml_as(writer, tag_name),
             Gadget(x) => x.serialize_to_xml_as(writer, tag_name),
@@ -100,14 +100,14 @@ impl ConstantExpression {
 
     pub fn as_number(&self) -> Option<f64> {
         match self {
-            ConstantExpression::Simple(x) => x.as_number(),
+            Value::Simple(x) => x.as_number(),
             _ => None,
         }
     }
 
     pub fn as_enum(&self) -> Option<&str> {
         match self {
-            ConstantExpression::Simple(x) => x.as_enum(),
+            Value::Simple(x) => x.as_enum(),
             _ => None,
         }
     }

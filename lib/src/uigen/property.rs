@@ -1,4 +1,4 @@
-use super::expr::ConstantExpression;
+use super::expr::Value;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
@@ -67,7 +67,7 @@ impl<'t, V> WithNode<'t, V> {
     }
 }
 
-impl<'t> WithNode<'t, ConstantExpression> {
+impl<'t> WithNode<'t, Value> {
     pub fn to_enum(&self) -> Result<&str, ValueTypeError<'t>> {
         self.value.as_enum().ok_or_else(|| self.make_type_error())
     }
@@ -127,7 +127,7 @@ pub(super) fn collect_properties(
     exclude_names: &[&str],
     source: &str,
     diagnostics: &mut Diagnostics,
-) -> HashMap<String, ConstantExpression> {
+) -> HashMap<String, Value> {
     resolve_properties(cls, binding_map, exclude_names, source, diagnostics)
         .map(|(name, (_, x))| (name.to_owned(), x))
         .collect()
@@ -139,7 +139,7 @@ pub(super) fn collect_properties_with_node<'t>(
     exclude_names: &[&str],
     source: &str,
     diagnostics: &mut Diagnostics,
-) -> HashMap<String, WithNode<'t, ConstantExpression>> {
+) -> HashMap<String, WithNode<'t, Value>> {
     resolve_properties(cls, binding_map, exclude_names, source, diagnostics)
         .map(|(name, (v, x))| (name.to_owned(), WithNode::new(v, x)))
         .collect()
@@ -151,13 +151,13 @@ fn resolve_properties<'a, 't, 's>(
     exclude_names: &'a [&str],
     source: &'a str,
     diagnostics: &'a mut Diagnostics,
-) -> impl Iterator<Item = (&'s str, (&'a UiBindingValue<'t, 's>, ConstantExpression))> + 'a {
+) -> impl Iterator<Item = (&'s str, (&'a UiBindingValue<'t, 's>, Value))> + 'a {
     binding_map
         .iter()
         .filter(|(name, _)| !exclude_names.contains(name))
         .filter_map(|(&name, value)| {
             if let Some(ty) = cls.get_property_type(name) {
-                ConstantExpression::from_binding_value(cls, &ty, value, source, diagnostics)
+                Value::from_binding_value(cls, &ty, value, source, diagnostics)
             } else {
                 diagnostics.push(Diagnostic::error(
                     value.binding_node().byte_range(),
@@ -176,7 +176,7 @@ fn resolve_properties<'a, 't, 's>(
 pub(super) fn serialize_properties_to_xml<W, T>(
     writer: &mut XmlWriter<W>,
     tag_name: T,
-    properties: &HashMap<String, ConstantExpression>,
+    properties: &HashMap<String, Value>,
 ) -> XmlResult<()>
 where
     W: io::Write,

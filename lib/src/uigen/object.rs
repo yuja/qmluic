@@ -1,4 +1,4 @@
-use super::expr::ConstantExpression;
+use super::expr::Value;
 use super::layout::Layout;
 use super::property;
 use super::xmlutil;
@@ -96,7 +96,7 @@ impl UiObject {
 #[derive(Clone, Debug)]
 pub struct Action {
     pub name: Option<String>,
-    pub properties: HashMap<String, ConstantExpression>,
+    pub properties: HashMap<String, Value>,
 }
 
 impl Action {
@@ -146,8 +146,8 @@ impl Action {
 pub struct Widget {
     pub class: String,
     pub name: Option<String>,
-    pub attributes: HashMap<String, ConstantExpression>,
-    pub properties: HashMap<String, ConstantExpression>,
+    pub attributes: HashMap<String, Value>,
+    pub properties: HashMap<String, Value>,
     pub actions: Vec<String>,
     pub children: Vec<UiObject>,
 }

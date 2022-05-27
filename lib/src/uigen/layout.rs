@@ -1,4 +1,4 @@
-use super::expr::ConstantExpression;
+use super::expr::Value;
 use super::object::{self, ContainerKind, Widget};
 use super::property::{self, WithNode};
 use super::BuildContext;
@@ -17,7 +17,7 @@ pub struct Layout {
     pub class: String,
     pub name: Option<String>,
     attributes: LayoutAttributes,
-    pub properties: HashMap<String, ConstantExpression>,
+    pub properties: HashMap<String, Value>,
     pub children: Vec<LayoutItem>,
 }
 
@@ -66,7 +66,7 @@ impl Layout {
             .map(|(k, v)| (k, v.into_value()))
             .collect();
         // TODO: if metatypes were broken, contentsMargins could be of different type
-        if let Some(ConstantExpression::Gadget(m)) = properties.remove("contentsMargins") {
+        if let Some(Value::Gadget(m)) = properties.remove("contentsMargins") {
             properties.extend(m.properties.into_iter().map(|(k, v)| (k + "Margin", v)));
         }
 
@@ -301,7 +301,7 @@ impl LayoutItemContent {
 #[derive(Clone, Debug)]
 pub struct SpacerItem {
     pub name: Option<String>,
-    pub properties: HashMap<String, ConstantExpression>,
+    pub properties: HashMap<String, Value>,
 }
 
 impl SpacerItem {
@@ -572,7 +572,7 @@ impl LayoutIndexCounter {
 
 impl LayoutFlow {
     fn parse(
-        properties_map: &mut HashMap<String, WithNode<ConstantExpression>>,
+        properties_map: &mut HashMap<String, WithNode<Value>>,
         diagnostics: &mut Diagnostics,
     ) -> Self {
         // should be kept sync with QGridLayout definition in metatype_tweak.rs
