@@ -8,12 +8,12 @@ use std::ptr;
 /// Storage to map type name to class or enum representation.
 #[derive(Debug)]
 pub struct TypeMap {
-    data: TypeMapData,
+    data: NamespaceData,
 }
 
-/// Stored type map.
+/// Stored type namespace.
 #[derive(Clone, Debug, Default)]
-struct TypeMapData {
+struct NamespaceData {
     name_map: HashMap<String, TypeIndex>,
     classes: Vec<ClassData>,
     enums: Vec<EnumData>,
@@ -38,7 +38,7 @@ impl TypeMap {
         );
 
         TypeMap {
-            data: TypeMapData {
+            data: NamespaceData {
                 name_map,
                 ..Default::default()
             },
@@ -79,7 +79,7 @@ impl Extend<metatype::Enum> for TypeMap {
     }
 }
 
-impl TypeMapData {
+impl NamespaceData {
     fn extend_classes<T>(&mut self, iter: T)
     where
         T: IntoIterator<Item = metatype::Class>,
@@ -202,12 +202,12 @@ pub trait TypeSpace<'a> {
 /// type maps.
 #[derive(Clone, Debug)]
 pub struct Namespace<'a> {
-    data: &'a TypeMapData,
+    data: &'a NamespaceData,
     // TODO: parent_space
 }
 
 impl<'a> Namespace<'a> {
-    fn root(data: &'a TypeMapData) -> Self {
+    fn root(data: &'a NamespaceData) -> Self {
         Namespace { data }
     }
 }
@@ -241,7 +241,7 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
     }
 }
 
-/// Index to type variant stored in [`TypeMapData`].
+/// Index to type variant stored in [`NamespaceData`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum TypeIndex {
     Class(usize),
@@ -334,7 +334,7 @@ pub struct Class<'a> {
 struct ClassData {
     class_name: String,
     public_super_class_names: Vec<String>,
-    inner_type_map: TypeMapData,
+    inner_type_map: NamespaceData,
     property_map: HashMap<String, PropertyData>,
     // TODO
 }
@@ -433,7 +433,7 @@ impl ClassData {
             })
             .collect();
 
-        let mut inner_type_map = TypeMapData::default();
+        let mut inner_type_map = NamespaceData::default();
         inner_type_map.extend_enums(meta.enums);
 
         let property_map = meta
