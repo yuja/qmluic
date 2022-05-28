@@ -293,6 +293,8 @@ enum ExpressionError {
     UnsupportedUnaryOperationOnType(UnaryOperator, String),
     #[error("unsupported binary operation on types: <{1}> {0} <{2}>")]
     UnsupportedBinaryOperationOnType(BinaryOperator, String, String),
+    #[error("cannot evaluate as constant")]
+    CannotEvaluateAsConstant,
 }
 
 /// Evaluates expression tree as arbitrary constant value expression.
@@ -385,7 +387,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
                 Typeof | Void | Delete => Err(type_error()),
             },
             EvaluatedValue::String(_) => Err(type_error()),
-            EvaluatedValue::TrString(_) => Err(type_error()), // can't evaluate as constant
+            EvaluatedValue::TrString(_) => Err(ExpressionError::CannotEvaluateAsConstant),
         }
     }
 
@@ -474,8 +476,8 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
                 Instanceof => Err(type_error()),
                 In => Err(type_error()),
             },
-            (EvaluatedValue::TrString(_), _) => Err(type_error()), // can't evaluate as constant
-            (_, EvaluatedValue::TrString(_)) => Err(type_error()), // can't evaluate as constant
+            (EvaluatedValue::TrString(_), _) => Err(ExpressionError::CannotEvaluateAsConstant),
+            (_, EvaluatedValue::TrString(_)) => Err(ExpressionError::CannotEvaluateAsConstant),
             _ => Err(type_error()),
         }
     }
