@@ -289,10 +289,10 @@ enum ExpressionError {
     UnsupportedLiteral(&'static str),
     #[error("unsupported function call")]
     UnsupportedFunctionCall,
-    #[error("unsupported unary operation on type: {0}")]
-    UnsupportedUnaryOperationOnType(String),
-    #[error("unsupported binary operation on types: {0} and {1}")]
-    UnsupportedBinaryOperationOnType(String, String),
+    #[error("unsupported unary operation on type: {0} <{1}>")]
+    UnsupportedUnaryOperationOnType(UnaryOperator, String),
+    #[error("unsupported binary operation on types: <{1}> {0} <{2}>")]
+    UnsupportedBinaryOperationOnType(BinaryOperator, String, String),
 }
 
 /// Evaluates expression tree as arbitrary constant value expression.
@@ -362,7 +362,12 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
         use UnaryOperator::*;
         let type_error = {
             let arg_t = argument.type_desc();
-            move || ExpressionError::UnsupportedUnaryOperationOnType(arg_t.qualified_name().into())
+            move || {
+                ExpressionError::UnsupportedUnaryOperationOnType(
+                    operator,
+                    arg_t.qualified_name().into(),
+                )
+            }
         };
         match argument {
             EvaluatedValue::Bool(a) => match operator {
@@ -396,6 +401,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
             let right_t = right.type_desc();
             move || {
                 ExpressionError::UnsupportedBinaryOperationOnType(
+                    operator,
                     left_t.qualified_name().into(),
                     right_t.qualified_name().into(),
                 )
@@ -541,7 +547,12 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
         use UnaryOperator::*;
         let type_error = {
             let arg_t = arg_t.clone();
-            move || ExpressionError::UnsupportedUnaryOperationOnType(arg_t.qualified_name().into())
+            move || {
+                ExpressionError::UnsupportedUnaryOperationOnType(
+                    operator,
+                    arg_t.qualified_name().into(),
+                )
+            }
         };
         let res_prec = unary_operator_precedence(operator);
         let res_expr = [
@@ -583,6 +594,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
             let right_t = right_t.clone();
             move || {
                 ExpressionError::UnsupportedBinaryOperationOnType(
+                    operator,
                     left_t.qualified_name().into(),
                     right_t.qualified_name().into(),
                 )
