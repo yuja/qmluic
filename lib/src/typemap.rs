@@ -11,15 +11,6 @@ pub struct TypeMap {
     data: NamespaceData,
 }
 
-/// Stored type namespace.
-#[derive(Clone, Debug, Default)]
-struct NamespaceData {
-    name_map: HashMap<String, TypeIndex>,
-    classes: Vec<ClassData>,
-    enums: Vec<EnumData>,
-    enum_variant_map: HashMap<String, usize>,
-}
-
 impl TypeMap {
     /// Creates empty type map.
     pub fn empty() -> Self {
@@ -76,63 +67,6 @@ impl Extend<metatype::Enum> for TypeMap {
         T: IntoIterator<Item = metatype::Enum>,
     {
         self.data.extend_enums(iter)
-    }
-}
-
-impl NamespaceData {
-    fn extend_classes<T>(&mut self, iter: T)
-    where
-        T: IntoIterator<Item = metatype::Class>,
-    {
-        let start = self.classes.len();
-        for (i, meta) in iter.into_iter().enumerate() {
-            // TODO: use qualified type name and insert namespace node accordingly
-            let name = meta.class_name.clone();
-            self.classes.push(ClassData::from_meta(meta));
-            self.name_map.insert(name, TypeIndex::Class(i + start));
-        }
-    }
-
-    fn extend_enums<T>(&mut self, iter: T)
-    where
-        T: IntoIterator<Item = metatype::Enum>,
-    {
-        let start = self.enums.len();
-        for (i, meta) in iter.into_iter().enumerate() {
-            let name = meta.name.clone();
-            let data = EnumData::from_meta(meta);
-            let index = i + start;
-            self.name_map.insert(name, TypeIndex::Enum(index));
-            if !data.is_class {
-                self.enum_variant_map
-                    .extend(data.variants.iter().map(|v| (v.to_owned(), index)));
-            }
-            self.enums.push(data);
-        }
-    }
-
-    fn get_type_with<'a, F>(&'a self, name: &str, make_parent_space: F) -> Option<Type<'a>>
-    where
-        F: FnOnce() -> Type<'a>,
-    {
-        self.name_map.get(name).map(|&index| match index {
-            TypeIndex::Class(i) => Type::Class(Class::new(&self.classes[i], make_parent_space())),
-            TypeIndex::Enum(i) => Type::Enum(Enum::new(&self.enums[i], make_parent_space())),
-            TypeIndex::Primitive(t) => Type::Primitive(t),
-        })
-    }
-
-    fn get_enum_by_variant_with<'a, F>(
-        &'a self,
-        name: &str,
-        make_parent_space: F,
-    ) -> Option<Enum<'a>>
-    where
-        F: FnOnce() -> Type<'a>,
-    {
-        self.enum_variant_map
-            .get(name)
-            .map(|&i| Enum::new(&self.enums[i], make_parent_space()))
     }
 }
 
@@ -206,6 +140,15 @@ pub struct Namespace<'a> {
     // TODO: parent_space
 }
 
+/// Stored type namespace.
+#[derive(Clone, Debug, Default)]
+struct NamespaceData {
+    name_map: HashMap<String, TypeIndex>,
+    classes: Vec<ClassData>,
+    enums: Vec<EnumData>,
+    enum_variant_map: HashMap<String, usize>,
+}
+
 impl<'a> Namespace<'a> {
     fn root(data: &'a NamespaceData) -> Self {
         Namespace { data }
@@ -238,6 +181,63 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
     fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
         self.data
             .get_enum_by_variant_with(name, || Type::Namespace(self.clone()))
+    }
+}
+
+impl NamespaceData {
+    fn extend_classes<T>(&mut self, iter: T)
+    where
+        T: IntoIterator<Item = metatype::Class>,
+    {
+        let start = self.classes.len();
+        for (i, meta) in iter.into_iter().enumerate() {
+            // TODO: use qualified type name and insert namespace node accordingly
+            let name = meta.class_name.clone();
+            self.classes.push(ClassData::from_meta(meta));
+            self.name_map.insert(name, TypeIndex::Class(i + start));
+        }
+    }
+
+    fn extend_enums<T>(&mut self, iter: T)
+    where
+        T: IntoIterator<Item = metatype::Enum>,
+    {
+        let start = self.enums.len();
+        for (i, meta) in iter.into_iter().enumerate() {
+            let name = meta.name.clone();
+            let data = EnumData::from_meta(meta);
+            let index = i + start;
+            self.name_map.insert(name, TypeIndex::Enum(index));
+            if !data.is_class {
+                self.enum_variant_map
+                    .extend(data.variants.iter().map(|v| (v.to_owned(), index)));
+            }
+            self.enums.push(data);
+        }
+    }
+
+    fn get_type_with<'a, F>(&'a self, name: &str, make_parent_space: F) -> Option<Type<'a>>
+    where
+        F: FnOnce() -> Type<'a>,
+    {
+        self.name_map.get(name).map(|&index| match index {
+            TypeIndex::Class(i) => Type::Class(Class::new(&self.classes[i], make_parent_space())),
+            TypeIndex::Enum(i) => Type::Enum(Enum::new(&self.enums[i], make_parent_space())),
+            TypeIndex::Primitive(t) => Type::Primitive(t),
+        })
+    }
+
+    fn get_enum_by_variant_with<'a, F>(
+        &'a self,
+        name: &str,
+        make_parent_space: F,
+    ) -> Option<Enum<'a>>
+    where
+        F: FnOnce() -> Type<'a>,
+    {
+        self.enum_variant_map
+            .get(name)
+            .map(|&i| Enum::new(&self.enums[i], make_parent_space()))
     }
 }
 
