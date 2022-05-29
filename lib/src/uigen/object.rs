@@ -252,7 +252,7 @@ pub(super) fn resolve_object_definition<'a, 't>(
     let obj = diagnostics.consume_err(UiObjectDefinition::from_node(node, ctx.source))?;
     // TODO: resolve against imported types: Qml.Type -> Cxx::Type -> type object
     let type_name = obj.type_name().to_string(ctx.source);
-    if let Some(Type::Class(cls)) = ctx.type_map.get_type(&type_name) {
+    if let Some(Type::Class(cls)) = ctx.module.get_type(&type_name) {
         Some((obj, cls))
     } else {
         diagnostics.push(Diagnostic::error(

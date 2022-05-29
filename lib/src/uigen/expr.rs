@@ -140,7 +140,7 @@ impl SimpleValue {
             }
             Type::Enum(en) => {
                 let (res_t, res_expr, _) = typedexpr::walk(
-                    &ctx.type_map.root(), // TODO: should be QML space, not C++ metatype space
+                    &ctx.module, // TODO: should be QML space, not C++ metatype space
                     node,
                     ctx.source,
                     &ExpressionFormatter,
@@ -179,7 +179,7 @@ impl SimpleValue {
             }
             Type::Primitive(p) => {
                 let res = typedexpr::walk(
-                    &ctx.type_map.root(), // TODO: should be QML space, not C++ metatype space
+                    &ctx.module, // TODO: should be QML space, not C++ metatype space
                     node,
                     ctx.source,
                     &ExpressionEvaluator,

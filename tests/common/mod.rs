@@ -5,7 +5,7 @@ use qmluic::diagnostic::{DiagnosticKind, Diagnostics};
 use qmluic::metatype;
 use qmluic::metatype_tweak;
 use qmluic::qmlast::UiDocument;
-use qmluic::typemap::TypeMap;
+use qmluic::typemap::{ModuleId, NamespaceData, TypeMap};
 use qmluic::uigen::{self, BuildContext, XmlWriter};
 use std::fs;
 use std::path::Path;
@@ -27,7 +27,10 @@ fn translate_doc(doc: &UiDocument) -> Result<String, String> {
     let mut type_map = TypeMap::with_primitive_types();
     let mut classes = load_metatypes();
     metatype_tweak::apply_all(&mut classes);
-    type_map.extend(classes);
+    let mut module_data = NamespaceData::with_builtins();
+    module_data.extend(classes);
+    type_map.insert_module(ModuleId::Named("qmluic.QtWidgets".into()), module_data);
+
     let ctx = BuildContext::prepare(&type_map, doc).unwrap();
     let mut diagnostics = Diagnostics::new();
     let form = match uigen::build(&ctx, doc, &mut diagnostics) {

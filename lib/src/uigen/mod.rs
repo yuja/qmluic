@@ -2,7 +2,7 @@
 
 use crate::diagnostic::Diagnostics;
 use crate::qmlast::{UiDocument, UiProgram};
-use crate::typemap::{Class, Type, TypeMap};
+use crate::typemap::{Class, ModuleId, Namespace, Type, TypeMap, TypeSpace};
 use thiserror::Error;
 
 mod expr;
@@ -41,7 +41,7 @@ pub fn build(
 /// Resources passed around the UI object constructors.
 #[derive(Clone, Debug)]
 pub struct BuildContext<'a, 's> {
-    type_map: &'a TypeMap,
+    // TODO: type_map: &'a TypeMap,
     source: &'s str,
     action_class: Class<'a>,
     form_layout_class: Class<'a>,
@@ -55,20 +55,25 @@ pub struct BuildContext<'a, 's> {
     tab_widget_attached_class: Class<'a>,
     vbox_layout_class: Class<'a>,
     widget_class: Class<'a>,
+    module: Namespace<'a>, // TODO: resolve by imported modules instead
 }
 
 impl<'a, 's> BuildContext<'a, 's> {
     /// Sets up context for the given `doc`.
     pub fn prepare(type_map: &'a TypeMap, doc: &'s UiDocument) -> Result<Self, BuildContextError> {
+        const MODULE_NAME: &str = "qmluic.QtWidgets";
+        let module = type_map
+            .get_module(&ModuleId::Named(MODULE_NAME.into()))
+            .ok_or(BuildContextError::ModuleNotFound(MODULE_NAME))?;
         let get_class = |name| {
-            if let Some(Type::Class(cls)) = type_map.get_type(name) {
+            if let Some(Type::Class(cls)) = module.get_type(name) {
                 Ok(cls)
             } else {
                 Err(BuildContextError::ClassNotFound(name))
             }
         };
         Ok(BuildContext {
-            type_map,
+            // TODO: type_map,
             source: doc.source(),
             action_class: get_class("QAction")?,
             form_layout_class: get_class("QFormLayout")?,
@@ -82,6 +87,7 @@ impl<'a, 's> BuildContext<'a, 's> {
             tab_widget_attached_class: get_class("QTabWidgetAttached")?,
             vbox_layout_class: get_class("QVBoxLayout")?,
             widget_class: get_class("QWidget")?,
+            module,
         })
     }
 }
@@ -91,4 +97,6 @@ impl<'a, 's> BuildContext<'a, 's> {
 pub enum BuildContextError {
     #[error("required class not found: {0}")]
     ClassNotFound(&'static str),
+    #[error("required module not found: {0}")]
+    ModuleNotFound(&'static str),
 }
