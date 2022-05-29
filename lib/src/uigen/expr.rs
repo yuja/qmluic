@@ -790,24 +790,31 @@ mod tests {
     use crate::diagnostic::Diagnostics;
     use crate::metatype;
     use crate::qmlast::{UiDocument, UiObjectDefinition, UiProgram};
-    use crate::typemap::TypeMap;
+    use crate::typemap::{ModuleId, NamespaceData, TypeMap};
 
     struct Env {
         doc: UiDocument,
         type_map: TypeMap,
+        module_id: ModuleId<'static>,
     }
 
     impl Env {
         fn new(expr_source: &str) -> Self {
             let mut type_map = TypeMap::with_primitive_types();
+            let module_id = ModuleId::Named("foo".into());
+            type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
             let mut foo_meta = metatype::Class::new("Foo");
             foo_meta
                 .enums
                 .push(metatype::Enum::with_values("Bar", ["Bar0", "Bar1", "Bar2"]));
-            type_map.extend([foo_meta]);
+            type_map
+                .get_module_data_mut(&module_id)
+                .unwrap()
+                .extend([foo_meta]);
             Env {
                 doc: UiDocument::parse(format!("A {{ a: {expr_source}}}"), None),
                 type_map,
+                module_id,
             }
         }
 
@@ -825,7 +832,7 @@ mod tests {
 
         fn try_format(&self) -> Result<(TypeDesc, String, u32), Diagnostics> {
             let mut diagnostics = Diagnostics::new();
-            let type_space = self.type_map.root();
+            let type_space = self.type_map.get_module(&self.module_id).unwrap();
             let node = self.node();
             typedexpr::walk(
                 &type_space,
