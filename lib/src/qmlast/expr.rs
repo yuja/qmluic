@@ -366,7 +366,7 @@ mod tests {
     }
 
     fn extract_expr<'a>(doc: &'a UiDocument, name: &str) -> Result<Expression<'a>, ParseError<'a>> {
-        let program = UiProgram::from_node(doc.root_node()).unwrap();
+        let program = UiProgram::from_node(doc.root_node(), doc.source()).unwrap();
         let obj = UiObjectDefinition::from_node(program.root_object_node(), doc.source()).unwrap();
         let map = obj.build_binding_map(doc.source()).unwrap();
         let node = map.get(name).unwrap().get_node().unwrap();

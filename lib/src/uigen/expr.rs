@@ -819,7 +819,7 @@ mod tests {
         }
 
         fn node(&self) -> Node {
-            let program = UiProgram::from_node(self.doc.root_node()).unwrap();
+            let program = UiProgram::from_node(self.doc.root_node(), self.doc.source()).unwrap();
             let obj = UiObjectDefinition::from_node(program.root_object_node(), self.doc.source())
                 .unwrap();
             let map = obj.build_binding_map(self.doc.source()).unwrap();

@@ -7,20 +7,45 @@ use tree_sitter::{Node, Query, QueryCursor, TreeCursor};
 /// Represents a top-level QML program.
 #[derive(Clone, Debug)]
 pub struct UiProgram<'tree> {
+    imports: Vec<UiImport<'tree>>,
     root_object_node: Node<'tree>,
 }
 
 impl<'tree> UiProgram<'tree> {
-    pub fn from_node(node: Node<'tree>) -> Result<Self, ParseError<'tree>> {
+    pub fn from_node(node: Node<'tree>, source: &str) -> Result<Self, ParseError<'tree>> {
+        Self::with_cursor(&mut node.walk(), source)
+    }
+
+    fn with_cursor(
+        cursor: &mut TreeCursor<'tree>,
+        source: &str,
+    ) -> Result<Self, ParseError<'tree>> {
+        let node = cursor.node();
         if node.kind() != "program" {
             return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
         }
 
-        // TODO: parse pragma and imports
+        let mut imports = Vec::new();
+        for n in node.named_children(cursor) {
+            match n.kind() {
+                "ui_import" => imports.push(UiImport::from_node(n, source)?),
+                // TODO: ui_pragma
+                "ui_object_definition" | "ui_annotated_object" => {} // root
+                _ => astutil::handle_uninteresting_node(n)?,
+            }
+        }
 
         let root_object_node = astutil::get_child_by_field_name(node, "root")?;
 
-        Ok(UiProgram { root_object_node })
+        Ok(UiProgram {
+            imports,
+            root_object_node,
+        })
+    }
+
+    /// Import statements.
+    pub fn imports(&self) -> &[UiImport<'tree>] {
+        &self.imports
     }
 
     /// Node for the top-level object (or component.)
@@ -34,6 +59,91 @@ impl<'tree> UiProgram<'tree> {
         source: &'s str,
     ) -> Result<UiObjectIdMap<'tree, 's>, ParseError<'tree>> {
         build_object_id_map(self.root_object_node, source)
+    }
+}
+
+/// Represents an import statement.
+#[derive(Clone, Debug)]
+pub struct UiImport<'tree> {
+    node: Node<'tree>,
+    source: UiImportSource<'tree>,
+    version: Option<(u8, Option<u8>)>,
+    alias: Option<Identifier<'tree>>,
+}
+
+/// Variant for the import source.
+#[derive(Clone, Debug)]
+pub enum UiImportSource<'tree> {
+    /// (Dotted) identifier for a named module.
+    Identifier(NestedIdentifier<'tree>),
+    /// String which is typically a directory path.
+    String(String),
+}
+
+impl<'tree> UiImport<'tree> {
+    pub fn from_node(node: Node<'tree>, source: &str) -> Result<Self, ParseError<'tree>> {
+        if node.kind() != "ui_import" {
+            return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
+        }
+
+        let source_node = astutil::get_child_by_field_name(node, "source")?;
+        let source_mod = match source_node.kind() {
+            "identifier" | "nested_identifier" => {
+                UiImportSource::Identifier(NestedIdentifier::from_node(source_node)?)
+            }
+            "string" => UiImportSource::String(astutil::parse_string(source_node, source)?),
+            _ => {
+                return Err(ParseError::new(
+                    source_node,
+                    ParseErrorKind::UnexpectedNodeKind,
+                ))
+            }
+        };
+
+        let version = if let Some(version_node) = node.child_by_field_name("version") {
+            let parse = |n| -> Result<u8, ParseError<'tree>> {
+                astutil::node_text(n, source)
+                    .parse()
+                    .map_err(|_| ParseError::new(n, ParseErrorKind::InvalidSyntax))
+            };
+            Some((
+                parse(astutil::get_child_by_field_name(version_node, "major")?)?,
+                version_node
+                    .child_by_field_name("minor")
+                    .map(parse)
+                    .transpose()?,
+            ))
+        } else {
+            None
+        };
+
+        let alias = node
+            .child_by_field_name("alias")
+            .map(Identifier::from_node)
+            .transpose()?;
+
+        Ok(UiImport {
+            node,
+            source: source_mod,
+            version,
+            alias,
+        })
+    }
+
+    pub fn node(&self) -> Node<'tree> {
+        self.node
+    }
+
+    pub fn source(&self) -> &UiImportSource<'tree> {
+        &self.source
+    }
+
+    pub fn version(&self) -> Option<(u8, Option<u8>)> {
+        self.version
+    }
+
+    pub fn alias(&self) -> Option<Identifier<'tree>> {
+        self.alias
     }
 }
 
@@ -488,8 +598,75 @@ mod tests {
     }
 
     fn extract_root_object(doc: &UiDocument) -> Result<UiObjectDefinition, ParseError> {
-        let program = UiProgram::from_node(doc.root_node()).unwrap();
+        let program = UiProgram::from_node(doc.root_node(), doc.source()).unwrap();
         UiObjectDefinition::from_node(program.root_object_node(), doc.source())
+    }
+
+    impl<'tree> UiImportSource<'tree> {
+        fn unwrap_identifier(&self) -> &NestedIdentifier<'tree> {
+            match self {
+                UiImportSource::Identifier(x) => x,
+                _ => panic!("not an identifier"),
+            }
+        }
+
+        fn unwrap_string(&self) -> &str {
+            match self {
+                UiImportSource::String(x) => x,
+                _ => panic!("not a string"),
+            }
+        }
+    }
+
+    #[test]
+    fn import_statements() {
+        let doc = parse(
+            r###"
+            import Foo.Bar
+            import Baz 2
+            import Blah.Blah 2.1 as A
+            import "Dir" as B
+            Foo {}
+            "###,
+        );
+
+        let program = UiProgram::from_node(doc.root_node(), doc.source()).unwrap();
+        let imports = program.imports();
+        assert_eq!(imports.len(), 4);
+
+        assert_eq!(
+            imports[0]
+                .source()
+                .unwrap_identifier()
+                .to_string(doc.source()),
+            "Foo.Bar"
+        );
+        assert_eq!(imports[0].version(), None);
+        assert!(imports[0].alias().is_none());
+
+        assert_eq!(
+            imports[1]
+                .source()
+                .unwrap_identifier()
+                .to_string(doc.source()),
+            "Baz"
+        );
+        assert_eq!(imports[1].version(), Some((2, None)));
+        assert!(imports[1].alias().is_none());
+
+        assert_eq!(
+            imports[2]
+                .source()
+                .unwrap_identifier()
+                .to_string(doc.source()),
+            "Blah.Blah"
+        );
+        assert_eq!(imports[2].version(), Some((2, Some(1))));
+        assert_eq!(imports[2].alias().unwrap().to_str(doc.source()), "A");
+
+        assert_eq!(imports[3].source().unwrap_string(), "Dir");
+        assert_eq!(imports[3].version(), None);
+        assert_eq!(imports[3].alias().unwrap().to_str(doc.source()), "B");
     }
 
     #[test]
@@ -508,7 +685,7 @@ mod tests {
             "###,
         );
 
-        let program = UiProgram::from_node(doc.root_node()).unwrap();
+        let program = UiProgram::from_node(doc.root_node(), doc.source()).unwrap();
         let object_id_map = program.build_object_id_map(doc.source()).unwrap();
         assert_eq!(
             object_id_map.get("foo").unwrap(),
@@ -539,14 +716,14 @@ mod tests {
             }
             "###,
         );
-        let program = UiProgram::from_node(doc.root_node()).unwrap();
+        let program = UiProgram::from_node(doc.root_node(), doc.source()).unwrap();
         assert!(program.build_object_id_map(doc.source()).is_err());
     }
 
     #[test]
     fn non_trivial_object_id_expression() {
         let doc = parse(r"Foo { id: (expr) }");
-        let program = UiProgram::from_node(doc.root_node()).unwrap();
+        let program = UiProgram::from_node(doc.root_node(), doc.source()).unwrap();
         assert!(program.build_object_id_map(doc.source()).is_err());
     }
 

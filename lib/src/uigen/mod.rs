@@ -27,7 +27,7 @@ pub fn build(
     doc: &UiDocument,
     diagnostics: &mut Diagnostics,
 ) -> Option<UiForm> {
-    let program = diagnostics.consume_err(UiProgram::from_node(doc.root_node()))?;
+    let program = diagnostics.consume_err(UiProgram::from_node(doc.root_node(), doc.source()))?;
     let (obj, cls) =
         object::resolve_object_definition(ctx, program.root_object_node(), diagnostics)?;
     let root_object =
