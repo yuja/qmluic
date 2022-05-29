@@ -76,21 +76,6 @@ impl TypeMap {
             ModuleId::Named(name) => self.named_module_map.insert(name.into_owned(), data),
         }
     }
-
-    /// Root type space.
-    pub fn root(&self) -> Namespace {
-        Namespace::root(&self.builtins, self) // TODO
-    }
-
-    /// Looks up type by name.
-    pub fn get_type<'a>(&'a self, name: &str) -> Option<Type<'a>> {
-        self.root().get_type(name)
-    }
-
-    /// Looks up type by scoped name.
-    pub fn get_type_scoped<'a>(&'a self, scoped_name: &str) -> Option<Type<'a>> {
-        self.root().get_type_scoped(scoped_name)
-    }
 }
 
 /// Top-level module identifier.
@@ -106,24 +91,6 @@ pub enum ModuleId<'s> {
 impl<'s> AsRef<ModuleId<'s>> for ModuleId<'s> {
     fn as_ref(&self) -> &ModuleId<'s> {
         self
-    }
-}
-
-impl Extend<metatype::Class> for TypeMap {
-    fn extend<T>(&mut self, iter: T)
-    where
-        T: IntoIterator<Item = metatype::Class>,
-    {
-        self.builtins.extend(iter) // TODO
-    }
-}
-
-impl Extend<metatype::Enum> for TypeMap {
-    fn extend<T>(&mut self, iter: T)
-    where
-        T: IntoIterator<Item = metatype::Enum>,
-    {
-        self.builtins.extend(iter) // TODO
     }
 }
 
