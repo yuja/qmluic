@@ -3,19 +3,22 @@
 use super::metatype;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
+use std::mem;
 use std::ptr;
 
 /// Storage to map type name to class or enum representation.
 #[derive(Debug)]
 pub struct TypeMap {
-    data: NamespaceData,
+    builtins: NamespaceData,
+    named_module_map: HashMap<String, NamespaceData>,
 }
 
 impl TypeMap {
     /// Creates empty type map.
     pub fn empty() -> Self {
         TypeMap {
-            data: Default::default(),
+            builtins: NamespaceData::default(),
+            named_module_map: HashMap::default(),
         }
     }
 
@@ -27,18 +30,56 @@ impl TypeMap {
         let name_map = HashMap::from(
             [Bool, Int, QReal, QString, UInt, Void].map(|t| (t.name().to_owned(), Primitive(t))),
         );
+        let builtins = NamespaceData {
+            name_map,
+            ..Default::default()
+        };
 
         TypeMap {
-            data: NamespaceData {
-                name_map,
-                ..Default::default()
-            },
+            builtins,
+            named_module_map: HashMap::default(),
+        }
+    }
+
+    /// Looks up module by identifier.
+    pub fn get_module<'a, 's, S>(&'a self, id: S) -> Option<Namespace<'a>>
+    where
+        S: AsRef<ModuleId<'s>>,
+    {
+        match id.as_ref() {
+            ModuleId::Builtins => Some(Namespace::root(&self.builtins)),
+            ModuleId::Named(name) => self
+                .named_module_map
+                .get(name.as_ref())
+                .map(Namespace::root),
+        }
+    }
+
+    /// Looks up mutable module data by identifier.
+    pub fn get_module_data_mut<'a, 's, S>(&'a mut self, id: S) -> Option<&'a mut NamespaceData>
+    where
+        S: AsRef<ModuleId<'s>>,
+    {
+        match id.as_ref() {
+            ModuleId::Builtins => Some(&mut self.builtins),
+            ModuleId::Named(name) => self.named_module_map.get_mut(name.as_ref()),
+        }
+    }
+
+    /// Inserts new module.
+    pub fn insert_module<S>(&mut self, id: S, data: NamespaceData) -> Option<NamespaceData>
+    where
+        S: Into<ModuleId<'static>>,
+    {
+        match id.into() {
+            ModuleId::Builtins => Some(mem::replace(&mut self.builtins, data)),
+            ModuleId::Named(name) => self.named_module_map.insert(name.into_owned(), data),
         }
     }
 
     /// Root type space.
     pub fn root(&self) -> Namespace {
-        Namespace::root(&self.data)
+        Namespace::root(&self.builtins) // TODO
     }
 
     /// Looks up type by name.
@@ -52,12 +93,28 @@ impl TypeMap {
     }
 }
 
+/// Top-level module identifier.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ModuleId<'s> {
+    /// Built-in types.
+    Builtins,
+    /// QML module which can be imported by (dotted) name.
+    Named(Cow<'s, str>),
+    // TODO: Directory(Path)
+}
+
+impl<'s> AsRef<ModuleId<'s>> for ModuleId<'s> {
+    fn as_ref(&self) -> &ModuleId<'s> {
+        self
+    }
+}
+
 impl Extend<metatype::Class> for TypeMap {
     fn extend<T>(&mut self, iter: T)
     where
         T: IntoIterator<Item = metatype::Class>,
     {
-        self.data.extend_classes(iter)
+        self.builtins.extend(iter) // TODO
     }
 }
 
@@ -66,7 +123,7 @@ impl Extend<metatype::Enum> for TypeMap {
     where
         T: IntoIterator<Item = metatype::Enum>,
     {
-        self.data.extend_enums(iter)
+        self.builtins.extend(iter) // TODO
     }
 }
 
@@ -142,7 +199,7 @@ pub struct Namespace<'a> {
 
 /// Stored type namespace.
 #[derive(Clone, Debug, Default)]
-struct NamespaceData {
+pub struct NamespaceData {
     name_map: HashMap<String, TypeIndex>,
     classes: Vec<ClassData>,
     enums: Vec<EnumData>,
@@ -238,6 +295,24 @@ impl NamespaceData {
         self.enum_variant_map
             .get(name)
             .map(|&i| Enum::new(&self.enums[i], make_parent_space()))
+    }
+}
+
+impl Extend<metatype::Class> for NamespaceData {
+    fn extend<T>(&mut self, iter: T)
+    where
+        T: IntoIterator<Item = metatype::Class>,
+    {
+        self.extend_classes(iter)
+    }
+}
+
+impl Extend<metatype::Enum> for NamespaceData {
+    fn extend<T>(&mut self, iter: T)
+    where
+        T: IntoIterator<Item = metatype::Enum>,
+    {
+        self.extend_enums(iter)
     }
 }
 
@@ -615,6 +690,20 @@ mod tests {
             type_map.get_type("Baz").unwrap(),
             type_map.get_type("Baz").unwrap()
         );
+    }
+
+    #[test]
+    fn named_module() {
+        let mut type_map = TypeMap::with_primitive_types();
+        let module_id = ModuleId::Named("foo".into());
+        type_map.insert_module(module_id.clone(), Default::default());
+        type_map
+            .get_module_data_mut(&module_id)
+            .unwrap()
+            .extend([metatype::Class::new("Foo")]);
+        let module = type_map.get_module(&ModuleId::Named("foo".into())).unwrap();
+        assert!(module.get_type("Foo").is_some());
+        assert!(module.get_type("int").is_none());
     }
 
     #[test]
