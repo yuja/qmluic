@@ -701,23 +701,28 @@ mod tests {
     #[test]
     fn type_eq() {
         let mut type_map = TypeMap::empty();
-        type_map.extend([metatype::Class::new("Foo"), metatype::Class::new("Bar")]);
-        type_map.extend([metatype::Enum::new("Baz")]);
+        let module_id = ModuleId::Named("foo".into());
+        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
+        let module_data = type_map.get_module_data_mut(&module_id).unwrap();
+        module_data.extend([metatype::Class::new("Foo"), metatype::Class::new("Bar")]);
+        module_data.extend([metatype::Enum::new("Baz")]);
+
+        let module = type_map.get_module(module_id).unwrap();
         assert_eq!(
-            type_map.get_type("Foo").unwrap(),
-            type_map.get_type("Foo").unwrap()
+            module.get_type("Foo").unwrap(),
+            module.get_type("Foo").unwrap()
         );
         assert_ne!(
-            type_map.get_type("Foo").unwrap(),
-            type_map.get_type("Bar").unwrap()
+            module.get_type("Foo").unwrap(),
+            module.get_type("Bar").unwrap()
         );
         assert_ne!(
-            type_map.get_type("Foo").unwrap(),
-            type_map.get_type("Baz").unwrap()
+            module.get_type("Foo").unwrap(),
+            module.get_type("Baz").unwrap()
         );
         assert_eq!(
-            type_map.get_type("Baz").unwrap(),
-            type_map.get_type("Baz").unwrap()
+            module.get_type("Baz").unwrap(),
+            module.get_type("Baz").unwrap()
         );
     }
 
@@ -738,24 +743,35 @@ mod tests {
     #[test]
     fn aliased_enum_eq() {
         let mut type_map = TypeMap::empty();
-        type_map.extend([
+        let module_id = ModuleId::Named("foo".into());
+        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
+        type_map.get_module_data_mut(&module_id).unwrap().extend([
             metatype::Enum::new("Foo"),
             metatype::Enum::new_flag("Foos", "Foo"),
         ]);
+
+        let module = type_map.get_module(module_id).unwrap();
         assert_eq!(
-            unwrap_enum(type_map.get_type("Foos")).alias_enum(),
-            Some(unwrap_enum(type_map.get_type("Foo")))
+            unwrap_enum(module.get_type("Foos")).alias_enum(),
+            Some(unwrap_enum(module.get_type("Foo")))
         );
     }
 
     #[test]
     fn qualified_name() {
         let mut type_map = TypeMap::with_primitive_types();
+        let module_id = ModuleId::Named("foo".into());
+        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         foo_meta.enums.push(metatype::Enum::new("Bar"));
-        type_map.extend([foo_meta]);
-        assert_eq!(type_map.get_type("int").unwrap().qualified_name(), "int");
-        let foo_type = type_map.get_type("Foo").unwrap();
+        type_map
+            .get_module_data_mut(&module_id)
+            .unwrap()
+            .extend([foo_meta]);
+
+        let module = type_map.get_module(module_id).unwrap();
+        assert_eq!(module.get_type("int").unwrap().qualified_name(), "int");
+        let foo_type = module.get_type("Foo").unwrap();
         assert_eq!(foo_type.qualified_name(), "Foo");
         assert_eq!(
             foo_type.get_type("Bar").unwrap().qualified_name(),
@@ -766,12 +782,19 @@ mod tests {
     #[test]
     fn get_type_of_root() {
         let mut type_map = TypeMap::with_primitive_types();
-        type_map.extend([metatype::Class::new("Foo")]);
+        let module_id = ModuleId::Named("foo".into());
+        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
+        type_map
+            .get_module_data_mut(&module_id)
+            .unwrap()
+            .extend([metatype::Class::new("Foo")]);
+
+        let module = type_map.get_module(module_id).unwrap();
         assert_eq!(
-            type_map.get_type("int").unwrap(),
+            module.get_type("int").unwrap(),
             Type::Primitive(PrimitiveType::Int)
         );
-        let foo_class = unwrap_class(type_map.get_type("Foo"));
+        let foo_class = unwrap_class(module.get_type("Foo"));
         assert!(foo_class.get_type("int").is_none());
         assert_eq!(
             foo_class.resolve_type("int").unwrap(),
@@ -782,17 +805,23 @@ mod tests {
     #[test]
     fn get_type_of_root_scoped() {
         let mut type_map = TypeMap::with_primitive_types();
+        let module_id = ModuleId::Named("foo".into());
+        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         foo_meta.enums.push(metatype::Enum::new("Bar"));
-        type_map.extend([foo_meta]);
+        type_map
+            .get_module_data_mut(&module_id)
+            .unwrap()
+            .extend([foo_meta]);
 
-        let foo_class = unwrap_class(type_map.get_type("Foo"));
+        let module = type_map.get_module(module_id).unwrap();
+        let foo_class = unwrap_class(module.get_type("Foo"));
         assert_eq!(
-            type_map.get_type_scoped("Foo").unwrap(),
-            type_map.get_type("Foo").unwrap()
+            module.get_type_scoped("Foo").unwrap(),
+            module.get_type("Foo").unwrap()
         );
         assert_eq!(
-            type_map.get_type_scoped("Foo::Bar").unwrap(),
+            module.get_type_scoped("Foo::Bar").unwrap(),
             foo_class.get_type("Bar").unwrap()
         );
         assert!(foo_class.get_type_scoped("Foo::Bar").is_none());
@@ -805,8 +834,15 @@ mod tests {
     #[test]
     fn do_not_resolve_intermediate_type_scoped() {
         let mut type_map = TypeMap::with_primitive_types();
-        type_map.extend([metatype::Class::new("Foo")]);
-        let foo_class = unwrap_class(type_map.get_type("Foo"));
+        let module_id = ModuleId::Named("foo".into());
+        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
+        type_map
+            .get_module_data_mut(&module_id)
+            .unwrap()
+            .extend([metatype::Class::new("Foo")]);
+
+        let module = type_map.get_module(module_id).unwrap();
+        let foo_class = unwrap_class(module.get_type("Foo"));
         assert!(foo_class.resolve_type_scoped("int").is_some());
         assert_eq!(
             unwrap_class(foo_class.resolve_type_scoped("Foo")),
@@ -818,22 +854,25 @@ mod tests {
     #[test]
     fn get_super_class_type() {
         let mut type_map = TypeMap::with_primitive_types();
+        let module_id = ModuleId::Named("foo".into());
+        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
         let mut root_meta = metatype::Class::new("Root");
         root_meta.enums.push(metatype::Enum::new("RootEnum"));
-        type_map.extend([
+        type_map.get_module_data_mut(&module_id).unwrap().extend([
             root_meta,
             metatype::Class::with_supers("Sub1", ["Root"]),
             metatype::Class::with_supers("Sub2", ["Sub1"]),
         ]);
 
-        let root_class = unwrap_class(type_map.get_type("Root"));
-        let sub2_class = unwrap_class(type_map.get_type("Sub2"));
+        let module = type_map.get_module(module_id).unwrap();
+        let root_class = unwrap_class(module.get_type("Root"));
+        let sub2_class = unwrap_class(module.get_type("Sub2"));
         assert_eq!(
             sub2_class.get_type("RootEnum").unwrap(),
             root_class.get_type("RootEnum").unwrap()
         );
         assert_eq!(
-            type_map.get_type_scoped("Sub2::RootEnum").unwrap(),
+            module.get_type_scoped("Sub2::RootEnum").unwrap(),
             root_class.get_type("RootEnum").unwrap()
         );
     }
@@ -841,17 +880,20 @@ mod tests {
     #[test]
     fn class_derived_from() {
         let mut type_map = TypeMap::with_primitive_types();
-        type_map.extend([
+        let module_id = ModuleId::Named("foo".into());
+        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
+        type_map.get_module_data_mut(&module_id).unwrap().extend([
             metatype::Class::new("Root"),
             metatype::Class::with_supers("Sub1", ["Root"]),
             metatype::Class::with_supers("Sub2", ["Sub1"]),
             metatype::Class::with_supers("Sub3", ["Root"]),
         ]);
 
-        let root_class = unwrap_class(type_map.get_type("Root"));
-        let sub1_class = unwrap_class(type_map.get_type("Sub1"));
-        let sub2_class = unwrap_class(type_map.get_type("Sub2"));
-        let sub3_class = unwrap_class(type_map.get_type("Sub3"));
+        let module = type_map.get_module(module_id).unwrap();
+        let root_class = unwrap_class(module.get_type("Root"));
+        let sub1_class = unwrap_class(module.get_type("Sub1"));
+        let sub2_class = unwrap_class(module.get_type("Sub2"));
+        let sub3_class = unwrap_class(module.get_type("Sub3"));
 
         assert!(root_class.is_derived_from(&root_class));
         assert!(sub1_class.is_derived_from(&root_class));
@@ -867,6 +909,8 @@ mod tests {
     #[test]
     fn get_type_of_property() {
         let mut type_map = TypeMap::with_primitive_types();
+        let module_id = ModuleId::Named("foo".into());
+        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         foo_meta
             .properties
@@ -875,30 +919,40 @@ mod tests {
         bar_meta
             .properties
             .push(metatype::Property::new("bar_prop", "bool"));
-        type_map.extend([foo_meta, bar_meta]);
+        type_map
+            .get_module_data_mut(&module_id)
+            .unwrap()
+            .extend([foo_meta, bar_meta]);
 
-        let bar_class = unwrap_class(type_map.get_type("Bar"));
+        let module = type_map.get_module(module_id).unwrap();
+        let bar_class = unwrap_class(module.get_type("Bar"));
         assert_eq!(
             bar_class.get_property_type("bar_prop").unwrap(),
-            type_map.get_type("bool").unwrap()
+            module.get_type("bool").unwrap()
         );
         assert_eq!(
             bar_class.get_property_type("foo_prop").unwrap(),
-            type_map.get_type("int").unwrap()
+            module.get_type("int").unwrap()
         );
     }
 
     #[test]
     fn get_enum_by_variant() {
         let mut type_map = TypeMap::empty();
+        let module_id = ModuleId::Named("foo".into());
+        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         let unscoped_meta = metatype::Enum::with_values("Unscoped", ["X", "Y"]);
         let mut scoped_meta = metatype::Enum::with_values("Scoped", ["A", "Y"]);
         scoped_meta.is_class = true;
         foo_meta.enums.extend([unscoped_meta, scoped_meta]);
-        type_map.extend([foo_meta]);
+        type_map
+            .get_module_data_mut(&module_id)
+            .unwrap()
+            .extend([foo_meta]);
 
-        let foo_class = unwrap_class(type_map.get_type("Foo"));
+        let module = type_map.get_module(module_id).unwrap();
+        let foo_class = unwrap_class(module.get_type("Foo"));
         let unscoped_enum = unwrap_enum(foo_class.get_type("Unscoped"));
         assert_eq!(foo_class.get_enum_by_variant("X").unwrap(), unscoped_enum);
         assert_eq!(foo_class.get_enum_by_variant("Y").unwrap(), unscoped_enum);
@@ -912,14 +966,20 @@ mod tests {
     #[test]
     fn get_super_class_enum_by_variant() {
         let mut type_map = TypeMap::empty();
+        let module_id = ModuleId::Named("foo".into());
+        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         let unscoped_meta = metatype::Enum::with_values("Unscoped", ["X", "Y"]);
         foo_meta.enums.extend([unscoped_meta]);
         let bar_meta = metatype::Class::with_supers("Bar", ["Foo"]);
-        type_map.extend([foo_meta, bar_meta]);
+        type_map
+            .get_module_data_mut(&module_id)
+            .unwrap()
+            .extend([foo_meta, bar_meta]);
 
-        let foo_class = unwrap_class(type_map.get_type("Bar"));
-        let bar_class = unwrap_class(type_map.get_type("Bar"));
+        let module = type_map.get_module(module_id).unwrap();
+        let foo_class = unwrap_class(module.get_type("Bar"));
+        let bar_class = unwrap_class(module.get_type("Bar"));
         let unscoped_enum = unwrap_enum(foo_class.get_type("Unscoped"));
         assert_eq!(bar_class.get_enum_by_variant("X").unwrap(), unscoped_enum);
     }
