@@ -47,11 +47,11 @@ impl TypeMap {
         S: AsRef<ModuleId<'s>>,
     {
         match id.as_ref() {
-            ModuleId::Builtins => Some(Namespace::root(&self.builtins)),
+            ModuleId::Builtins => Some(Namespace::root(&self.builtins, self)),
             ModuleId::Named(name) => self
                 .named_module_map
                 .get(name.as_ref())
-                .map(Namespace::root),
+                .map(|d| Namespace::root(d, self)),
         }
     }
 
@@ -79,7 +79,7 @@ impl TypeMap {
 
     /// Root type space.
     pub fn root(&self) -> Namespace {
-        Namespace::root(&self.builtins) // TODO
+        Namespace::root(&self.builtins, self) // TODO
     }
 
     /// Looks up type by name.
@@ -194,6 +194,7 @@ pub trait TypeSpace<'a> {
 #[derive(Clone, Debug)]
 pub struct Namespace<'a> {
     data: &'a NamespaceData,
+    type_map: &'a TypeMap,
     // TODO: parent_space
 }
 
@@ -204,18 +205,20 @@ pub struct NamespaceData {
     classes: Vec<ClassData>,
     enums: Vec<EnumData>,
     enum_variant_map: HashMap<String, usize>,
+    imports: Vec<ModuleId<'static>>,
 }
 
 impl<'a> Namespace<'a> {
-    fn root(data: &'a NamespaceData) -> Self {
-        Namespace { data }
+    fn root(data: &'a NamespaceData, type_map: &'a TypeMap) -> Self {
+        Namespace { data, type_map }
     }
 }
 
 impl<'a> PartialEq for Namespace<'a> {
     fn eq(&self, other: &Self) -> bool {
         // two types should be equal if both borrow the identical data.
-        ptr::eq(self.data, other.data) /*&& self.parent_space == other.parent_space*/
+        ptr::eq(self.data, other.data) && ptr::eq(self.type_map, other.type_map)
+        /*&& self.parent_space == other.parent_space*/
     }
 }
 
@@ -226,9 +229,11 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
         "" // TODO: return name if not root namespace
     }
 
+    // TODO: separate function to get imported/exported (i.e. private/public) types
     fn get_type(&self, name: &str) -> Option<Type<'a>> {
         self.data
             .get_type_with(name, || Type::Namespace(self.clone()))
+            .or_else(|| self.data.get_imported_type(name, self.type_map))
     }
 
     fn lexical_parent(&self) -> Option<&Type<'a>> {
@@ -242,6 +247,22 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
 }
 
 impl NamespaceData {
+    /// Creates new namespace storage with builtin imports.
+    pub fn with_builtins() -> Self {
+        NamespaceData {
+            imports: vec![ModuleId::Builtins],
+            ..Default::default()
+        }
+    }
+
+    /// Adds the specified module to the import list from which type names will be resolved.
+    pub fn import_module<S>(&mut self, id: S)
+    where
+        S: Into<ModuleId<'static>>,
+    {
+        self.imports.push(id.into())
+    }
+
     fn extend_classes<T>(&mut self, iter: T)
     where
         T: IntoIterator<Item = metatype::Class>,
@@ -295,6 +316,14 @@ impl NamespaceData {
         self.enum_variant_map
             .get(name)
             .map(|&i| Enum::new(&self.enums[i], make_parent_space()))
+    }
+
+    fn get_imported_type<'a>(&'a self, name: &str, type_map: &'a TypeMap) -> Option<Type<'a>> {
+        // TODO: detect cycle
+        // TODO: module not found error?
+        self.imports
+            .iter()
+            .find_map(|id| type_map.get_module(id).and_then(|ns| ns.get_type(name)))
     }
 }
 
@@ -696,14 +725,14 @@ mod tests {
     fn named_module() {
         let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo".into());
-        type_map.insert_module(module_id.clone(), Default::default());
+        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
         type_map
             .get_module_data_mut(&module_id)
             .unwrap()
             .extend([metatype::Class::new("Foo")]);
         let module = type_map.get_module(&ModuleId::Named("foo".into())).unwrap();
         assert!(module.get_type("Foo").is_some());
-        assert!(module.get_type("int").is_none());
+        assert!(module.get_type("int").is_some()); // TODO: only for imported type resolution
     }
 
     #[test]
