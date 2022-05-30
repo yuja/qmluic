@@ -41,6 +41,17 @@ impl TypeMap {
         }
     }
 
+    /// Checks if the specified module exists.
+    pub fn contains_module<'s, S>(&self, id: S) -> bool
+    where
+        S: AsRef<ModuleId<'s>>,
+    {
+        match id.as_ref() {
+            ModuleId::Builtins => true,
+            ModuleId::Named(name) => self.named_module_map.contains_key(name.as_ref()),
+        }
+    }
+
     /// Looks up module by identifier.
     pub fn get_module<'a, 's, S>(&'a self, id: S) -> Option<Namespace<'a>>
     where
