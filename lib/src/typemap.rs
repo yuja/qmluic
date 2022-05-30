@@ -187,7 +187,7 @@ pub struct NamespaceData {
 }
 
 impl<'a> Namespace<'a> {
-    fn root(data: &'a NamespaceData, type_map: &'a TypeMap) -> Self {
+    pub fn root(data: &'a NamespaceData, type_map: &'a TypeMap) -> Self {
         Namespace { data, type_map }
     }
 }

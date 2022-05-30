@@ -1,8 +1,8 @@
 //! Qt user interface XML (.ui) generator.
 
-use crate::diagnostic::Diagnostics;
-use crate::qmlast::{UiDocument, UiProgram};
-use crate::typemap::{Class, ModuleId, Namespace, Type, TypeMap, TypeSpace};
+use crate::diagnostic::{Diagnostic, Diagnostics};
+use crate::qmlast::{UiDocument, UiImportSource, UiProgram};
+use crate::typemap::{Class, ModuleId, Namespace, NamespaceData, Type, TypeMap, TypeSpace};
 use thiserror::Error;
 
 mod expr;
@@ -28,7 +28,9 @@ pub fn build(
     diagnostics: &mut Diagnostics,
 ) -> Option<UiForm> {
     let program = diagnostics.consume_err(UiProgram::from_node(doc.root_node(), doc.source()))?;
-    let ctx = BuildDocContext::new(doc, base_ctx);
+    let module_data = make_doc_module_data(&program, doc.source(), base_ctx.type_map, diagnostics);
+    let module = Namespace::root(&module_data, base_ctx.type_map);
+    let ctx = BuildDocContext::new(doc, module, base_ctx);
     let (obj, cls) =
         object::resolve_object_definition(&ctx, program.root_object_node(), diagnostics)?;
     let root_object =
@@ -39,10 +41,46 @@ pub fn build(
     })
 }
 
+fn make_doc_module_data(
+    program: &UiProgram,
+    source: &str,
+    type_map: &TypeMap,
+    diagnostics: &mut Diagnostics,
+) -> NamespaceData {
+    let mut module_data = NamespaceData::with_builtins();
+    for imp in program.imports() {
+        if imp.alias().is_some() {
+            diagnostics.push(Diagnostic::error(
+                imp.node().byte_range(),
+                "aliased import is not supported",
+            ));
+            continue;
+        }
+        // TODO: warn that version field is ignored
+        match imp.source() {
+            UiImportSource::Identifier(x) => {
+                let id = ModuleId::Named(x.to_string(source).into_owned().into());
+                if !type_map.contains_module(&id) {
+                    diagnostics.push(Diagnostic::error(x.node().byte_range(), "module not found"));
+                    continue;
+                }
+                module_data.import_module(id);
+            }
+            UiImportSource::String(_) => {
+                diagnostics.push(Diagnostic::error(
+                    imp.node().byte_range(),
+                    "directory import is not supported",
+                ));
+            }
+        }
+    }
+    module_data
+}
+
 /// Resources passed around the UI object constructors.
 #[derive(Clone, Debug)]
 pub struct BuildContext<'a> {
-    // TODO: type_map: &'a TypeMap,
+    type_map: &'a TypeMap,
     action_class: Class<'a>,
     form_layout_class: Class<'a>,
     grid_layout_class: Class<'a>,
@@ -55,7 +93,6 @@ pub struct BuildContext<'a> {
     tab_widget_attached_class: Class<'a>,
     vbox_layout_class: Class<'a>,
     widget_class: Class<'a>,
-    module: Namespace<'a>, // TODO: resolve by imported modules instead
 }
 
 #[derive(Clone, Debug)]
@@ -73,7 +110,7 @@ struct BuildDocContext<'a, 's> {
     tab_widget_attached_class: Class<'a>,
     vbox_layout_class: Class<'a>,
     widget_class: Class<'a>,
-    module: Namespace<'a>, // TODO: resolve by imported modules instead
+    module: Namespace<'a>,
 }
 
 impl<'a> BuildContext<'a> {
@@ -91,7 +128,7 @@ impl<'a> BuildContext<'a> {
             }
         };
         Ok(BuildContext {
-            // TODO: type_map,
+            type_map,
             action_class: get_class("QAction")?,
             form_layout_class: get_class("QFormLayout")?,
             grid_layout_class: get_class("QGridLayout")?,
@@ -104,13 +141,12 @@ impl<'a> BuildContext<'a> {
             tab_widget_attached_class: get_class("QTabWidgetAttached")?,
             vbox_layout_class: get_class("QVBoxLayout")?,
             widget_class: get_class("QWidget")?,
-            module,
         })
     }
 }
 
 impl<'a, 's> BuildDocContext<'a, 's> {
-    fn new(doc: &'s UiDocument, base_ctx: &BuildContext<'a>) -> Self {
+    fn new(doc: &'s UiDocument, module: Namespace<'a>, base_ctx: &BuildContext<'a>) -> Self {
         BuildDocContext {
             source: doc.source(),
             action_class: base_ctx.action_class.clone(),
@@ -125,7 +161,7 @@ impl<'a, 's> BuildDocContext<'a, 's> {
             tab_widget_attached_class: base_ctx.tab_widget_attached_class.clone(),
             vbox_layout_class: base_ctx.vbox_layout_class.clone(),
             widget_class: base_ctx.widget_class.clone(),
-            module: base_ctx.module.clone(),
+            module,
         }
     }
 }

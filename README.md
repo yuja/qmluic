@@ -24,8 +24,8 @@ Example QML file
 (see examples/*.qml)
 
 ```qml
-// Help Qt Creator find type stubs for completion. qmluic ignores import
-// statements as of now.
+// qmluic hosts all classes under this module. This also helps Qt Creator
+// find type stubs for completion.
 import qmluic.QtWidgets
 
 // Top-level widget
