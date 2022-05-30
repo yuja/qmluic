@@ -31,7 +31,7 @@ fn translate_doc(doc: &UiDocument) -> Result<String, String> {
     module_data.extend(classes);
     type_map.insert_module(ModuleId::Named("qmluic.QtWidgets".into()), module_data);
 
-    let ctx = BuildContext::prepare(&type_map, doc).unwrap();
+    let ctx = BuildContext::prepare(&type_map).unwrap();
     let mut diagnostics = Diagnostics::new();
     let form = match uigen::build(&ctx, doc, &mut diagnostics) {
         Some(form) if diagnostics.is_empty() => form,

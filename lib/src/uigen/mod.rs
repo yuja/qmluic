@@ -23,15 +23,16 @@ pub type XmlWriter<W> = quick_xml::Writer<W>;
 
 /// Builds `UiForm` from the given `doc`.
 pub fn build(
-    ctx: &BuildContext,
+    base_ctx: &BuildContext,
     doc: &UiDocument,
     diagnostics: &mut Diagnostics,
 ) -> Option<UiForm> {
     let program = diagnostics.consume_err(UiProgram::from_node(doc.root_node(), doc.source()))?;
+    let ctx = BuildDocContext::new(doc, base_ctx);
     let (obj, cls) =
-        object::resolve_object_definition(ctx, program.root_object_node(), diagnostics)?;
+        object::resolve_object_definition(&ctx, program.root_object_node(), diagnostics)?;
     let root_object =
-        UiObject::from_object_definition(ctx, &cls, &obj, ContainerKind::Any, diagnostics)?;
+        UiObject::from_object_definition(&ctx, &cls, &obj, ContainerKind::Any, diagnostics)?;
     Some(UiForm {
         class: doc.type_name().map(|s| s.to_owned()),
         root_object,
@@ -40,8 +41,25 @@ pub fn build(
 
 /// Resources passed around the UI object constructors.
 #[derive(Clone, Debug)]
-pub struct BuildContext<'a, 's> {
+pub struct BuildContext<'a> {
     // TODO: type_map: &'a TypeMap,
+    action_class: Class<'a>,
+    form_layout_class: Class<'a>,
+    grid_layout_class: Class<'a>,
+    hbox_layout_class: Class<'a>,
+    layout_class: Class<'a>,
+    layout_attached_class: Class<'a>,
+    push_button_class: Class<'a>,
+    spacer_item_class: Class<'a>,
+    tab_widget_class: Class<'a>,
+    tab_widget_attached_class: Class<'a>,
+    vbox_layout_class: Class<'a>,
+    widget_class: Class<'a>,
+    module: Namespace<'a>, // TODO: resolve by imported modules instead
+}
+
+#[derive(Clone, Debug)]
+struct BuildDocContext<'a, 's> {
     source: &'s str,
     action_class: Class<'a>,
     form_layout_class: Class<'a>,
@@ -58,9 +76,9 @@ pub struct BuildContext<'a, 's> {
     module: Namespace<'a>, // TODO: resolve by imported modules instead
 }
 
-impl<'a, 's> BuildContext<'a, 's> {
-    /// Sets up context for the given `doc`.
-    pub fn prepare(type_map: &'a TypeMap, doc: &'s UiDocument) -> Result<Self, BuildContextError> {
+impl<'a> BuildContext<'a> {
+    /// Sets up context with the given `type_map`.
+    pub fn prepare(type_map: &'a TypeMap) -> Result<Self, BuildContextError> {
         const MODULE_NAME: &str = "qmluic.QtWidgets";
         let module = type_map
             .get_module(&ModuleId::Named(MODULE_NAME.into()))
@@ -74,7 +92,6 @@ impl<'a, 's> BuildContext<'a, 's> {
         };
         Ok(BuildContext {
             // TODO: type_map,
-            source: doc.source(),
             action_class: get_class("QAction")?,
             form_layout_class: get_class("QFormLayout")?,
             grid_layout_class: get_class("QGridLayout")?,
@@ -89,6 +106,27 @@ impl<'a, 's> BuildContext<'a, 's> {
             widget_class: get_class("QWidget")?,
             module,
         })
+    }
+}
+
+impl<'a, 's> BuildDocContext<'a, 's> {
+    fn new(doc: &'s UiDocument, base_ctx: &BuildContext<'a>) -> Self {
+        BuildDocContext {
+            source: doc.source(),
+            action_class: base_ctx.action_class.clone(),
+            form_layout_class: base_ctx.form_layout_class.clone(),
+            grid_layout_class: base_ctx.grid_layout_class.clone(),
+            hbox_layout_class: base_ctx.hbox_layout_class.clone(),
+            layout_class: base_ctx.layout_class.clone(),
+            layout_attached_class: base_ctx.layout_attached_class.clone(),
+            push_button_class: base_ctx.push_button_class.clone(),
+            spacer_item_class: base_ctx.spacer_item_class.clone(),
+            tab_widget_class: base_ctx.tab_widget_class.clone(),
+            tab_widget_attached_class: base_ctx.tab_widget_attached_class.clone(),
+            vbox_layout_class: base_ctx.vbox_layout_class.clone(),
+            widget_class: base_ctx.widget_class.clone(),
+            module: base_ctx.module.clone(),
+        }
     }
 }
 

@@ -1,5 +1,5 @@
 use super::expr::Value;
-use super::{BuildContext, XmlResult, XmlWriter};
+use super::{BuildDocContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
 use crate::typemap::{Class, TypeSpace};
@@ -122,7 +122,7 @@ impl From<ValueTypeError<'_>> for Diagnostic {
 ///
 /// Use `collect_properties_with_node()` if you need to inspect resulting values further.
 pub(super) fn collect_properties(
-    ctx: &BuildContext,
+    ctx: &BuildDocContext,
     cls: &Class,
     binding_map: &UiBindingMap,
     exclude_names: &[&str],
@@ -134,7 +134,7 @@ pub(super) fn collect_properties(
 }
 
 pub(super) fn collect_properties_with_node<'t>(
-    ctx: &BuildContext,
+    ctx: &BuildDocContext,
     cls: &Class,
     binding_map: &UiBindingMap<'t, '_>,
     exclude_names: &[&str],
@@ -146,7 +146,7 @@ pub(super) fn collect_properties_with_node<'t>(
 }
 
 fn resolve_properties<'a, 't, 's>(
-    ctx: &'a BuildContext,
+    ctx: &'a BuildDocContext,
     cls: &'a Class,
     binding_map: &'a UiBindingMap<'t, 's>,
     exclude_names: &'a [&str],

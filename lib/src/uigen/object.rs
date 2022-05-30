@@ -2,7 +2,7 @@ use super::expr::Value;
 use super::layout::Layout;
 use super::property;
 use super::xmlutil;
-use super::{BuildContext, XmlResult, XmlWriter};
+use super::{BuildDocContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Expression, Node, UiBindingValue, UiObjectDefinition};
 use crate::typemap::{Class, Type, TypeSpace};
@@ -52,7 +52,7 @@ pub enum UiObject {
 impl UiObject {
     /// Generates object and its children recursively from the given `obj` definition.
     pub(super) fn from_object_definition(
-        ctx: &BuildContext,
+        ctx: &BuildDocContext,
         cls: &Class,
         obj: &UiObjectDefinition,
         container_kind: ContainerKind,
@@ -103,7 +103,7 @@ impl Action {
     ///
     /// The given `cls` is supposed to be of `QAction` type.
     fn from_object_definition(
-        ctx: &BuildContext,
+        ctx: &BuildDocContext,
         cls: &Class,
         obj: &UiObjectDefinition,
         diagnostics: &mut Diagnostics,
@@ -149,7 +149,7 @@ impl Widget {
     /// Generates widget of `cls` type and its children recursively from the given `obj`
     /// definition.
     pub(super) fn from_object_definition(
-        ctx: &BuildContext,
+        ctx: &BuildDocContext,
         cls: &Class,
         obj: &UiObjectDefinition,
         container_kind: ContainerKind,
@@ -245,7 +245,7 @@ impl Widget {
 }
 
 pub(super) fn resolve_object_definition<'a, 't>(
-    ctx: &BuildContext<'a, '_>,
+    ctx: &BuildDocContext<'a, '_>,
     node: Node<'t>,
     diagnostics: &mut Diagnostics,
 ) -> Option<(UiObjectDefinition<'t>, Class<'a>)> {

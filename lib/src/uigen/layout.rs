@@ -1,7 +1,7 @@
 use super::expr::Value;
 use super::object::{self, ContainerKind, Widget};
 use super::property::{self, WithNode};
-use super::{BuildContext, XmlResult, XmlWriter};
+use super::{BuildDocContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiObjectDefinition};
 use crate::typemap::{Class, TypeSpace};
@@ -33,7 +33,7 @@ impl Layout {
     /// Generates layout of `cls` type and its children recursively from the given `obj`
     /// definition.
     pub(super) fn from_object_definition(
-        ctx: &BuildContext,
+        ctx: &BuildDocContext,
         cls: &Class,
         obj: &UiObjectDefinition,
         diagnostics: &mut Diagnostics,
@@ -206,7 +206,7 @@ struct LayoutItemAttached<'t> {
 
 impl<'t> LayoutItemAttached<'t> {
     fn from_object_definition(
-        ctx: &BuildContext,
+        ctx: &BuildDocContext,
         obj: &UiObjectDefinition<'t>,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
@@ -257,7 +257,7 @@ pub enum LayoutItemContent {
 impl LayoutItemContent {
     /// Generates layout content and its children recursively from the given `node`.
     fn from_object_definition(
-        ctx: &BuildContext,
+        ctx: &BuildDocContext,
         cls: &Class,
         obj: &UiObjectDefinition,
         diagnostics: &mut Diagnostics,
@@ -308,7 +308,7 @@ impl SpacerItem {
     ///
     /// The given `cls` is supposed to be of `QSpacerItem` type.
     fn from_object_definition(
-        ctx: &BuildContext,
+        ctx: &BuildDocContext,
         cls: &Class,
         obj: &UiObjectDefinition,
         diagnostics: &mut Diagnostics,
@@ -340,7 +340,7 @@ impl SpacerItem {
 }
 
 fn process_vbox_layout_children(
-    ctx: &BuildContext,
+    ctx: &BuildDocContext,
     layout_obj: &UiObjectDefinition,
     diagnostics: &mut Diagnostics,
 ) -> (LayoutAttributes, Vec<LayoutItem>) {
@@ -371,7 +371,7 @@ fn process_vbox_layout_children(
 }
 
 fn process_hbox_layout_children(
-    ctx: &BuildContext,
+    ctx: &BuildDocContext,
     layout_obj: &UiObjectDefinition,
     diagnostics: &mut Diagnostics,
 ) -> (LayoutAttributes, Vec<LayoutItem>) {
@@ -402,7 +402,7 @@ fn process_hbox_layout_children(
 }
 
 fn process_form_layout_children(
-    ctx: &BuildContext,
+    ctx: &BuildDocContext,
     layout_obj: &UiObjectDefinition,
     diagnostics: &mut Diagnostics,
 ) -> (LayoutAttributes, Vec<LayoutItem>) {
@@ -427,7 +427,7 @@ fn process_form_layout_children(
 }
 
 fn process_grid_layout_children(
-    ctx: &BuildContext,
+    ctx: &BuildDocContext,
     layout_obj: &UiObjectDefinition,
     flow: LayoutFlow,
     diagnostics: &mut Diagnostics,
@@ -471,7 +471,7 @@ fn process_grid_layout_children(
 }
 
 fn make_layout_item_pair<'t>(
-    ctx: &BuildContext,
+    ctx: &BuildDocContext,
     node: Node<'t>,
     diagnostics: &mut Diagnostics,
 ) -> Option<(LayoutItemAttached<'t>, LayoutItemContent)> {

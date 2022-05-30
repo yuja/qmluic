@@ -1,7 +1,7 @@
 use super::expr::{SimpleValue, Value};
 use super::property;
 use super::xmlutil;
-use super::{BuildContext, XmlResult, XmlWriter};
+use super::{BuildDocContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiBindingMap};
 use crate::typemap::{Class, TypeSpace};
@@ -20,8 +20,8 @@ pub struct Gadget {
 
 impl Gadget {
     /// Generates gadget of `cls` type from the given `binding_map`.
-    pub fn from_binding_map(
-        ctx: &BuildContext,
+    pub(super) fn from_binding_map(
+        ctx: &BuildDocContext,
         cls: &Class,
         node: Node,
         binding_map: &UiBindingMap,
@@ -108,8 +108,8 @@ impl SizePolicy {
     /// Generates size policy from the given `binding_map`.
     ///
     /// The `cls` is supposed to be of `QSizePolicy` type.
-    pub fn from_binding_map(
-        ctx: &BuildContext,
+    pub(super) fn from_binding_map(
+        ctx: &BuildDocContext,
         cls: &Class,
         binding_map: &UiBindingMap,
         diagnostics: &mut Diagnostics,

@@ -222,7 +222,7 @@ fn generate_ui_file(type_map: &TypeMap, source: &Utf8Path) -> Result<(), Command
         return Err(CommandError::DiagnosticGenerated);
     }
 
-    let ctx = BuildContext::prepare(type_map, &doc).map_err(anyhow::Error::from)?;
+    let ctx = BuildContext::prepare(type_map).map_err(anyhow::Error::from)?;
     let mut diagnostics = Diagnostics::new();
     let form = match uigen::build(&ctx, &doc, &mut diagnostics) {
         Some(form) if diagnostics.is_empty() => form,

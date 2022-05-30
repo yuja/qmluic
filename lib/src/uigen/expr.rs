@@ -1,6 +1,6 @@
 use super::gadget::{Gadget, SizePolicy};
 use super::xmlutil;
-use super::{BuildContext, XmlResult, XmlWriter};
+use super::{BuildDocContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{BinaryOperator, Node, UiBindingMap, UiBindingValue, UnaryOperator};
 use crate::typedexpr::{self, DescribeType, ExpressionVisitor, TypeDesc};
@@ -21,7 +21,7 @@ pub enum Value {
 impl Value {
     /// Generates constant expression of `ty` type from the given `binding_value`.
     pub(super) fn from_binding_value(
-        ctx: &BuildContext,
+        ctx: &BuildDocContext,
         ty: &Type,
         binding_value: &UiBindingValue,
         diagnostics: &mut Diagnostics,
@@ -48,7 +48,7 @@ impl Value {
 
     /// Generates constant expression of `cls` type from the given `binding_map`.
     fn from_binding_map(
-        ctx: &BuildContext,
+        ctx: &BuildDocContext,
         cls: &Class,
         node: Node,
         binding_map: &UiBindingMap,
@@ -122,7 +122,7 @@ pub enum SimpleValue {
 impl SimpleValue {
     /// Generates value of `ty` type from the given expression `node`.
     fn from_expression(
-        ctx: &BuildContext,
+        ctx: &BuildDocContext,
         ty: &Type,
         node: Node,
         diagnostics: &mut Diagnostics,
