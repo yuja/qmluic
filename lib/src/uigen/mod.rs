@@ -2,7 +2,7 @@
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{UiDocument, UiImportSource, UiProgram};
-use crate::typemap::{Class, ModuleId, Namespace, NamespaceData, Type, TypeMap, TypeSpace};
+use crate::typemap::{Class, Module, ModuleData, ModuleId, Type, TypeMap, TypeSpace};
 use thiserror::Error;
 
 mod expr;
@@ -29,7 +29,7 @@ pub fn build(
 ) -> Option<UiForm> {
     let program = diagnostics.consume_err(UiProgram::from_node(doc.root_node(), doc.source()))?;
     let module_data = make_doc_module_data(&program, doc.source(), base_ctx.type_map, diagnostics);
-    let module = Namespace::root(&module_data, base_ctx.type_map);
+    let module = Module::new(&module_data, base_ctx.type_map);
     let ctx = BuildDocContext::new(doc, module, base_ctx);
     let (obj, cls) =
         object::resolve_object_definition(&ctx, program.root_object_node(), diagnostics)?;
@@ -46,8 +46,8 @@ fn make_doc_module_data(
     source: &str,
     type_map: &TypeMap,
     diagnostics: &mut Diagnostics,
-) -> NamespaceData {
-    let mut module_data = NamespaceData::with_builtins();
+) -> ModuleData {
+    let mut module_data = ModuleData::with_builtins();
     for imp in program.imports() {
         if imp.alias().is_some() {
             diagnostics.push(Diagnostic::error(
@@ -110,7 +110,7 @@ struct BuildDocContext<'a, 's> {
     tab_widget_attached_class: Class<'a>,
     vbox_layout_class: Class<'a>,
     widget_class: Class<'a>,
-    module: Namespace<'a>,
+    module: Module<'a>,
 }
 
 impl<'a> BuildContext<'a> {
@@ -146,7 +146,7 @@ impl<'a> BuildContext<'a> {
 }
 
 impl<'a, 's> BuildDocContext<'a, 's> {
-    fn new(doc: &'s UiDocument, module: Namespace<'a>, base_ctx: &BuildContext<'a>) -> Self {
+    fn new(doc: &'s UiDocument, module: Module<'a>, base_ctx: &BuildContext<'a>) -> Self {
         BuildDocContext {
             source: doc.source(),
             action_class: base_ctx.action_class.clone(),

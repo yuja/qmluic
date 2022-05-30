@@ -9,15 +9,15 @@ use std::ptr;
 /// Storage to map type name to class or enum representation.
 #[derive(Debug)]
 pub struct TypeMap {
-    builtins: NamespaceData,
-    named_module_map: HashMap<String, NamespaceData>,
+    builtins: ModuleData,
+    named_module_map: HashMap<String, ModuleData>,
 }
 
 impl TypeMap {
     /// Creates empty type map.
     pub fn empty() -> Self {
         TypeMap {
-            builtins: NamespaceData::default(),
+            builtins: ModuleData::default(),
             named_module_map: HashMap::default(),
         }
     }
@@ -30,9 +30,12 @@ impl TypeMap {
         let name_map = HashMap::from(
             [Bool, Int, QReal, QString, UInt, Void].map(|t| (t.name().to_owned(), Primitive(t))),
         );
-        let builtins = NamespaceData {
-            name_map,
-            ..Default::default()
+        let builtins = ModuleData {
+            namespace: NamespaceData {
+                name_map,
+                ..Default::default()
+            },
+            imports: vec![],
         };
 
         TypeMap {
@@ -53,21 +56,21 @@ impl TypeMap {
     }
 
     /// Looks up module by identifier.
-    pub fn get_module<'a, 's, S>(&'a self, id: S) -> Option<Namespace<'a>>
+    pub fn get_module<'a, 's, S>(&'a self, id: S) -> Option<Module<'a>>
     where
         S: AsRef<ModuleId<'s>>,
     {
         match id.as_ref() {
-            ModuleId::Builtins => Some(Namespace::root(&self.builtins, self)),
+            ModuleId::Builtins => Some(Module::new(&self.builtins, self)),
             ModuleId::Named(name) => self
                 .named_module_map
                 .get(name.as_ref())
-                .map(|d| Namespace::root(d, self)),
+                .map(|d| Module::new(d, self)),
         }
     }
 
     /// Looks up mutable module data by identifier.
-    pub fn get_module_data_mut<'a, 's, S>(&'a mut self, id: S) -> Option<&'a mut NamespaceData>
+    pub fn get_module_data_mut<'a, 's, S>(&'a mut self, id: S) -> Option<&'a mut ModuleData>
     where
         S: AsRef<ModuleId<'s>>,
     {
@@ -78,7 +81,7 @@ impl TypeMap {
     }
 
     /// Inserts new module.
-    pub fn insert_module<S>(&mut self, id: S, data: NamespaceData) -> Option<NamespaceData>
+    pub fn insert_module<S>(&mut self, id: S, data: ModuleData) -> Option<ModuleData>
     where
         S: Into<ModuleId<'static>>,
     {
@@ -172,7 +175,6 @@ pub trait TypeSpace<'a> {
 #[derive(Clone, Debug)]
 pub struct Namespace<'a> {
     data: &'a NamespaceData,
-    type_map: &'a TypeMap,
     // TODO: parent_space
 }
 
@@ -183,20 +185,21 @@ pub struct NamespaceData {
     classes: Vec<ClassData>,
     enums: Vec<EnumData>,
     enum_variant_map: HashMap<String, usize>,
-    imports: Vec<ModuleId<'static>>,
 }
 
 impl<'a> Namespace<'a> {
-    pub fn root(data: &'a NamespaceData, type_map: &'a TypeMap) -> Self {
-        Namespace { data, type_map }
+    // TODO: map C++ namespace to this type
+    /*
+    fn root(data: &'a NamespaceData) -> Self {
+        Namespace { data }
     }
+    */
 }
 
 impl<'a> PartialEq for Namespace<'a> {
     fn eq(&self, other: &Self) -> bool {
         // two types should be equal if both borrow the identical data.
-        ptr::eq(self.data, other.data) && ptr::eq(self.type_map, other.type_map)
-        /*&& self.parent_space == other.parent_space*/
+        ptr::eq(self.data, other.data) /*&& self.parent_space == other.parent_space*/
     }
 }
 
@@ -207,11 +210,9 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
         "" // TODO: return name if not root namespace
     }
 
-    // TODO: separate function to get imported/exported (i.e. private/public) types
     fn get_type(&self, name: &str) -> Option<Type<'a>> {
         self.data
             .get_type_with(name, || Type::Namespace(self.clone()))
-            .or_else(|| self.data.get_imported_type(name, self.type_map))
     }
 
     fn lexical_parent(&self) -> Option<&Type<'a>> {
@@ -225,22 +226,6 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
 }
 
 impl NamespaceData {
-    /// Creates new namespace storage with builtin imports.
-    pub fn with_builtins() -> Self {
-        NamespaceData {
-            imports: vec![ModuleId::Builtins],
-            ..Default::default()
-        }
-    }
-
-    /// Adds the specified module to the import list from which type names will be resolved.
-    pub fn import_module<S>(&mut self, id: S)
-    where
-        S: Into<ModuleId<'static>>,
-    {
-        self.imports.push(id.into())
-    }
-
     fn extend_classes<T>(&mut self, iter: T)
     where
         T: IntoIterator<Item = metatype::Class>,
@@ -295,6 +280,77 @@ impl NamespaceData {
             .get(name)
             .map(|&i| Enum::new(&self.enums[i], make_parent_space()))
     }
+}
+
+/// Represents a top-level namespace with imports list.
+#[derive(Clone, Debug)]
+pub struct Module<'a> {
+    data: &'a ModuleData,
+    type_map: &'a TypeMap,
+}
+
+/// Stored top-level namespace with imports list.
+#[derive(Clone, Debug, Default)]
+pub struct ModuleData {
+    namespace: NamespaceData,
+    imports: Vec<ModuleId<'static>>,
+}
+
+impl<'a> Module<'a> {
+    pub fn new(data: &'a ModuleData, type_map: &'a TypeMap) -> Self {
+        Module { data, type_map }
+    }
+}
+
+impl<'a> PartialEq for Module<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        // two types should be equal if both borrow the identical data.
+        ptr::eq(self.data, other.data) && ptr::eq(self.type_map, other.type_map)
+    }
+}
+
+impl<'a> Eq for Module<'a> {}
+
+impl<'a> TypeSpace<'a> for Module<'a> {
+    fn name(&self) -> &str {
+        "" // TODO
+    }
+
+    // TODO: separate function to get imported/exported (i.e. private/public) types
+    fn get_type(&self, name: &str) -> Option<Type<'a>> {
+        self.data
+            .namespace
+            .get_type_with(name, || Type::Module(self.clone()))
+            .or_else(|| self.data.get_imported_type(name, self.type_map))
+    }
+
+    fn lexical_parent(&self) -> Option<&Type<'a>> {
+        None
+    }
+
+    fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
+        self.data
+            .namespace
+            .get_enum_by_variant_with(name, || Type::Module(self.clone()))
+    }
+}
+
+impl ModuleData {
+    /// Creates new module storage with builtin imports.
+    pub fn with_builtins() -> Self {
+        ModuleData {
+            namespace: NamespaceData::default(),
+            imports: vec![ModuleId::Builtins],
+        }
+    }
+
+    /// Adds the specified module to the import list from which type names will be resolved.
+    pub fn import_module<S>(&mut self, id: S)
+    where
+        S: Into<ModuleId<'static>>,
+    {
+        self.imports.push(id.into())
+    }
 
     fn get_imported_type<'a>(&'a self, name: &str, type_map: &'a TypeMap) -> Option<Type<'a>> {
         // TODO: detect cycle
@@ -305,21 +361,21 @@ impl NamespaceData {
     }
 }
 
-impl Extend<metatype::Class> for NamespaceData {
+impl Extend<metatype::Class> for ModuleData {
     fn extend<T>(&mut self, iter: T)
     where
         T: IntoIterator<Item = metatype::Class>,
     {
-        self.extend_classes(iter)
+        self.namespace.extend_classes(iter)
     }
 }
 
-impl Extend<metatype::Enum> for NamespaceData {
+impl Extend<metatype::Enum> for ModuleData {
     fn extend<T>(&mut self, iter: T)
     where
         T: IntoIterator<Item = metatype::Enum>,
     {
-        self.extend_enums(iter)
+        self.namespace.extend_enums(iter)
     }
 }
 
@@ -336,6 +392,7 @@ enum TypeIndex {
 pub enum Type<'a> {
     Class(Class<'a>),
     Enum(Enum<'a>),
+    Module(Module<'a>),
     Namespace(Namespace<'a>),
     Primitive(PrimitiveType),
 }
@@ -345,6 +402,7 @@ impl<'a> TypeSpace<'a> for Type<'a> {
         match self {
             Type::Class(cls) => cls.name(),
             Type::Enum(en) => en.name(),
+            Type::Module(ns) => ns.name(),
             Type::Namespace(ns) => ns.name(),
             Type::Primitive(pt) => pt.name(),
         }
@@ -354,6 +412,7 @@ impl<'a> TypeSpace<'a> for Type<'a> {
         match self {
             Type::Class(cls) => cls.get_type(name),
             Type::Enum(_) => None,
+            Type::Module(ns) => ns.get_type(name),
             Type::Namespace(ns) => ns.get_type(name),
             Type::Primitive(_) => None,
         }
@@ -363,6 +422,7 @@ impl<'a> TypeSpace<'a> for Type<'a> {
         match self {
             Type::Class(cls) => cls.lexical_parent(),
             Type::Enum(en) => en.lexical_parent(),
+            Type::Module(ns) => ns.lexical_parent(),
             Type::Namespace(ns) => ns.lexical_parent(),
             Type::Primitive(_) => None,
         }
@@ -372,6 +432,7 @@ impl<'a> TypeSpace<'a> for Type<'a> {
         match self {
             Type::Class(cls) => cls.get_enum_by_variant(name),
             Type::Enum(en) => en.get_enum_by_variant(name),
+            Type::Module(ns) => ns.get_enum_by_variant(name),
             Type::Namespace(ns) => ns.get_enum_by_variant(name),
             Type::Primitive(_) => None,
         }
@@ -680,7 +741,7 @@ mod tests {
     fn type_eq() {
         let mut type_map = TypeMap::empty();
         let module_id = ModuleId::Named("foo".into());
-        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
+        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         let module_data = type_map.get_module_data_mut(&module_id).unwrap();
         module_data.extend([metatype::Class::new("Foo"), metatype::Class::new("Bar")]);
         module_data.extend([metatype::Enum::new("Baz")]);
@@ -708,7 +769,7 @@ mod tests {
     fn named_module() {
         let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo".into());
-        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
+        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         type_map
             .get_module_data_mut(&module_id)
             .unwrap()
@@ -722,7 +783,7 @@ mod tests {
     fn aliased_enum_eq() {
         let mut type_map = TypeMap::empty();
         let module_id = ModuleId::Named("foo".into());
-        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
+        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         type_map.get_module_data_mut(&module_id).unwrap().extend([
             metatype::Enum::new("Foo"),
             metatype::Enum::new_flag("Foos", "Foo"),
@@ -739,7 +800,7 @@ mod tests {
     fn qualified_name() {
         let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo".into());
-        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
+        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         foo_meta.enums.push(metatype::Enum::new("Bar"));
         type_map
@@ -761,7 +822,7 @@ mod tests {
     fn get_type_of_root() {
         let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo".into());
-        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
+        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         type_map
             .get_module_data_mut(&module_id)
             .unwrap()
@@ -784,7 +845,7 @@ mod tests {
     fn get_type_of_root_scoped() {
         let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo".into());
-        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
+        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         foo_meta.enums.push(metatype::Enum::new("Bar"));
         type_map
@@ -813,7 +874,7 @@ mod tests {
     fn do_not_resolve_intermediate_type_scoped() {
         let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo".into());
-        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
+        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         type_map
             .get_module_data_mut(&module_id)
             .unwrap()
@@ -833,7 +894,7 @@ mod tests {
     fn get_super_class_type() {
         let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo".into());
-        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
+        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         let mut root_meta = metatype::Class::new("Root");
         root_meta.enums.push(metatype::Enum::new("RootEnum"));
         type_map.get_module_data_mut(&module_id).unwrap().extend([
@@ -859,7 +920,7 @@ mod tests {
     fn class_derived_from() {
         let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo".into());
-        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
+        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         type_map.get_module_data_mut(&module_id).unwrap().extend([
             metatype::Class::new("Root"),
             metatype::Class::with_supers("Sub1", ["Root"]),
@@ -888,7 +949,7 @@ mod tests {
     fn get_type_of_property() {
         let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo".into());
-        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
+        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         foo_meta
             .properties
@@ -918,7 +979,7 @@ mod tests {
     fn get_enum_by_variant() {
         let mut type_map = TypeMap::empty();
         let module_id = ModuleId::Named("foo".into());
-        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
+        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         let unscoped_meta = metatype::Enum::with_values("Unscoped", ["X", "Y"]);
         let mut scoped_meta = metatype::Enum::with_values("Scoped", ["A", "Y"]);
@@ -945,7 +1006,7 @@ mod tests {
     fn get_super_class_enum_by_variant() {
         let mut type_map = TypeMap::empty();
         let module_id = ModuleId::Named("foo".into());
-        type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
+        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         let unscoped_meta = metatype::Enum::with_values("Unscoped", ["X", "Y"]);
         foo_meta.enums.extend([unscoped_meta]);

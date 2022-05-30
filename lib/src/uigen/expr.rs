@@ -167,7 +167,7 @@ impl SimpleValue {
                     }
                 }
             }
-            Type::Namespace(_) => {
+            Type::Module(_) | Type::Namespace(_) => {
                 diagnostics.push(Diagnostic::error(
                     node.byte_range(),
                     format!(
@@ -790,7 +790,7 @@ mod tests {
     use crate::diagnostic::Diagnostics;
     use crate::metatype;
     use crate::qmlast::{UiDocument, UiObjectDefinition, UiProgram};
-    use crate::typemap::{ModuleId, NamespaceData, TypeMap};
+    use crate::typemap::{ModuleData, ModuleId, TypeMap};
 
     struct Env {
         doc: UiDocument,
@@ -802,7 +802,7 @@ mod tests {
         fn new(expr_source: &str) -> Self {
             let mut type_map = TypeMap::with_primitive_types();
             let module_id = ModuleId::Named("foo".into());
-            type_map.insert_module(module_id.clone(), NamespaceData::with_builtins());
+            type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
             let mut foo_meta = metatype::Class::new("Foo");
             foo_meta
                 .enums

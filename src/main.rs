@@ -7,7 +7,7 @@ use qmluic::diagnostic::Diagnostics;
 use qmluic::metatype;
 use qmluic::metatype_tweak;
 use qmluic::qmlast;
-use qmluic::typemap::{ModuleId, NamespaceData, TypeMap};
+use qmluic::typemap::{ModuleData, ModuleId, TypeMap};
 use qmluic::uigen::{self, BuildContext, XmlWriter};
 use qmluic_cli::{reporting, QtPaths};
 use std::fs;
@@ -204,7 +204,7 @@ fn generate_ui(args: &GenerateUiArgs) -> Result<(), CommandError> {
         load_metatypes(&args.foreign_types)?
     };
     metatype_tweak::apply_all(&mut classes);
-    let mut module_data = NamespaceData::with_builtins();
+    let mut module_data = ModuleData::with_builtins();
     module_data.extend(classes);
     type_map.insert_module(ModuleId::Named("qmluic.QtWidgets".into()), module_data);
 
