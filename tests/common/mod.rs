@@ -1,3 +1,4 @@
+use camino::Utf8Path;
 use codespan_reporting::diagnostic::{Label, Severity};
 use codespan_reporting::files::SimpleFile;
 use codespan_reporting::term;
@@ -8,11 +9,10 @@ use qmluic::qmlast::UiDocument;
 use qmluic::typemap::{ModuleData, ModuleId, TypeMap};
 use qmluic::uigen::{self, BuildContext, XmlWriter};
 use std::fs;
-use std::path::Path;
 use std::str;
 use termcolor::NoColor;
 
-pub fn translate_file(path: impl AsRef<Path>) -> Result<String, String> {
+pub fn translate_file(path: impl AsRef<Utf8Path>) -> Result<String, String> {
     let doc = UiDocument::read(path).unwrap();
     translate_doc(&doc)
 }

@@ -1,11 +1,11 @@
 //! QML parser interface and document model.
 
+use camino::Utf8Path;
 use std::error::Error;
 use std::fmt;
 use std::fs;
 use std::io;
 use std::ops::Range;
-use std::path::Path;
 use tree_sitter::{Parser, Query, QueryCursor, Tree};
 
 mod astutil;
@@ -51,12 +51,12 @@ impl UiDocument {
     ///
     /// The parsing doesn't fail even if the QML source has a syntax error. Instead, a node
     /// representing the error is inserted.
-    pub fn read(path: impl AsRef<Path>) -> io::Result<Self> {
-        let type_name = path
-            .as_ref()
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .map(|s| s.to_owned());
+    pub fn read<P>(path: P) -> io::Result<Self>
+    where
+        P: AsRef<Utf8Path>,
+    {
+        let path = path.as_ref();
+        let type_name = path.file_stem().map(|s| s.to_owned());
         let source = fs::read_to_string(path)?;
         Ok(Self::parse(source, type_name))
     }

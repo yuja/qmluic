@@ -324,6 +324,7 @@ dependencies = [
 name = "qmluic"
 version = "0.1.0"
 dependencies = [
+ "camino",
  "itertools",
  "quick-xml",
  "serde",
