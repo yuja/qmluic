@@ -1,6 +1,6 @@
 //! QML parser interface and document model.
 
-use camino::Utf8Path;
+use camino::{Utf8Path, Utf8PathBuf};
 use std::error::Error;
 use std::fmt;
 use std::fs;
@@ -23,7 +23,7 @@ pub use tree_sitter::Node; // re-export
 pub struct UiDocument {
     source: String,
     tree: Tree,
-    type_name: Option<String>,
+    path: Option<Utf8PathBuf>,
 }
 
 impl UiDocument {
@@ -31,7 +31,7 @@ impl UiDocument {
     ///
     /// The parsing doesn't fail even if the QML source has a syntax error. Instead, a node
     /// representing the error is inserted.
-    pub fn parse<S>(source: S, type_name: Option<String>) -> Self
+    pub fn parse<S>(source: S, path: Option<Utf8PathBuf>) -> Self
     where
         S: Into<String>,
     {
@@ -40,11 +40,7 @@ impl UiDocument {
         let tree = parser
             .parse(source.as_bytes(), None)
             .expect("no timeout nor cancellation should have been made");
-        UiDocument {
-            source,
-            tree,
-            type_name,
-        }
+        UiDocument { source, tree, path }
     }
 
     /// Creates parsed tree from the given QML file.
@@ -53,19 +49,23 @@ impl UiDocument {
     /// representing the error is inserted.
     pub fn read<P>(path: P) -> io::Result<Self>
     where
-        P: AsRef<Utf8Path>,
+        P: AsRef<Utf8Path>, // TODO: or Into<Utf8PathBuf>, but read(&path) makes more sense?
     {
         let path = path.as_ref();
-        let type_name = path.file_stem().map(|s| s.to_owned());
         let source = fs::read_to_string(path)?;
-        Ok(Self::parse(source, type_name))
+        Ok(Self::parse(source, Some(path.to_owned())))
+    }
+
+    /// File path to this QML document.
+    pub fn path(&self) -> Option<&Utf8Path> {
+        self.path.as_deref()
     }
 
     /// Type (or component) name of this QML document.
     ///
     /// It's typically the file name without ".qml" suffix.
     pub fn type_name(&self) -> Option<&str> {
-        self.type_name.as_deref()
+        self.path.as_ref().and_then(|p| p.file_stem())
     }
 
     pub fn has_syntax_error(&self) -> bool {
