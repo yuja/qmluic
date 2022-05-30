@@ -1,6 +1,7 @@
 //! Manages types loaded from Qt metatypes.json.
 
 use super::metatype;
+use camino::{Utf8Path, Utf8PathBuf};
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::mem;
@@ -11,6 +12,7 @@ use std::ptr;
 pub struct TypeMap {
     builtins: ModuleData,
     named_module_map: HashMap<String, ModuleData>,
+    directory_module_map: HashMap<Utf8PathBuf, ModuleData>,
 }
 
 impl TypeMap {
@@ -19,6 +21,7 @@ impl TypeMap {
         TypeMap {
             builtins: ModuleData::default(),
             named_module_map: HashMap::default(),
+            directory_module_map: HashMap::default(),
         }
     }
 
@@ -41,6 +44,7 @@ impl TypeMap {
         TypeMap {
             builtins,
             named_module_map: HashMap::default(),
+            directory_module_map: HashMap::default(),
         }
     }
 
@@ -52,6 +56,7 @@ impl TypeMap {
         match id.as_ref() {
             ModuleId::Builtins => true,
             ModuleId::Named(name) => self.named_module_map.contains_key(name.as_ref()),
+            ModuleId::Directory(path) => self.directory_module_map.contains_key(path.as_ref()),
         }
     }
 
@@ -66,6 +71,10 @@ impl TypeMap {
                 .named_module_map
                 .get(name.as_ref())
                 .map(|d| Module::new(d, self)),
+            ModuleId::Directory(path) => self
+                .directory_module_map
+                .get(path.as_ref())
+                .map(|d| Module::new(d, self)),
         }
     }
 
@@ -77,6 +86,7 @@ impl TypeMap {
         match id.as_ref() {
             ModuleId::Builtins => Some(&mut self.builtins),
             ModuleId::Named(name) => self.named_module_map.get_mut(name.as_ref()),
+            ModuleId::Directory(path) => self.directory_module_map.get_mut(path.as_ref()),
         }
     }
 
@@ -88,6 +98,7 @@ impl TypeMap {
         match id.into() {
             ModuleId::Builtins => Some(mem::replace(&mut self.builtins, data)),
             ModuleId::Named(name) => self.named_module_map.insert(name.into_owned(), data),
+            ModuleId::Directory(path) => self.directory_module_map.insert(path.into_owned(), data),
         }
     }
 }
@@ -99,7 +110,10 @@ pub enum ModuleId<'s> {
     Builtins,
     /// QML module which can be imported by (dotted) name.
     Named(Cow<'s, str>),
-    // TODO: Directory(Path)
+    /// Directory containing QML files, which can be imported by string.
+    ///
+    /// The path must be normalized in a certain form. Typically it is an absolute path.
+    Directory(Cow<'s, Utf8Path>),
 }
 
 impl<'s> AsRef<ModuleId<'s>> for ModuleId<'s> {
