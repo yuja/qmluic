@@ -28,7 +28,7 @@ pub fn build(
     diagnostics: &mut Diagnostics,
 ) -> Option<UiForm> {
     let program = diagnostics.consume_err(UiProgram::from_node(doc.root_node(), doc.source()))?;
-    let module_data = make_doc_module_data(&program, doc.source(), base_ctx.type_map, diagnostics);
+    let module_data = make_doc_module_data(doc, &program, base_ctx.type_map, diagnostics);
     let module = Module::new(&module_data, base_ctx.type_map);
     let ctx = BuildDocContext::new(doc, module, base_ctx);
     let (obj, cls) =
@@ -42,8 +42,8 @@ pub fn build(
 }
 
 fn make_doc_module_data(
+    doc: &UiDocument,
     program: &UiProgram,
-    source: &str,
     type_map: &TypeMap,
     diagnostics: &mut Diagnostics,
 ) -> ModuleData {
@@ -57,21 +57,40 @@ fn make_doc_module_data(
             continue;
         }
         // TODO: warn that version field is ignored
-        match imp.source() {
+        // TODO: anchor diagnostic message onto imp.source() node
+        let id = match imp.source() {
             UiImportSource::Identifier(x) => {
-                let id = ModuleId::Named(x.to_string(source).into_owned().into());
-                if !type_map.contains_module(&id) {
-                    diagnostics.push(Diagnostic::error(x.node().byte_range(), "module not found"));
+                ModuleId::Named(x.to_string(doc.source()).into_owned().into())
+            }
+            UiImportSource::String(x) => {
+                if let Some(p) = doc.path().and_then(|p| p.parent()) {
+                    // TODO: normalize per BuildContext rule?
+                    match p.join(&x).canonicalize_utf8() {
+                        Ok(p) => ModuleId::Directory(p.into()),
+                        Err(e) => {
+                            diagnostics.push(Diagnostic::error(
+                                imp.node().byte_range(),
+                                format!("failed to resolve directory path: {e}"),
+                            ));
+                            continue;
+                        }
+                    }
+                } else {
+                    diagnostics.push(Diagnostic::error(
+                        imp.node().byte_range(),
+                        "cannot resolve directory path against inline QML document",
+                    ));
                     continue;
                 }
-                module_data.import_module(id);
             }
-            UiImportSource::String(_) => {
-                diagnostics.push(Diagnostic::error(
-                    imp.node().byte_range(),
-                    "directory import is not supported",
-                ));
-            }
+        };
+        if type_map.contains_module(&id) {
+            module_data.import_module(id);
+        } else {
+            diagnostics.push(Diagnostic::error(
+                imp.node().byte_range(),
+                "module not found",
+            ));
         }
     }
     module_data
