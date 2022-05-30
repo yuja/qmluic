@@ -252,14 +252,16 @@ pub(super) fn resolve_object_definition<'a, 't>(
     let obj = diagnostics.consume_err(UiObjectDefinition::from_node(node, ctx.source))?;
     // TODO: resolve against imported types: Qml.Type -> Cxx::Type -> type object
     let type_name = obj.type_name().to_string(ctx.source);
-    if let Some(Type::Class(cls)) = ctx.module.get_type(&type_name) {
-        Some((obj, cls))
-    } else {
-        diagnostics.push(Diagnostic::error(
-            obj.type_name().node().byte_range(),
-            format!("unknown object type: {type_name}"),
-        ));
-        None
+    match ctx.module.get_type(&type_name) {
+        Some(Type::Class(cls)) => Some((obj, cls)),
+        Some(Type::QmlComponent(ns)) => Some((obj, ns.to_class())),
+        Some(Type::Enum(_) | Type::Module(_) | Type::Namespace(_) | Type::Primitive(_)) | None => {
+            diagnostics.push(Diagnostic::error(
+                obj.type_name().node().byte_range(),
+                format!("unknown object type: {type_name}"),
+            ));
+            None
+        }
     }
 }
 

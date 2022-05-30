@@ -395,6 +395,7 @@ pub enum Type<'a> {
     Module(Module<'a>),
     Namespace(Namespace<'a>),
     Primitive(PrimitiveType),
+    QmlComponent(QmlComponent<'a>),
 }
 
 impl<'a> TypeSpace<'a> for Type<'a> {
@@ -405,6 +406,7 @@ impl<'a> TypeSpace<'a> for Type<'a> {
             Type::Module(ns) => ns.name(),
             Type::Namespace(ns) => ns.name(),
             Type::Primitive(pt) => pt.name(),
+            Type::QmlComponent(ns) => ns.name(),
         }
     }
 
@@ -415,6 +417,7 @@ impl<'a> TypeSpace<'a> for Type<'a> {
             Type::Module(ns) => ns.get_type(name),
             Type::Namespace(ns) => ns.get_type(name),
             Type::Primitive(_) => None,
+            Type::QmlComponent(ns) => ns.get_type(name),
         }
     }
 
@@ -425,6 +428,7 @@ impl<'a> TypeSpace<'a> for Type<'a> {
             Type::Module(ns) => ns.lexical_parent(),
             Type::Namespace(ns) => ns.lexical_parent(),
             Type::Primitive(_) => None,
+            Type::QmlComponent(ns) => ns.lexical_parent(),
         }
     }
 
@@ -435,6 +439,7 @@ impl<'a> TypeSpace<'a> for Type<'a> {
             Type::Module(ns) => ns.get_enum_by_variant(name),
             Type::Namespace(ns) => ns.get_enum_by_variant(name),
             Type::Primitive(_) => None,
+            Type::QmlComponent(ns) => ns.get_enum_by_variant(name),
         }
     }
 }
@@ -494,7 +499,9 @@ impl<'a> Class<'a> {
         self.data.public_super_class_names.iter().filter_map(|n| {
             match self.parent_space.resolve_type_scoped(n) {
                 Some(Type::Class(x)) => Some(x),
-                _ => None, // TODO: error?
+                Some(Type::QmlComponent(ns)) => Some(ns.to_class()),
+                Some(Type::Enum(_) | Type::Module(_) | Type::Namespace(_) | Type::Primitive(_))
+                | None => None, // TODO: error?
             }
         })
     }
@@ -716,6 +723,98 @@ impl EnumData {
             variants: meta.values,
             variant_set,
         }
+    }
+}
+
+/// QML component representation.
+///
+/// This is basically a class inside an anonymous namespace. Since this represents
+/// the namespace part, no types defined in the QML component will be returned from
+/// this `TypeSpace`. Use [`QmlComponent::to_class`] to get the class part.
+#[derive(Clone, Debug)]
+pub struct QmlComponent<'a> {
+    data: &'a QmlComponentData,
+    type_map: &'a TypeMap,
+}
+
+/// Stored QML component representation.
+#[derive(Clone, Debug)]
+pub struct QmlComponentData {
+    imports: Vec<ModuleId<'static>>,
+    class: ClassData,
+}
+
+impl<'a> QmlComponent<'a> {
+    pub fn new(data: &'a QmlComponentData, type_map: &'a TypeMap) -> Self {
+        QmlComponent { data, type_map }
+    }
+
+    /// Returns the inner class representation of this QML component.
+    pub fn to_class(&self) -> Class<'a> {
+        // TODO: inner enum has to be qualified whereas inner class (or inline component) isn't
+        Class::new(&self.data.class, Type::QmlComponent(self.clone()))
+    }
+}
+
+impl<'a> PartialEq for QmlComponent<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        // two types should be equal if both borrow the identical data.
+        ptr::eq(self.data, other.data) && ptr::eq(self.type_map, other.type_map)
+    }
+}
+
+impl<'a> Eq for QmlComponent<'a> {}
+
+impl<'a> TypeSpace<'a> for QmlComponent<'a> {
+    fn name(&self) -> &str {
+        "" // TODO
+    }
+
+    fn get_type(&self, name: &str) -> Option<Type<'a>> {
+        self.data.get_imported_type(name, self.type_map)
+    }
+
+    fn lexical_parent(&self) -> Option<&Type<'a>> {
+        None
+    }
+
+    fn get_enum_by_variant(&self, _name: &str) -> Option<Enum<'a>> {
+        None
+    }
+}
+
+impl QmlComponentData {
+    // TODO: redesign constructor or builder API
+    pub fn with_super<S, T>(name: S, super_name: T) -> Self
+    where
+        S: Into<String>,
+        T: Into<String>,
+    {
+        QmlComponentData {
+            imports: vec![ModuleId::Builtins],
+            class: ClassData {
+                class_name: name.into(),
+                public_super_class_names: vec![super_name.into()],
+                inner_type_map: NamespaceData::default(),
+                property_map: HashMap::new(),
+            },
+        }
+    }
+
+    /// Adds the specified module to the import list from which type names will be resolved.
+    pub fn import_module<S>(&mut self, id: S)
+    where
+        S: Into<ModuleId<'static>>,
+    {
+        self.imports.push(id.into())
+    }
+
+    fn get_imported_type<'a>(&'a self, name: &str, type_map: &'a TypeMap) -> Option<Type<'a>> {
+        // TODO: detect cycle
+        // TODO: module not found error?
+        self.imports
+            .iter()
+            .find_map(|id| type_map.get_module(id).and_then(|ns| ns.get_type(name)))
     }
 }
 

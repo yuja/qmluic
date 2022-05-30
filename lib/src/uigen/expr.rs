@@ -128,7 +128,7 @@ impl SimpleValue {
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         match ty {
-            Type::Class(_) => {
+            Type::Class(_) | Type::QmlComponent(_) => {
                 diagnostics.push(Diagnostic::error(
                     node.byte_range(),
                     format!(
