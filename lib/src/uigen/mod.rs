@@ -1,8 +1,9 @@
 //! Qt user interface XML (.ui) generator.
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::qmlast::{UiDocument, UiImportSource, UiProgram};
+use crate::qmlast::{UiImportSource, UiProgram};
 use crate::qmldir;
+use crate::qmldoc::UiDocument;
 use crate::typemap::{Class, Module, ModuleData, ModuleId, Type, TypeMap, TypeSpace};
 use thiserror::Error;
 

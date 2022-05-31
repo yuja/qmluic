@@ -155,7 +155,7 @@ impl<'tree> NestedIdentifier<'tree> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::qmlast::UiDocument;
+    use crate::qmldoc::UiDocument;
 
     fn parse(source: &str) -> UiDocument {
         UiDocument::parse(source, None)

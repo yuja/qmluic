@@ -1,7 +1,8 @@
 //! QML module/directory handling.
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::qmlast::{UiDocument, UiImportSource, UiObjectDefinition, UiProgram};
+use crate::qmlast::{UiImportSource, UiObjectDefinition, UiProgram};
+use crate::qmldoc::UiDocument;
 use crate::typemap::{ModuleData, ModuleId, QmlComponentData, TypeMap};
 use camino::{Utf8Path, Utf8PathBuf};
 use std::borrow::Cow;

@@ -6,8 +6,8 @@ use clap::{Args, Parser, Subcommand};
 use qmluic::diagnostic::Diagnostics;
 use qmluic::metatype;
 use qmluic::metatype_tweak;
-use qmluic::qmlast;
 use qmluic::qmldir;
+use qmluic::qmldoc::UiDocument;
 use qmluic::typemap::{ModuleData, ModuleId, TypeMap};
 use qmluic::uigen::{self, BuildContext, XmlWriter};
 use qmluic_cli::{reporting, QtPaths};
@@ -223,7 +223,7 @@ fn generate_ui(args: &GenerateUiArgs) -> Result<(), CommandError> {
 
 fn generate_ui_file(
     ctx: &BuildContext,
-    doc_cache: &HashMap<Utf8PathBuf, qmlast::UiDocument>,
+    doc_cache: &HashMap<Utf8PathBuf, UiDocument>,
     source: &Utf8Path,
 ) -> Result<(), CommandError> {
     let doc = doc_cache

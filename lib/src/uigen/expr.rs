@@ -789,7 +789,8 @@ mod tests {
     use super::*;
     use crate::diagnostic::Diagnostics;
     use crate::metatype;
-    use crate::qmlast::{UiDocument, UiObjectDefinition, UiProgram};
+    use crate::qmlast::{UiObjectDefinition, UiProgram};
+    use crate::qmldoc::UiDocument;
     use crate::typemap::{ModuleData, ModuleId, TypeMap};
 
     struct Env {

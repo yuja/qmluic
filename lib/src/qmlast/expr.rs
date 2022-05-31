@@ -322,7 +322,8 @@ impl fmt::Display for BinaryOperator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::qmlast::{UiDocument, UiObjectDefinition, UiProgram};
+    use crate::qmlast::{UiObjectDefinition, UiProgram};
+    use crate::qmldoc::UiDocument;
 
     impl<'tree> Expression<'tree> {
         fn unwrap_identifier(self) -> Identifier<'tree> {

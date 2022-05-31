@@ -2,7 +2,7 @@ use codespan_reporting::diagnostic::{Label, Severity};
 use codespan_reporting::files::SimpleFile;
 use codespan_reporting::term;
 use qmluic::diagnostic::{DiagnosticKind, Diagnostics};
-use qmluic::qmlast::UiDocument;
+use qmluic::qmldoc::UiDocument;
 use termcolor::{ColorChoice, StandardStream};
 
 type ReportableDiagnostic = codespan_reporting::diagnostic::Diagnostic<()>;
