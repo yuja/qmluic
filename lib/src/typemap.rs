@@ -189,6 +189,7 @@ pub trait TypeSpace<'a> {
 #[derive(Clone, Debug)]
 pub struct Namespace<'a> {
     data: &'a NamespaceData,
+    type_map: &'a TypeMap,
     // TODO: parent_space
 }
 
@@ -204,8 +205,8 @@ pub struct NamespaceData {
 impl<'a> Namespace<'a> {
     // TODO: map C++ namespace to this type
     /*
-    fn root(data: &'a NamespaceData) -> Self {
-        Namespace { data }
+    fn root(data: &'a NamespaceData, type_map: &'a TypeMap) -> Self {
+        Namespace { data, type_map }
     }
     */
 }
@@ -213,7 +214,8 @@ impl<'a> Namespace<'a> {
 impl<'a> PartialEq for Namespace<'a> {
     fn eq(&self, other: &Self) -> bool {
         // two types should be equal if both borrow the identical data.
-        ptr::eq(self.data, other.data) /*&& self.parent_space == other.parent_space*/
+        ptr::eq(self.data, other.data) && ptr::eq(self.type_map, other.type_map)
+        /*&& self.parent_space == other.parent_space*/
     }
 }
 
@@ -226,7 +228,7 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
 
     fn get_type(&self, name: &str) -> Option<Type<'a>> {
         self.data
-            .get_type_with(name, || Type::Namespace(self.clone()))
+            .get_type_with(name, self.type_map, || Type::Namespace(self.clone()))
     }
 
     fn lexical_parent(&self) -> Option<&Type<'a>> {
@@ -271,12 +273,19 @@ impl NamespaceData {
         }
     }
 
-    fn get_type_with<'a, F>(&'a self, name: &str, make_parent_space: F) -> Option<Type<'a>>
+    fn get_type_with<'a, F>(
+        &'a self,
+        name: &str,
+        type_map: &'a TypeMap,
+        make_parent_space: F,
+    ) -> Option<Type<'a>>
     where
         F: FnOnce() -> Type<'a>,
     {
         self.name_map.get(name).map(|&index| match index {
-            TypeIndex::Class(i) => Type::Class(Class::new(&self.classes[i], make_parent_space())),
+            TypeIndex::Class(i) => {
+                Type::Class(Class::new(&self.classes[i], type_map, make_parent_space()))
+            }
             TypeIndex::Enum(i) => Type::Enum(Enum::new(&self.enums[i], make_parent_space())),
             TypeIndex::Primitive(t) => Type::Primitive(t),
         })
@@ -334,7 +343,7 @@ impl<'a> TypeSpace<'a> for Module<'a> {
     fn get_type(&self, name: &str) -> Option<Type<'a>> {
         self.data
             .namespace
-            .get_type_with(name, || Type::Module(self.clone()))
+            .get_type_with(name, self.type_map, || Type::Module(self.clone()))
             .or_else(|| self.data.get_imported_type(name, self.type_map))
     }
 
@@ -488,6 +497,7 @@ impl PrimitiveType {
 #[derive(Clone, Debug)]
 pub struct Class<'a> {
     data: &'a ClassData,
+    type_map: &'a TypeMap,
     parent_space: Box<Type<'a>>, // should be either Class or Namespace
 }
 
@@ -502,9 +512,10 @@ struct ClassData {
 }
 
 impl<'a> Class<'a> {
-    fn new(data: &'a ClassData, parent_space: Type<'a>) -> Self {
+    fn new(data: &'a ClassData, type_map: &'a TypeMap, parent_space: Type<'a>) -> Self {
         Class {
             data,
+            type_map,
             parent_space: Box::new(parent_space),
         }
     }
@@ -545,7 +556,9 @@ impl<'a> Class<'a> {
 impl<'a> PartialEq for Class<'a> {
     fn eq(&self, other: &Self) -> bool {
         // two types should be equal if both borrow the identical data.
-        ptr::eq(self.data, other.data) && self.parent_space == other.parent_space
+        ptr::eq(self.data, other.data)
+            && ptr::eq(self.type_map, other.type_map)
+            && self.parent_space == other.parent_space
     }
 }
 
@@ -560,7 +573,7 @@ impl<'a> TypeSpace<'a> for Class<'a> {
         // TODO: detect cycle in super-class chain
         self.data
             .inner_type_map
-            .get_type_with(name, || Type::Class(self.clone()))
+            .get_type_with(name, self.type_map, || Type::Class(self.clone()))
             .or_else(|| {
                 self.public_super_classes()
                     .find_map(|cls| cls.get_type(name))
@@ -766,7 +779,11 @@ impl<'a> QmlComponent<'a> {
     /// Returns the inner class representation of this QML component.
     pub fn to_class(&self) -> Class<'a> {
         // TODO: inner enum has to be qualified whereas inner class (or inline component) isn't
-        Class::new(&self.data.class, Type::QmlComponent(self.clone()))
+        Class::new(
+            &self.data.class,
+            self.type_map,
+            Type::QmlComponent(self.clone()),
+        )
     }
 }
 
