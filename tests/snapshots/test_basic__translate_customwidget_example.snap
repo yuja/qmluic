@@ -1,0 +1,20 @@
+---
+source: tests/test_basic.rs
+expression: "common::translate_file(base.join(\"MainDialog.qml\")).unwrap()"
+---
+<ui version="4.0">
+ <class>MainDialog</class>
+ <widget class="QDialog">
+  <layout class="QVBoxLayout">
+   <item>
+    <widget class="SettingsForm" name="settingsForm">
+    </widget>
+   </item>
+   <item>
+    <widget class="MyDialogButtonBox" name="buttonBox">
+    </widget>
+   </item>
+  </layout>
+ </widget>
+</ui>
+

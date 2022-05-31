@@ -1,0 +1,34 @@
+---
+source: tests/test_basic.rs
+expression: "common::translate_file(base.join(\"SettingsForm.qml\")).unwrap()"
+---
+<ui version="4.0">
+ <class>SettingsForm</class>
+ <widget class="QWidget">
+  <layout class="QFormLayout">
+   <item column="0" row="0">
+    <widget class="QLabel">
+     <property name="text">
+      <string>Path</string>
+     </property>
+    </widget>
+   </item>
+   <item column="1" row="0">
+    <layout class="QHBoxLayout">
+     <item>
+      <widget class="QLineEdit" name="pathEdit">
+      </widget>
+     </item>
+     <item>
+      <widget class="QToolButton" name="pathBrowseButton">
+       <property name="text">
+        <string notr="true">...</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+</ui>
+
