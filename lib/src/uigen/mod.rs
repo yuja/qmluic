@@ -84,17 +84,7 @@ fn make_doc_module_data(
             }
             UiImportSource::String(x) => {
                 if let Some(p) = doc.path().and_then(|p| p.parent()) {
-                    // TODO: normalize per BuildContext rule?
-                    match p.join(&x).canonicalize_utf8() {
-                        Ok(p) => ModuleId::Directory(p.into()),
-                        Err(e) => {
-                            diagnostics.push(Diagnostic::error(
-                                imp.node().byte_range(),
-                                format!("failed to resolve directory path: {e}"),
-                            ));
-                            continue;
-                        }
-                    }
+                    ModuleId::Directory(qmldir::normalize_path(p.join(&x)).into())
                 } else {
                     diagnostics.push(Diagnostic::error(
                         imp.node().byte_range(),
