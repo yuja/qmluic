@@ -7,11 +7,10 @@ use qmluic::diagnostic::Diagnostics;
 use qmluic::metatype;
 use qmluic::metatype_tweak;
 use qmluic::qmldir;
-use qmluic::qmldoc::UiDocument;
+use qmluic::qmldoc::UiDocumentsCache;
 use qmluic::typemap::{ModuleData, ModuleId, TypeMap};
 use qmluic::uigen::{self, BuildContext, XmlWriter};
 use qmluic_cli::{reporting, QtPaths};
-use std::collections::HashMap;
 use std::fs;
 use std::io::{self, BufWriter, Write as _};
 use std::path::Path;
@@ -210,24 +209,24 @@ fn generate_ui(args: &GenerateUiArgs) -> Result<(), CommandError> {
     module_data.extend(classes);
     type_map.insert_module(ModuleId::Named("qmluic.QtWidgets".into()), module_data);
 
-    let mut doc_cache = HashMap::new();
-    qmldir::populate_directories(&mut type_map, &mut doc_cache, &args.sources)
+    let mut docs_cache = UiDocumentsCache::new();
+    qmldir::populate_directories(&mut type_map, &mut docs_cache, &args.sources)
         .map_err(anyhow::Error::from)?;
 
     let ctx = BuildContext::prepare(&type_map).map_err(anyhow::Error::from)?;
     for p in &args.sources {
-        generate_ui_file(&ctx, &doc_cache, p)?;
+        generate_ui_file(&ctx, &docs_cache, p)?;
     }
     Ok(())
 }
 
 fn generate_ui_file(
     ctx: &BuildContext,
-    doc_cache: &HashMap<Utf8PathBuf, UiDocument>,
+    docs_cache: &UiDocumentsCache,
     source: &Utf8Path,
 ) -> Result<(), CommandError> {
-    let doc = doc_cache
-        .get(&qmldir::normalize_path(source))
+    let doc = docs_cache
+        .get(source)
         .ok_or_else(|| anyhow!("QML source not loaded (bad file suffix?): {source}"))?;
     if doc.has_syntax_error() {
         reporting::print_syntax_errors(doc)?;

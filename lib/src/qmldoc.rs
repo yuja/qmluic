@@ -1,6 +1,7 @@
 //! QML source document management.
 
 use camino::{Utf8Path, Utf8PathBuf};
+use std::collections::HashMap;
 use std::fs;
 use std::io;
 use tree_sitter::{Node, Parser, Query, QueryCursor, Tree};
@@ -78,6 +79,51 @@ impl UiDocument {
     /// Root node of the parsed tree.
     pub fn root_node(&self) -> Node {
         self.tree.root_node()
+    }
+}
+
+/// Cache of [`UiDocument`]s loaded from file.
+#[derive(Clone, Debug, Default)]
+pub struct UiDocumentsCache {
+    docs: HashMap<Utf8PathBuf, UiDocument>,
+}
+
+impl UiDocumentsCache {
+    pub fn new() -> Self {
+        UiDocumentsCache::default()
+    }
+
+    /// Reads the specified QML file if unavailable in cache, returns the cached document.
+    pub fn read<P>(&mut self, path: P) -> io::Result<&mut UiDocument>
+    where
+        P: AsRef<Utf8Path>,
+    {
+        use std::collections::hash_map::Entry;
+        let path = path.as_ref(); // user specified path to be kept in UiDocument object
+        let doc = match self.docs.entry(path.canonicalize_utf8()?) {
+            Entry::Occupied(e) => e.into_mut(),
+            Entry::Vacant(e) => e.insert(UiDocument::read(path)?),
+        };
+        Ok(doc)
+    }
+
+    /// Returns the cached document for the specified path.
+    pub fn get<P>(&self, path: P) -> Option<&UiDocument>
+    where
+        P: AsRef<Utf8Path>,
+    {
+        path.as_ref()
+            .canonicalize_utf8()
+            .ok()
+            .and_then(|p| self.docs.get(&p))
+    }
+
+    /// Checks if the specified document is cached.
+    pub fn contains<P>(&self, path: P) -> bool
+    where
+        P: AsRef<Utf8Path>,
+    {
+        self.get(path).is_some()
     }
 }
 

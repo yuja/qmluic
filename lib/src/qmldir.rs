@@ -2,11 +2,10 @@
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{UiImportSource, UiObjectDefinition, UiProgram};
-use crate::qmldoc::UiDocument;
+use crate::qmldoc::{UiDocument, UiDocumentsCache};
 use crate::typemap::{ModuleData, ModuleId, QmlComponentData, TypeMap};
 use camino::{Utf8Path, Utf8PathBuf};
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::io;
 use thiserror::Error;
 
@@ -15,7 +14,7 @@ use thiserror::Error;
 /// The `src_paths` element may point to either a QML file or a directory containing QML files.
 pub fn populate_directories<I>(
     type_map: &mut TypeMap,
-    doc_cache: &mut HashMap<Utf8PathBuf, UiDocument>,
+    docs_cache: &mut UiDocumentsCache,
     src_paths: I,
 ) -> Result<(), PopulateError>
 where
@@ -49,16 +48,9 @@ where
                 continue;
             }
 
-            // TODO: extract UiDocumentCache struct?
-            use std::collections::hash_map::Entry;
-            let doc = match doc_cache.entry(entry.path().to_owned()) {
-                Entry::Occupied(e) => e.into_mut(),
-                Entry::Vacant(e) => {
-                    let doc = UiDocument::read(entry.path())
-                        .map_err(|e| PopulateError::ReadUiDocument(entry.path().to_owned(), e))?;
-                    e.insert(doc)
-                }
-            };
+            let doc = docs_cache
+                .read(entry.path())
+                .map_err(|e| PopulateError::ReadUiDocument(entry.path().to_owned(), e))?;
 
             let mut diagnostics = Diagnostics::new();
             if let Some(data) = make_doc_component_data(doc, &base_dir, &mut diagnostics) {
