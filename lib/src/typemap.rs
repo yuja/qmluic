@@ -200,6 +200,7 @@ pub struct NamespaceData {
     classes: Vec<ClassData>,
     enums: Vec<EnumData>,
     enum_variant_map: HashMap<String, usize>,
+    qml_components: Vec<QmlComponentData>,
 }
 
 impl<'a> Namespace<'a> {
@@ -242,6 +243,8 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
 }
 
 impl NamespaceData {
+    // TODO: redesign mutation API
+
     fn extend_classes<T>(&mut self, iter: T)
     where
         T: IntoIterator<Item = metatype::Class>,
@@ -273,6 +276,13 @@ impl NamespaceData {
         }
     }
 
+    fn push_qml_component(&mut self, data: QmlComponentData) {
+        let start = self.qml_components.len();
+        let name = data.class.class_name.clone();
+        self.qml_components.push(data);
+        self.name_map.insert(name, TypeIndex::QmlComponent(start));
+    }
+
     fn get_type_with<'a, F>(
         &'a self,
         name: &str,
@@ -288,6 +298,9 @@ impl NamespaceData {
             }
             TypeIndex::Enum(i) => Type::Enum(Enum::new(&self.enums[i], make_parent_space())),
             TypeIndex::Primitive(t) => Type::Primitive(t),
+            TypeIndex::QmlComponent(i) => {
+                Type::QmlComponent(QmlComponent::new(&self.qml_components[i], type_map))
+            }
         })
     }
 
@@ -359,6 +372,8 @@ impl<'a> TypeSpace<'a> for Module<'a> {
 }
 
 impl ModuleData {
+    // TODO: redesign mutation API
+
     /// Creates new module storage with builtin imports.
     pub fn with_builtins() -> Self {
         ModuleData {
@@ -381,6 +396,10 @@ impl ModuleData {
         self.imports
             .iter()
             .find_map(|id| type_map.get_module(id).and_then(|ns| ns.get_type(name)))
+    }
+
+    pub fn push_qml_component(&mut self, data: QmlComponentData) {
+        self.namespace.push_qml_component(data);
     }
 }
 
@@ -408,6 +427,7 @@ enum TypeIndex {
     Class(usize),
     Enum(usize),
     Primitive(PrimitiveType),
+    QmlComponent(usize),
 }
 
 /// Type variants returned by [`TypeMap`].
