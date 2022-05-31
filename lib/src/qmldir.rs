@@ -103,15 +103,24 @@ fn make_doc_component_data(
             continue;
         }
         // TODO: warn that version field is ignored
-        let id = match imp.source() {
+        match imp.source() {
             UiImportSource::Identifier(x) => {
-                ModuleId::Named(Cow::Owned(x.to_string(doc.source()).into()))
+                let s = x.to_string(doc.source());
+                data.import_module(ModuleId::Named(Cow::Owned(s.into())));
             }
             UiImportSource::String(x) => {
-                ModuleId::Directory(normalize_path(doc_base_dir.join(&x)).into())
+                let dir = doc_base_dir.join(&x);
+                if dir.is_dir() {
+                    data.import_module(ModuleId::Directory(normalize_path(dir).into()));
+                } else {
+                    // confine error so the population loop wouldn't fail with e.g. ENOENT
+                    diagnostics.push(Diagnostic::error(
+                        imp.node().byte_range(), // TODO: on imp.source() node
+                        format!("source path is not a directory: {dir}"),
+                    ));
+                }
             }
-        };
-        data.import_module(id);
+        }
     }
 
     // TODO: properties, functions, etc. if we add support for those
