@@ -133,7 +133,10 @@ fn is_qml_file(path: &Utf8Path) -> bool {
             .unwrap_or(false)
 }
 
-fn normalize_path(path: impl AsRef<Utf8Path>) -> Utf8PathBuf {
+pub fn normalize_path<P>(path: P) -> Utf8PathBuf
+where
+    P: AsRef<Utf8Path>,
+{
     // TODO: normalize per BuildContext rule?, which wouldn't fail
     let path = path.as_ref();
     path.canonicalize_utf8().unwrap_or_else(|_| path.to_owned())

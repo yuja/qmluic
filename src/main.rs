@@ -7,9 +7,11 @@ use qmluic::diagnostic::Diagnostics;
 use qmluic::metatype;
 use qmluic::metatype_tweak;
 use qmluic::qmlast;
+use qmluic::qmldir;
 use qmluic::typemap::{ModuleData, ModuleId, TypeMap};
 use qmluic::uigen::{self, BuildContext, XmlWriter};
 use qmluic_cli::{reporting, QtPaths};
+use std::collections::HashMap;
 use std::fs;
 use std::io::{self, BufWriter, Write as _};
 use std::path::Path;
@@ -208,26 +210,35 @@ fn generate_ui(args: &GenerateUiArgs) -> Result<(), CommandError> {
     module_data.extend(classes);
     type_map.insert_module(ModuleId::Named("qmluic.QtWidgets".into()), module_data);
 
+    let mut doc_cache = HashMap::new();
+    qmldir::populate_directories(&mut type_map, &mut doc_cache, &args.sources)
+        .map_err(anyhow::Error::from)?;
+
+    let ctx = BuildContext::prepare(&type_map).map_err(anyhow::Error::from)?;
     for p in &args.sources {
-        generate_ui_file(&type_map, p)?;
+        generate_ui_file(&ctx, &doc_cache, p)?;
     }
     Ok(())
 }
 
-fn generate_ui_file(type_map: &TypeMap, source: &Utf8Path) -> Result<(), CommandError> {
-    let doc = qmlast::UiDocument::read(source)
-        .with_context(|| format!("failed to load QML source: {source}"))?;
+fn generate_ui_file(
+    ctx: &BuildContext,
+    doc_cache: &HashMap<Utf8PathBuf, qmlast::UiDocument>,
+    source: &Utf8Path,
+) -> Result<(), CommandError> {
+    let doc = doc_cache
+        .get(&qmldir::normalize_path(source))
+        .ok_or_else(|| anyhow!("QML source not loaded (bad file suffix?): {source}"))?;
     if doc.has_syntax_error() {
-        reporting::print_syntax_errors(&doc)?;
+        reporting::print_syntax_errors(doc)?;
         return Err(CommandError::DiagnosticGenerated);
     }
 
-    let ctx = BuildContext::prepare(type_map).map_err(anyhow::Error::from)?;
     let mut diagnostics = Diagnostics::new();
-    let form = match uigen::build(&ctx, &doc, &mut diagnostics) {
+    let form = match uigen::build(ctx, doc, &mut diagnostics) {
         Some(form) if diagnostics.is_empty() => form,
         _ => {
-            reporting::print_diagnostics(&doc, &diagnostics)?;
+            reporting::print_diagnostics(doc, &diagnostics)?;
             return Err(CommandError::DiagnosticGenerated);
         }
     };

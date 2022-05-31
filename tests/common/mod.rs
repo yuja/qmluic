@@ -6,8 +6,10 @@ use qmluic::diagnostic::{DiagnosticKind, Diagnostics};
 use qmluic::metatype;
 use qmluic::metatype_tweak;
 use qmluic::qmlast::UiDocument;
+use qmluic::qmldir;
 use qmluic::typemap::{ModuleData, ModuleId, TypeMap};
 use qmluic::uigen::{self, BuildContext, XmlWriter};
+use std::collections::HashMap;
 use std::fs;
 use std::str;
 use termcolor::NoColor;
@@ -30,6 +32,11 @@ fn translate_doc(doc: &UiDocument) -> Result<String, String> {
     let mut module_data = ModuleData::with_builtins();
     module_data.extend(classes);
     type_map.insert_module(ModuleId::Named("qmluic.QtWidgets".into()), module_data);
+
+    if let Some(p) = doc.path() {
+        let mut doc_cache = HashMap::new();
+        qmldir::populate_directories(&mut type_map, &mut doc_cache, [p]).unwrap();
+    }
 
     let ctx = BuildContext::prepare(&type_map).unwrap();
     let mut diagnostics = Diagnostics::new();
