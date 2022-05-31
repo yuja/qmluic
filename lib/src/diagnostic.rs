@@ -1,6 +1,7 @@
 //! Utility for error reporting.
 
 use crate::qmlast::ParseError;
+use camino::{Utf8Path, Utf8PathBuf};
 use std::ops::Range;
 use std::slice;
 
@@ -138,5 +139,42 @@ where
         I: IntoIterator<Item = T>,
     {
         self.diagnostics.extend(iter.into_iter().map(|d| d.into()))
+    }
+}
+
+/// Manages per-file store of diagnostic messages.
+#[derive(Clone, Debug, Default)]
+pub struct ProjectDiagnostics {
+    file_diagnostics: Vec<(Utf8PathBuf, Diagnostics)>, // in insertion order
+}
+
+impl ProjectDiagnostics {
+    pub fn new() -> Self {
+        ProjectDiagnostics::default()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        // push() guarantees that each file store is not empty
+        self.file_diagnostics.is_empty()
+    }
+
+    pub fn iter(&self) -> slice::Iter<'_, (Utf8PathBuf, Diagnostics)> {
+        self.file_diagnostics.iter()
+    }
+
+    pub fn diagnostics(&self) -> impl Iterator<Item = (&Utf8Path, &Diagnostic)> {
+        self.file_diagnostics
+            .iter()
+            .flat_map(|(p, ds)| ds.iter().map(|d| (p.as_ref(), d)))
+    }
+
+    pub fn push<P>(&mut self, path: P, diagnostics: Diagnostics)
+    where
+        P: AsRef<Utf8Path>,
+    {
+        if !diagnostics.is_empty() {
+            self.file_diagnostics
+                .push((path.as_ref().to_owned(), diagnostics));
+        }
     }
 }
