@@ -42,7 +42,10 @@ where
 {
     let stderr = StandardStream::stderr(ColorChoice::Auto);
     let config = term::Config::default();
-    let files = SimpleFile::new(doc.type_name().unwrap_or("<unknown>"), doc.source());
+    let files = SimpleFile::new(
+        doc.path().map(|p| p.as_str()).unwrap_or("<unknown>"),
+        doc.source(),
+    );
     for d in diagnostics {
         term::emit(&mut stderr.lock(), &config, &files, &d)?;
     }
