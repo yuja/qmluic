@@ -852,6 +852,10 @@ impl QmlComponentData {
         }
     }
 
+    pub fn imports(&self) -> &[ModuleId] {
+        &self.imports
+    }
+
     /// Adds the specified module to the import list from which type names will be resolved.
     pub fn import_module<S>(&mut self, id: S)
     where
