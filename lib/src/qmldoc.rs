@@ -1,6 +1,5 @@
 //! QML source document management.
 
-use crate::qmlast::{ParseError, ParseErrorKind};
 use camino::{Utf8Path, Utf8PathBuf};
 use std::fs;
 use std::io;
@@ -60,18 +59,16 @@ impl UiDocument {
         self.tree.root_node().has_error()
     }
 
-    /// Collects syntax errors from the parsed tree.
-    pub fn collect_syntax_errors<'a, B>(&'a self) -> B
+    /// Collects syntax error nodes from the parsed tree.
+    pub fn collect_syntax_error_nodes<'a, B>(&'a self) -> B
     where
-        B: FromIterator<ParseError<'a>>,
+        B: FromIterator<Node<'a>>,
     {
         let query =
             Query::new(self.tree.language(), "(ERROR) @a").expect("static query must be valid");
         let mut cursor = QueryCursor::new();
         let matches = cursor.matches(&query, self.tree.root_node(), self.source.as_bytes());
-        matches
-            .map(|m| ParseError::new(m.captures[0].node, ParseErrorKind::InvalidSyntax))
-            .collect()
+        matches.map(|m| m.captures[0].node).collect()
     }
 
     pub fn source(&self) -> &str {
@@ -108,7 +105,7 @@ mod tests {
             "###,
         );
         assert!(doc.has_syntax_error());
-        let errors: Vec<_> = doc.collect_syntax_errors();
+        let errors: Vec<_> = doc.collect_syntax_error_nodes();
         assert_eq!(errors.len(), 1);
     }
 }
