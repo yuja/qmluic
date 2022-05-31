@@ -2,7 +2,7 @@ use camino::Utf8Path;
 use codespan_reporting::diagnostic::{Label, Severity};
 use codespan_reporting::files::SimpleFile;
 use codespan_reporting::term;
-use qmluic::diagnostic::{DiagnosticKind, Diagnostics};
+use qmluic::diagnostic::{DiagnosticKind, Diagnostics, ProjectDiagnostics};
 use qmluic::metatype;
 use qmluic::metatype_tweak;
 use qmluic::qmldir;
@@ -34,7 +34,14 @@ fn translate_doc(doc: &UiDocument) -> Result<String, String> {
 
     if let Some(p) = doc.path() {
         let mut docs_cache = UiDocumentsCache::new();
-        qmldir::populate_directories(&mut type_map, &mut docs_cache, [p]).unwrap();
+        let mut project_diagnostics = ProjectDiagnostics::new();
+        qmldir::populate_directories(
+            &mut type_map,
+            &mut docs_cache,
+            [p],
+            &mut project_diagnostics,
+        )
+        .unwrap();
     }
 
     let ctx = BuildContext::prepare(&type_map).unwrap();

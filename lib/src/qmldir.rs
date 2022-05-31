@@ -1,6 +1,6 @@
 //! QML module/directory handling.
 
-use crate::diagnostic::{Diagnostic, Diagnostics};
+use crate::diagnostic::{Diagnostic, Diagnostics, ProjectDiagnostics};
 use crate::qmlast::{UiImportSource, UiObjectDefinition, UiProgram};
 use crate::qmldoc::{UiDocument, UiDocumentsCache};
 use crate::typemap::{ModuleData, ModuleId, QmlComponentData, TypeMap};
@@ -16,6 +16,7 @@ pub fn populate_directories<I>(
     type_map: &mut TypeMap,
     docs_cache: &mut UiDocumentsCache,
     src_paths: I,
+    project_diagnostics: &mut ProjectDiagnostics,
 ) -> Result<(), PopulateError>
 where
     I: IntoIterator,
@@ -65,7 +66,7 @@ where
                 }
                 base_module_data.push_qml_component(data);
             }
-            // TODO: pass diagnostic messages to caller
+            project_diagnostics.push(entry.path(), diagnostics);
         }
 
         type_map.insert_module(ModuleId::Directory(base_dir.into()), base_module_data);

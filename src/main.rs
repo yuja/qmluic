@@ -3,7 +3,7 @@
 use anyhow::{anyhow, Context as _};
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::{Args, Parser, Subcommand};
-use qmluic::diagnostic::Diagnostics;
+use qmluic::diagnostic::{Diagnostics, ProjectDiagnostics};
 use qmluic::metatype;
 use qmluic::metatype_tweak;
 use qmluic::qmldir;
@@ -210,8 +210,17 @@ fn generate_ui(args: &GenerateUiArgs) -> Result<(), CommandError> {
     type_map.insert_module(ModuleId::Named("qmluic.QtWidgets".into()), module_data);
 
     let mut docs_cache = UiDocumentsCache::new();
-    qmldir::populate_directories(&mut type_map, &mut docs_cache, &args.sources)
-        .map_err(anyhow::Error::from)?;
+    let mut project_diagnostics = ProjectDiagnostics::new();
+    qmldir::populate_directories(
+        &mut type_map,
+        &mut docs_cache,
+        &args.sources,
+        &mut project_diagnostics,
+    )
+    .map_err(anyhow::Error::from)?;
+    for (p, ds) in project_diagnostics.iter() {
+        reporting::print_diagnostics(docs_cache.get(p).unwrap(), ds)?;
+    }
 
     let ctx = BuildContext::prepare(&type_map).map_err(anyhow::Error::from)?;
     for p in &args.sources {
