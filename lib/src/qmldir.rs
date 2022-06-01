@@ -34,11 +34,13 @@ where
         })
         .collect();
 
+    log::debug!("populating directories from {pending_dirs:?}");
     while let Some(base_dir) = pending_dirs.pop() {
         if type_map.contains_module(ModuleId::Directory(Cow::Borrowed(base_dir.as_ref()))) {
             continue; // already visited
         }
 
+        log::trace!("processing directory {base_dir:?}");
         let mut base_module_data = ModuleData::default();
         for entry in base_dir
             .read_dir_utf8()
@@ -49,6 +51,7 @@ where
                 continue;
             }
 
+            log::trace!("processing file {:?}", entry.path());
             let doc = docs_cache
                 .read(entry.path())
                 .map_err(|e| PopulateError::ReadUiDocument(entry.path().to_owned(), e))?;

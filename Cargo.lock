@@ -326,6 +326,7 @@ version = "0.1.0"
 dependencies = [
  "camino",
  "itertools",
+ "log",
  "quick-xml",
  "serde",
  "serde_json",
