@@ -63,7 +63,7 @@ pub trait ExpressionVisitor<'a> {
 ///
 /// `parent_space` is the context where an identifier expression is resolved.
 pub fn walk<'a, P, V>(
-    parent_space: &P, // TODO: should be QML space, not C++ metatype space
+    parent_space: &P,
     node: Node,
     source: &str,
     visitor: &V,
@@ -139,7 +139,7 @@ where
 
 /// Parses the given `node` as type expression.
 fn parse_type<'a, P>(
-    parent_space: &P, // TODO: should be QML space, not C++ metatype space
+    parent_space: &P,
     node: Node,
     source: &str,
     diagnostics: &mut Diagnostics,
@@ -166,7 +166,7 @@ where
 }
 
 fn get_type_by_identifier<'a, P>(
-    parent_space: &P, // TODO: should be QML space, not C++ metatype space
+    parent_space: &P,
     ident: Identifier,
     source: &str,
     diagnostics: &mut Diagnostics,
@@ -191,7 +191,7 @@ where
 }
 
 fn resolve_type_by_identifier<'a, P>(
-    parent_space: &P, // TODO: should be QML space, not C++ metatype space
+    parent_space: &P,
     ident: Identifier,
     source: &str,
     diagnostics: &mut Diagnostics,
