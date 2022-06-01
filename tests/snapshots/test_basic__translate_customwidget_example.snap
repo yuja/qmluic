@@ -16,5 +16,17 @@ expression: "common::translate_file(base.join(\"MainDialog.qml\")).unwrap()"
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>SettingsForm</class>
+   <extends>QWidget</extends>
+   <header>SettingsForm.h</header>
+  </customwidget>
+  <customwidget>
+   <class>MyDialogButtonBox</class>
+   <extends>QDialogButtonBox</extends>
+   <header>MyDialogButtonBox.h</header>
+  </customwidget>
+ </customwidgets>
 </ui>
 

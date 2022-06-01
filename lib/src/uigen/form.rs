@@ -1,6 +1,7 @@
 use super::object::UiObject;
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
+use crate::typemap::{QmlComponent, TypeSpace};
 use quick_xml::events::{BytesStart, Event};
 use std::io;
 
@@ -9,6 +10,7 @@ use std::io;
 pub struct UiForm {
     pub class: Option<String>,
     pub root_object: UiObject,
+    pub custom_widgets: Vec<CustomWidget>,
 }
 
 impl UiForm {
@@ -23,7 +25,50 @@ impl UiForm {
             xmlutil::write_tagged_str(writer, "class", name)?;
         }
         self.root_object.serialize_to_xml(writer)?;
+        if !self.custom_widgets.is_empty() {
+            let tag = BytesStart::borrowed_name(b"customwidgets");
+            writer.write_event(Event::Start(tag.to_borrowed()))?;
+            for w in &self.custom_widgets {
+                w.serialize_to_xml(writer)?;
+            }
+            writer.write_event(Event::End(tag.to_end()))?;
+        }
         writer.write_event(Event::End(tag.to_end()))?;
         writer.write(b"\n")
+    }
+}
+
+/// User type referenced from the [`UiForm`].
+#[derive(Clone, Debug)]
+pub struct CustomWidget {
+    pub class: String,
+    pub extends: String,
+    pub header: String,
+}
+
+impl CustomWidget {
+    pub(super) fn from_qml_component(ns: &QmlComponent) -> Option<Self> {
+        let cls = ns.to_class();
+        // If super class doesn't exist, diagnostic message would have been emitted while
+        // building the object representation. So returns silently.
+        let super_cls = cls.public_super_classes().next()?;
+        Some(CustomWidget {
+            class: cls.qualified_name().into(),
+            extends: super_cls.qualified_name().into(),
+            header: format!("{}.h", cls.name()), // TODO: naming option
+        })
+    }
+
+    /// Serializes this to UI XML.
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    where
+        W: io::Write,
+    {
+        let tag = BytesStart::borrowed_name(b"customwidget");
+        writer.write_event(Event::Start(tag.to_borrowed()))?;
+        xmlutil::write_tagged_str(writer, "class", &self.class)?;
+        xmlutil::write_tagged_str(writer, "extends", &self.extends)?;
+        xmlutil::write_tagged_str(writer, "header", &self.header)?;
+        writer.write_event(Event::End(tag.to_end()))
     }
 }

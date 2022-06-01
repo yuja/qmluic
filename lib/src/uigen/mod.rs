@@ -42,9 +42,18 @@ pub fn build(
         object::resolve_object_definition(&ctx, program.root_object_node(), diagnostics)?;
     let root_object =
         UiObject::from_object_definition(&ctx, &cls, &obj, ContainerKind::Any, diagnostics)?;
+    // assumes all QmlComponent types are user types
+    // TODO: deduplicate types
+    let custom_widgets = ctx
+        .ref_qml_components
+        .borrow()
+        .iter()
+        .filter_map(CustomWidget::from_qml_component)
+        .collect();
     Some(UiForm {
         class: doc.type_name().map(|s| s.to_owned()),
         root_object,
+        custom_widgets,
     })
 }
 
