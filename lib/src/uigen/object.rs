@@ -229,7 +229,10 @@ pub(super) fn resolve_object_definition<'a, 't>(
     let type_name = obj.type_name().to_string(ctx.source);
     match ctx.type_space.get_type(&type_name) {
         Some(Type::Class(cls)) => Some((obj, cls)),
-        Some(Type::QmlComponent(ns)) => Some((obj, ns.to_class())),
+        Some(Type::QmlComponent(ns)) => {
+            ctx.ref_qml_components.borrow_mut().push(ns.clone()); // TODO: redesign tracing API
+            Some((obj, ns.to_class()))
+        }
         Some(Type::Enum(_) | Type::Module(_) | Type::Namespace(_) | Type::Primitive(_)) | None => {
             diagnostics.push(Diagnostic::error(
                 obj.type_name().node().byte_range(),

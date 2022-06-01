@@ -4,7 +4,8 @@ use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{UiImportSource, UiProgram};
 use crate::qmldir;
 use crate::qmldoc::UiDocument;
-use crate::typemap::{Class, Module, ModuleData, ModuleId, Type, TypeMap, TypeSpace};
+use crate::typemap::{Class, Module, ModuleData, ModuleId, QmlComponent, Type, TypeMap, TypeSpace};
+use std::cell::RefCell;
 use thiserror::Error;
 
 mod expr;
@@ -143,6 +144,8 @@ struct BuildDocContext<'a, 's> {
     vbox_layout_class: Class<'a>,
     widget_class: Class<'a>,
     type_space: Type<'a>,
+    /// List of user types resolved from the top-level type space.
+    ref_qml_components: RefCell<Vec<QmlComponent<'a>>>,
 }
 
 impl<'a> BuildContext<'a> {
@@ -194,6 +197,7 @@ impl<'a, 's> BuildDocContext<'a, 's> {
             vbox_layout_class: base_ctx.vbox_layout_class.clone(),
             widget_class: base_ctx.widget_class.clone(),
             type_space,
+            ref_qml_components: RefCell::new(Vec::new()),
         }
     }
 }
