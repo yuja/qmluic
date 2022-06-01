@@ -128,9 +128,7 @@ pub(super) fn collect_properties(
     exclude_names: &[&str],
     diagnostics: &mut Diagnostics,
 ) -> HashMap<String, Value> {
-    resolve_properties(ctx, cls, binding_map, exclude_names, diagnostics)
-        .map(|(name, (_, x))| (name.to_owned(), x))
-        .collect()
+    resolve_properties(ctx, cls, binding_map, exclude_names, diagnostics, |_, x| x)
 }
 
 pub(super) fn collect_properties_with_node<'t>(
@@ -140,18 +138,27 @@ pub(super) fn collect_properties_with_node<'t>(
     exclude_names: &[&str],
     diagnostics: &mut Diagnostics,
 ) -> HashMap<String, WithNode<'t, Value>> {
-    resolve_properties(ctx, cls, binding_map, exclude_names, diagnostics)
-        .map(|(name, (v, x))| (name.to_owned(), WithNode::new(v, x)))
-        .collect()
+    resolve_properties(
+        ctx,
+        cls,
+        binding_map,
+        exclude_names,
+        diagnostics,
+        WithNode::new,
+    )
 }
 
-fn resolve_properties<'a, 't, 's>(
-    ctx: &'a BuildDocContext,
-    cls: &'a Class,
-    binding_map: &'a UiBindingMap<'t, 's>,
-    exclude_names: &'a [&str],
-    diagnostics: &'a mut Diagnostics,
-) -> impl Iterator<Item = (&'s str, (&'a UiBindingValue<'t, 's>, Value))> + 'a {
+fn resolve_properties<'t, 's, B, F>(
+    ctx: &BuildDocContext,
+    cls: &Class,
+    binding_map: &UiBindingMap<'t, 's>,
+    exclude_names: &[&str],
+    diagnostics: &mut Diagnostics,
+    mut make_value: F,
+) -> HashMap<String, B>
+where
+    F: FnMut(&UiBindingValue<'t, 's>, Value) -> B,
+{
     binding_map
         .iter()
         .filter(|(name, _)| !exclude_names.contains(name))
@@ -169,8 +176,9 @@ fn resolve_properties<'a, 't, 's>(
                 ));
                 None
             }
-            .map(|x| (name, (value, x)))
+            .map(|x| (name.to_owned(), make_value(value, x)))
         })
+        .collect()
 }
 
 pub(super) fn serialize_properties_to_xml<W, T>(
