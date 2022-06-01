@@ -13,9 +13,13 @@ jobs:
   build:
     strategy:
       matrix:
+        os: [ubuntu-latest, windows-latest]
         rust_toolchain: [stable, "1.59"]
+        exclude:
+          - os: windows-latest
+            rust_toolchain: "1.59"
 
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v3
