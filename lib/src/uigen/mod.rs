@@ -8,6 +8,7 @@ use crate::typemap::{Class, Module, ModuleData, ModuleId, Type, TypeMap, TypeSpa
 use thiserror::Error;
 
 mod expr;
+mod form;
 mod gadget;
 mod layout;
 mod object;
@@ -15,6 +16,7 @@ mod property;
 mod xmlutil;
 
 pub use self::expr::*; // re-export
+pub use self::form::*; // re-export
 pub use self::gadget::*; // re-export
 pub use self::layout::*; // re-export
 pub use self::object::*; // re-export

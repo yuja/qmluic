@@ -1,7 +1,6 @@
 use super::expr::Value;
 use super::layout::Layout;
 use super::property;
-use super::xmlutil;
 use super::{BuildDocContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Expression, Node, UiBindingValue, UiObjectDefinition};
@@ -9,30 +8,6 @@ use crate::typemap::{Class, Type, TypeSpace};
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
 use std::io;
-
-/// Top-level object wrapper to be serialized to UI XML.
-#[derive(Clone, Debug)]
-pub struct UiForm {
-    pub class: Option<String>,
-    pub root_object: UiObject,
-}
-
-impl UiForm {
-    /// Serializes this to UI XML.
-    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
-    where
-        W: io::Write,
-    {
-        let tag = BytesStart::borrowed_name(b"ui").with_attributes([("version", "4.0")]);
-        writer.write_event(Event::Start(tag.to_borrowed()))?;
-        if let Some(name) = &self.class {
-            xmlutil::write_tagged_str(writer, "class", name)?;
-        }
-        self.root_object.serialize_to_xml(writer)?;
-        writer.write_event(Event::End(tag.to_end()))?;
-        writer.write(b"\n")
-    }
-}
 
 /// Type of the object parent.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
