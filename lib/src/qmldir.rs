@@ -145,7 +145,14 @@ where
 {
     // TODO: normalize per BuildContext rule?, which wouldn't fail
     let path = path.as_ref();
-    path.canonicalize_utf8().unwrap_or_else(|_| path.to_owned())
+    if path.as_str().is_empty() {
+        // Path("foo").parent() returns "", not "."
+        // https://github.com/rust-lang/rust/issues/36861
+        Utf8Path::new(".").canonicalize_utf8()
+    } else {
+        path.canonicalize_utf8()
+    }
+    .unwrap_or_else(|_| path.to_owned())
 }
 
 /// Error occurred while populating directory modules.
