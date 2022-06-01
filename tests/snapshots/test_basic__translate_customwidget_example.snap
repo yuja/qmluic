@@ -14,6 +14,10 @@ expression: "common::translate_file(base.join(\"MainDialog.qml\")).unwrap()"
     <widget class="MyDialogButtonBox" name="buttonBox">
     </widget>
    </item>
+   <item>
+    <widget class="MyDialogButtonBox" name="buttonBox2">
+    </widget>
+   </item>
   </layout>
  </widget>
  <customwidgets>

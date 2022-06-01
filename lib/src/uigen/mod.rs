@@ -5,6 +5,7 @@ use crate::qmlast::{UiImportSource, UiProgram};
 use crate::qmldir;
 use crate::qmldoc::UiDocument;
 use crate::typemap::{Class, Module, ModuleData, ModuleId, QmlComponent, Type, TypeMap, TypeSpace};
+use itertools::Itertools as _;
 use std::cell::RefCell;
 use thiserror::Error;
 
@@ -43,11 +44,11 @@ pub fn build(
     let root_object =
         UiObject::from_object_definition(&ctx, &cls, &obj, ContainerKind::Any, diagnostics)?;
     // assumes all QmlComponent types are user types
-    // TODO: deduplicate types
     let custom_widgets = ctx
         .ref_qml_components
         .borrow()
         .iter()
+        .unique()
         .filter_map(CustomWidget::from_qml_component)
         .collect();
     Some(UiForm {

@@ -4,6 +4,7 @@ use super::metatype;
 use camino::{Utf8Path, Utf8PathBuf};
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 use std::mem;
 use std::ptr;
 
@@ -815,6 +816,14 @@ impl<'a> PartialEq for QmlComponent<'a> {
 }
 
 impl<'a> Eq for QmlComponent<'a> {}
+
+// TODO: maybe extract (data, parent, type_map) type and impl PartialEq/Eq/Hash on it.
+impl<'a> Hash for QmlComponent<'a> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        ptr::hash(self.data, state);
+        ptr::hash(self.type_map, state);
+    }
+}
 
 impl<'a> TypeSpace<'a> for QmlComponent<'a> {
     fn name(&self) -> &str {

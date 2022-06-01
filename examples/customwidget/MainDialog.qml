@@ -10,5 +10,9 @@ QDialog {
         MyDialogButtonBox {
             id: buttonBox
         }
+
+        MyDialogButtonBox {
+            id: buttonBox2
+        }
     }
 }
