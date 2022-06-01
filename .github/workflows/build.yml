@@ -11,12 +11,20 @@ env:
 
 jobs:
   build:
+    strategy:
+      matrix:
+        rust_toolchain: [stable, "1.59"]
 
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
+    - name: Install Rust ${{ matrix.rust_toolchain }}
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ matrix.rust_toolchain }}
+        override: true
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --workspace --verbose
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test --workspace --verbose
