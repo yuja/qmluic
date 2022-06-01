@@ -49,7 +49,7 @@ pub fn build(
         .borrow()
         .iter()
         .unique()
-        .filter_map(CustomWidget::from_qml_component)
+        .filter_map(|ns| CustomWidget::from_qml_component(ns, &base_ctx.file_name_rules))
         .collect();
     Some(UiForm {
         class: doc.type_name().map(|s| s.to_owned()),
@@ -124,6 +124,7 @@ fn make_doc_module_data(
 #[derive(Clone, Debug)]
 pub struct BuildContext<'a> {
     type_map: &'a TypeMap,
+    pub file_name_rules: FileNameRules,
     action_class: Class<'a>,
     form_layout_class: Class<'a>,
     grid_layout_class: Class<'a>,
@@ -160,7 +161,10 @@ struct BuildDocContext<'a, 's> {
 
 impl<'a> BuildContext<'a> {
     /// Sets up context with the given `type_map`.
-    pub fn prepare(type_map: &'a TypeMap) -> Result<Self, BuildContextError> {
+    pub fn prepare(
+        type_map: &'a TypeMap,
+        file_name_rules: FileNameRules,
+    ) -> Result<Self, BuildContextError> {
         const MODULE_NAME: &str = "qmluic.QtWidgets";
         let module = type_map
             .get_module(&ModuleId::Named(MODULE_NAME.into()))
@@ -174,6 +178,7 @@ impl<'a> BuildContext<'a> {
         };
         Ok(BuildContext {
             type_map,
+            file_name_rules,
             action_class: get_class("QAction")?,
             form_layout_class: get_class("QFormLayout")?,
             grid_layout_class: get_class("QGridLayout")?,
@@ -219,4 +224,47 @@ pub enum BuildContextError {
     ClassNotFound(&'static str),
     #[error("required module not found: {0}")]
     ModuleNotFound(&'static str),
+}
+
+/// File naming rules.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FileNameRules {
+    pub cxx_header_suffix: String,
+    pub lowercase: bool,
+}
+
+impl FileNameRules {
+    pub fn type_name_to_cxx_header_name<S>(&self, type_name: S) -> String
+    where
+        S: AsRef<str>,
+    {
+        self.apply_case_change(format!(
+            "{}.{}",
+            type_name.as_ref(),
+            &self.cxx_header_suffix
+        ))
+    }
+
+    pub fn type_name_to_ui_name<S>(&self, type_name: S) -> String
+    where
+        S: AsRef<str>,
+    {
+        self.apply_case_change(format!("{}.ui", type_name.as_ref()))
+    }
+
+    fn apply_case_change(&self, mut file_name: String) -> String {
+        if self.lowercase {
+            file_name.make_ascii_lowercase();
+        }
+        file_name
+    }
+}
+
+impl Default for FileNameRules {
+    fn default() -> Self {
+        Self {
+            cxx_header_suffix: "h".to_owned(),
+            lowercase: true,
+        }
+    }
 }

@@ -24,12 +24,12 @@ expression: "common::translate_file(base.join(\"MainDialog.qml\")).unwrap()"
   <customwidget>
    <class>SettingsForm</class>
    <extends>QWidget</extends>
-   <header>SettingsForm.h</header>
+   <header>settingsform.h</header>
   </customwidget>
   <customwidget>
    <class>MyDialogButtonBox</class>
    <extends>QDialogButtonBox</extends>
-   <header>MyDialogButtonBox.h</header>
+   <header>mydialogbuttonbox.h</header>
   </customwidget>
  </customwidgets>
 </ui>

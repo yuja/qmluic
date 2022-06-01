@@ -11,7 +11,7 @@ can then be processed by Qt User Interface Compiler `uic` command.
 
 ```
 $ qmluic generate-ui SettingsDialog.qml
-$ uic SettingsDialog.ui -o ui_settingsdialog.h
+$ uic settingsdialog.ui -o ui_settingsdialog.h
 ```
 
 `qmluic generate-ui` loads type information from the `QT_INSTALL_LIBS/metatypes`

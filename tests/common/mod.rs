@@ -8,7 +8,7 @@ use qmluic::metatype_tweak;
 use qmluic::qmldir;
 use qmluic::qmldoc::{UiDocument, UiDocumentsCache};
 use qmluic::typemap::{ModuleData, ModuleId, TypeMap};
-use qmluic::uigen::{self, BuildContext, XmlWriter};
+use qmluic::uigen::{self, BuildContext, FileNameRules, XmlWriter};
 use std::fs;
 use std::str;
 use termcolor::NoColor;
@@ -44,7 +44,7 @@ fn translate_doc(doc: &UiDocument) -> Result<String, String> {
         .unwrap();
     }
 
-    let ctx = BuildContext::prepare(&type_map).unwrap();
+    let ctx = BuildContext::prepare(&type_map, FileNameRules::default()).unwrap();
     let mut diagnostics = Diagnostics::new();
     let form = match uigen::build(&ctx, doc, &mut diagnostics) {
         Some(form) if diagnostics.is_empty() => form,

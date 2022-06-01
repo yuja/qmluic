@@ -9,7 +9,7 @@ use qmluic::metatype_tweak;
 use qmluic::qmldir;
 use qmluic::qmldoc::UiDocumentsCache;
 use qmluic::typemap::{ModuleData, ModuleId, TypeMap};
-use qmluic::uigen::{self, BuildContext, XmlWriter};
+use qmluic::uigen::{self, BuildContext, FileNameRules, XmlWriter};
 use qmluic_cli::{reporting, QtPaths};
 use std::fs;
 use std::io::{self, BufWriter, Write as _};
@@ -189,6 +189,9 @@ struct GenerateUiArgs {
     #[clap(long)]
     /// Qt metatypes.json file to load (default: QT_INSTALL_LIBS/metatypes)
     foreign_types: Vec<Utf8PathBuf>,
+    /// Do not convert output file names to lowercase
+    #[clap(long)]
+    no_lowercase_file_name: bool,
 }
 
 fn generate_ui(args: &GenerateUiArgs) -> Result<(), CommandError> {
@@ -222,7 +225,11 @@ fn generate_ui(args: &GenerateUiArgs) -> Result<(), CommandError> {
         reporting::print_diagnostics(docs_cache.get(p).unwrap(), ds)?;
     }
 
-    let ctx = BuildContext::prepare(&type_map).map_err(anyhow::Error::from)?;
+    let file_name_rules = FileNameRules {
+        lowercase: !args.no_lowercase_file_name,
+        ..Default::default()
+    };
+    let ctx = BuildContext::prepare(&type_map, file_name_rules).map_err(anyhow::Error::from)?;
     for p in &args.sources {
         generate_ui_file(&ctx, &docs_cache, p)?;
     }
@@ -251,10 +258,16 @@ fn generate_ui_file(
         }
     };
 
+    let out_path = source.with_file_name(
+        ctx.file_name_rules.type_name_to_ui_name(
+            doc.type_name()
+                .expect("valid source path should point to file"),
+        ),
+    );
     let perm = fs::metadata(source)
         .context("failed to get source file permission")?
         .permissions(); // assume this is the default file permissions
-    with_output_file(source.with_extension("ui"), perm, |out| {
+    with_output_file(&out_path, perm, |out| {
         let mut writer = XmlWriter::new_with_indent(BufWriter::new(out), b' ', 1);
         form.serialize_to_xml(&mut writer)
     })
