@@ -35,16 +35,11 @@ impl TypeMap {
     /// Creates type map containing the primitive types.
     pub fn with_primitive_types() -> Self {
         use PrimitiveType::*;
-        use TypeIndex::Primitive;
 
-        let name_map = HashMap::from(
-            [Bool, Int, QReal, QString, UInt, Void].map(|t| (t.name().to_owned(), Primitive(t))),
-        );
         let builtins = ModuleData {
-            namespace: NamespaceData {
-                name_map,
-                ..Default::default()
-            },
+            namespace: NamespaceData::with_primitive_types(&[
+                Bool, Int, QReal, QString, UInt, Void,
+            ]),
             imports: vec![],
         };
 

@@ -18,16 +18,16 @@ pub struct Namespace<'a> {
 /// Stored type namespace.
 #[derive(Clone, Debug, Default)]
 pub struct NamespaceData {
-    pub(super) name_map: HashMap<String, TypeIndex>,
-    pub(super) classes: Vec<ClassData>,
-    pub(super) enums: Vec<EnumData>,
-    pub(super) enum_variant_map: HashMap<String, usize>,
-    pub(super) qml_components: Vec<QmlComponentData>,
+    name_map: HashMap<String, TypeIndex>,
+    classes: Vec<ClassData>,
+    enums: Vec<EnumData>,
+    enum_variant_map: HashMap<String, usize>,
+    qml_components: Vec<QmlComponentData>,
 }
 
 /// Index to type variant stored in [`NamespaceData`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum TypeIndex {
+enum TypeIndex {
     Class(usize),
     Enum(usize),
     Primitive(PrimitiveType),
@@ -75,6 +75,18 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
 
 impl NamespaceData {
     // TODO: redesign mutation API
+
+    pub(super) fn with_primitive_types(types: &[PrimitiveType]) -> Self {
+        let name_map = HashMap::from_iter(
+            types
+                .iter()
+                .map(|&t| (t.name().to_owned(), TypeIndex::Primitive(t))),
+        );
+        NamespaceData {
+            name_map,
+            ..Default::default()
+        }
+    }
 
     pub(super) fn extend_classes<T>(&mut self, iter: T)
     where
