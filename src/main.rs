@@ -38,13 +38,25 @@ enum CommandError {
     Other(#[from] anyhow::Error),
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() {
     pretty_env_logger::init_custom_env("QMLUIC_LOG");
     let cli = Cli::parse();
     match dispatch(&cli) {
-        Ok(()) => Ok(()),
-        Err(CommandError::DiagnosticGenerated) => process::exit(1),
-        Err(CommandError::Other(e)) => Err(e),
+        Ok(()) => {}
+        Err(CommandError::DiagnosticGenerated) => {
+            process::exit(1);
+        }
+        Err(CommandError::Other(err)) => {
+            eprintln!(
+                "{}: {}",
+                console::style("error").for_stderr().red().bold(),
+                console::style(&err).for_stderr().bold()
+            );
+            for cause in err.chain().skip(1) {
+                eprintln!("{}: {}", console::style("cause").for_stderr().blue(), cause);
+            }
+            process::exit(1);
+        }
     }
 }
 
