@@ -1,10 +1,10 @@
 //! QML source document management.
 
 use camino::{Utf8Path, Utf8PathBuf};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::io;
-use tree_sitter::{Node, Parser, Query, QueryCursor, Tree};
+use tree_sitter::{Node, Parser, Tree};
 
 /// Object holding QML source text and parsed tree.
 #[derive(Clone, Debug)]
@@ -62,15 +62,28 @@ impl UiDocument {
     }
 
     /// Collects syntax error nodes from the parsed tree.
-    pub fn collect_syntax_error_nodes<'a, B>(&'a self) -> B
-    where
-        B: FromIterator<Node<'a>>,
-    {
-        let query =
-            Query::new(self.tree.language(), "(ERROR) @a").expect("static query must be valid");
-        let mut cursor = QueryCursor::new();
-        let matches = cursor.matches(&query, self.tree.root_node(), self.source.as_bytes());
-        matches.map(|m| m.captures[0].node).collect()
+    pub fn collect_syntax_error_nodes(&self) -> Vec<Node> {
+        if !self.tree.root_node().has_error() {
+            return Vec::new();
+        }
+        // walk tree since (MISSING) nodes can't be queried:
+        // https://github.com/tree-sitter/tree-sitter/issues/650
+        let mut cursor = self.tree.walk();
+        let mut pending_nodes = VecDeque::from([self.tree.root_node()]);
+        let mut error_nodes = Vec::new();
+        while let Some(node) = pending_nodes.pop_front() {
+            assert!(node.has_error());
+            if node.is_error() || node.is_missing() {
+                error_nodes.push(node);
+                continue;
+            }
+            for n in node.children(&mut cursor) {
+                if n.has_error() {
+                    pending_nodes.push_back(n);
+                }
+            }
+        }
+        error_nodes
     }
 
     pub fn source(&self) -> &str {
@@ -152,7 +165,34 @@ mod tests {
             "###,
         );
         assert!(doc.has_syntax_error());
-        let errors: Vec<_> = doc.collect_syntax_error_nodes();
+        let errors = doc.collect_syntax_error_nodes();
+        assert_eq!(errors.len(), 1);
+    }
+
+    #[test]
+    fn syntax_error_missing() {
+        let doc = parse(
+            r###"
+            Foo {
+            "###,
+        );
+        assert!(doc.has_syntax_error());
+        let errors = doc.collect_syntax_error_nodes();
+        assert_eq!(errors.len(), 1);
+    }
+
+    #[test]
+    fn syntax_error_deep() {
+        let doc = parse(
+            r###"
+            Foo {
+                Ok { bar: 0 }
+                Missing { baz: ( }
+            }
+            "###,
+        );
+        assert!(doc.has_syntax_error());
+        let errors = doc.collect_syntax_error_nodes();
         assert_eq!(errors.len(), 1);
     }
 }
