@@ -21,7 +21,7 @@ pub struct QmlComponent<'a> {
 #[derive(Clone, Debug)]
 pub struct QmlComponentData {
     imports: Vec<ModuleId<'static>>,
-    pub(super) class: ClassData,
+    class: ClassData,
 }
 
 impl<'a> QmlComponent<'a> {
@@ -106,5 +106,9 @@ impl QmlComponentData {
         self.imports
             .iter()
             .find_map(|id| type_map.get_module(id).and_then(|ns| ns.get_type(name)))
+    }
+
+    pub(super) fn class_name(&self) -> &str {
+        self.class.class_name()
     }
 }
