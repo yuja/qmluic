@@ -16,10 +16,10 @@ pub struct Class<'a> {
 /// Stored class representation.
 #[derive(Clone, Debug)]
 pub(super) struct ClassData {
-    pub(super) class_name: String,
-    pub(super) public_super_class_names: Vec<String>,
-    pub(super) inner_type_map: NamespaceData,
-    pub(super) property_map: HashMap<String, PropertyData>,
+    class_name: String,
+    public_super_class_names: Vec<String>,
+    inner_type_map: NamespaceData,
+    property_map: HashMap<String, PropertyData>,
     // TODO
 }
 
@@ -109,6 +109,20 @@ impl<'a> TypeSpace<'a> for Class<'a> {
 }
 
 impl ClassData {
+    pub(super) fn with_supers<S, I>(name: S, super_names: I) -> Self
+    where
+        S: Into<String>,
+        I: IntoIterator,
+        I::Item: Into<String>,
+    {
+        ClassData {
+            class_name: name.into(),
+            public_super_class_names: super_names.into_iter().map(Into::into).collect(),
+            inner_type_map: NamespaceData::default(),
+            property_map: HashMap::new(),
+        }
+    }
+
     pub(super) fn from_meta(meta: metatype::Class) -> Self {
         let public_super_class_names = meta
             .super_classes
@@ -138,11 +152,15 @@ impl ClassData {
             property_map,
         }
     }
+
+    pub(super) fn class_name(&self) -> &str {
+        &self.class_name
+    }
 }
 
 /// Stored property representation.
 #[derive(Clone, Debug)]
-pub(super) struct PropertyData {
+struct PropertyData {
     type_name: String,
 }
 

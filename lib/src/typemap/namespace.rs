@@ -120,7 +120,7 @@ impl NamespaceData {
 
     pub(super) fn push_qml_component(&mut self, data: QmlComponentData) {
         let start = self.qml_components.len();
-        let name = data.class.class_name.clone();
+        let name = data.class.class_name().to_owned();
         self.qml_components.push(data);
         self.name_map.insert(name, TypeIndex::QmlComponent(start));
     }

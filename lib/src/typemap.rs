@@ -376,12 +376,7 @@ impl QmlComponentData {
     {
         QmlComponentData {
             imports: vec![ModuleId::Builtins],
-            class: ClassData {
-                class_name: name.into(),
-                public_super_class_names: vec![super_name.into()],
-                inner_type_map: NamespaceData::default(),
-                property_map: HashMap::new(),
-            },
+            class: ClassData::with_supers(name, [super_name]),
         }
     }
 
