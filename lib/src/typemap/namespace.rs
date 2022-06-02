@@ -1,7 +1,6 @@
+use super::class::{Class, ClassData};
 use super::core::TypeSpace;
-use super::{
-    Class, ClassData, Enum, EnumData, PrimitiveType, QmlComponent, QmlComponentData, Type, TypeMap,
-};
+use super::{Enum, EnumData, PrimitiveType, QmlComponent, QmlComponentData, Type, TypeMap};
 use crate::metatype;
 use std::collections::HashMap;
 use std::ptr;
