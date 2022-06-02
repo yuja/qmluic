@@ -1,4 +1,5 @@
-use super::{Enum, Type};
+use super::enum_::Enum;
+use super::Type;
 use std::borrow::Cow;
 
 /// Interface to look up type by name.

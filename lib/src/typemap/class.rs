@@ -1,6 +1,7 @@
 use super::core::TypeSpace;
+use super::enum_::Enum;
 use super::namespace::NamespaceData;
-use super::{Enum, Type, TypeMap};
+use super::{Type, TypeMap};
 use crate::metatype;
 use std::collections::HashMap;
 use std::ptr;

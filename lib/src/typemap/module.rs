@@ -1,6 +1,7 @@
 use super::core::TypeSpace;
+use super::enum_::Enum;
 use super::namespace::NamespaceData;
-use super::{Enum, QmlComponentData, Type, TypeMap};
+use super::{QmlComponentData, Type, TypeMap};
 use crate::metatype;
 use camino::Utf8Path;
 use std::borrow::Cow;
