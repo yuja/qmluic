@@ -84,6 +84,11 @@ struct DumpMetatypesArgs {
 }
 
 fn dump_metatypes(args: &DumpMetatypesArgs) -> Result<(), CommandError> {
+    eprintln!(
+        "{} {}",
+        console::style("processing").for_stderr().green().bold(),
+        &args.input
+    );
     let data = fs::read_to_string(&args.input)
         .with_context(|| format!("failed to load metatypes file: {}", args.input))?;
     // TODO: report ignored: https://github.com/dtolnay/serde-ignored ?
@@ -253,6 +258,11 @@ fn generate_ui_file(
     docs_cache: &UiDocumentsCache,
     source: &Utf8Path,
 ) -> Result<(), CommandError> {
+    eprintln!(
+        "{} {}",
+        console::style("processing").for_stderr().green().bold(),
+        source
+    );
     let doc = docs_cache
         .get(source)
         .ok_or_else(|| anyhow!("QML source not loaded (bad file suffix?): {source}"))?;
