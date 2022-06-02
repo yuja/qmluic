@@ -35,8 +35,8 @@ pub struct Module<'a> {
 /// Stored top-level namespace with imports list.
 #[derive(Clone, Debug, Default)]
 pub struct ModuleData {
-    pub(super) namespace: NamespaceData,
-    pub(super) imports: Vec<ModuleId<'static>>,
+    namespace: NamespaceData,
+    imports: Vec<ModuleId<'static>>,
 }
 
 impl<'a> Module<'a> {
@@ -80,6 +80,13 @@ impl<'a> TypeSpace<'a> for Module<'a> {
 
 impl ModuleData {
     // TODO: redesign mutation API
+
+    pub(super) fn with_namespace(namespace: NamespaceData) -> Self {
+        ModuleData {
+            namespace,
+            imports: vec![],
+        }
+    }
 
     /// Creates new module storage with builtin imports.
     pub fn with_builtins() -> Self {

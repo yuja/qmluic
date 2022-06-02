@@ -37,12 +37,9 @@ impl TypeMap {
     pub fn with_primitive_types() -> Self {
         use PrimitiveType::*;
 
-        let builtins = ModuleData {
-            namespace: NamespaceData::with_primitive_types(&[
-                Bool, Int, QReal, QString, UInt, Void,
-            ]),
-            imports: vec![],
-        };
+        let builtins = ModuleData::with_namespace(NamespaceData::with_primitive_types(&[
+            Bool, Int, QReal, QString, UInt, Void,
+        ]));
 
         TypeMap {
             builtins,
