@@ -82,6 +82,18 @@ impl TypeMap {
     }
 
     /// Looks up mutable module data by identifier.
+    pub fn get_module_data<'a, 's, S>(&'a self, id: S) -> Option<&'a ModuleData>
+    where
+        S: AsRef<ModuleId<'s>>,
+    {
+        match id.as_ref() {
+            ModuleId::Builtins => Some(&self.builtins),
+            ModuleId::Named(name) => self.named_module_map.get(name.as_ref()),
+            ModuleId::Directory(path) => self.directory_module_map.get(path.as_ref()),
+        }
+    }
+
+    /// Looks up mutable module data by identifier.
     pub fn get_module_data_mut<'a, 's, S>(&'a mut self, id: S) -> Option<&'a mut ModuleData>
     where
         S: AsRef<ModuleId<'s>>,

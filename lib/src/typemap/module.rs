@@ -136,3 +136,87 @@ impl Extend<metatype::Enum> for ModuleData {
         self.namespace.extend_enums(iter)
     }
 }
+
+/// Stack of modules which represents a type space containing imported modules.
+#[derive(Clone, Debug)]
+pub struct ImportedModuleSpace<'a> {
+    data_stack: Vec<&'a ModuleData>,
+    type_map: &'a TypeMap,
+}
+
+impl<'a> ImportedModuleSpace<'a> {
+    pub fn new(type_map: &'a TypeMap) -> Self {
+        ImportedModuleSpace {
+            data_stack: vec![],
+            type_map,
+        }
+    }
+
+    pub(super) fn from_modules<'s, I>(modules: I, type_map: &'a TypeMap) -> Self
+    where
+        I: IntoIterator,
+        I::Item: AsRef<ModuleId<'s>>,
+    {
+        // TODO: module not found error?
+        let data_stack = modules
+            .into_iter()
+            .filter_map(|id| type_map.get_module_data(id))
+            .collect();
+        ImportedModuleSpace {
+            data_stack,
+            type_map,
+        }
+    }
+
+    /// Adds the specified module to the stack of the imported modules.
+    #[must_use]
+    pub fn import_module<'s, S>(&mut self, id: S) -> bool
+    where
+        S: AsRef<ModuleId<'s>>,
+    {
+        if let Some(d) = self.type_map.get_module_data(id) {
+            self.data_stack.push(d);
+            true
+        } else {
+            false
+        }
+    }
+}
+
+impl<'a> PartialEq for ImportedModuleSpace<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        // two types should be equal if both borrow the identical data.
+        self.data_stack.len() == other.data_stack.len()
+            && self
+                .data_stack
+                .iter()
+                .zip(&other.data_stack)
+                .all(|(&a, &b)| ptr::eq(a, b))
+            && ptr::eq(self.type_map, other.type_map)
+    }
+}
+
+impl<'a> Eq for ImportedModuleSpace<'a> {}
+
+// TODO: remove or refactor TypeSpace abstraction
+impl<'a> TypeSpace<'a> for ImportedModuleSpace<'a> {
+    fn name(&self) -> &str {
+        ""
+    }
+
+    fn get_type(&self, name: &str) -> Option<Type<'a>> {
+        self.data_stack.iter().rev().find_map(|d| {
+            d.namespace.get_type_with(name, self.type_map, || {
+                Type::Module(Module::new(d, self.type_map))
+            })
+        })
+    }
+
+    fn lexical_parent(&self) -> Option<&Type<'a>> {
+        None
+    }
+
+    fn get_enum_by_variant(&self, _name: &str) -> Option<Enum<'a>> {
+        None // enum variant shouldn't exist in the top-level imported namespace
+    }
+}
