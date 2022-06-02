@@ -116,7 +116,9 @@ dependencies = [
  "encode_unicode",
  "libc",
  "once_cell",
+ "regex",
  "terminal_size",
+ "unicode-width",
  "winapi",
 ]
 
@@ -343,6 +345,7 @@ dependencies = [
  "camino",
  "clap",
  "codespan-reporting",
+ "console",
  "insta",
  "log",
  "pretty_env_logger",

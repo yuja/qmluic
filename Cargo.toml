@@ -9,6 +9,7 @@ anyhow = "1.0"
 camino = "1.0.9"
 clap = { version = "3.1", features = ["derive"] }
 codespan-reporting = "0.11"
+console = "0.15"
 log = "0.4"
 pretty_env_logger = "0.4"
 qmluic = { version = "=0.1.0", path = "lib" }
