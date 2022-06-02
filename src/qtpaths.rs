@@ -40,7 +40,7 @@ impl QtPaths {
     pub fn query() -> Result<Self, QueryError> {
         let mut cmd = Command::new("qmake");
         cmd.arg("-query");
-        log::info!("executing {cmd:?}");
+        log::debug!("executing {cmd:?}");
         let output = cmd.output()?;
         if !output.status.success() {
             return Err(QueryError::CommandFailed(
