@@ -16,9 +16,9 @@ pub struct Enum<'a> {
 pub(super) struct EnumData {
     name: String,
     alias: Option<String>,
-    pub(super) is_class: bool,
+    is_class: bool,
     is_flag: bool,
-    pub(super) variants: Vec<String>,
+    variants: Vec<String>,
     variant_set: HashSet<String>,
 }
 
@@ -110,6 +110,14 @@ impl EnumData {
             is_flag: meta.is_flag,
             variants: meta.values,
             variant_set,
+        }
+    }
+
+    pub(super) fn unscoped_variants(&self) -> Option<&[String]> {
+        if self.is_class {
+            None
+        } else {
+            Some(&self.variants)
         }
     }
 }

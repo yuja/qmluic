@@ -111,9 +111,9 @@ impl NamespaceData {
             let data = EnumData::from_meta(meta);
             let index = i + start;
             self.name_map.insert(name, TypeIndex::Enum(index));
-            if !data.is_class {
+            if let Some(variants) = data.unscoped_variants() {
                 self.enum_variant_map
-                    .extend(data.variants.iter().map(|v| (v.to_owned(), index)));
+                    .extend(variants.iter().map(|v| (v.to_owned(), index)));
             }
             self.enums.push(data);
         }
