@@ -75,6 +75,7 @@ QWidget {
         enabled: check.checked // not work
     }
 }
+```
 
 Debugging
 ---------
