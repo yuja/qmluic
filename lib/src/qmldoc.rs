@@ -40,6 +40,7 @@ impl UiDocument {
         P: AsRef<Utf8Path>, // TODO: or Into<Utf8PathBuf>, but read(&path) makes more sense?
     {
         let path = path.as_ref();
+        log::debug!("reading file {path:?}");
         let source = fs::read_to_string(path)?;
         Ok(Self::parse(source, Some(path.to_owned())))
     }

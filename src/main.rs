@@ -249,6 +249,7 @@ fn generate_ui_file(
         return Err(CommandError::DiagnosticGenerated);
     }
 
+    log::debug!("building ui for {source:?}");
     let mut diagnostics = Diagnostics::new();
     let form = match uigen::build(ctx, doc, &mut diagnostics) {
         Some(form) if diagnostics.is_empty() => form,
@@ -277,12 +278,14 @@ fn generate_ui_file(
 
 fn load_metatypes(paths: &[Utf8PathBuf]) -> anyhow::Result<Vec<metatype::Class>> {
     fn load_into(classes: &mut Vec<metatype::Class>, path: &Utf8Path) -> io::Result<()> {
+        log::trace!("loading metatypes file {path:?}");
         let data = fs::read_to_string(path)?;
         let cs = metatype::extract_classes_from_str(&data)?;
         classes.extend(cs);
         Ok(())
     }
 
+    log::debug!("loading metatypes from {paths:?}");
     paths.iter().fold(Ok(vec![]), |acc, path| {
         acc.and_then(|mut classes| {
             if path.is_dir() {
