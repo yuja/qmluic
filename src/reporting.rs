@@ -8,14 +8,15 @@ use termcolor::{ColorChoice, StandardStream};
 type ReportableDiagnostic = codespan_reporting::diagnostic::Diagnostic<()>;
 
 pub fn print_syntax_errors(doc: &UiDocument) -> anyhow::Result<()> {
-    let nodes: Vec<_> = doc.collect_syntax_error_nodes();
+    let errors = doc.collect_syntax_errors();
     print_reportable_diagnostics(
         doc,
-        nodes.iter().map(|n| {
-            let msg = "syntax error";
+        errors.iter().map(|e| {
             ReportableDiagnostic::error()
-                .with_message(msg)
-                .with_labels(vec![Label::primary((), n.byte_range()).with_message(msg)])
+                .with_message("syntax error")
+                .with_labels(vec![
+                    Label::primary((), e.byte_range()).with_message(e.to_string())
+                ])
         }),
     )
 }

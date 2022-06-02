@@ -2,8 +2,11 @@
 
 use camino::{Utf8Path, Utf8PathBuf};
 use std::collections::{HashMap, VecDeque};
+use std::error::Error;
+use std::fmt;
 use std::fs;
 use std::io;
+use std::ops::Range;
 use tree_sitter::{Node, Parser, Tree};
 
 /// Object holding QML source text and parsed tree.
@@ -61,8 +64,8 @@ impl UiDocument {
         self.tree.root_node().has_error()
     }
 
-    /// Collects syntax error nodes from the parsed tree.
-    pub fn collect_syntax_error_nodes(&self) -> Vec<Node> {
+    /// Collects syntax errors from the parsed tree.
+    pub fn collect_syntax_errors(&self) -> Vec<SyntaxError> {
         if !self.tree.root_node().has_error() {
             return Vec::new();
         }
@@ -70,20 +73,22 @@ impl UiDocument {
         // https://github.com/tree-sitter/tree-sitter/issues/650
         let mut cursor = self.tree.walk();
         let mut pending_nodes = VecDeque::from([self.tree.root_node()]);
-        let mut error_nodes = Vec::new();
+        let mut errors = Vec::new();
         while let Some(node) = pending_nodes.pop_front() {
             assert!(node.has_error());
-            if node.is_error() || node.is_missing() {
-                error_nodes.push(node);
-                continue;
-            }
-            for n in node.children(&mut cursor) {
-                if n.has_error() {
-                    pending_nodes.push_back(n);
+            if node.is_error() {
+                errors.push(SyntaxError::new(node, SyntaxErrorKind::Error));
+            } else if node.is_missing() {
+                errors.push(SyntaxError::new(node, SyntaxErrorKind::Missing));
+            } else {
+                for n in node.children(&mut cursor) {
+                    if n.has_error() {
+                        pending_nodes.push_back(n);
+                    }
                 }
             }
         }
-        error_nodes
+        errors
     }
 
     pub fn source(&self) -> &str {
@@ -149,6 +154,57 @@ fn new_parser() -> Parser {
     parser
 }
 
+/// Syntax error found in QML parse tree.
+#[derive(Clone, Debug)]
+pub struct SyntaxError<'t> {
+    node: Node<'t>,
+    kind: SyntaxErrorKind,
+}
+
+/// Details of QML syntax error.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SyntaxErrorKind {
+    Error,
+    Missing,
+}
+
+impl<'t> SyntaxError<'t> {
+    pub fn new(node: Node<'t>, kind: SyntaxErrorKind) -> Self {
+        SyntaxError { node, kind }
+    }
+
+    pub fn node(&self) -> Node<'t> {
+        self.node
+    }
+
+    pub fn kind(&self) -> SyntaxErrorKind {
+        self.kind
+    }
+
+    pub fn start_byte(&self) -> usize {
+        self.node.start_byte()
+    }
+
+    pub fn end_byte(&self) -> usize {
+        self.node.end_byte()
+    }
+
+    pub fn byte_range(&self) -> Range<usize> {
+        self.node.byte_range()
+    }
+}
+
+impl fmt::Display for SyntaxError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.kind {
+            SyntaxErrorKind::Error => write!(f, "syntax error"),
+            SyntaxErrorKind::Missing => write!(f, "missing {}", self.node.kind()),
+        }
+    }
+}
+
+impl Error for SyntaxError<'_> {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -165,7 +221,7 @@ mod tests {
             "###,
         );
         assert!(doc.has_syntax_error());
-        let errors = doc.collect_syntax_error_nodes();
+        let errors = doc.collect_syntax_errors();
         assert_eq!(errors.len(), 1);
     }
 
@@ -177,7 +233,7 @@ mod tests {
             "###,
         );
         assert!(doc.has_syntax_error());
-        let errors = doc.collect_syntax_error_nodes();
+        let errors = doc.collect_syntax_errors();
         assert_eq!(errors.len(), 1);
     }
 
@@ -192,7 +248,7 @@ mod tests {
             "###,
         );
         assert!(doc.has_syntax_error());
-        let errors = doc.collect_syntax_error_nodes();
+        let errors = doc.collect_syntax_errors();
         assert_eq!(errors.len(), 1);
     }
 }
