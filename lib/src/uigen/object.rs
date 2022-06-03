@@ -233,7 +233,7 @@ pub(super) fn resolve_object_definition<'a, 't>(
             ctx.ref_qml_components.borrow_mut().push(ns.clone()); // TODO: redesign tracing API
             Some((obj, ns.to_class()))
         }
-        Some(Type::Enum(_) | Type::Module(_) | Type::Namespace(_) | Type::Primitive(_)) | None => {
+        Some(Type::Enum(_) | Type::Namespace(_) | Type::Primitive(_)) | None => {
             diagnostics.push(Diagnostic::error(
                 obj.type_name().node().byte_range(),
                 format!("unknown object type: {type_name}"),

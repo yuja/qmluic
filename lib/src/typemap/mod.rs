@@ -123,7 +123,6 @@ impl TypeMap {
 pub enum Type<'a> {
     Class(Class<'a>),
     Enum(Enum<'a>),
-    Module(Module<'a>),
     Namespace(Namespace<'a>),
     Primitive(PrimitiveType),
     QmlComponent(QmlComponent<'a>),
@@ -134,7 +133,6 @@ impl<'a> TypeSpace<'a> for Type<'a> {
         match self {
             Type::Class(cls) => cls.name(),
             Type::Enum(en) => en.name(),
-            Type::Module(ns) => ns.name(),
             Type::Namespace(ns) => ns.name(),
             Type::Primitive(pt) => pt.name(),
             Type::QmlComponent(ns) => ns.name(),
@@ -145,7 +143,6 @@ impl<'a> TypeSpace<'a> for Type<'a> {
         match self {
             Type::Class(cls) => cls.get_type(name),
             Type::Enum(_) => None,
-            Type::Module(ns) => ns.get_type(name),
             Type::Namespace(ns) => ns.get_type(name),
             Type::Primitive(_) => None,
             Type::QmlComponent(ns) => ns.get_type(name),
@@ -156,7 +153,6 @@ impl<'a> TypeSpace<'a> for Type<'a> {
         match self {
             Type::Class(cls) => cls.lexical_parent(),
             Type::Enum(en) => en.lexical_parent(),
-            Type::Module(ns) => ns.lexical_parent(),
             Type::Namespace(ns) => ns.lexical_parent(),
             Type::Primitive(_) => None,
             Type::QmlComponent(ns) => ns.lexical_parent(),
@@ -167,7 +163,6 @@ impl<'a> TypeSpace<'a> for Type<'a> {
         match self {
             Type::Class(cls) => cls.get_enum_by_variant(name),
             Type::Enum(en) => en.get_enum_by_variant(name),
-            Type::Module(ns) => ns.get_enum_by_variant(name),
             Type::Namespace(ns) => ns.get_enum_by_variant(name),
             Type::Primitive(_) => None,
             Type::QmlComponent(ns) => ns.get_enum_by_variant(name),

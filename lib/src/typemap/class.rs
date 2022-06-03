@@ -42,8 +42,7 @@ impl<'a> Class<'a> {
             match self.parent_space.resolve_type_scoped(n) {
                 Some(Type::Class(x)) => Some(x),
                 Some(Type::QmlComponent(ns)) => Some(ns.to_class()),
-                Some(Type::Enum(_) | Type::Module(_) | Type::Namespace(_) | Type::Primitive(_))
-                | None => None, // TODO: error?
+                Some(Type::Enum(_) | Type::Namespace(_) | Type::Primitive(_)) | None => None, // TODO: error?
             }
         })
     }

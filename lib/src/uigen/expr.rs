@@ -167,7 +167,7 @@ impl SimpleValue {
                     }
                 }
             }
-            Type::Module(_) | Type::Namespace(_) => {
+            Type::Namespace(_) => {
                 diagnostics.push(Diagnostic::error(
                     node.byte_range(),
                     format!(
