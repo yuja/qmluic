@@ -12,8 +12,8 @@ pub trait TypeSpace<'a> {
     /// This is primarily designed for diagnostics.
     fn qualified_name(&self) -> Cow<'_, str> {
         if let Some(ty) = self.lexical_parent() {
-            // ty may be the root namespace
-            if ty.name().is_empty() && ty.lexical_parent().is_none() {
+            // TODO: ty may be the root: ImportedModuleSpace <- Namespace <- ty
+            if ty.name().is_empty() {
                 Cow::Borrowed(self.name())
             } else {
                 Cow::Owned(format!("{}::{}", ty.qualified_name(), self.name()))

@@ -175,45 +175,40 @@ impl<'a> TypeSpace<'a> for Type<'a> {
 #[doc(hidden)] // this is implementation detail, but exposed by TypeSpace trait
 pub enum ParentSpace<'a> {
     Class(Class<'a>),
-    Module(Module<'a>),
+    ImportedModuleSpace(ImportedModuleSpace<'a>),
     Namespace(Namespace<'a>),
-    QmlComponent(QmlComponent<'a>),
 }
 
 impl<'a> TypeSpace<'a> for ParentSpace<'a> {
     fn name(&self) -> &str {
         match self {
             ParentSpace::Class(cls) => cls.name(),
-            ParentSpace::Module(ns) => ns.name(),
+            ParentSpace::ImportedModuleSpace(ns) => ns.name(),
             ParentSpace::Namespace(ns) => ns.name(),
-            ParentSpace::QmlComponent(ns) => ns.name(),
         }
     }
 
     fn get_type(&self, name: &str) -> Option<Type<'a>> {
         match self {
             ParentSpace::Class(cls) => cls.get_type(name),
-            ParentSpace::Module(ns) => ns.get_type(name),
+            ParentSpace::ImportedModuleSpace(ns) => ns.get_type(name),
             ParentSpace::Namespace(ns) => ns.get_type(name),
-            ParentSpace::QmlComponent(ns) => ns.get_type(name),
         }
     }
 
     fn lexical_parent(&self) -> Option<&ParentSpace<'a>> {
         match self {
             ParentSpace::Class(cls) => cls.lexical_parent(),
-            ParentSpace::Module(ns) => ns.lexical_parent(),
+            ParentSpace::ImportedModuleSpace(ns) => ns.lexical_parent(),
             ParentSpace::Namespace(ns) => ns.lexical_parent(),
-            ParentSpace::QmlComponent(ns) => ns.lexical_parent(),
         }
     }
 
     fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
         match self {
             ParentSpace::Class(cls) => cls.get_enum_by_variant(name),
-            ParentSpace::Module(ns) => ns.get_enum_by_variant(name),
+            ParentSpace::ImportedModuleSpace(ns) => ns.get_enum_by_variant(name),
             ParentSpace::Namespace(ns) => ns.get_enum_by_variant(name),
-            ParentSpace::QmlComponent(ns) => ns.get_enum_by_variant(name),
         }
     }
 }
@@ -302,7 +297,10 @@ mod tests {
             .extend([metatype::Class::new("Foo")]);
         let module = type_map.get_module(&ModuleId::Named("foo".into())).unwrap();
         assert!(module.get_type("Foo").is_some());
-        assert!(module.get_type("int").is_some()); // TODO: only for imported type resolution
+        assert!(
+            module.get_type("int").is_none(),
+            "imported type not in namespace"
+        );
     }
 
     #[test]
@@ -335,7 +333,7 @@ mod tests {
             .extend([foo_meta]);
 
         let module = type_map.get_module(module_id).unwrap();
-        assert_eq!(module.get_type("int").unwrap().qualified_name(), "int");
+        assert_eq!(module.resolve_type("int").unwrap().qualified_name(), "int");
         let foo_type = module.get_type("Foo").unwrap();
         assert_eq!(foo_type.qualified_name(), "Foo");
         assert_eq!(
@@ -356,7 +354,7 @@ mod tests {
 
         let module = type_map.get_module(module_id).unwrap();
         assert_eq!(
-            module.get_type("int").unwrap(),
+            module.resolve_type("int").unwrap(),
             Type::Primitive(PrimitiveType::Int)
         );
         let foo_class = unwrap_class(module.get_type("Foo"));
@@ -493,11 +491,11 @@ mod tests {
         let bar_class = unwrap_class(module.get_type("Bar"));
         assert_eq!(
             bar_class.get_property_type("bar_prop").unwrap(),
-            module.get_type("bool").unwrap()
+            module.resolve_type("bool").unwrap()
         );
         assert_eq!(
             bar_class.get_property_type("foo_prop").unwrap(),
-            module.get_type("int").unwrap()
+            module.resolve_type("int").unwrap()
         );
     }
 

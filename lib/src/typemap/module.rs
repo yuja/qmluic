@@ -1,6 +1,6 @@
 use super::core::TypeSpace;
 use super::enum_::Enum;
-use super::namespace::NamespaceData;
+use super::namespace::{Namespace, NamespaceData};
 use super::QmlComponentData;
 use super::{ParentSpace, Type, TypeMap};
 use crate::metatype;
@@ -28,10 +28,9 @@ impl<'s> AsRef<ModuleId<'s>> for ModuleId<'s> {
 }
 
 /// Represents a top-level namespace with imports list.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Module<'a> {
-    data: &'a ModuleData,
-    type_map: &'a TypeMap,
+    namespace: Namespace<'a>,
 }
 
 /// Stored top-level namespace with imports list.
@@ -42,41 +41,33 @@ pub struct ModuleData {
 }
 
 impl<'a> Module<'a> {
-    pub fn new(data: &'a ModuleData, type_map: &'a TypeMap) -> Self {
-        Module { data, type_map }
+    pub(super) fn new(data: &'a ModuleData, type_map: &'a TypeMap) -> Module<'a> {
+        let imported_space = ImportedModuleSpace::from_modules(&data.imports, type_map);
+        Module {
+            namespace: Namespace::new(
+                &data.namespace,
+                type_map,
+                ParentSpace::ImportedModuleSpace(imported_space),
+            )
+        }
     }
 }
-
-impl<'a> PartialEq for Module<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        // two types should be equal if both borrow the identical data.
-        ptr::eq(self.data, other.data) && ptr::eq(self.type_map, other.type_map)
-    }
-}
-
-impl<'a> Eq for Module<'a> {}
 
 impl<'a> TypeSpace<'a> for Module<'a> {
     fn name(&self) -> &str {
         "" // TODO
     }
 
-    // TODO: separate function to get imported/exported (i.e. private/public) types
     fn get_type(&self, name: &str) -> Option<Type<'a>> {
-        self.data
-            .namespace
-            .get_type_with(name, self.type_map, || ParentSpace::Module(self.clone()))
-            .or_else(|| self.data.get_imported_type(name, self.type_map))
+        self.namespace.get_type(name)
     }
 
     fn lexical_parent(&self) -> Option<&ParentSpace<'a>> {
-        None
+        self.namespace.lexical_parent()
     }
 
     fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
-        self.data
-            .namespace
-            .get_enum_by_variant_with(name, || ParentSpace::Module(self.clone()))
+        self.namespace.get_enum_by_variant(name)
     }
 }
 
@@ -104,14 +95,6 @@ impl ModuleData {
         S: Into<ModuleId<'static>>,
     {
         self.imports.push(id.into())
-    }
-
-    fn get_imported_type<'a>(&'a self, name: &str, type_map: &'a TypeMap) -> Option<Type<'a>> {
-        // TODO: detect cycle
-        // TODO: module not found error?
-        self.imports
-            .iter()
-            .find_map(|id| type_map.get_module(id).and_then(|ns| ns.get_type(name)))
     }
 
     pub fn push_qml_component(&mut self, data: QmlComponentData) {
@@ -207,7 +190,7 @@ impl<'a> TypeSpace<'a> for ImportedModuleSpace<'a> {
     fn get_type(&self, name: &str) -> Option<Type<'a>> {
         self.data_stack.iter().rev().find_map(|d| {
             d.namespace.get_type_with(name, self.type_map, || {
-                ParentSpace::Module(Module::new(d, self.type_map))
+                ParentSpace::Namespace(Module::new(d, self.type_map).namespace)
             })
         })
     }

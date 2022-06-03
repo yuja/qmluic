@@ -1,7 +1,7 @@
 use super::class::{Class, ClassData};
 use super::core::TypeSpace;
 use super::enum_::Enum;
-use super::module::ModuleId;
+use super::module::{ImportedModuleSpace, ModuleId};
 use super::{ParentSpace, Type, TypeMap};
 use std::hash::{Hash, Hasher};
 use std::ptr;
@@ -11,6 +11,7 @@ use std::ptr;
 /// This is basically a class inside an anonymous namespace. Since this represents
 /// the namespace part, no types defined in the QML component will be returned from
 /// this `TypeSpace`. Use [`QmlComponent::to_class`] to get the class part.
+// TODO: maybe remove intermediate QmlComponent wrapper?
 #[derive(Clone, Debug)]
 pub struct QmlComponent<'a> {
     data: &'a QmlComponentData,
@@ -32,10 +33,11 @@ impl<'a> QmlComponent<'a> {
     /// Returns the inner class representation of this QML component.
     pub fn to_class(&self) -> Class<'a> {
         // TODO: inner enum has to be qualified whereas inner class (or inline component) isn't
+        let imported_space = ImportedModuleSpace::from_modules(&self.data.imports, self.type_map);
         Class::new(
             &self.data.class,
             self.type_map,
-            ParentSpace::QmlComponent(self.clone()),
+            ParentSpace::ImportedModuleSpace(imported_space),
         )
     }
 }

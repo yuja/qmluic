@@ -13,7 +13,7 @@ use std::ptr;
 pub struct Namespace<'a> {
     data: &'a NamespaceData,
     type_map: &'a TypeMap,
-    // TODO: parent_space
+    parent_space: Box<ParentSpace<'a>>,
 }
 
 /// Stored type namespace.
@@ -37,18 +37,25 @@ enum TypeIndex {
 
 impl<'a> Namespace<'a> {
     // TODO: map C++ namespace to this type
-    /*
-    fn root(data: &'a NamespaceData, type_map: &'a TypeMap) -> Self {
-        Namespace { data, type_map }
+    pub(crate) fn new(
+        data: &'a NamespaceData,
+        type_map: &'a TypeMap,
+        parent_space: ParentSpace<'a>,
+    ) -> Self {
+        Namespace {
+            data,
+            type_map,
+            parent_space: Box::new(parent_space),
+        }
     }
-    */
 }
 
 impl<'a> PartialEq for Namespace<'a> {
     fn eq(&self, other: &Self) -> bool {
         // two types should be equal if both borrow the identical data.
-        ptr::eq(self.data, other.data) && ptr::eq(self.type_map, other.type_map)
-        /*&& self.parent_space == other.parent_space*/
+        ptr::eq(self.data, other.data)
+            && ptr::eq(self.type_map, other.type_map)
+            && self.parent_space == other.parent_space
     }
 }
 
@@ -65,7 +72,7 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
     }
 
     fn lexical_parent(&self) -> Option<&ParentSpace<'a>> {
-        None // TODO: return some if not root namespace
+        Some(&self.parent_space)
     }
 
     fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
