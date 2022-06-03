@@ -1,5 +1,5 @@
 use super::enum_::Enum;
-use super::Type;
+use super::{ParentSpace, Type};
 use std::borrow::Cow;
 
 /// Interface to look up type by name.
@@ -40,7 +40,8 @@ pub trait TypeSpace<'a> {
     /// Parent space of this type.
     ///
     /// This is unrelated to the super type of the class inheritance.
-    fn lexical_parent(&self) -> Option<&Type<'a>>;
+    #[doc(hidden)]
+    fn lexical_parent(&self) -> Option<&ParentSpace<'a>>;
 
     /// Looks up type by name from this towards the parent type space.
     fn resolve_type(&self, name: &str) -> Option<Type<'a>> {

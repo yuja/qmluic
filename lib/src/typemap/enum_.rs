@@ -1,5 +1,5 @@
 use super::core::TypeSpace;
-use super::Type;
+use super::{ParentSpace, Type};
 use crate::metatype;
 use std::collections::HashSet;
 use std::ptr;
@@ -8,7 +8,7 @@ use std::ptr;
 #[derive(Clone, Debug)]
 pub struct Enum<'a> {
     data: &'a EnumData,
-    parent_space: Box<Type<'a>>, // should be either Class or Namespace
+    parent_space: ParentSpace<'a>,
 }
 
 /// Stored enum representation.
@@ -23,11 +23,8 @@ pub(super) struct EnumData {
 }
 
 impl<'a> Enum<'a> {
-    pub(super) fn new(data: &'a EnumData, parent_space: Type<'a>) -> Self {
-        Enum {
-            data,
-            parent_space: Box::new(parent_space),
-        }
+    pub(super) fn new(data: &'a EnumData, parent_space: ParentSpace<'a>) -> Self {
+        Enum { data, parent_space }
     }
 
     pub fn alias_enum(&self) -> Option<Enum<'a>> {
@@ -87,7 +84,7 @@ impl<'a> TypeSpace<'a> for Enum<'a> {
         None
     }
 
-    fn lexical_parent(&self) -> Option<&Type<'a>> {
+    fn lexical_parent(&self) -> Option<&ParentSpace<'a>> {
         Some(&self.parent_space)
     }
 

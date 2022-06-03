@@ -2,7 +2,7 @@ use super::core::TypeSpace;
 use super::enum_::Enum;
 use super::namespace::NamespaceData;
 use super::QmlComponentData;
-use super::{Type, TypeMap};
+use super::{ParentSpace, Type, TypeMap};
 use crate::metatype;
 use camino::Utf8Path;
 use std::borrow::Cow;
@@ -65,18 +65,18 @@ impl<'a> TypeSpace<'a> for Module<'a> {
     fn get_type(&self, name: &str) -> Option<Type<'a>> {
         self.data
             .namespace
-            .get_type_with(name, self.type_map, || Type::Module(self.clone()))
+            .get_type_with(name, self.type_map, || ParentSpace::Module(self.clone()))
             .or_else(|| self.data.get_imported_type(name, self.type_map))
     }
 
-    fn lexical_parent(&self) -> Option<&Type<'a>> {
+    fn lexical_parent(&self) -> Option<&ParentSpace<'a>> {
         None
     }
 
     fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
         self.data
             .namespace
-            .get_enum_by_variant_with(name, || Type::Module(self.clone()))
+            .get_enum_by_variant_with(name, || ParentSpace::Module(self.clone()))
     }
 }
 
@@ -207,12 +207,12 @@ impl<'a> TypeSpace<'a> for ImportedModuleSpace<'a> {
     fn get_type(&self, name: &str) -> Option<Type<'a>> {
         self.data_stack.iter().rev().find_map(|d| {
             d.namespace.get_type_with(name, self.type_map, || {
-                Type::Module(Module::new(d, self.type_map))
+                ParentSpace::Module(Module::new(d, self.type_map))
             })
         })
     }
 
-    fn lexical_parent(&self) -> Option<&Type<'a>> {
+    fn lexical_parent(&self) -> Option<&ParentSpace<'a>> {
         None
     }
 

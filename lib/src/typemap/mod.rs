@@ -152,7 +152,7 @@ impl<'a> TypeSpace<'a> for Type<'a> {
         }
     }
 
-    fn lexical_parent(&self) -> Option<&Type<'a>> {
+    fn lexical_parent(&self) -> Option<&ParentSpace<'a>> {
         match self {
             Type::Class(cls) => cls.lexical_parent(),
             Type::Enum(en) => en.lexical_parent(),
@@ -171,6 +171,54 @@ impl<'a> TypeSpace<'a> for Type<'a> {
             Type::Namespace(ns) => ns.get_enum_by_variant(name),
             Type::Primitive(_) => None,
             Type::QmlComponent(ns) => ns.get_enum_by_variant(name),
+        }
+    }
+}
+
+/// Type variants for parent space.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[doc(hidden)] // this is implementation detail, but exposed by TypeSpace trait
+pub enum ParentSpace<'a> {
+    Class(Class<'a>),
+    Module(Module<'a>),
+    Namespace(Namespace<'a>),
+    QmlComponent(QmlComponent<'a>),
+}
+
+impl<'a> TypeSpace<'a> for ParentSpace<'a> {
+    fn name(&self) -> &str {
+        match self {
+            ParentSpace::Class(cls) => cls.name(),
+            ParentSpace::Module(ns) => ns.name(),
+            ParentSpace::Namespace(ns) => ns.name(),
+            ParentSpace::QmlComponent(ns) => ns.name(),
+        }
+    }
+
+    fn get_type(&self, name: &str) -> Option<Type<'a>> {
+        match self {
+            ParentSpace::Class(cls) => cls.get_type(name),
+            ParentSpace::Module(ns) => ns.get_type(name),
+            ParentSpace::Namespace(ns) => ns.get_type(name),
+            ParentSpace::QmlComponent(ns) => ns.get_type(name),
+        }
+    }
+
+    fn lexical_parent(&self) -> Option<&ParentSpace<'a>> {
+        match self {
+            ParentSpace::Class(cls) => cls.lexical_parent(),
+            ParentSpace::Module(ns) => ns.lexical_parent(),
+            ParentSpace::Namespace(ns) => ns.lexical_parent(),
+            ParentSpace::QmlComponent(ns) => ns.lexical_parent(),
+        }
+    }
+
+    fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
+        match self {
+            ParentSpace::Class(cls) => cls.get_enum_by_variant(name),
+            ParentSpace::Module(ns) => ns.get_enum_by_variant(name),
+            ParentSpace::Namespace(ns) => ns.get_enum_by_variant(name),
+            ParentSpace::QmlComponent(ns) => ns.get_enum_by_variant(name),
         }
     }
 }

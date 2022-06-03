@@ -2,7 +2,7 @@ use super::class::{Class, ClassData};
 use super::core::TypeSpace;
 use super::enum_::Enum;
 use super::module::ModuleId;
-use super::{Type, TypeMap};
+use super::{ParentSpace, Type, TypeMap};
 use std::hash::{Hash, Hasher};
 use std::ptr;
 
@@ -35,7 +35,7 @@ impl<'a> QmlComponent<'a> {
         Class::new(
             &self.data.class,
             self.type_map,
-            Type::QmlComponent(self.clone()),
+            ParentSpace::QmlComponent(self.clone()),
         )
     }
 }
@@ -66,7 +66,7 @@ impl<'a> TypeSpace<'a> for QmlComponent<'a> {
         self.data.get_imported_type(name, self.type_map)
     }
 
-    fn lexical_parent(&self) -> Option<&Type<'a>> {
+    fn lexical_parent(&self) -> Option<&ParentSpace<'a>> {
         None
     }
 

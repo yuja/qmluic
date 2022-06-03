@@ -2,7 +2,7 @@ use super::class::{Class, ClassData};
 use super::core::TypeSpace;
 use super::enum_::{Enum, EnumData};
 use super::qml_component::{QmlComponent, QmlComponentData};
-use super::{PrimitiveType, Type, TypeMap};
+use super::{ParentSpace, PrimitiveType, Type, TypeMap};
 use crate::metatype;
 use std::collections::HashMap;
 use std::ptr;
@@ -61,16 +61,16 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
 
     fn get_type(&self, name: &str) -> Option<Type<'a>> {
         self.data
-            .get_type_with(name, self.type_map, || Type::Namespace(self.clone()))
+            .get_type_with(name, self.type_map, || ParentSpace::Namespace(self.clone()))
     }
 
-    fn lexical_parent(&self) -> Option<&Type<'a>> {
+    fn lexical_parent(&self) -> Option<&ParentSpace<'a>> {
         None // TODO: return some if not root namespace
     }
 
     fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
         self.data
-            .get_enum_by_variant_with(name, || Type::Namespace(self.clone()))
+            .get_enum_by_variant_with(name, || ParentSpace::Namespace(self.clone()))
     }
 }
 
@@ -134,7 +134,7 @@ impl NamespaceData {
         make_parent_space: F,
     ) -> Option<Type<'a>>
     where
-        F: FnOnce() -> Type<'a>,
+        F: FnOnce() -> ParentSpace<'a>,
     {
         self.name_map.get(name).map(|&index| match index {
             TypeIndex::Class(i) => {
@@ -154,7 +154,7 @@ impl NamespaceData {
         make_parent_space: F,
     ) -> Option<Enum<'a>>
     where
-        F: FnOnce() -> Type<'a>,
+        F: FnOnce() -> ParentSpace<'a>,
     {
         self.enum_variant_map
             .get(name)

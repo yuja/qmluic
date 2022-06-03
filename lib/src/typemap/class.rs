@@ -1,7 +1,7 @@
 use super::core::TypeSpace;
 use super::enum_::Enum;
 use super::namespace::NamespaceData;
-use super::{Type, TypeMap};
+use super::{ParentSpace, Type, TypeMap};
 use crate::metatype;
 use std::collections::HashMap;
 use std::ptr;
@@ -11,7 +11,7 @@ use std::ptr;
 pub struct Class<'a> {
     data: &'a ClassData,
     type_map: &'a TypeMap,
-    parent_space: Box<Type<'a>>, // should be either Class or Namespace
+    parent_space: Box<ParentSpace<'a>>,
 }
 
 /// Stored class representation.
@@ -25,7 +25,11 @@ pub(super) struct ClassData {
 }
 
 impl<'a> Class<'a> {
-    pub(super) fn new(data: &'a ClassData, type_map: &'a TypeMap, parent_space: Type<'a>) -> Self {
+    pub(super) fn new(
+        data: &'a ClassData,
+        type_map: &'a TypeMap,
+        parent_space: ParentSpace<'a>,
+    ) -> Self {
         Class {
             data,
             type_map,
@@ -86,14 +90,14 @@ impl<'a> TypeSpace<'a> for Class<'a> {
         // TODO: detect cycle in super-class chain
         self.data
             .inner_type_map
-            .get_type_with(name, self.type_map, || Type::Class(self.clone()))
+            .get_type_with(name, self.type_map, || ParentSpace::Class(self.clone()))
             .or_else(|| {
                 self.public_super_classes()
                     .find_map(|cls| cls.get_type(name))
             })
     }
 
-    fn lexical_parent(&self) -> Option<&Type<'a>> {
+    fn lexical_parent(&self) -> Option<&ParentSpace<'a>> {
         Some(&self.parent_space)
     }
 
@@ -101,7 +105,7 @@ impl<'a> TypeSpace<'a> for Class<'a> {
         // TODO: detect cycle in super-class chain
         self.data
             .inner_type_map
-            .get_enum_by_variant_with(name, || Type::Class(self.clone()))
+            .get_enum_by_variant_with(name, || ParentSpace::Class(self.clone()))
             .or_else(|| {
                 self.public_super_classes()
                     .find_map(|cls| cls.get_enum_by_variant(name))
