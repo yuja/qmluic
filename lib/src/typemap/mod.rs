@@ -10,6 +10,7 @@ mod enum_;
 mod module;
 mod namespace;
 mod qml_component;
+mod util;
 
 pub use self::class::*; // re-export
 pub use self::core::*; // re-export
