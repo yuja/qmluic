@@ -27,48 +27,11 @@ impl<'s> AsRef<ModuleId<'s>> for ModuleId<'s> {
     }
 }
 
-/// Represents a top-level namespace with imports list.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Module<'a> {
-    namespace: Namespace<'a>,
-}
-
 /// Stored top-level namespace with imports list.
 #[derive(Clone, Debug, Default)]
 pub struct ModuleData {
     namespace: NamespaceData,
     imports: Vec<ModuleId<'static>>,
-}
-
-impl<'a> Module<'a> {
-    pub(super) fn new(data: &'a ModuleData, type_map: &'a TypeMap) -> Module<'a> {
-        let imported_space = ImportedModuleSpace::from_modules(&data.imports, type_map);
-        Module {
-            namespace: Namespace::new(
-                &data.namespace,
-                type_map,
-                ParentSpace::ImportedModuleSpace(imported_space),
-            )
-        }
-    }
-}
-
-impl<'a> TypeSpace<'a> for Module<'a> {
-    fn name(&self) -> &str {
-        "" // TODO
-    }
-
-    fn get_type(&self, name: &str) -> Option<Type<'a>> {
-        self.namespace.get_type(name)
-    }
-
-    fn lexical_parent(&self) -> Option<&ParentSpace<'a>> {
-        self.namespace.lexical_parent()
-    }
-
-    fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
-        self.namespace.get_enum_by_variant(name)
-    }
 }
 
 impl ModuleData {
@@ -99,6 +62,15 @@ impl ModuleData {
 
     pub fn push_qml_component(&mut self, data: QmlComponentData) {
         self.namespace.push_qml_component(data);
+    }
+
+    pub(super) fn to_namespace<'a>(self: &'a ModuleData, type_map: &'a TypeMap) -> Namespace<'a> {
+        let imported_space = ImportedModuleSpace::from_modules(&self.imports, type_map);
+        Namespace::new(
+            &self.namespace,
+            type_map,
+            ParentSpace::ImportedModuleSpace(imported_space),
+        )
     }
 }
 
@@ -190,7 +162,7 @@ impl<'a> TypeSpace<'a> for ImportedModuleSpace<'a> {
     fn get_type(&self, name: &str) -> Option<Type<'a>> {
         self.data_stack.iter().rev().find_map(|d| {
             d.namespace.get_type_with(name, self.type_map, || {
-                ParentSpace::Namespace(Module::new(d, self.type_map).namespace)
+                ParentSpace::Namespace(d.to_namespace(self.type_map))
             })
         })
     }

@@ -64,20 +64,20 @@ impl TypeMap {
     }
 
     /// Looks up module by identifier.
-    pub fn get_module<'a, 's, S>(&'a self, id: S) -> Option<Module<'a>>
+    pub fn get_module<'a, 's, S>(&'a self, id: S) -> Option<Namespace<'a>>
     where
         S: AsRef<ModuleId<'s>>,
     {
         match id.as_ref() {
-            ModuleId::Builtins => Some(Module::new(&self.builtins, self)),
+            ModuleId::Builtins => Some(self.builtins.to_namespace(self)),
             ModuleId::Named(name) => self
                 .named_module_map
                 .get(name.as_ref())
-                .map(|d| Module::new(d, self)),
+                .map(|d| d.to_namespace(self)),
             ModuleId::Directory(path) => self
                 .directory_module_map
                 .get(path.as_ref())
-                .map(|d| Module::new(d, self)),
+                .map(|d| d.to_namespace(self)),
         }
     }
 
