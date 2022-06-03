@@ -135,7 +135,7 @@ impl<'a> TypeSpace<'a> for Type<'a> {
             Type::Enum(en) => en.name(),
             Type::Namespace(ns) => ns.name(),
             Type::Primitive(pt) => pt.name(),
-            Type::QmlComponent(ns) => ns.name(),
+            Type::QmlComponent(_) => "",
         }
     }
 
@@ -145,7 +145,7 @@ impl<'a> TypeSpace<'a> for Type<'a> {
             Type::Enum(_) => None,
             Type::Namespace(ns) => ns.get_type(name),
             Type::Primitive(_) => None,
-            Type::QmlComponent(ns) => ns.get_type(name),
+            Type::QmlComponent(_) => None,
         }
     }
 
@@ -155,7 +155,7 @@ impl<'a> TypeSpace<'a> for Type<'a> {
             Type::Enum(en) => en.lexical_parent(),
             Type::Namespace(ns) => ns.lexical_parent(),
             Type::Primitive(_) => None,
-            Type::QmlComponent(ns) => ns.lexical_parent(),
+            Type::QmlComponent(_) => None,
         }
     }
 
@@ -165,7 +165,7 @@ impl<'a> TypeSpace<'a> for Type<'a> {
             Type::Enum(en) => en.get_enum_by_variant(name),
             Type::Namespace(ns) => ns.get_enum_by_variant(name),
             Type::Primitive(_) => None,
-            Type::QmlComponent(ns) => ns.get_enum_by_variant(name),
+            Type::QmlComponent(_) => None,
         }
     }
 }

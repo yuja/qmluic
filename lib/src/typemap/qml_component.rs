@@ -1,16 +1,13 @@
 use super::class::{Class, ClassData};
-use super::core::TypeSpace;
-use super::enum_::Enum;
 use super::module::{ImportedModuleSpace, ModuleId};
-use super::{ParentSpace, Type, TypeMap};
+use super::{ParentSpace, TypeMap};
 use std::hash::{Hash, Hasher};
 use std::ptr;
 
 /// QML component representation.
 ///
-/// This is basically a class inside an anonymous namespace. Since this represents
-/// the namespace part, no types defined in the QML component will be returned from
-/// this `TypeSpace`. Use [`QmlComponent::to_class`] to get the class part.
+/// This is basically a class inside an anonymous namespace. Use [`QmlComponent::to_class`]
+/// to get the class representation.
 // TODO: maybe remove intermediate QmlComponent wrapper?
 #[derive(Clone, Debug)]
 pub struct QmlComponent<'a> {
@@ -59,24 +56,6 @@ impl<'a> Hash for QmlComponent<'a> {
     }
 }
 
-impl<'a> TypeSpace<'a> for QmlComponent<'a> {
-    fn name(&self) -> &str {
-        "" // TODO
-    }
-
-    fn get_type(&self, name: &str) -> Option<Type<'a>> {
-        self.data.get_imported_type(name, self.type_map)
-    }
-
-    fn lexical_parent(&self) -> Option<&ParentSpace<'a>> {
-        None
-    }
-
-    fn get_enum_by_variant(&self, _name: &str) -> Option<Enum<'a>> {
-        None
-    }
-}
-
 impl QmlComponentData {
     // TODO: redesign constructor or builder API
     pub fn with_super<S, T>(name: S, super_name: T) -> Self
@@ -100,14 +79,6 @@ impl QmlComponentData {
         S: Into<ModuleId<'static>>,
     {
         self.imports.push(id.into())
-    }
-
-    fn get_imported_type<'a>(&'a self, name: &str, type_map: &'a TypeMap) -> Option<Type<'a>> {
-        // TODO: detect cycle
-        // TODO: module not found error?
-        self.imports
-            .iter()
-            .find_map(|id| type_map.get_module(id).and_then(|ns| ns.get_type(name)))
     }
 
     pub(super) fn class_name(&self) -> &str {
