@@ -4,7 +4,9 @@ use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{UiImportSource, UiProgram};
 use crate::qmldir;
 use crate::qmldoc::UiDocument;
-use crate::typemap::{Class, Module, ModuleData, ModuleId, QmlComponent, Type, TypeMap, TypeSpace};
+use crate::typemap::{
+    Class, ImportedModuleSpace, ModuleId, QmlComponent, Type, TypeMap, TypeSpace,
+};
 use itertools::Itertools as _;
 use std::cell::RefCell;
 use thiserror::Error;
@@ -34,10 +36,7 @@ pub fn build(
     diagnostics: &mut Diagnostics,
 ) -> Option<UiForm> {
     let program = diagnostics.consume_err(UiProgram::from_node(doc.root_node(), doc.source()))?;
-    // TODO: do not build unnamed module space if directory module available
-    let module_data = make_doc_module_data(doc, &program, base_ctx.type_map, diagnostics);
-    let type_space = get_doc_type(base_ctx.type_map, doc)
-        .unwrap_or_else(|| Type::Module(Module::new(&module_data, base_ctx.type_map)));
+    let type_space = make_doc_module_space(doc, &program, base_ctx.type_map, diagnostics);
     let ctx = BuildDocContext::new(doc, type_space, base_ctx);
     let (obj, cls) =
         object::resolve_object_definition(&ctx, program.root_object_node(), diagnostics)?;
@@ -58,30 +57,21 @@ pub fn build(
     })
 }
 
-fn get_doc_type<'a>(type_map: &'a TypeMap, doc: &UiDocument) -> Option<Type<'a>> {
-    if let Some(doc_path) = doc.path() {
-        let base_dir =
-            qmldir::normalize_path(doc_path.parent().expect("doc path should point to file"));
-        type_map
-            .get_module(ModuleId::Directory(base_dir.into()))
-            .and_then(|m| {
-                m.get_type(
-                    doc.type_name()
-                        .expect("doc loaded from file should have type"),
-                )
-            })
-    } else {
-        None
-    }
-}
-
-fn make_doc_module_data(
+fn make_doc_module_space<'a>(
     doc: &UiDocument,
     program: &UiProgram,
-    type_map: &TypeMap,
+    type_map: &'a TypeMap,
     diagnostics: &mut Diagnostics,
-) -> ModuleData {
-    let mut module_data = ModuleData::with_builtins();
+) -> ImportedModuleSpace<'a> {
+    let mut module_space = ImportedModuleSpace::new(type_map);
+    if let Some(p) = doc.path().and_then(|p| p.parent()) {
+        // QML files in the base directory should be available by default
+        let id = ModuleId::Directory(qmldir::normalize_path(p).into());
+        if !module_space.import_module(id) {
+            diagnostics.push(Diagnostic::error(0..0, "directory module not found"));
+        }
+    }
+
     for imp in program.imports() {
         if imp.alias().is_some() {
             diagnostics.push(Diagnostic::error(
@@ -108,16 +98,15 @@ fn make_doc_module_data(
                 }
             }
         };
-        if type_map.contains_module(&id) {
-            module_data.import_module(id);
-        } else {
+        if !module_space.import_module(id) {
             diagnostics.push(Diagnostic::error(
                 imp.node().byte_range(),
                 "module not found",
             ));
         }
     }
-    module_data
+
+    module_space
 }
 
 /// Resources passed around the UI object constructors.
@@ -154,7 +143,7 @@ struct BuildDocContext<'a, 's> {
     tab_widget_attached_class: Class<'a>,
     vbox_layout_class: Class<'a>,
     widget_class: Class<'a>,
-    type_space: Type<'a>,
+    type_space: ImportedModuleSpace<'a>,
     /// List of user types resolved from the top-level type space.
     ref_qml_components: RefCell<Vec<QmlComponent<'a>>>,
 }
@@ -196,7 +185,11 @@ impl<'a> BuildContext<'a> {
 }
 
 impl<'a, 's> BuildDocContext<'a, 's> {
-    fn new(doc: &'s UiDocument, type_space: Type<'a>, base_ctx: &BuildContext<'a>) -> Self {
+    fn new(
+        doc: &'s UiDocument,
+        type_space: ImportedModuleSpace<'a>,
+        base_ctx: &BuildContext<'a>,
+    ) -> Self {
         BuildDocContext {
             source: doc.source(),
             action_class: base_ctx.action_class.clone(),
