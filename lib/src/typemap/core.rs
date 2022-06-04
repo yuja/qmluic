@@ -47,7 +47,7 @@ pub trait TypeSpace<'a> {
     /// Looks up type by name from this towards the parent type space.
     fn resolve_type(&self, name: &str) -> Option<Type<'a>> {
         self.get_type(name)
-            .or_else(|| self.lexical_parent().and_then(|ty| ty.resolve_type(name)))
+            .or_else(|| LexicalAncestorSpaces::new(self).find_map(|ty| ty.get_type(name)))
     }
 
     /// Looks up type by scoped name from this towards the parent type space.
