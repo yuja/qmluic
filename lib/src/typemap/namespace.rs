@@ -2,17 +2,17 @@ use super::class::{Class, ClassData};
 use super::core::TypeSpace;
 use super::enum_::{Enum, EnumData};
 use super::qml_component::{QmlComponent, QmlComponentData};
-use super::{ParentSpace, PrimitiveType, Type, TypeMap};
+use super::util::{TypeDataRef, TypeMapRef};
+use super::{ParentSpace, PrimitiveType, Type};
 use crate::metatype;
 use std::collections::HashMap;
-use std::ptr;
 
 /// Represents a type map in tree (or a namespace), which is created temporarily by borrowing
 /// type maps.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Namespace<'a> {
-    data: &'a NamespaceData,
-    type_map: &'a TypeMap,
+    data: TypeDataRef<'a, NamespaceData>,
+    type_map: TypeMapRef<'a>,
     parent_space: Box<ParentSpace<'a>>,
 }
 
@@ -37,9 +37,9 @@ enum TypeIndex {
 
 impl<'a> Namespace<'a> {
     // TODO: map C++ namespace to this type
-    pub(crate) fn new(
-        data: &'a NamespaceData,
-        type_map: &'a TypeMap,
+    pub(super) fn new(
+        data: TypeDataRef<'a, NamespaceData>,
+        type_map: TypeMapRef<'a>,
         parent_space: ParentSpace<'a>,
     ) -> Self {
         Namespace {
@@ -50,17 +50,6 @@ impl<'a> Namespace<'a> {
     }
 }
 
-impl<'a> PartialEq for Namespace<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        // two types should be equal if both borrow the identical data.
-        ptr::eq(self.data, other.data)
-            && ptr::eq(self.type_map, other.type_map)
-            && self.parent_space == other.parent_space
-    }
-}
-
-impl<'a> Eq for Namespace<'a> {}
-
 impl<'a> TypeSpace<'a> for Namespace<'a> {
     fn name(&self) -> &str {
         "" // TODO: return name if not root namespace
@@ -68,6 +57,7 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
 
     fn get_type(&self, name: &str) -> Option<Type<'a>> {
         self.data
+            .as_ref()
             .get_type_with(name, self.type_map, || ParentSpace::Namespace(self.clone()))
     }
 
@@ -77,6 +67,7 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
 
     fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
         self.data
+            .as_ref()
             .get_enum_by_variant_with(name, || ParentSpace::Namespace(self.clone()))
     }
 }
@@ -137,21 +128,26 @@ impl NamespaceData {
     pub(super) fn get_type_with<'a, F>(
         &'a self,
         name: &str,
-        type_map: &'a TypeMap,
+        type_map: TypeMapRef<'a>,
         make_parent_space: F,
     ) -> Option<Type<'a>>
     where
         F: FnOnce() -> ParentSpace<'a>,
     {
         self.name_map.get(name).map(|&index| match index {
-            TypeIndex::Class(i) => {
-                Type::Class(Class::new(&self.classes[i], type_map, make_parent_space()))
+            TypeIndex::Class(i) => Type::Class(Class::new(
+                TypeDataRef(&self.classes[i]),
+                type_map,
+                make_parent_space(),
+            )),
+            TypeIndex::Enum(i) => {
+                Type::Enum(Enum::new(TypeDataRef(&self.enums[i]), make_parent_space()))
             }
-            TypeIndex::Enum(i) => Type::Enum(Enum::new(&self.enums[i], make_parent_space())),
             TypeIndex::Primitive(t) => Type::Primitive(t),
-            TypeIndex::QmlComponent(i) => {
-                Type::QmlComponent(QmlComponent::new(&self.qml_components[i], type_map))
-            }
+            TypeIndex::QmlComponent(i) => Type::QmlComponent(QmlComponent::new(
+                TypeDataRef(&self.qml_components[i]),
+                type_map,
+            )),
         })
     }
 
@@ -165,6 +161,6 @@ impl NamespaceData {
     {
         self.enum_variant_map
             .get(name)
-            .map(|&i| Enum::new(&self.enums[i], make_parent_space()))
+            .map(|&i| Enum::new(TypeDataRef(&self.enums[i]), make_parent_space()))
     }
 }

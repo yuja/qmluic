@@ -18,6 +18,7 @@ pub use self::enum_::*; // re-export
 pub use self::module::*; // re-export
 pub use self::namespace::*; // re-export
 pub use self::qml_component::*; // re-export
+use self::util::TypeMapRef;
 
 /// Storage to map type name to class or enum representation.
 #[derive(Debug)]
@@ -70,15 +71,15 @@ impl TypeMap {
         S: AsRef<ModuleId<'s>>,
     {
         match id.as_ref() {
-            ModuleId::Builtins => Some(self.builtins.to_namespace(self)),
+            ModuleId::Builtins => Some(self.builtins.to_namespace(TypeMapRef(self))),
             ModuleId::Named(name) => self
                 .named_module_map
                 .get(name.as_ref())
-                .map(|d| d.to_namespace(self)),
+                .map(|d| d.to_namespace(TypeMapRef(self))),
             ModuleId::Directory(path) => self
                 .directory_module_map
                 .get(path.as_ref())
-                .map(|d| d.to_namespace(self)),
+                .map(|d| d.to_namespace(TypeMapRef(self))),
         }
     }
 
@@ -120,7 +121,7 @@ impl TypeMap {
 }
 
 /// Type variants returned by [`TypeMap`].
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Type<'a> {
     Class(Class<'a>),
     Enum(Enum<'a>),
@@ -172,7 +173,7 @@ impl<'a> TypeSpace<'a> for Type<'a> {
 }
 
 /// Type variants for parent space.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 #[doc(hidden)] // this is implementation detail, but exposed by TypeSpace trait
 pub enum ParentSpace<'a> {
     Class(Class<'a>),
@@ -215,7 +216,7 @@ impl<'a> TypeSpace<'a> for ParentSpace<'a> {
 }
 
 /// Value types provided by C++ language and Qt runtime.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum PrimitiveType {
     Bool,
     Int,

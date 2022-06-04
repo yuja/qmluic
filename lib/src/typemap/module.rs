@@ -1,12 +1,12 @@
 use super::core::TypeSpace;
 use super::enum_::Enum;
 use super::namespace::{Namespace, NamespaceData};
+use super::util::{TypeDataRef, TypeMapRef};
 use super::QmlComponentData;
 use super::{ParentSpace, Type, TypeMap};
 use crate::metatype;
 use camino::Utf8Path;
 use std::borrow::Cow;
-use std::ptr;
 
 /// Top-level module identifier.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -64,10 +64,13 @@ impl ModuleData {
         self.namespace.push_qml_component(data);
     }
 
-    pub(super) fn to_namespace<'a>(self: &'a ModuleData, type_map: &'a TypeMap) -> Namespace<'a> {
+    pub(super) fn to_namespace<'a>(
+        self: &'a ModuleData,
+        type_map: TypeMapRef<'a>,
+    ) -> Namespace<'a> {
         let imported_space = ImportedModuleSpace::from_modules(&self.imports, type_map);
         Namespace::new(
-            &self.namespace,
+            TypeDataRef(&self.namespace),
             type_map,
             ParentSpace::ImportedModuleSpace(imported_space),
         )
@@ -93,21 +96,21 @@ impl Extend<metatype::Enum> for ModuleData {
 }
 
 /// Stack of modules which represents a type space containing imported modules.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct ImportedModuleSpace<'a> {
-    data_stack: Vec<&'a ModuleData>,
-    type_map: &'a TypeMap,
+    data_stack: Vec<TypeDataRef<'a, ModuleData>>,
+    type_map: TypeMapRef<'a>,
 }
 
 impl<'a> ImportedModuleSpace<'a> {
     pub fn new(type_map: &'a TypeMap) -> Self {
         ImportedModuleSpace {
             data_stack: vec![],
-            type_map,
+            type_map: TypeMapRef(type_map),
         }
     }
 
-    pub(super) fn from_modules<'s, I>(modules: I, type_map: &'a TypeMap) -> Self
+    pub(super) fn from_modules<'s, I>(modules: I, type_map: TypeMapRef<'a>) -> Self
     where
         I: IntoIterator,
         I::Item: AsRef<ModuleId<'s>>,
@@ -115,7 +118,8 @@ impl<'a> ImportedModuleSpace<'a> {
         // TODO: module not found error?
         let data_stack = modules
             .into_iter()
-            .filter_map(|id| type_map.get_module_data(id))
+            .filter_map(|id| type_map.as_ref().get_module_data(id))
+            .map(TypeDataRef)
             .collect();
         ImportedModuleSpace {
             data_stack,
@@ -129,29 +133,14 @@ impl<'a> ImportedModuleSpace<'a> {
     where
         S: AsRef<ModuleId<'s>>,
     {
-        if let Some(d) = self.type_map.get_module_data(id) {
-            self.data_stack.push(d);
+        if let Some(d) = self.type_map.as_ref().get_module_data(id) {
+            self.data_stack.push(TypeDataRef(d));
             true
         } else {
             false
         }
     }
 }
-
-impl<'a> PartialEq for ImportedModuleSpace<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        // two types should be equal if both borrow the identical data.
-        self.data_stack.len() == other.data_stack.len()
-            && self
-                .data_stack
-                .iter()
-                .zip(&other.data_stack)
-                .all(|(&a, &b)| ptr::eq(a, b))
-            && ptr::eq(self.type_map, other.type_map)
-    }
-}
-
-impl<'a> Eq for ImportedModuleSpace<'a> {}
 
 // TODO: remove or refactor TypeSpace abstraction
 impl<'a> TypeSpace<'a> for ImportedModuleSpace<'a> {
@@ -161,8 +150,8 @@ impl<'a> TypeSpace<'a> for ImportedModuleSpace<'a> {
 
     fn get_type(&self, name: &str) -> Option<Type<'a>> {
         self.data_stack.iter().rev().find_map(|d| {
-            d.namespace.get_type_with(name, self.type_map, || {
-                ParentSpace::Namespace(d.to_namespace(self.type_map))
+            d.as_ref().namespace.get_type_with(name, self.type_map, || {
+                ParentSpace::Namespace(d.as_ref().to_namespace(self.type_map))
             })
         })
     }

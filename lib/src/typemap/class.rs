@@ -1,16 +1,16 @@
 use super::core::TypeSpace;
 use super::enum_::Enum;
 use super::namespace::NamespaceData;
-use super::{ParentSpace, Type, TypeMap};
+use super::util::{TypeDataRef, TypeMapRef};
+use super::{ParentSpace, Type};
 use crate::metatype;
 use std::collections::HashMap;
-use std::ptr;
 
 /// QObject (or gadget) class representation.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Class<'a> {
-    data: &'a ClassData,
-    type_map: &'a TypeMap,
+    data: TypeDataRef<'a, ClassData>,
+    type_map: TypeMapRef<'a>,
     parent_space: Box<ParentSpace<'a>>,
 }
 
@@ -26,8 +26,8 @@ pub(super) struct ClassData {
 
 impl<'a> Class<'a> {
     pub(super) fn new(
-        data: &'a ClassData,
-        type_map: &'a TypeMap,
+        data: TypeDataRef<'a, ClassData>,
+        type_map: TypeMapRef<'a>,
         parent_space: ParentSpace<'a>,
     ) -> Self {
         Class {
@@ -38,13 +38,17 @@ impl<'a> Class<'a> {
     }
 
     pub fn public_super_classes<'b>(&'b self) -> impl Iterator<Item = Class<'a>> + 'b {
-        self.data.public_super_class_names.iter().filter_map(|n| {
-            match self.parent_space.resolve_type_scoped(n) {
-                Some(Type::Class(x)) => Some(x),
-                Some(Type::QmlComponent(ns)) => Some(ns.to_class()),
-                Some(Type::Enum(_) | Type::Namespace(_) | Type::Primitive(_)) | None => None, // TODO: error?
-            }
-        })
+        self.data
+            .as_ref()
+            .public_super_class_names
+            .iter()
+            .filter_map(|n| {
+                match self.parent_space.resolve_type_scoped(n) {
+                    Some(Type::Class(x)) => Some(x),
+                    Some(Type::QmlComponent(ns)) => Some(ns.to_class()),
+                    Some(Type::Enum(_) | Type::Namespace(_) | Type::Primitive(_)) | None => None, // TODO: error?
+                }
+            })
     }
 
     pub fn is_derived_from(&self, base: &Class) -> bool {
@@ -59,6 +63,7 @@ impl<'a> Class<'a> {
     pub fn get_property_type(&self, name: &str) -> Option<Type<'a>> {
         // TODO: error out if type name can't be resolved?
         self.data
+            .as_ref()
             .property_map
             .get(name)
             .and_then(|p| self.resolve_type_scoped(&p.type_name))
@@ -69,25 +74,15 @@ impl<'a> Class<'a> {
     }
 }
 
-impl<'a> PartialEq for Class<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        // two types should be equal if both borrow the identical data.
-        ptr::eq(self.data, other.data)
-            && ptr::eq(self.type_map, other.type_map)
-            && self.parent_space == other.parent_space
-    }
-}
-
-impl<'a> Eq for Class<'a> {}
-
 impl<'a> TypeSpace<'a> for Class<'a> {
     fn name(&self) -> &str {
-        &self.data.class_name
+        &self.data.as_ref().class_name
     }
 
     fn get_type(&self, name: &str) -> Option<Type<'a>> {
         // TODO: detect cycle in super-class chain
         self.data
+            .as_ref()
             .inner_type_map
             .get_type_with(name, self.type_map, || ParentSpace::Class(self.clone()))
             .or_else(|| {
@@ -103,6 +98,7 @@ impl<'a> TypeSpace<'a> for Class<'a> {
     fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
         // TODO: detect cycle in super-class chain
         self.data
+            .as_ref()
             .inner_type_map
             .get_enum_by_variant_with(name, || ParentSpace::Class(self.clone()))
             .or_else(|| {
