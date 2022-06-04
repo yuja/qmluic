@@ -51,7 +51,7 @@ impl CustomWidget {
         ns: &QmlComponent,
         file_name_rules: &FileNameRules,
     ) -> Option<Self> {
-        let cls = ns.to_class();
+        let cls = ns.as_class();
         // If super class doesn't exist, diagnostic message would have been emitted while
         // building the object representation. So returns silently.
         let super_cls = cls.public_super_classes().next()?;

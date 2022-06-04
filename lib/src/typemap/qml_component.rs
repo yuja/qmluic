@@ -5,13 +5,12 @@ use super::ParentSpace;
 
 /// QML component representation.
 ///
-/// This is basically a class inside an anonymous namespace. Use [`QmlComponent::to_class`]
-/// to get the class representation.
-// TODO: maybe remove intermediate QmlComponent wrapper?
+/// A QML component is basically a class inside an anonymous namespace, and this type itself
+/// isn't a [`TypeSpace`](super::core::TypeSpace). Use [`QmlComponent::as_class`] or
+/// [`QmlComponent::into_class`] to get the class representation.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct QmlComponent<'a> {
-    data: TypeDataRef<'a, QmlComponentData>,
-    type_map: TypeMapRef<'a>,
+    class: Class<'a>,
 }
 
 /// Stored QML component representation.
@@ -23,19 +22,25 @@ pub struct QmlComponentData {
 
 impl<'a> QmlComponent<'a> {
     pub(super) fn new(data: TypeDataRef<'a, QmlComponentData>, type_map: TypeMapRef<'a>) -> Self {
-        QmlComponent { data, type_map }
+        // Inner enum will belong to the class since it is public and should be qualified with
+        // the component name. OTOH, inline component will be added to the imported namespace.
+        let imported_space = ImportedModuleSpace::from_modules(&data.as_ref().imports, type_map);
+        let class = Class::new(
+            TypeDataRef(&data.as_ref().class),
+            type_map,
+            ParentSpace::ImportedModuleSpace(imported_space),
+        );
+        QmlComponent { class }
     }
 
-    /// Returns the inner class representation of this QML component.
-    pub fn to_class(&self) -> Class<'a> {
-        // TODO: inner enum has to be qualified whereas inner class (or inline component) isn't
-        let imported_space =
-            ImportedModuleSpace::from_modules(&self.data.as_ref().imports, self.type_map);
-        Class::new(
-            TypeDataRef(&self.data.as_ref().class),
-            self.type_map,
-            ParentSpace::ImportedModuleSpace(imported_space),
-        )
+    /// Returns reference to the class representation of this QML component.
+    pub fn as_class(&self) -> &Class<'a> {
+        &self.class
+    }
+
+    /// Turns this into the underlying class representation.
+    pub fn into_class(self) -> Class<'a> {
+        self.class
     }
 }
 

@@ -231,7 +231,7 @@ pub(super) fn resolve_object_definition<'a, 't>(
         Some(Type::Class(cls)) => Some((obj, cls)),
         Some(Type::QmlComponent(ns)) => {
             ctx.ref_qml_components.borrow_mut().push(ns.clone()); // TODO: redesign tracing API
-            Some((obj, ns.to_class()))
+            Some((obj, ns.into_class()))
         }
         Some(Type::Enum(_) | Type::Namespace(_) | Type::Primitive(_)) | None => {
             diagnostics.push(Diagnostic::error(

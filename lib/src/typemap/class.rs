@@ -45,7 +45,7 @@ impl<'a> Class<'a> {
             .filter_map(|n| {
                 match self.parent_space.resolve_type_scoped(n) {
                     Some(Type::Class(x)) => Some(x),
-                    Some(Type::QmlComponent(ns)) => Some(ns.to_class()),
+                    Some(Type::QmlComponent(ns)) => Some(ns.into_class()),
                     Some(Type::Enum(_) | Type::Namespace(_) | Type::Primitive(_)) | None => None, // TODO: error?
                 }
             })
