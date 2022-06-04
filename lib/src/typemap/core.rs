@@ -1,5 +1,6 @@
 use super::enum_::Enum;
 use super::{ParentSpace, Type};
+use itertools::Itertools as _;
 use std::borrow::Cow;
 use std::iter::FusedIterator;
 
@@ -12,17 +13,7 @@ pub trait TypeSpace<'a> {
     ///
     /// This is primarily designed for diagnostics.
     fn qualified_name(&self) -> Cow<'_, str> {
-        if let Some(ty) = self.lexical_parent() {
-            // TODO: ty may be the root: ImportedModuleSpace <- Namespace <- ty
-            if ty.name().is_empty() {
-                Cow::Borrowed(self.name())
-            } else {
-                Cow::Owned(format!("{}::{}", ty.qualified_name(), self.name()))
-            }
-        } else {
-            // primitive type can't return the root namespace as parent
-            Cow::Borrowed(self.name())
-        }
+        make_qualified_name(self, "::")
     }
 
     /// Looks up type by name.
@@ -105,3 +96,33 @@ impl<'a, 'b> Iterator for LexicalAncestorSpaces<'a, 'b> {
 }
 
 impl<'a, 'b> FusedIterator for LexicalAncestorSpaces<'a, 'b> {}
+
+/// Builds a qualified type name by walking up the type tree.
+fn make_qualified_name<'a, 'b, T>(ty: &'b T, sep: &str) -> Cow<'b, str>
+where
+    T: TypeSpace<'a> + ?Sized,
+{
+    let mut names = collect_ancestor_names(LexicalAncestorSpaces::new(ty));
+    if names.is_empty() {
+        Cow::Borrowed(ty.name())
+    } else {
+        names.push(ty.name());
+        Cow::Owned(names.join(sep))
+    }
+}
+
+fn collect_ancestor_names<'b>(ancestors: LexicalAncestorSpaces<'_, 'b>) -> Vec<&'b str> {
+    let mut names = Vec::new();
+    for (ty, p) in ancestors.tuple_windows() {
+        match (ty, p) {
+            (ParentSpace::Namespace(_), ParentSpace::ImportedModuleSpace(_)) => {
+                break; // root namespace
+            }
+            _ => {
+                names.push(ty.name());
+            }
+        }
+    }
+    names.reverse();
+    names
+}
