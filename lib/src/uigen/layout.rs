@@ -74,7 +74,7 @@ impl Layout {
         }
 
         Some(Layout {
-            class: obj_node.class().name().to_owned(),
+            class: obj_node.class().qualified_cxx_name().into_owned(),
             name: obj_node
                 .obj()
                 .object_id()
