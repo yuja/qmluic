@@ -52,11 +52,11 @@ impl<'a> Enum<'a> {
         self.data.as_ref().variant_set.contains(name)
     }
 
-    pub fn qualify_variant_name(&self, name: &str) -> String {
+    pub fn qualify_cxx_variant_name(&self, name: &str) -> String {
         if self.is_scoped() {
-            format!("{}::{}", self.qualified_name(), name)
+            format!("{}::{}", self.qualified_cxx_name(), name)
         } else if let Some(p) = self.lexical_parent() {
-            format!("{}::{}", p.qualified_name(), name)
+            format!("{}::{}", p.qualified_cxx_name(), name)
         } else {
             // enum should have a parent space, but if there were none, returning the variant
             // name would make sense.

@@ -52,7 +52,7 @@ impl Gadget {
             _ => {
                 diagnostics.push(Diagnostic::error(
                     node.byte_range(),
-                    format!("unsupported gadget type: {}", cls.qualified_name()),
+                    format!("unsupported gadget type: {}", cls.qualified_cxx_name()),
                 ));
                 None
             }

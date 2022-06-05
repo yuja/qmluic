@@ -9,10 +9,10 @@ pub trait TypeSpace<'a> {
     /// Name of this type.
     fn name(&self) -> &str;
 
-    /// Scoped name of this type from the root.
+    /// Scoped C++ name of this type from the root namespace.
     ///
-    /// This is primarily designed for diagnostics.
-    fn qualified_name(&self) -> Cow<'_, str> {
+    /// This is designed for diagnostics, but can be embedded in the generated .ui file.
+    fn qualified_cxx_name(&self) -> Cow<'_, str> {
         make_qualified_name(self, "::")
     }
 

@@ -21,7 +21,7 @@ impl TypeDesc<'_> {
             TypeDesc::Bool => "bool".into(),
             TypeDesc::Number => "number".into(),
             TypeDesc::String => "string".into(),
-            TypeDesc::Enum(en) => en.qualified_name(),
+            TypeDesc::Enum(en) => en.qualified_cxx_name(),
         }
     }
 }
@@ -101,7 +101,7 @@ where
                     node.byte_range(),
                     format!(
                         "enum variant not found in '{}': {}",
-                        mid_ty.qualified_name(),
+                        mid_ty.qualified_cxx_name(),
                         name
                     ),
                 ));
@@ -182,7 +182,7 @@ where
             ident.node().byte_range(),
             format!(
                 "type not found as direct child of '{}': {}",
-                parent_space.qualified_name(),
+                parent_space.qualified_cxx_name(),
                 name
             ),
         ));
@@ -207,7 +207,7 @@ where
             ident.node().byte_range(),
             format!(
                 "type not resolved from '{}': {}",
-                parent_space.qualified_name(),
+                parent_space.qualified_cxx_name(),
                 name
             ),
         ));

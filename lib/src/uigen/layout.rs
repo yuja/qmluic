@@ -58,7 +58,7 @@ impl Layout {
         } else {
             diagnostics.push(Diagnostic::error(
                 obj_node.obj().node().byte_range(),
-                format!("unknown layout class: {}", cls.qualified_name()),
+                format!("unknown layout class: {}", cls.qualified_cxx_name()),
             ));
             // use the most restricted one to report as many errors as possible
             process_vbox_layout_children(ctx, obj_node, diagnostics)
@@ -283,7 +283,7 @@ impl LayoutItemContent {
                 obj_node.obj().node().byte_range(),
                 format!(
                     "class '{}' is not a QLayout, QSpacerItem, nor QWidget",
-                    cls.qualified_name()
+                    cls.qualified_cxx_name()
                 ),
             ));
             None

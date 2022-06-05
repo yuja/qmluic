@@ -323,7 +323,7 @@ mod tests {
     }
 
     #[test]
-    fn qualified_name() {
+    fn qualified_cxx_name() {
         let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo".into());
         type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
@@ -335,11 +335,14 @@ mod tests {
             .extend([foo_meta]);
 
         let module = type_map.get_module(module_id).unwrap();
-        assert_eq!(module.resolve_type("int").unwrap().qualified_name(), "int");
-        let foo_type = module.get_type("Foo").unwrap();
-        assert_eq!(foo_type.qualified_name(), "Foo");
         assert_eq!(
-            foo_type.get_type("Bar").unwrap().qualified_name(),
+            module.resolve_type("int").unwrap().qualified_cxx_name(),
+            "int"
+        );
+        let foo_type = module.get_type("Foo").unwrap();
+        assert_eq!(foo_type.qualified_cxx_name(), "Foo");
+        assert_eq!(
+            foo_type.get_type("Bar").unwrap().qualified_cxx_name(),
             "Foo::Bar"
         );
     }

@@ -170,7 +170,7 @@ where
                     value.binding_node().byte_range(),
                     format!(
                         "unknown property of class '{}': {}",
-                        cls.qualified_name(),
+                        cls.qualified_cxx_name(),
                         name
                     ),
                 ));

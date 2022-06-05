@@ -37,7 +37,7 @@ impl Value {
                         n.byte_range(),
                         format!(
                             "binding map cannot be parsed as non-class type '{}'",
-                            ty.qualified_name()
+                            ty.qualified_cxx_name()
                         ),
                     ));
                     None
@@ -133,7 +133,7 @@ impl SimpleValue {
                     node.byte_range(),
                     format!(
                         "unsupported constant value expression: class '{}'",
-                        ty.qualified_name(),
+                        ty.qualified_cxx_name(),
                     ),
                 ));
                 None
@@ -159,7 +159,7 @@ impl SimpleValue {
                             node.byte_range(),
                             format!(
                                 "expression type mismatch (expected: {}, actual: {})",
-                                ty.qualified_name(),
+                                ty.qualified_cxx_name(),
                                 res_t.qualified_name()
                             ),
                         ));
@@ -172,7 +172,7 @@ impl SimpleValue {
                     node.byte_range(),
                     format!(
                         "unsupported constant value expression: namespace '{}'",
-                        ty.qualified_name(),
+                        ty.qualified_cxx_name(),
                     ),
                 ));
                 None
@@ -190,7 +190,7 @@ impl SimpleValue {
                         node.byte_range(),
                         format!(
                             "evaluated type mismatch (expected: {}, actual: {})",
-                            ty.qualified_name(),
+                            ty.qualified_cxx_name(),
                             res.type_desc().qualified_name()
                         ),
                     ));
@@ -520,7 +520,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
     }
 
     fn visit_enum(&self, enum_ty: Enum<'a>, variant: &str) -> Result<Self::Item, Self::Error> {
-        let res_expr = enum_ty.qualify_variant_name(variant);
+        let res_expr = enum_ty.qualify_cxx_variant_name(variant);
         Ok((TypeDesc::Enum(enum_ty), res_expr, PREC_SCOPE))
     }
 

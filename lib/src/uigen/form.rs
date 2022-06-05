@@ -52,8 +52,8 @@ impl CustomWidget {
         // building the object representation. So returns silently.
         let super_cls = cls.public_super_classes().next()?;
         Some(CustomWidget {
-            class: cls.qualified_name().into(),
-            extends: super_cls.qualified_name().into(),
+            class: cls.qualified_cxx_name().into(),
+            extends: super_cls.qualified_cxx_name().into(),
             header: file_name_rules.type_name_to_cxx_header_name(cls.name()),
         })
     }

@@ -46,7 +46,7 @@ impl UiObject {
                 obj_node.obj().node().byte_range(),
                 format!(
                     "class '{}' is not a QAction, QLayout, nor QWidget",
-                    cls.qualified_name()
+                    cls.qualified_cxx_name()
                 ),
             ));
             None
@@ -238,7 +238,7 @@ pub(super) fn confine_children(obj_node: ObjectNode, diagnostics: &mut Diagnosti
             n.obj().node().byte_range(),
             format!(
                 "'{}' should have no children",
-                obj_node.class().qualified_name()
+                obj_node.class().qualified_cxx_name()
             ),
         ));
     }
