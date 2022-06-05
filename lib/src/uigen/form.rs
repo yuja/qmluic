@@ -1,7 +1,7 @@
 use super::object::UiObject;
 use super::xmlutil;
 use super::{FileNameRules, XmlResult, XmlWriter};
-use crate::typemap::{QmlComponent, TypeSpace};
+use crate::typemap::{Class, TypeSpace};
 use quick_xml::events::{BytesStart, Event};
 use std::io;
 
@@ -47,11 +47,7 @@ pub struct CustomWidget {
 }
 
 impl CustomWidget {
-    pub(super) fn from_qml_component(
-        ns: &QmlComponent,
-        file_name_rules: &FileNameRules,
-    ) -> Option<Self> {
-        let cls = ns.as_class();
+    pub(super) fn from_class(cls: &Class, file_name_rules: &FileNameRules) -> Option<Self> {
         // If super class doesn't exist, diagnostic message would have been emitted while
         // building the object representation. So returns silently.
         let super_cls = cls.public_super_classes().next()?;

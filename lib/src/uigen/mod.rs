@@ -4,11 +4,8 @@ use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{UiImportSource, UiProgram};
 use crate::qmldir;
 use crate::qmldoc::UiDocument;
-use crate::typemap::{
-    Class, ImportedModuleSpace, ModuleId, QmlComponent, Type, TypeMap, TypeSpace,
-};
+use crate::typemap::{Class, ImportedModuleSpace, ModuleId, Type, TypeMap, TypeSpace};
 use itertools::Itertools as _;
-use std::cell::RefCell;
 use thiserror::Error;
 
 mod expr;
@@ -25,6 +22,7 @@ pub use self::form::*; // re-export
 pub use self::gadget::*; // re-export
 pub use self::layout::*; // re-export
 pub use self::object::*; // re-export
+use self::objtree::ObjectTree;
 
 pub type XmlError = quick_xml::Error;
 pub type XmlResult<T> = quick_xml::Result<T>;
@@ -38,18 +36,20 @@ pub fn build(
 ) -> Option<UiForm> {
     let program = diagnostics.consume_err(UiProgram::from_node(doc.root_node(), doc.source()))?;
     let type_space = make_doc_module_space(doc, &program, base_ctx.type_map, diagnostics);
+    let object_tree = ObjectTree::build(
+        program.root_object_node(),
+        doc.source(),
+        &type_space,
+        diagnostics,
+    )?;
     let ctx = BuildDocContext::new(doc, type_space, base_ctx);
-    let (obj, cls) =
-        object::resolve_object_definition(&ctx, program.root_object_node(), diagnostics)?;
     let root_object =
-        UiObject::from_object_definition(&ctx, &cls, &obj, ContainerKind::Any, diagnostics)?;
-    // assumes all QmlComponent types are user types
-    let custom_widgets = ctx
-        .ref_qml_components
-        .borrow()
-        .iter()
+        UiObject::from_object_node(&ctx, object_tree.root(), ContainerKind::Any, diagnostics)?;
+    let custom_widgets = object_tree
+        .flat_iter()
+        .filter_map(|n| n.is_custom_type().then(|| n.class().clone()))
         .unique()
-        .filter_map(|ns| CustomWidget::from_qml_component(ns, &base_ctx.file_name_rules))
+        .filter_map(|cls| CustomWidget::from_class(&cls, &base_ctx.file_name_rules))
         .collect();
     Some(UiForm {
         class: doc.type_name().map(|s| s.to_owned()),
@@ -145,8 +145,6 @@ struct BuildDocContext<'a, 's> {
     vbox_layout_class: Class<'a>,
     widget_class: Class<'a>,
     type_space: ImportedModuleSpace<'a>,
-    /// List of user types resolved from the top-level type space.
-    ref_qml_components: RefCell<Vec<QmlComponent<'a>>>,
 }
 
 impl<'a> BuildContext<'a> {
@@ -206,7 +204,6 @@ impl<'a, 's> BuildDocContext<'a, 's> {
             vbox_layout_class: base_ctx.vbox_layout_class.clone(),
             widget_class: base_ctx.widget_class.clone(),
             type_space,
-            ref_qml_components: RefCell::new(Vec::new()),
         }
     }
 }

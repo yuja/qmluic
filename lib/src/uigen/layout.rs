@@ -1,10 +1,10 @@
 use super::expr::Value;
 use super::object::{self, ContainerKind, Widget};
+use super::objtree::ObjectNode;
 use super::property::{self, WithNode};
 use super::{BuildDocContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::qmlast::{Node, UiObjectDefinition};
-use crate::typemap::{Class, TypeSpace};
+use crate::typemap::TypeSpace;
 use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
@@ -30,34 +30,38 @@ pub struct LayoutAttributes {
 }
 
 impl Layout {
-    /// Generates layout of `cls` type and its children recursively from the given `obj`
-    /// definition.
-    pub(super) fn from_object_definition(
+    /// Generates layout and its children recursively from the given `obj_node`.
+    pub(super) fn from_object_node(
         ctx: &BuildDocContext,
-        cls: &Class,
-        obj: &UiObjectDefinition,
+        obj_node: ObjectNode,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let binding_map = diagnostics.consume_err(obj.build_binding_map(ctx.source))?;
-        let mut properties_map =
-            property::collect_properties_with_node(ctx, cls, &binding_map, &[], diagnostics);
+        let binding_map = diagnostics.consume_err(obj_node.obj().build_binding_map(ctx.source))?;
+        let mut properties_map = property::collect_properties_with_node(
+            ctx,
+            obj_node.class(),
+            &binding_map,
+            &[],
+            diagnostics,
+        );
 
+        let cls = obj_node.class();
         let (attributes, children) = if cls.is_derived_from(&ctx.vbox_layout_class) {
-            process_vbox_layout_children(ctx, obj, diagnostics)
+            process_vbox_layout_children(ctx, obj_node, diagnostics)
         } else if cls.is_derived_from(&ctx.hbox_layout_class) {
-            process_hbox_layout_children(ctx, obj, diagnostics)
+            process_hbox_layout_children(ctx, obj_node, diagnostics)
         } else if cls.is_derived_from(&ctx.form_layout_class) {
-            process_form_layout_children(ctx, obj, diagnostics)
+            process_form_layout_children(ctx, obj_node, diagnostics)
         } else if cls.is_derived_from(&ctx.grid_layout_class) {
             let flow = LayoutFlow::parse(&mut properties_map, diagnostics);
-            process_grid_layout_children(ctx, obj, flow, diagnostics)
+            process_grid_layout_children(ctx, obj_node, flow, diagnostics)
         } else {
             diagnostics.push(Diagnostic::error(
-                obj.node().byte_range(),
+                obj_node.obj().node().byte_range(),
                 format!("unknown layout class: {}", cls.qualified_name()),
             ));
             // use the most restricted one to report as many errors as possible
-            process_vbox_layout_children(ctx, obj, diagnostics)
+            process_vbox_layout_children(ctx, obj_node, diagnostics)
         };
 
         let mut properties: HashMap<_, _> = properties_map
@@ -70,8 +74,11 @@ impl Layout {
         }
 
         Some(Layout {
-            class: cls.name().to_owned(),
-            name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
+            class: obj_node.class().name().to_owned(),
+            name: obj_node
+                .obj()
+                .object_id()
+                .map(|n| n.to_str(ctx.source).to_owned()),
             attributes,
             properties,
             children,
@@ -205,12 +212,13 @@ struct LayoutItemAttached<'t> {
 }
 
 impl<'t> LayoutItemAttached<'t> {
-    fn from_object_definition(
+    fn from_object_node(
         ctx: &BuildDocContext,
-        obj: &UiObjectDefinition<'t>,
+        obj_node: ObjectNode<'_, 't, '_>,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let attached_type_map = diagnostics.consume_err(obj.build_attached_type_map(ctx.source))?;
+        let attached_type_map =
+            diagnostics.consume_err(obj_node.obj().build_attached_type_map(ctx.source))?;
         let binding_map = attached_type_map.get(["QLayout"].as_ref())?; // TODO: resolve against imported types
         let properties_map = property::collect_properties_with_node(
             ctx,
@@ -255,25 +263,24 @@ pub enum LayoutItemContent {
 }
 
 impl LayoutItemContent {
-    /// Generates layout content and its children recursively from the given `node`.
-    fn from_object_definition(
+    /// Generates layout content and its children recursively from the given `obj_node`.
+    fn from_object_node(
         ctx: &BuildDocContext,
-        cls: &Class,
-        obj: &UiObjectDefinition,
+        obj_node: ObjectNode,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
+        let cls = obj_node.class();
         if cls.is_derived_from(&ctx.layout_class) {
-            Layout::from_object_definition(ctx, cls, obj, diagnostics)
-                .map(LayoutItemContent::Layout)
+            Layout::from_object_node(ctx, obj_node, diagnostics).map(LayoutItemContent::Layout)
         } else if cls.is_derived_from(&ctx.spacer_item_class) {
-            SpacerItem::from_object_definition(ctx, cls, obj, diagnostics)
+            SpacerItem::from_object_node(ctx, obj_node, diagnostics)
                 .map(LayoutItemContent::SpacerItem)
         } else if cls.is_derived_from(&ctx.widget_class) {
-            Widget::from_object_definition(ctx, cls, obj, ContainerKind::Any, diagnostics)
+            Widget::from_object_node(ctx, obj_node, ContainerKind::Any, diagnostics)
                 .map(LayoutItemContent::Widget)
         } else {
             diagnostics.push(Diagnostic::error(
-                obj.node().byte_range(),
+                obj_node.obj().node().byte_range(),
                 format!(
                     "class '{}' is not a QLayout, QSpacerItem, nor QWidget",
                     cls.qualified_name()
@@ -304,20 +311,28 @@ pub struct SpacerItem {
 }
 
 impl SpacerItem {
-    /// Generates spacer item of `cls` type from the given `obj` definition.
+    /// Generates spacer item from the given `obj_node`.
     ///
-    /// The given `cls` is supposed to be of `QSpacerItem` type.
-    fn from_object_definition(
+    /// The given `obj_node` is supposed to be of `QSpacerItem` type.
+    fn from_object_node(
         ctx: &BuildDocContext,
-        cls: &Class,
-        obj: &UiObjectDefinition,
+        obj_node: ObjectNode,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let binding_map = diagnostics.consume_err(obj.build_binding_map(ctx.source))?;
-        object::confine_children(cls, obj, diagnostics);
+        let binding_map = diagnostics.consume_err(obj_node.obj().build_binding_map(ctx.source))?;
+        object::confine_children(obj_node, diagnostics);
         Some(SpacerItem {
-            name: obj.object_id().map(|n| n.to_str(ctx.source).to_owned()),
-            properties: property::collect_properties(ctx, cls, &binding_map, &[], diagnostics),
+            name: obj_node
+                .obj()
+                .object_id()
+                .map(|n| n.to_str(ctx.source).to_owned()),
+            properties: property::collect_properties(
+                ctx,
+                obj_node.class(),
+                &binding_map,
+                &[],
+                diagnostics,
+            ),
         })
     }
 
@@ -341,15 +356,14 @@ impl SpacerItem {
 
 fn process_vbox_layout_children(
     ctx: &BuildDocContext,
-    layout_obj: &UiObjectDefinition,
+    layout_obj_node: ObjectNode,
     diagnostics: &mut Diagnostics,
 ) -> (LayoutAttributes, Vec<LayoutItem>) {
     let mut attributes = LayoutAttributes::default();
-    let children = layout_obj
-        .child_object_nodes()
-        .iter()
+    let children = layout_obj_node
+        .children()
         .enumerate()
-        .filter_map(|(row, &n)| {
+        .filter_map(|(row, n)| {
             let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
             check_unsupported_property(&attached.column, diagnostics);
             check_unsupported_property(&attached.column_minimum_width, diagnostics);
@@ -372,15 +386,14 @@ fn process_vbox_layout_children(
 
 fn process_hbox_layout_children(
     ctx: &BuildDocContext,
-    layout_obj: &UiObjectDefinition,
+    layout_obj_node: ObjectNode,
     diagnostics: &mut Diagnostics,
 ) -> (LayoutAttributes, Vec<LayoutItem>) {
     let mut attributes = LayoutAttributes::default();
-    let children = layout_obj
-        .child_object_nodes()
-        .iter()
+    let children = layout_obj_node
+        .children()
         .enumerate()
-        .filter_map(|(column, &n)| {
+        .filter_map(|(column, n)| {
             let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
             check_unsupported_property(&attached.column, diagnostics);
             check_unsupported_property(&attached.column_minimum_width, diagnostics);
@@ -403,15 +416,14 @@ fn process_hbox_layout_children(
 
 fn process_form_layout_children(
     ctx: &BuildDocContext,
-    layout_obj: &UiObjectDefinition,
+    layout_obj_node: ObjectNode,
     diagnostics: &mut Diagnostics,
 ) -> (LayoutAttributes, Vec<LayoutItem>) {
     let attributes = LayoutAttributes::default();
     let mut index_counter = LayoutIndexCounter::new(LayoutFlow::LeftToRight { columns: 2 });
-    let children = layout_obj
-        .child_object_nodes()
-        .iter()
-        .filter_map(|&n| {
+    let children = layout_obj_node
+        .children()
+        .filter_map(|n| {
             let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
             let (row, column) = index_counter.parse_next(&attached, diagnostics)?;
             check_unsupported_property(&attached.column_minimum_width, diagnostics);
@@ -428,16 +440,15 @@ fn process_form_layout_children(
 
 fn process_grid_layout_children(
     ctx: &BuildDocContext,
-    layout_obj: &UiObjectDefinition,
+    layout_obj_node: ObjectNode,
     flow: LayoutFlow,
     diagnostics: &mut Diagnostics,
 ) -> (LayoutAttributes, Vec<LayoutItem>) {
     let mut attributes = LayoutAttributes::default();
     let mut index_counter = LayoutIndexCounter::new(flow);
-    let children = layout_obj
-        .child_object_nodes()
-        .iter()
-        .filter_map(|&n| {
+    let children = layout_obj_node
+        .children()
+        .filter_map(|n| {
             let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
             let (row, column) = index_counter.parse_next(&attached, diagnostics)?;
             maybe_insert_into_opt_i32_array(
@@ -472,13 +483,12 @@ fn process_grid_layout_children(
 
 fn make_layout_item_pair<'t>(
     ctx: &BuildDocContext,
-    node: Node<'t>,
+    obj_node: ObjectNode<'_, 't, '_>,
     diagnostics: &mut Diagnostics,
 ) -> Option<(LayoutItemAttached<'t>, LayoutItemContent)> {
-    let (obj, cls) = object::resolve_object_definition(ctx, node, diagnostics)?;
     let attached =
-        LayoutItemAttached::from_object_definition(ctx, &obj, diagnostics).unwrap_or_default();
-    let content = LayoutItemContent::from_object_definition(ctx, &cls, &obj, diagnostics)?;
+        LayoutItemAttached::from_object_node(ctx, obj_node, diagnostics).unwrap_or_default();
+    let content = LayoutItemContent::from_object_node(ctx, obj_node, diagnostics)?;
     Some((attached, content))
 }
 
