@@ -3,6 +3,7 @@
 pub mod diagnostic;
 pub mod metatype;
 pub mod metatype_tweak;
+pub mod objtree;
 pub mod qmlast;
 pub mod qmldir;
 pub mod qmldoc;

@@ -1,6 +1,7 @@
 //! Qt user interface XML (.ui) generator.
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
+use crate::objtree::ObjectTree;
 use crate::qmlast::{UiImportSource, UiProgram};
 use crate::qmldir;
 use crate::qmldoc::UiDocument;
@@ -13,7 +14,6 @@ mod form;
 mod gadget;
 mod layout;
 mod object;
-mod objtree;
 mod property;
 mod xmlutil;
 
@@ -22,7 +22,6 @@ pub use self::form::*; // re-export
 pub use self::gadget::*; // re-export
 pub use self::layout::*; // re-export
 pub use self::object::*; // re-export
-use self::objtree::ObjectTree;
 
 pub type XmlError = quick_xml::Error;
 pub type XmlResult<T> = quick_xml::Result<T>;

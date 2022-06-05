@@ -1,3 +1,5 @@
+//! Tree of QML objects.
+
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiObjectDefinition};
 use crate::typemap::{Class, Type, TypeSpace};
@@ -6,7 +8,7 @@ use crate::typemap::{Class, Type, TypeSpace};
 ///
 /// This provides a global view of the QML document.
 #[derive(Clone, Debug)]
-pub(crate) struct ObjectTree<'a, 't> {
+pub struct ObjectTree<'a, 't> {
     nodes: Vec<ObjectNodeData<'a, 't>>,
     // TODO: maybe build a {id: index} map
 }
@@ -83,7 +85,7 @@ impl<'a, 't> ObjectTree<'a, 't> {
 
 /// Reference to object definition with the type information.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct ObjectNode<'a, 't, 'b> {
+pub struct ObjectNode<'a, 't, 'b> {
     data: &'b ObjectNodeData<'a, 't>,
     tree: &'b ObjectTree<'a, 't>,
 }

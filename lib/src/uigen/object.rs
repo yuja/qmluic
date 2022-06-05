@@ -1,9 +1,9 @@
 use super::expr::Value;
 use super::layout::Layout;
-use super::objtree::ObjectNode;
 use super::property;
 use super::{BuildDocContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
+use crate::objtree::ObjectNode;
 use crate::qmlast::{Expression, Node, UiBindingValue};
 use crate::typemap::TypeSpace;
 use quick_xml::events::{BytesStart, Event};

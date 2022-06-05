@@ -1,9 +1,9 @@
 use super::expr::Value;
 use super::object::{self, ContainerKind, Widget};
-use super::objtree::ObjectNode;
 use super::property::{self, WithNode};
 use super::{BuildDocContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
+use crate::objtree::ObjectNode;
 use crate::typemap::TypeSpace;
 use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
