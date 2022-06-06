@@ -41,10 +41,15 @@ pub fn build(
         &type_space,
         diagnostics,
     )?;
-    let ctx = BuildDocContext::new(doc, type_space, base_ctx);
-    let root_object =
-        UiObject::from_object_node(&ctx, object_tree.root(), ContainerKind::Any, diagnostics)?;
-    let custom_widgets = object_tree
+    let ctx = BuildDocContext::new(doc, type_space, object_tree, base_ctx);
+    let root_object = UiObject::from_object_node(
+        &ctx,
+        ctx.object_tree.root(),
+        ContainerKind::Any,
+        diagnostics,
+    )?;
+    let custom_widgets = ctx
+        .object_tree
         .flat_iter()
         .filter_map(|n| n.is_custom_type().then(|| n.class().clone()))
         .unique()
@@ -129,7 +134,7 @@ pub struct BuildContext<'a> {
 }
 
 #[derive(Clone, Debug)]
-struct BuildDocContext<'a, 's> {
+struct BuildDocContext<'a, 't, 's> {
     source: &'s str,
     action_class: Class<'a>,
     form_layout_class: Class<'a>,
@@ -144,6 +149,7 @@ struct BuildDocContext<'a, 's> {
     vbox_layout_class: Class<'a>,
     widget_class: Class<'a>,
     type_space: ImportedModuleSpace<'a>,
+    object_tree: ObjectTree<'a, 't>,
 }
 
 impl<'a> BuildContext<'a> {
@@ -182,10 +188,11 @@ impl<'a> BuildContext<'a> {
     }
 }
 
-impl<'a, 's> BuildDocContext<'a, 's> {
+impl<'a, 't, 's> BuildDocContext<'a, 't, 's> {
     fn new(
         doc: &'s UiDocument,
         type_space: ImportedModuleSpace<'a>,
+        object_tree: ObjectTree<'a, 't>,
         base_ctx: &BuildContext<'a>,
     ) -> Self {
         BuildDocContext {
@@ -203,6 +210,7 @@ impl<'a, 's> BuildDocContext<'a, 's> {
             vbox_layout_class: base_ctx.vbox_layout_class.clone(),
             widget_class: base_ctx.widget_class.clone(),
             type_space,
+            object_tree,
         }
     }
 }

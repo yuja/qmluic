@@ -155,6 +155,7 @@ impl SimpleValue {
             NamedType::Enum(en) => {
                 let (res_t, res_expr, _) = typedexpr::walk(
                     &ctx.type_space,
+                    &ctx.object_tree,
                     node,
                     ctx.source,
                     &ExpressionFormatter,
@@ -194,6 +195,7 @@ impl SimpleValue {
             NamedType::Primitive(p) => {
                 let res = typedexpr::walk(
                     &ctx.type_space,
+                    &ctx.object_tree,
                     node,
                     ctx.source,
                     &ExpressionEvaluator,
@@ -803,6 +805,7 @@ mod tests {
     use super::*;
     use crate::diagnostic::Diagnostics;
     use crate::metatype;
+    use crate::objtree::ObjectTree;
     use crate::qmlast::{UiObjectDefinition, UiProgram};
     use crate::qmldoc::UiDocument;
     use crate::typemap::{ModuleData, ModuleId, TypeMap};
@@ -825,7 +828,7 @@ mod tests {
             type_map
                 .get_module_data_mut(&module_id)
                 .unwrap()
-                .extend([foo_meta]);
+                .extend([foo_meta, metatype::Class::new("A")]);
             Env {
                 doc: UiDocument::parse(format!("A {{ a: {expr_source}}}"), None),
                 type_map,
@@ -833,12 +836,15 @@ mod tests {
             }
         }
 
-        fn node(&self) -> Node {
+        fn root_expr_nodes(&self) -> (Node, Node) {
             let program = UiProgram::from_node(self.doc.root_node(), self.doc.source()).unwrap();
             let obj = UiObjectDefinition::from_node(program.root_object_node(), self.doc.source())
                 .unwrap();
             let map = obj.build_binding_map(self.doc.source()).unwrap();
-            map.get("a").unwrap().get_node().unwrap()
+            (
+                program.root_object_node(),
+                map.get("a").unwrap().get_node().unwrap(),
+            )
         }
 
         fn format(&self) -> (TypeDesc, String, u32) {
@@ -848,9 +854,13 @@ mod tests {
         fn try_format(&self) -> Result<(TypeDesc, String, u32), Diagnostics> {
             let mut diagnostics = Diagnostics::new();
             let type_space = self.type_map.get_module(&self.module_id).unwrap();
-            let node = self.node();
+            let (root_node, node) = self.root_expr_nodes();
+            let object_tree =
+                ObjectTree::build(root_node, self.doc.source(), &type_space, &mut diagnostics)
+                    .unwrap();
             typedexpr::walk(
                 &type_space,
+                &object_tree,
                 node,
                 self.doc.source(),
                 &ExpressionFormatter,

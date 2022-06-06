@@ -1,6 +1,7 @@
 //! Expression tree visitor with type information.
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
+use crate::objtree::ObjectTree;
 use crate::qmlast::{BinaryOperator, Expression, Identifier, Node, UnaryOperator};
 use crate::typemap::{Enum, NamedType, TypeSpace};
 use std::borrow::Cow;
@@ -63,7 +64,10 @@ pub trait ExpressionVisitor<'a> {
 ///
 /// `parent_space` is the context where an identifier expression is resolved.
 pub fn walk<'a, P, V>(
+    // TODO: maybe extract an abstraction over (parent_space, object_tree):
+    // resolve(name) -> Kind::Type(ty)|ObjRef(ty)|ThisProperty(..)|..
     parent_space: &P,
+    object_tree: &ObjectTree<'a, '_>,
     node: Node,
     source: &str,
     visitor: &V,
@@ -115,19 +119,40 @@ where
             let arguments = x
                 .arguments
                 .iter()
-                .map(|&n| walk(parent_space, n, source, visitor, diagnostics))
+                .map(|&n| walk(parent_space, object_tree, n, source, visitor, diagnostics))
                 .collect::<Option<Vec<_>>>()?;
             // TODO: confine type error?
             diagnostics.consume_node_err(node, visitor.visit_call_expression(function, arguments))
         }
         Expression::UnaryExpression(x) => {
-            let argument = walk(parent_space, x.argument, source, visitor, diagnostics)?;
+            let argument = walk(
+                parent_space,
+                object_tree,
+                x.argument,
+                source,
+                visitor,
+                diagnostics,
+            )?;
             // TODO: confine type error?
             diagnostics.consume_node_err(node, visitor.visit_unary_expression(x.operator, argument))
         }
         Expression::BinaryExpression(x) => {
-            let left = walk(parent_space, x.left, source, visitor, diagnostics)?;
-            let right = walk(parent_space, x.right, source, visitor, diagnostics)?;
+            let left = walk(
+                parent_space,
+                object_tree,
+                x.left,
+                source,
+                visitor,
+                diagnostics,
+            )?;
+            let right = walk(
+                parent_space,
+                object_tree,
+                x.right,
+                source,
+                visitor,
+                diagnostics,
+            )?;
             // TODO: confine type error?
             diagnostics.consume_node_err(
                 node,
