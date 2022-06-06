@@ -313,6 +313,8 @@ enum ExpressionError {
     UnsupportedBinaryOperationOnType(BinaryOperator, String, String),
     #[error("cannot evaluate as constant")]
     CannotEvaluateAsConstant,
+    #[error("cannot deduce type from '{0}' and '{1}'")]
+    CannotDeduceType(String, String),
 }
 
 /// Evaluates expression tree as arbitrary constant value expression.
@@ -615,7 +617,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
                 Minus | Plus => Err(type_error()),
                 Typeof | Void | Delete => Err(type_error()),
             },
-            TypeDesc::ObjectRef(_) => Err(type_error()),
+            TypeDesc::ObjectRef(_) | TypeDesc::ObjectRefList(_) => Err(type_error()),
         }
     }
 
@@ -816,6 +818,113 @@ fn binary_operator_str(operator: BinaryOperator) -> &'static str {
         GreaterThan => ">",
         GreaterThanEqual => ">=",
         NullishCoalesce | Instanceof | In => "/* unsupported */",
+    }
+}
+
+/// Collects object references from identifier or array expression.
+#[derive(Debug)]
+struct ObjectRefCollector;
+
+#[derive(Clone, Debug)]
+enum ObjectRef {
+    Just(String),
+    List(Vec<String>),
+}
+
+impl<'a> DescribeType<'a> for (Class<'a>, ObjectRef) {
+    fn type_desc(&self) -> TypeDesc<'a> {
+        match self {
+            (cls, ObjectRef::Just(_)) => TypeDesc::ObjectRef(cls.clone()),
+            (cls, ObjectRef::List(_)) => TypeDesc::ObjectRefList(cls.clone()),
+        }
+    }
+}
+
+impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
+    type Item = (Class<'a>, ObjectRef);
+    type Error = ExpressionError;
+
+    fn visit_number(&self, _value: f64) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedLiteral("number"))
+    }
+
+    fn visit_string(&self, _value: String) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedLiteral("string"))
+    }
+
+    fn visit_bool(&self, _value: bool) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedLiteral("bool"))
+    }
+
+    fn visit_enum(&self, _enum_ty: Enum<'a>, _variant: &str) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedLiteral("enum"))
+    }
+
+    fn visit_array(&self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
+        if let Some((cls, _)) = elements.first() {
+            let mut base_cls = cls.clone();
+            let mut names = Vec::with_capacity(elements.len());
+            for (cls, r) in elements {
+                match r {
+                    ObjectRef::Just(s) => {
+                        // TODO: find common base class
+                        base_cls = if cls.is_derived_from(&base_cls) {
+                            base_cls
+                        } else if base_cls.is_derived_from(&cls) {
+                            cls
+                        } else {
+                            return Err(ExpressionError::CannotDeduceType(
+                                base_cls.qualified_cxx_name().into(),
+                                cls.qualified_cxx_name().into(),
+                            ));
+                        };
+                        names.push(s);
+                    }
+                    ObjectRef::List(_) => {
+                        return Err(ExpressionError::UnsupportedLiteral("nested array"));
+                    }
+                }
+            }
+            Ok((base_cls, ObjectRef::List(names)))
+        } else {
+            return Err(ExpressionError::UnsupportedLiteral("empty array"));
+        }
+    }
+
+    fn visit_object_ref(&self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error> {
+        Ok((cls, ObjectRef::Just(name.to_owned())))
+    }
+
+    fn visit_call_expression(
+        &self,
+        _function: &str,
+        _arguments: Vec<Self::Item>,
+    ) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedFunctionCall)
+    }
+
+    fn visit_unary_expression(
+        &self,
+        operator: UnaryOperator,
+        argument: Self::Item,
+    ) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedUnaryOperationOnType(
+            operator,
+            argument.type_desc().qualified_name().into(),
+        ))
+    }
+
+    fn visit_binary_expression(
+        &self,
+        operator: BinaryOperator,
+        left: Self::Item,
+        right: Self::Item,
+    ) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedBinaryOperationOnType(
+            operator,
+            left.type_desc().qualified_name().into(),
+            right.type_desc().qualified_name().into(),
+        ))
     }
 }
 
