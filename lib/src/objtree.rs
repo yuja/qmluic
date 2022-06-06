@@ -3,6 +3,7 @@
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiObjectDefinition};
 use crate::typemap::{Class, Type, TypeSpace};
+use std::collections::HashMap;
 
 /// Tree of object definitions and the corresponding types.
 ///
@@ -10,7 +11,7 @@ use crate::typemap::{Class, Type, TypeSpace};
 #[derive(Clone, Debug)]
 pub struct ObjectTree<'a, 't> {
     nodes: Vec<ObjectNodeData<'a, 't>>,
-    // TODO: maybe build a {id: index} map
+    id_map: HashMap<String, usize>,
 }
 
 impl<'a, 't> ObjectTree<'a, 't> {
@@ -24,7 +25,10 @@ impl<'a, 't> ObjectTree<'a, 't> {
         type_space: &impl TypeSpace<'a>,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let mut tree = ObjectTree { nodes: vec![] };
+        let mut tree = ObjectTree {
+            nodes: Vec::new(),
+            id_map: HashMap::new(),
+        };
         if let Some(index) = tree.populate_node_rec(root_node, source, type_space, diagnostics) {
             assert!(index + 1 == tree.nodes.len());
             Some(tree)
@@ -62,6 +66,21 @@ impl<'a, 't> ObjectTree<'a, 't> {
             .collect();
 
         let index = self.nodes.len();
+        if let Some(id) = obj.object_id() {
+            use std::collections::hash_map::Entry;
+            match self.id_map.entry(id.to_str(source).to_owned()) {
+                Entry::Vacant(e) => {
+                    e.insert(index);
+                }
+                Entry::Occupied(_) => {
+                    // TODO: add note pointing to the previous object id
+                    diagnostics.push(Diagnostic::error(
+                        id.node().byte_range(),
+                        "duplicated object id",
+                    ));
+                }
+            }
+        }
         self.nodes.push(ObjectNodeData {
             class,
             is_custom_type,
@@ -80,6 +99,24 @@ impl<'a, 't> ObjectTree<'a, 't> {
     /// Iterates over the all objects in the tree.
     pub fn flat_iter<'b>(&'b self) -> impl Iterator<Item = ObjectNode<'a, 't, 'b>> {
         self.nodes.iter().map(|d| ObjectNode::new(d, self))
+    }
+
+    /// Check whether or not the specified object id exists.
+    pub fn contains_id<S>(&self, object_id: S) -> bool
+    where
+        S: AsRef<str>,
+    {
+        self.id_map.contains_key(object_id.as_ref())
+    }
+
+    /// Reference to the object specified by id.
+    pub fn get_by_id<'b, S>(&'b self, object_id: S) -> Option<ObjectNode<'a, 't, 'b>>
+    where
+        S: AsRef<str>,
+    {
+        self.id_map
+            .get(object_id.as_ref())
+            .map(|&i| ObjectNode::new(&self.nodes[i], self))
     }
 }
 
@@ -121,5 +158,91 @@ impl<'a, 't, 'b> ObjectNode<'a, 't, 'b> {
             .child_indices
             .iter()
             .map(|&i| ObjectNode::new(&self.tree.nodes[i], self.tree))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::diagnostic::Diagnostics;
+    use crate::metatype;
+    use crate::qmlast::UiProgram;
+    use crate::qmldoc::UiDocument;
+    use crate::typemap::{ModuleData, ModuleId, TypeMap};
+    use std::ptr;
+
+    struct Env {
+        doc: UiDocument,
+        type_map: TypeMap,
+        module_id: ModuleId<'static>,
+    }
+
+    impl Env {
+        fn new(source: &str) -> Self {
+            let mut type_map = TypeMap::with_primitive_types();
+            let module_id = ModuleId::Named("foo".into());
+            let mut module_data = ModuleData::with_builtins();
+            module_data.extend([metatype::Class::new("Foo")]);
+            type_map.insert_module(module_id.clone(), module_data);
+            Env {
+                doc: UiDocument::parse(source, None),
+                type_map,
+                module_id,
+            }
+        }
+
+        fn try_build_tree(&self) -> Result<ObjectTree, Diagnostics> {
+            let mut diagnostics = Diagnostics::new();
+            let program = UiProgram::from_node(self.doc.root_node(), self.doc.source()).unwrap();
+            let tree = ObjectTree::build(
+                program.root_object_node(),
+                self.doc.source(),
+                &self.type_map.get_module(&self.module_id).unwrap(),
+                &mut diagnostics,
+            );
+            if diagnostics.is_empty() {
+                Ok(tree.unwrap())
+            } else {
+                Err(diagnostics)
+            }
+        }
+    }
+
+    #[test]
+    fn lookup_by_object_id() {
+        let env = Env::new(
+            r###"
+            Foo {
+                id: root
+                Foo { id: child0 }
+                Foo {}
+            }
+            "###,
+        );
+        let tree = env.try_build_tree().unwrap();
+        assert!(ptr::eq(
+            tree.get_by_id("root").unwrap().obj(),
+            tree.root().obj()
+        ));
+        assert!(ptr::eq(
+            tree.get_by_id("child0").unwrap().obj(),
+            tree.root().children().nth(0).unwrap().obj()
+        ));
+        assert!(!tree.contains_id("unknown"));
+        assert!(tree.get_by_id("unknown").is_none());
+    }
+
+    #[test]
+    fn duplicated_object_id() {
+        let env = Env::new(
+            r###"
+            Foo {
+                id: root
+                Foo { id: dup }
+                Foo { id: dup }
+            }
+            "###,
+        );
+        assert!(env.try_build_tree().is_err());
     }
 }
