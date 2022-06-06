@@ -15,6 +15,7 @@ pub fn fix_classes(classes: &mut [Class]) {
         match cls.qualified_class_name.as_ref() {
             "QFont" => fix_font(cls),
             "QGridLayout" => fix_grid_layout(cls),
+            "QLabel" => fix_label(cls),
             "QLayout" => fix_layout(cls),
             "QPushButton" => fix_push_button(cls),
             "QSizePolicy" => fix_size_policy(cls),
@@ -118,6 +119,16 @@ fn fix_grid_layout(cls: &mut Class) {
         Property::new("rows", "int"),
         Property::new("flow", "QGridLayout::Flow"),
     ]);
+}
+
+fn fix_label(cls: &mut Class) {
+    cls.properties.push(Property {
+        name: "buddy".to_owned(),
+        r#type: "QWidget*".to_owned(),
+        read: Some("buddy".to_owned()),
+        write: Some("setBuddy".to_owned()),
+        ..Default::default()
+    });
 }
 
 fn fix_layout(cls: &mut Class) {

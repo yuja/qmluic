@@ -3459,6 +3459,7 @@ Module {
         Property { name: "textInteractionFlags"; type: "Qt::TextInteractionFlags" }
         Property { name: "hasSelectedText"; type: "bool"; isReadonly: true }
         Property { name: "selectedText"; type: "string"; isReadonly: true }
+        Property { name: "buddy"; type: "QWidget"; isPointer: true }
         Signal {
             name: "linkActivated"
             Parameter { name: "link"; type: "string" }
