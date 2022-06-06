@@ -4,7 +4,7 @@ use super::{BuildDocContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{BinaryOperator, Node, UiBindingMap, UiBindingValue, UnaryOperator};
 use crate::typedexpr::{self, DescribeType, ExpressionVisitor, TypeDesc};
-use crate::typemap::{Class, Enum, PrimitiveType, Type, TypeSpace};
+use crate::typemap::{Class, Enum, NamedType, PrimitiveType, TypeSpace};
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::fmt;
 use std::io;
@@ -22,7 +22,7 @@ impl Value {
     /// Generates constant expression of `ty` type from the given `binding_value`.
     pub(super) fn from_binding_value(
         ctx: &BuildDocContext,
-        ty: &Type,
+        ty: &NamedType,
         binding_value: &UiBindingValue,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
@@ -31,7 +31,7 @@ impl Value {
                 SimpleValue::from_expression(ctx, ty, *n, diagnostics).map(Value::Simple)
             }
             UiBindingValue::Map(n, m) => match ty {
-                Type::Class(cls) => Self::from_binding_map(ctx, cls, *n, m, diagnostics),
+                NamedType::Class(cls) => Self::from_binding_map(ctx, cls, *n, m, diagnostics),
                 _ => {
                     diagnostics.push(Diagnostic::error(
                         n.byte_range(),
@@ -123,12 +123,12 @@ impl SimpleValue {
     /// Generates value of `ty` type from the given expression `node`.
     fn from_expression(
         ctx: &BuildDocContext,
-        ty: &Type,
+        ty: &NamedType,
         node: Node,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         match ty {
-            Type::Class(_) | Type::QmlComponent(_) => {
+            NamedType::Class(_) | NamedType::QmlComponent(_) => {
                 diagnostics.push(Diagnostic::error(
                     node.byte_range(),
                     format!(
@@ -138,7 +138,7 @@ impl SimpleValue {
                 ));
                 None
             }
-            Type::Enum(en) => {
+            NamedType::Enum(en) => {
                 let (res_t, res_expr, _) = typedexpr::walk(
                     &ctx.type_space,
                     node,
@@ -167,7 +167,7 @@ impl SimpleValue {
                     }
                 }
             }
-            Type::Namespace(_) => {
+            NamedType::Namespace(_) => {
                 diagnostics.push(Diagnostic::error(
                     node.byte_range(),
                     format!(
@@ -177,7 +177,7 @@ impl SimpleValue {
                 ));
                 None
             }
-            Type::Primitive(p) => {
+            NamedType::Primitive(p) => {
                 let res = typedexpr::walk(
                     &ctx.type_space,
                     node,

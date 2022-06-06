@@ -1,6 +1,6 @@
 use super::core::TypeSpace;
 use super::util::TypeDataRef;
-use super::{ParentSpace, Type};
+use super::{NamedType, ParentSpace};
 use crate::metatype;
 use std::collections::HashSet;
 
@@ -30,7 +30,7 @@ impl<'a> Enum<'a> {
     pub fn alias_enum(&self) -> Option<Enum<'a>> {
         self.data.as_ref().alias.as_ref().and_then(|n| {
             match self.parent_space.resolve_type_scoped(n) {
-                Some(Type::Enum(x)) => Some(x),
+                Some(NamedType::Enum(x)) => Some(x),
                 _ => None, // TODO: error?
             }
         })
@@ -70,7 +70,7 @@ impl<'a> TypeSpace<'a> for Enum<'a> {
         &self.data.as_ref().name
     }
 
-    fn get_type(&self, _name: &str) -> Option<Type<'a>> {
+    fn get_type(&self, _name: &str) -> Option<NamedType<'a>> {
         None
     }
 

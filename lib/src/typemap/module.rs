@@ -3,7 +3,7 @@ use super::enum_::Enum;
 use super::namespace::{Namespace, NamespaceData};
 use super::util::{TypeDataRef, TypeMapRef};
 use super::QmlComponentData;
-use super::{ParentSpace, Type, TypeMap};
+use super::{NamedType, ParentSpace, TypeMap};
 use crate::metatype;
 use camino::Utf8Path;
 use std::borrow::Cow;
@@ -148,7 +148,7 @@ impl<'a> TypeSpace<'a> for ImportedModuleSpace<'a> {
         ""
     }
 
-    fn get_type(&self, name: &str) -> Option<Type<'a>> {
+    fn get_type(&self, name: &str) -> Option<NamedType<'a>> {
         self.data_stack.iter().rev().find_map(|d| {
             d.as_ref().namespace.get_type_with(name, self.type_map, || {
                 ParentSpace::Namespace(d.as_ref().to_namespace(self.type_map))

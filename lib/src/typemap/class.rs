@@ -2,7 +2,7 @@ use super::core::TypeSpace;
 use super::enum_::Enum;
 use super::namespace::NamespaceData;
 use super::util::{TypeDataRef, TypeMapRef};
-use super::{ParentSpace, Type};
+use super::{NamedType, ParentSpace};
 use crate::metatype;
 use std::collections::HashMap;
 
@@ -44,9 +44,12 @@ impl<'a> Class<'a> {
             .iter()
             .filter_map(|n| {
                 match self.parent_space.resolve_type_scoped(n) {
-                    Some(Type::Class(x)) => Some(x),
-                    Some(Type::QmlComponent(ns)) => Some(ns.into_class()),
-                    Some(Type::Enum(_) | Type::Namespace(_) | Type::Primitive(_)) | None => None, // TODO: error?
+                    Some(NamedType::Class(x)) => Some(x),
+                    Some(NamedType::QmlComponent(ns)) => Some(ns.into_class()),
+                    Some(
+                        NamedType::Enum(_) | NamedType::Namespace(_) | NamedType::Primitive(_),
+                    )
+                    | None => None, // TODO: error?
                 }
             })
     }
@@ -60,7 +63,7 @@ impl<'a> Class<'a> {
     }
 
     /// Looks up type of the specified property.
-    pub fn get_property_type(&self, name: &str) -> Option<Type<'a>> {
+    pub fn get_property_type(&self, name: &str) -> Option<NamedType<'a>> {
         // TODO: error out if type name can't be resolved?
         self.data
             .as_ref()
@@ -79,7 +82,7 @@ impl<'a> TypeSpace<'a> for Class<'a> {
         &self.data.as_ref().class_name
     }
 
-    fn get_type(&self, name: &str) -> Option<Type<'a>> {
+    fn get_type(&self, name: &str) -> Option<NamedType<'a>> {
         // TODO: detect cycle in super-class chain
         self.data
             .as_ref()

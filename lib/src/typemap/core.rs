@@ -1,5 +1,5 @@
 use super::enum_::Enum;
-use super::{ParentSpace, Type};
+use super::{NamedType, ParentSpace};
 use itertools::Itertools as _;
 use std::borrow::Cow;
 use std::iter::FusedIterator;
@@ -19,10 +19,10 @@ pub trait TypeSpace<'a> {
     /// Looks up type by name.
     ///
     /// If this type is a class, the returned type may be inherited from one of the super classes.
-    fn get_type(&self, name: &str) -> Option<Type<'a>>;
+    fn get_type(&self, name: &str) -> Option<NamedType<'a>>;
 
     /// Looks up type by scoped name.
-    fn get_type_scoped(&self, scoped_name: &str) -> Option<Type<'a>> {
+    fn get_type_scoped(&self, scoped_name: &str) -> Option<NamedType<'a>> {
         // no support for the ::<top-level> notation
         let mut parts = scoped_name.split("::");
         let head = self.get_type(parts.next().expect("split should have at least one name"));
@@ -36,13 +36,13 @@ pub trait TypeSpace<'a> {
     fn lexical_parent(&self) -> Option<&ParentSpace<'a>>;
 
     /// Looks up type by name from this towards the parent type space.
-    fn resolve_type(&self, name: &str) -> Option<Type<'a>> {
+    fn resolve_type(&self, name: &str) -> Option<NamedType<'a>> {
         self.get_type(name)
             .or_else(|| LexicalAncestorSpaces::new(self).find_map(|ty| ty.get_type(name)))
     }
 
     /// Looks up type by scoped name from this towards the parent type space.
-    fn resolve_type_scoped(&self, scoped_name: &str) -> Option<Type<'a>> {
+    fn resolve_type_scoped(&self, scoped_name: &str) -> Option<NamedType<'a>> {
         // no support for the ::<top-level> notation
         let mut parts = scoped_name.split("::");
         let head = self.resolve_type(parts.next().expect("split should have at least one name"));
@@ -52,7 +52,7 @@ pub trait TypeSpace<'a> {
 
     /// Looks up enum type by variant name.
     ///
-    /// The returned type is not an abstract [`Type`] since Qt metatype does not support
+    /// The returned type is not an abstract [`NamedType`] since Qt metatype does not support
     /// an arbitrary static constant.
     fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>>;
 }

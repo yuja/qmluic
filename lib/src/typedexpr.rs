@@ -2,7 +2,7 @@
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{BinaryOperator, Expression, Identifier, Node, UnaryOperator};
-use crate::typemap::{Enum, Type, TypeSpace};
+use crate::typemap::{Enum, NamedType, TypeSpace};
 use std::borrow::Cow;
 use std::fmt::Debug;
 
@@ -143,7 +143,7 @@ fn parse_type<'a, P>(
     node: Node,
     source: &str,
     diagnostics: &mut Diagnostics,
-) -> Option<Type<'a>>
+) -> Option<NamedType<'a>>
 where
     P: TypeSpace<'a>,
 {
@@ -170,7 +170,7 @@ fn get_type_by_identifier<'a, P>(
     ident: Identifier,
     source: &str,
     diagnostics: &mut Diagnostics,
-) -> Option<Type<'a>>
+) -> Option<NamedType<'a>>
 where
     P: TypeSpace<'a>,
 {
@@ -195,7 +195,7 @@ fn resolve_type_by_identifier<'a, P>(
     ident: Identifier,
     source: &str,
     diagnostics: &mut Diagnostics,
-) -> Option<Type<'a>>
+) -> Option<NamedType<'a>>
 where
     P: TypeSpace<'a>,
 {

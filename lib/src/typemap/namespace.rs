@@ -3,7 +3,7 @@ use super::core::TypeSpace;
 use super::enum_::{Enum, EnumData};
 use super::qml_component::{QmlComponent, QmlComponentData};
 use super::util::{TypeDataRef, TypeMapRef};
-use super::{ParentSpace, PrimitiveType, Type};
+use super::{NamedType, ParentSpace, PrimitiveType};
 use crate::metatype;
 use std::collections::HashMap;
 
@@ -55,7 +55,7 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
         "" // TODO: return name if not root namespace
     }
 
-    fn get_type(&self, name: &str) -> Option<Type<'a>> {
+    fn get_type(&self, name: &str) -> Option<NamedType<'a>> {
         self.data
             .as_ref()
             .get_type_with(name, self.type_map, || ParentSpace::Namespace(self.clone()))
@@ -130,21 +130,21 @@ impl NamespaceData {
         name: &str,
         type_map: TypeMapRef<'a>,
         make_parent_space: F,
-    ) -> Option<Type<'a>>
+    ) -> Option<NamedType<'a>>
     where
         F: FnOnce() -> ParentSpace<'a>,
     {
         self.name_map.get(name).map(|&index| match index {
-            TypeIndex::Class(i) => Type::Class(Class::new(
+            TypeIndex::Class(i) => NamedType::Class(Class::new(
                 TypeDataRef(&self.classes[i]),
                 type_map,
                 make_parent_space(),
             )),
             TypeIndex::Enum(i) => {
-                Type::Enum(Enum::new(TypeDataRef(&self.enums[i]), make_parent_space()))
+                NamedType::Enum(Enum::new(TypeDataRef(&self.enums[i]), make_parent_space()))
             }
-            TypeIndex::Primitive(t) => Type::Primitive(t),
-            TypeIndex::QmlComponent(i) => Type::QmlComponent(QmlComponent::new(
+            TypeIndex::Primitive(t) => NamedType::Primitive(t),
+            TypeIndex::QmlComponent(i) => NamedType::QmlComponent(QmlComponent::new(
                 TypeDataRef(&self.qml_components[i]),
                 type_map,
             )),

@@ -5,7 +5,7 @@ use crate::objtree::ObjectTree;
 use crate::qmlast::{UiImportSource, UiProgram};
 use crate::qmldir;
 use crate::qmldoc::UiDocument;
-use crate::typemap::{Class, ImportedModuleSpace, ModuleId, Type, TypeMap, TypeSpace};
+use crate::typemap::{Class, ImportedModuleSpace, ModuleId, NamedType, TypeMap, TypeSpace};
 use itertools::Itertools as _;
 use thiserror::Error;
 
@@ -157,7 +157,7 @@ impl<'a> BuildContext<'a> {
             .get_module(&ModuleId::Named(MODULE_NAME.into()))
             .ok_or(BuildContextError::ModuleNotFound(MODULE_NAME))?;
         let get_class = |name| {
-            if let Some(Type::Class(cls)) = module.get_type(name) {
+            if let Some(NamedType::Class(cls)) = module.get_type(name) {
                 Ok(cls)
             } else {
                 Err(BuildContextError::ClassNotFound(name))

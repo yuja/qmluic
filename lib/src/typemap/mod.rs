@@ -122,7 +122,7 @@ impl TypeMap {
 
 /// Type variants returned by [`TypeMap`].
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum Type<'a> {
+pub enum NamedType<'a> {
     Class(Class<'a>),
     Enum(Enum<'a>),
     Namespace(Namespace<'a>),
@@ -130,44 +130,44 @@ pub enum Type<'a> {
     QmlComponent(QmlComponent<'a>),
 }
 
-impl<'a> TypeSpace<'a> for Type<'a> {
+impl<'a> TypeSpace<'a> for NamedType<'a> {
     fn name(&self) -> &str {
         match self {
-            Type::Class(cls) => cls.name(),
-            Type::Enum(en) => en.name(),
-            Type::Namespace(ns) => ns.name(),
-            Type::Primitive(pt) => pt.name(),
-            Type::QmlComponent(_) => "",
+            NamedType::Class(cls) => cls.name(),
+            NamedType::Enum(en) => en.name(),
+            NamedType::Namespace(ns) => ns.name(),
+            NamedType::Primitive(pt) => pt.name(),
+            NamedType::QmlComponent(_) => "",
         }
     }
 
-    fn get_type(&self, name: &str) -> Option<Type<'a>> {
+    fn get_type(&self, name: &str) -> Option<NamedType<'a>> {
         match self {
-            Type::Class(cls) => cls.get_type(name),
-            Type::Enum(_) => None,
-            Type::Namespace(ns) => ns.get_type(name),
-            Type::Primitive(_) => None,
-            Type::QmlComponent(_) => None,
+            NamedType::Class(cls) => cls.get_type(name),
+            NamedType::Enum(_) => None,
+            NamedType::Namespace(ns) => ns.get_type(name),
+            NamedType::Primitive(_) => None,
+            NamedType::QmlComponent(_) => None,
         }
     }
 
     fn lexical_parent(&self) -> Option<&ParentSpace<'a>> {
         match self {
-            Type::Class(cls) => cls.lexical_parent(),
-            Type::Enum(en) => en.lexical_parent(),
-            Type::Namespace(ns) => ns.lexical_parent(),
-            Type::Primitive(_) => None,
-            Type::QmlComponent(_) => None,
+            NamedType::Class(cls) => cls.lexical_parent(),
+            NamedType::Enum(en) => en.lexical_parent(),
+            NamedType::Namespace(ns) => ns.lexical_parent(),
+            NamedType::Primitive(_) => None,
+            NamedType::QmlComponent(_) => None,
         }
     }
 
     fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
         match self {
-            Type::Class(cls) => cls.get_enum_by_variant(name),
-            Type::Enum(en) => en.get_enum_by_variant(name),
-            Type::Namespace(ns) => ns.get_enum_by_variant(name),
-            Type::Primitive(_) => None,
-            Type::QmlComponent(_) => None,
+            NamedType::Class(cls) => cls.get_enum_by_variant(name),
+            NamedType::Enum(en) => en.get_enum_by_variant(name),
+            NamedType::Namespace(ns) => ns.get_enum_by_variant(name),
+            NamedType::Primitive(_) => None,
+            NamedType::QmlComponent(_) => None,
         }
     }
 }
@@ -190,7 +190,7 @@ impl<'a> TypeSpace<'a> for ParentSpace<'a> {
         }
     }
 
-    fn get_type(&self, name: &str) -> Option<Type<'a>> {
+    fn get_type(&self, name: &str) -> Option<NamedType<'a>> {
         match self {
             ParentSpace::Class(cls) => cls.get_type(name),
             ParentSpace::ImportedModuleSpace(ns) => ns.get_type(name),
@@ -246,16 +246,16 @@ mod tests {
     use super::*;
     use crate::metatype;
 
-    fn unwrap_class(ty: Option<Type>) -> Class {
+    fn unwrap_class(ty: Option<NamedType>) -> Class {
         match ty {
-            Some(Type::Class(x)) => x,
+            Some(NamedType::Class(x)) => x,
             _ => panic!("unexpected type: {ty:?}"),
         }
     }
 
-    fn unwrap_enum(ty: Option<Type>) -> Enum {
+    fn unwrap_enum(ty: Option<NamedType>) -> Enum {
         match ty {
-            Some(Type::Enum(x)) => x,
+            Some(NamedType::Enum(x)) => x,
             _ => panic!("unexpected type: {ty:?}"),
         }
     }
@@ -360,13 +360,13 @@ mod tests {
         let module = type_map.get_module(module_id).unwrap();
         assert_eq!(
             module.resolve_type("int").unwrap(),
-            Type::Primitive(PrimitiveType::Int)
+            NamedType::Primitive(PrimitiveType::Int)
         );
         let foo_class = unwrap_class(module.get_type("Foo"));
         assert!(foo_class.get_type("int").is_none());
         assert_eq!(
             foo_class.resolve_type("int").unwrap(),
-            Type::Primitive(PrimitiveType::Int)
+            NamedType::Primitive(PrimitiveType::Int)
         );
     }
 
