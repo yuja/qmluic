@@ -3,7 +3,7 @@
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectTree;
 use crate::qmlast::{BinaryOperator, Expression, Identifier, Node, UnaryOperator};
-use crate::typemap::{Enum, NamedType, TypeSpace};
+use crate::typemap::{Class, Enum, NamedType, TypeSpace};
 use std::borrow::Cow;
 use std::fmt::Debug;
 
@@ -14,6 +14,7 @@ pub enum TypeDesc<'a> {
     Number,
     String,
     Enum(Enum<'a>),
+    ObjectRef(Class<'a>),
 }
 
 impl TypeDesc<'_> {
@@ -23,6 +24,7 @@ impl TypeDesc<'_> {
             TypeDesc::Number => "number".into(),
             TypeDesc::String => "string".into(),
             TypeDesc::Enum(en) => en.qualified_cxx_name(),
+            TypeDesc::ObjectRef(cls) => cls.qualified_cxx_name(),
         }
     }
 }
@@ -41,6 +43,8 @@ pub trait ExpressionVisitor<'a> {
     fn visit_string(&self, value: String) -> Result<Self::Item, Self::Error>;
     fn visit_bool(&self, value: bool) -> Result<Self::Item, Self::Error>;
     fn visit_enum(&self, enum_ty: Enum<'a>, variant: &str) -> Result<Self::Item, Self::Error>;
+
+    fn visit_object_ref(&self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error>;
 
     fn visit_call_expression(
         &self,
@@ -78,12 +82,15 @@ where
     V: ExpressionVisitor<'a>,
 {
     match diagnostics.consume_err(Expression::from_node(node, source))? {
-        Expression::Identifier(_) => {
-            diagnostics.push(Diagnostic::error(
-                node.byte_range(),
-                "unsupported constant expression: bare identifier",
-            ));
-            None
+        Expression::Identifier(x) => {
+            let name = x.to_str(source);
+            if let Some(n) = object_tree.get_by_id(name) {
+                diagnostics
+                    .consume_node_err(node, visitor.visit_object_ref(n.class().clone(), name))
+            } else {
+                diagnostics.push(Diagnostic::error(node.byte_range(), "undefined reference"));
+                None
+            }
         }
         Expression::Number(v) => diagnostics.consume_node_err(node, visitor.visit_number(v)),
         Expression::String(v) => diagnostics.consume_node_err(node, visitor.visit_string(v)),
@@ -96,6 +103,7 @@ where
             None
         }
         Expression::MemberExpression(x) => {
+            // TODO: resolve object reference
             let mid_ty = parse_type(parent_space, x.object, source, diagnostics)?;
             let name = x.property.to_str(source);
             if let Some(en) = mid_ty.get_enum_by_variant(name) {

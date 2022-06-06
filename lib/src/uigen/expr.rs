@@ -303,6 +303,8 @@ fn describe_primitive_type(t: PrimitiveType) -> Option<TypeDesc<'static>> {
 enum ExpressionError {
     #[error("unsupported literal: {0}")]
     UnsupportedLiteral(&'static str),
+    #[error("unsupported reference")]
+    UnsupportedReference,
     #[error("unsupported function call")]
     UnsupportedFunctionCall,
     #[error("unsupported unary operation on type: {0} <{1}>")]
@@ -356,6 +358,10 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
 
     fn visit_enum(&self, _enum_ty: Enum<'a>, _variant: &str) -> Result<Self::Item, Self::Error> {
         Err(ExpressionError::UnsupportedLiteral("enum")) // enum value is unknown
+    }
+
+    fn visit_object_ref(&self, _cls: Class<'a>, _name: &str) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedReference)
     }
 
     fn visit_call_expression(
@@ -540,6 +546,10 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
         Ok((TypeDesc::Enum(enum_ty), res_expr, PREC_SCOPE))
     }
 
+    fn visit_object_ref(&self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error> {
+        Ok((TypeDesc::ObjectRef(cls), name.to_owned(), PREC_TERM))
+    }
+
     fn visit_call_expression(
         &self,
         function: &str,
@@ -597,6 +607,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
                 Minus | Plus => Err(type_error()),
                 Typeof | Void | Delete => Err(type_error()),
             },
+            TypeDesc::ObjectRef(_) => Err(type_error()),
         }
     }
 
