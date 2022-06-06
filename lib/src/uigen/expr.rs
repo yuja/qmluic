@@ -31,6 +31,16 @@ impl Value {
                 TypeKind::Just(t) => {
                     SimpleValue::from_expression(ctx, t, *n, diagnostics).map(Value::Simple)
                 }
+                TypeKind::Pointer(_) | TypeKind::PointerList(_) => {
+                    diagnostics.push(Diagnostic::error(
+                        n.byte_range(),
+                        format!(
+                            "unsupported value expression of type '{}'",
+                            ty.qualified_cxx_name(),
+                        ),
+                    ));
+                    None
+                }
             },
             UiBindingValue::Map(n, m) => match ty {
                 TypeKind::Just(NamedType::Class(cls)) => {

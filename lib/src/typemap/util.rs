@@ -1,4 +1,4 @@
-use super::TypeMap;
+use super::{NamedType, TypeKind, TypeMap};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ptr;
@@ -73,5 +73,27 @@ impl fmt::Debug for TypeMapRef<'_> {
         f.debug_tuple("TypeMapRef")
             .field(&format_args!("@{:p}", self.0))
             .finish()
+    }
+}
+
+/// Strips type decoration from the `name`, looks up the type, and wraps it up.
+///
+/// The given `name` should be normalized in Qt moc way.
+pub(super) fn decorated_type<'a>(
+    name: &str,
+    lookup: impl FnOnce(&str) -> Option<NamedType<'a>>,
+) -> Option<TypeKind<'a>> {
+    if let Some(s) = name.strip_suffix("*>") {
+        if let Some(t) = s.strip_prefix("QList<") {
+            lookup(t).map(TypeKind::PointerList)
+        } else if let Some(t) = s.strip_prefix("QVector<") {
+            lookup(t).map(TypeKind::PointerList)
+        } else {
+            None
+        }
+    } else if let Some(s) = name.strip_suffix('*') {
+        lookup(s).map(TypeKind::Pointer)
+    } else {
+        lookup(name).map(TypeKind::Just)
     }
 }

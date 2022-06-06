@@ -249,12 +249,27 @@ pub enum TypeKind<'a> {
     ///
     /// The type should be a [`PrimitiveType`], [`Enum`], or gadget [`Class`].
     Just(NamedType<'a>),
+
+    /// Pointer to a named object type.
+    ///
+    /// The type should be an object [`Class`]. It's unlikely we'll support a pointer to
+    /// a value type.
+    Pointer(NamedType<'a>),
+
+    /// List of pointers to a named object type.
+    ///
+    /// The type should be an object [`Class`].
+    ///
+    /// This may be structured as `List(Box<Pointer(Type)>)`, but is flattened for convenience.
+    PointerList(NamedType<'a>),
 }
 
 impl TypeKind<'_> {
     pub fn qualified_cxx_name(&self) -> Cow<'_, str> {
         match self {
             TypeKind::Just(ty) => ty.qualified_cxx_name(),
+            TypeKind::Pointer(ty) => ty.qualified_cxx_name() + "*",
+            TypeKind::PointerList(ty) => format!("QList<{}*>", ty.qualified_cxx_name()).into(),
         }
     }
 }
@@ -519,6 +534,36 @@ mod tests {
         assert_eq!(
             bar_class.get_property_type("foo_prop").unwrap(),
             TypeKind::Just(module.resolve_type("int").unwrap())
+        );
+    }
+
+    #[test]
+    fn get_type_of_property_decorated() {
+        let mut type_map = TypeMap::empty();
+        let module_id = ModuleId::Named("foo".into());
+        let mut module_data = ModuleData::with_builtins();
+        let mut foo_meta = metatype::Class::new("Foo");
+        foo_meta.properties.extend([
+            metatype::Property::new("pointer", "Foo*"),
+            metatype::Property::new("pointer_list", "QList<Foo*>"),
+            metatype::Property::new("pointer_vector", "QVector<Foo*>"),
+        ]);
+        module_data.extend([foo_meta]);
+        type_map.insert_module(module_id.clone(), module_data);
+
+        let module = type_map.get_module(module_id).unwrap();
+        let foo_class = unwrap_class(module.get_type("Foo"));
+        assert_eq!(
+            foo_class.get_property_type("pointer").unwrap(),
+            TypeKind::Pointer(NamedType::Class(foo_class.clone()))
+        );
+        assert_eq!(
+            foo_class.get_property_type("pointer_list").unwrap(),
+            TypeKind::PointerList(NamedType::Class(foo_class.clone()))
+        );
+        assert_eq!(
+            foo_class.get_property_type("pointer_vector").unwrap(),
+            TypeKind::PointerList(NamedType::Class(foo_class.clone()))
         );
     }
 
