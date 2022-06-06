@@ -28,7 +28,6 @@ pub enum ParseErrorKind {
     UnexpectedNodeKind,
     MissingField(&'static str),
     DuplicatedBinding,
-    DuplicatedObjectId,
 }
 
 impl<'tree> ParseError<'tree> {
@@ -65,7 +64,6 @@ impl fmt::Display for ParseError<'_> {
             UnexpectedNodeKind => write!(f, "unexpected node kind: {}", self.node.kind()),
             MissingField(name) => write!(f, "missing field: {}", name),
             DuplicatedBinding => write!(f, "duplicated binding"),
-            DuplicatedObjectId => write!(f, "duplicated object id"),
         }
     }
 }

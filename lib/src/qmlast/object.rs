@@ -2,7 +2,7 @@ use super::astutil;
 use super::term::{Identifier, NestedIdentifier};
 use super::{ParseError, ParseErrorKind};
 use std::collections::HashMap;
-use tree_sitter::{Node, Query, QueryCursor, TreeCursor};
+use tree_sitter::{Node, TreeCursor};
 
 /// Represents a top-level QML program.
 #[derive(Clone, Debug)]
@@ -51,14 +51,6 @@ impl<'tree> UiProgram<'tree> {
     /// Node for the top-level object (or component.)
     pub fn root_object_node(&self) -> Node<'tree> {
         self.root_object_node
-    }
-
-    /// Creates id to object node map.
-    pub fn build_object_id_map<'s>(
-        &self,
-        source: &'s str,
-    ) -> Result<UiObjectIdMap<'tree, 's>, ParseError<'tree>> {
-        build_object_id_map(self.root_object_node, source)
     }
 }
 
@@ -145,53 +137,6 @@ impl<'tree> UiImport<'tree> {
     pub fn alias(&self) -> Option<Identifier<'tree>> {
         self.alias
     }
-}
-
-/// Map of id to object node.
-pub type UiObjectIdMap<'tree, 's> = HashMap<&'s str, Node<'tree>>;
-
-fn build_object_id_map<'tree, 's>(
-    node: Node<'tree>,
-    source: &'s str,
-) -> Result<UiObjectIdMap<'tree, 's>, ParseError<'tree>> {
-    use std::collections::hash_map::Entry;
-
-    let query = Query::new(
-        node.language(),
-        r###"
-        (ui_object_definition
-         initializer: (ui_object_initializer
-                       (ui_binding
-                        name: (identifier) @property
-                        (#eq? @property "id")
-                        value: (_) @value))) @object
-        "###,
-    )
-    .expect("static query must be valid");
-    let mut cursor = QueryCursor::new();
-    let matches = cursor.matches(&query, node, source.as_bytes());
-
-    let mut object_id_map = HashMap::new();
-    for m in matches {
-        let expr_node = m
-            .nodes_for_capture_index(1)
-            .next()
-            .expect("id expression should be captured");
-        let obj_node = m
-            .nodes_for_capture_index(2)
-            .next()
-            .expect("id object should be captured");
-        let id = extract_object_id(expr_node)?;
-        if let Entry::Vacant(e) = object_id_map.entry(id.to_str(source)) {
-            e.insert(obj_node);
-        } else {
-            return Err(ParseError::new(
-                expr_node,
-                ParseErrorKind::DuplicatedObjectId,
-            ));
-        }
-    }
-    Ok(object_id_map)
 }
 
 fn extract_object_id(mut node: Node) -> Result<Identifier, ParseError> {
@@ -670,61 +615,9 @@ mod tests {
     }
 
     #[test]
-    fn object_id_map() {
-        let doc = parse(
-            r###"
-            Foo {
-                id: foo
-                Bar.Bar { id: bar }
-                Baz {
-                    whatever: 0
-                    id: baz
-                }
-                Blah.Blah {}
-            }
-            "###,
-        );
-
-        let program = UiProgram::from_node(doc.root_node(), doc.source()).unwrap();
-        let object_id_map = program.build_object_id_map(doc.source()).unwrap();
-        assert_eq!(
-            object_id_map.get("foo").unwrap(),
-            &program.root_object_node()
-        );
-
-        let get_object_by_id = |id: &str| {
-            let &n = object_id_map.get(id).unwrap();
-            UiObjectDefinition::from_node(n, doc.source()).unwrap()
-        };
-        assert_eq!(
-            get_object_by_id("bar").type_name().to_string(doc.source()),
-            "Bar.Bar"
-        );
-        assert_eq!(
-            get_object_by_id("baz").type_name().to_string(doc.source()),
-            "Baz"
-        );
-    }
-
-    #[test]
-    fn duplicated_object_ids() {
-        let doc = parse(
-            r###"
-            Foo {
-                id: foo
-                Foo { id: foo }
-            }
-            "###,
-        );
-        let program = UiProgram::from_node(doc.root_node(), doc.source()).unwrap();
-        assert!(program.build_object_id_map(doc.source()).is_err());
-    }
-
-    #[test]
     fn non_trivial_object_id_expression() {
         let doc = parse(r"Foo { id: (expr) }");
-        let program = UiProgram::from_node(doc.root_node(), doc.source()).unwrap();
-        assert!(program.build_object_id_map(doc.source()).is_err());
+        assert!(extract_root_object(&doc).is_err());
     }
 
     #[test]
