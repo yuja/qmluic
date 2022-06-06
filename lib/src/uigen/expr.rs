@@ -4,7 +4,7 @@ use super::{BuildDocContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{BinaryOperator, Node, UiBindingMap, UiBindingValue, UnaryOperator};
 use crate::typedexpr::{self, DescribeType, ExpressionVisitor, TypeDesc};
-use crate::typemap::{Class, Enum, NamedType, PrimitiveType, TypeSpace};
+use crate::typemap::{Class, Enum, NamedType, PrimitiveType, TypeKind, TypeSpace};
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::fmt;
 use std::io;
@@ -22,16 +22,20 @@ impl Value {
     /// Generates constant expression of `ty` type from the given `binding_value`.
     pub(super) fn from_binding_value(
         ctx: &BuildDocContext,
-        ty: &NamedType,
+        ty: &TypeKind,
         binding_value: &UiBindingValue,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         match binding_value {
-            UiBindingValue::Node(n) => {
-                SimpleValue::from_expression(ctx, ty, *n, diagnostics).map(Value::Simple)
-            }
+            UiBindingValue::Node(n) => match ty {
+                TypeKind::Just(t) => {
+                    SimpleValue::from_expression(ctx, t, *n, diagnostics).map(Value::Simple)
+                }
+            },
             UiBindingValue::Map(n, m) => match ty {
-                NamedType::Class(cls) => Self::from_binding_map(ctx, cls, *n, m, diagnostics),
+                TypeKind::Just(NamedType::Class(cls)) => {
+                    Self::from_binding_map(ctx, cls, *n, m, diagnostics)
+                }
                 _ => {
                     diagnostics.push(Diagnostic::error(
                         n.byte_range(),

@@ -2,7 +2,7 @@ use super::core::TypeSpace;
 use super::enum_::Enum;
 use super::namespace::NamespaceData;
 use super::util::{TypeDataRef, TypeMapRef};
-use super::{NamedType, ParentSpace};
+use super::{NamedType, ParentSpace, TypeKind};
 use crate::metatype;
 use std::collections::HashMap;
 
@@ -63,13 +63,13 @@ impl<'a> Class<'a> {
     }
 
     /// Looks up type of the specified property.
-    pub fn get_property_type(&self, name: &str) -> Option<NamedType<'a>> {
+    pub fn get_property_type(&self, name: &str) -> Option<TypeKind<'a>> {
         // TODO: error out if type name can't be resolved?
         self.data
             .as_ref()
             .property_map
             .get(name)
-            .and_then(|p| self.resolve_type_scoped(&p.type_name))
+            .and_then(|p| self.resolve_type_scoped(&p.type_name).map(TypeKind::Just))
             .or_else(|| {
                 self.public_super_classes()
                     .find_map(|cls| cls.get_property_type(name))

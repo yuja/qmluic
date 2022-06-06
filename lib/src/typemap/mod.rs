@@ -1,6 +1,7 @@
 //! Manages types loaded from Qt metatypes.json.
 
 use camino::Utf8PathBuf;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::mem;
 
@@ -237,6 +238,23 @@ impl PrimitiveType {
             QString => "QString",
             UInt => "uint",
             Void => "void",
+        }
+    }
+}
+
+/// Type of variables, properties, function arguments, etc.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum TypeKind<'a> {
+    /// Just a named (or value) type.
+    ///
+    /// The type should be a [`PrimitiveType`], [`Enum`], or gadget [`Class`].
+    Just(NamedType<'a>),
+}
+
+impl TypeKind<'_> {
+    pub fn qualified_cxx_name(&self) -> Cow<'_, str> {
+        match self {
+            TypeKind::Just(ty) => ty.qualified_cxx_name(),
         }
     }
 }
@@ -496,11 +514,11 @@ mod tests {
         let bar_class = unwrap_class(module.get_type("Bar"));
         assert_eq!(
             bar_class.get_property_type("bar_prop").unwrap(),
-            module.resolve_type("bool").unwrap()
+            TypeKind::Just(module.resolve_type("bool").unwrap())
         );
         assert_eq!(
             bar_class.get_property_type("foo_prop").unwrap(),
-            module.resolve_type("int").unwrap()
+            TypeKind::Just(module.resolve_type("int").unwrap())
         );
     }
 
