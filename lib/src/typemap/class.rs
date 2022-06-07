@@ -50,26 +50,51 @@ impl<'a> Class<'a> {
         BaseClasses::new(self.public_super_classes())
     }
 
+    fn find_map_self_and_base_classes<T>(
+        &self,
+        mut f: impl FnMut(&Class<'a>) -> Option<T>,
+    ) -> Option<T> {
+        if let Some(r) = f(self) {
+            Some(r)
+        } else {
+            self.base_classes().find_map(|cls| f(&cls))
+        }
+    }
+
     pub fn is_derived_from(&self, base: &Class) -> bool {
         if self == base {
             true
         } else {
-            self.public_super_classes().any(|c| c.is_derived_from(base))
+            self.base_classes().any(|c| &c == base)
         }
+    }
+
+    fn get_type_no_super(&self, name: &str) -> Option<NamedType<'a>> {
+        self.data
+            .as_ref()
+            .inner_type_map
+            .get_type_with(name, self.type_map, || ParentSpace::Class(self.clone()))
+    }
+
+    fn get_enum_by_variant_no_super(&self, name: &str) -> Option<Enum<'a>> {
+        self.data
+            .as_ref()
+            .inner_type_map
+            .get_enum_by_variant_with(name, || ParentSpace::Class(self.clone()))
     }
 
     /// Looks up type of the specified property.
     pub fn get_property_type(&self, name: &str) -> Option<TypeKind<'a>> {
+        self.find_map_self_and_base_classes(|cls| cls.get_property_type_no_super(name))
+    }
+
+    fn get_property_type_no_super(&self, name: &str) -> Option<TypeKind<'a>> {
         // TODO: error out if type name can't be resolved?
         self.data
             .as_ref()
             .property_map
             .get(name)
             .and_then(|p| util::decorated_type(&p.type_name, |n| self.resolve_type_scoped(n)))
-            .or_else(|| {
-                self.public_super_classes()
-                    .find_map(|cls| cls.get_property_type(name))
-            })
     }
 }
 
@@ -79,15 +104,7 @@ impl<'a> TypeSpace<'a> for Class<'a> {
     }
 
     fn get_type(&self, name: &str) -> Option<NamedType<'a>> {
-        // TODO: detect cycle in super-class chain
-        self.data
-            .as_ref()
-            .inner_type_map
-            .get_type_with(name, self.type_map, || ParentSpace::Class(self.clone()))
-            .or_else(|| {
-                self.public_super_classes()
-                    .find_map(|cls| cls.get_type(name))
-            })
+        self.find_map_self_and_base_classes(|cls| cls.get_type_no_super(name))
     }
 
     fn lexical_parent(&self) -> Option<&ParentSpace<'a>> {
@@ -95,15 +112,7 @@ impl<'a> TypeSpace<'a> for Class<'a> {
     }
 
     fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
-        // TODO: detect cycle in super-class chain
-        self.data
-            .as_ref()
-            .inner_type_map
-            .get_enum_by_variant_with(name, || ParentSpace::Class(self.clone()))
-            .or_else(|| {
-                self.public_super_classes()
-                    .find_map(|cls| cls.get_enum_by_variant(name))
-            })
+        self.find_map_self_and_base_classes(|cls| cls.get_enum_by_variant_no_super(name))
     }
 }
 
