@@ -5,6 +5,8 @@ use super::util::{self, TypeDataRef, TypeMapRef};
 use super::{NamedType, ParentSpace, TypeKind};
 use crate::metatype;
 use std::collections::HashMap;
+use std::iter::FusedIterator;
+use std::slice;
 
 /// QObject (or gadget) class representation.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -37,21 +39,11 @@ impl<'a> Class<'a> {
         }
     }
 
-    pub fn public_super_classes<'b>(&'b self) -> impl Iterator<Item = Class<'a>> + 'b {
-        self.data
-            .as_ref()
-            .public_super_class_names
-            .iter()
-            .filter_map(|n| {
-                match self.parent_space.resolve_type_scoped(n) {
-                    Some(NamedType::Class(x)) => Some(x),
-                    Some(NamedType::QmlComponent(ns)) => Some(ns.into_class()),
-                    Some(
-                        NamedType::Enum(_) | NamedType::Namespace(_) | NamedType::Primitive(_),
-                    )
-                    | None => None, // TODO: error?
-                }
-            })
+    pub fn public_super_classes<'b>(&'b self) -> SuperClasses<'a, 'b> {
+        SuperClasses::new(
+            self.data.as_ref().public_super_class_names.iter(),
+            &self.parent_space,
+        )
     }
 
     pub fn is_derived_from(&self, base: &Class) -> bool {
@@ -175,3 +167,41 @@ impl PropertyData {
         (meta.name, data)
     }
 }
+
+/// Iterator over the direct super classes.
+#[derive(Clone, Debug)]
+pub struct SuperClasses<'a, 'b> {
+    names_iter: slice::Iter<'a, String>,
+    parent_space: &'b ParentSpace<'a>,
+}
+
+impl<'a, 'b> SuperClasses<'a, 'b> {
+    fn new(names_iter: slice::Iter<'a, String>, parent_space: &'b ParentSpace<'a>) -> Self {
+        SuperClasses {
+            names_iter,
+            parent_space,
+        }
+    }
+}
+
+impl<'a, 'b> Iterator for SuperClasses<'a, 'b> {
+    type Item = Class<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        for n in self.names_iter.by_ref() {
+            match self.parent_space.resolve_type_scoped(n) {
+                Some(NamedType::Class(x)) => return Some(x),
+                Some(NamedType::QmlComponent(ns)) => return Some(ns.into_class()),
+                Some(NamedType::Enum(_) | NamedType::Namespace(_) | NamedType::Primitive(_))
+                | None => (), // TODO: error?
+            }
+        }
+        None
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.names_iter.size_hint()
+    }
+}
+
+impl<'a, 'b> FusedIterator for SuperClasses<'a, 'b> where slice::Iter<'a, String>: FusedIterator {}
