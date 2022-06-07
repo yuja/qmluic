@@ -192,7 +192,8 @@ fn fix_tab_widget(cls: &mut Class) {
 
 fn fix_widget(cls: &mut Class) {
     cls.properties.extend([
-        Property::new("actions", "QList<QAction*>"), // handled by uigen
+        // TODO: QAction* or QMenu*
+        Property::new("actions", "QList<QObject*>"), // handled by uigen
     ]);
 }
 

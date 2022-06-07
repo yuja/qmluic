@@ -7052,7 +7052,7 @@ Module {
         Property { name: "locale"; type: "QLocale" }
         Property { name: "windowFilePath"; type: "string" }
         Property { name: "inputMethodHints"; type: "Qt::InputMethodHints" }
-        Property { name: "actions"; type: "QList<QAction*>"; isReadonly: true }
+        Property { name: "actions"; type: "QList<QObject*>"; isReadonly: true }
         Signal {
             name: "windowTitleChanged"
             Parameter { name: "title"; type: "string" }
