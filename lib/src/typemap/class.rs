@@ -39,10 +39,10 @@ impl<'a> Class<'a> {
         }
     }
 
-    pub fn public_super_classes<'b>(&'b self) -> SuperClasses<'a, 'b> {
+    pub fn public_super_classes(&self) -> SuperClasses<'a> {
         SuperClasses::new(
             self.data.as_ref().public_super_class_names.iter(),
-            &self.parent_space,
+            *self.parent_space.clone(),
         )
     }
 
@@ -170,13 +170,13 @@ impl PropertyData {
 
 /// Iterator over the direct super classes.
 #[derive(Clone, Debug)]
-pub struct SuperClasses<'a, 'b> {
+pub struct SuperClasses<'a> {
     names_iter: slice::Iter<'a, String>,
-    parent_space: &'b ParentSpace<'a>,
+    parent_space: ParentSpace<'a>,
 }
 
-impl<'a, 'b> SuperClasses<'a, 'b> {
-    fn new(names_iter: slice::Iter<'a, String>, parent_space: &'b ParentSpace<'a>) -> Self {
+impl<'a> SuperClasses<'a> {
+    fn new(names_iter: slice::Iter<'a, String>, parent_space: ParentSpace<'a>) -> Self {
         SuperClasses {
             names_iter,
             parent_space,
@@ -184,7 +184,7 @@ impl<'a, 'b> SuperClasses<'a, 'b> {
     }
 }
 
-impl<'a, 'b> Iterator for SuperClasses<'a, 'b> {
+impl<'a> Iterator for SuperClasses<'a> {
     type Item = Class<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -204,4 +204,4 @@ impl<'a, 'b> Iterator for SuperClasses<'a, 'b> {
     }
 }
 
-impl<'a, 'b> FusedIterator for SuperClasses<'a, 'b> where slice::Iter<'a, String>: FusedIterator {}
+impl<'a> FusedIterator for SuperClasses<'a> where slice::Iter<'a, String>: FusedIterator {}
