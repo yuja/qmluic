@@ -114,9 +114,6 @@ impl From<ValueTypeError<'_>> for Diagnostic {
 
 /// Parses the given `binding_map` into a map of constant expressions.
 ///
-/// `exclude_names` is a list of property names which have to be processed in a special
-/// manner by the caller. The list should be small.
-///
 /// Unparsable properties are excluded from the resulting map so as many diagnostic messages
 /// will be generated as possible.
 ///
@@ -125,34 +122,24 @@ pub(super) fn collect_properties(
     ctx: &BuildDocContext,
     cls: &Class,
     binding_map: &UiBindingMap,
-    exclude_names: &[&str],
     diagnostics: &mut Diagnostics,
 ) -> HashMap<String, Value> {
-    resolve_properties(ctx, cls, binding_map, exclude_names, diagnostics, |_, x| x)
+    resolve_properties(ctx, cls, binding_map, diagnostics, |_, x| x)
 }
 
 pub(super) fn collect_properties_with_node<'t>(
     ctx: &BuildDocContext,
     cls: &Class,
     binding_map: &UiBindingMap<'t, '_>,
-    exclude_names: &[&str],
     diagnostics: &mut Diagnostics,
 ) -> HashMap<String, WithNode<'t, Value>> {
-    resolve_properties(
-        ctx,
-        cls,
-        binding_map,
-        exclude_names,
-        diagnostics,
-        WithNode::new,
-    )
+    resolve_properties(ctx, cls, binding_map, diagnostics, WithNode::new)
 }
 
 fn resolve_properties<'t, 's, B, F>(
     ctx: &BuildDocContext,
     cls: &Class,
     binding_map: &UiBindingMap<'t, 's>,
-    exclude_names: &[&str],
     diagnostics: &mut Diagnostics,
     mut make_value: F,
 ) -> HashMap<String, B>
@@ -161,7 +148,6 @@ where
 {
     binding_map
         .iter()
-        .filter(|(name, _)| !exclude_names.contains(name))
         .filter_map(|(&name, value)| {
             if let Some(ty) = cls.get_property_type(name) {
                 Value::from_binding_value(ctx, &ty, value, diagnostics)

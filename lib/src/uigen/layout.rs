@@ -41,7 +41,6 @@ impl Layout {
             ctx,
             obj_node.class(),
             &binding_map,
-            &[],
             diagnostics,
         );
 
@@ -224,7 +223,6 @@ impl<'t> LayoutItemAttached<'t> {
             ctx,
             &ctx.layout_attached_class,
             binding_map,
-            &[],
             diagnostics,
         );
         let get_enum_property = |name, diagnostics: &mut Diagnostics| {
@@ -330,7 +328,6 @@ impl SpacerItem {
                 ctx,
                 obj_node.class(),
                 &binding_map,
-                &[],
                 diagnostics,
             ),
         })

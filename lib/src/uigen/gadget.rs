@@ -27,7 +27,7 @@ impl Gadget {
         binding_map: &UiBindingMap,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let properties = property::collect_properties(ctx, cls, binding_map, &[], diagnostics);
+        let properties = property::collect_properties(ctx, cls, binding_map, diagnostics);
         match cls.name() {
             "QFont" => Some(Gadget {
                 name: "font".to_owned(),
@@ -115,7 +115,7 @@ impl SizePolicy {
         diagnostics: &mut Diagnostics,
     ) -> Self {
         let properties_map =
-            property::collect_properties_with_node(ctx, cls, binding_map, &[], diagnostics);
+            property::collect_properties_with_node(ctx, cls, binding_map, diagnostics);
         let get_enum_property = |name, diagnostics: &mut Diagnostics| {
             properties_map
                 .get(name)

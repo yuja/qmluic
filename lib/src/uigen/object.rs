@@ -4,7 +4,6 @@ use super::property;
 use super::{BuildDocContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectNode;
-use crate::qmlast::{Expression, Node, UiBindingValue};
 use crate::typemap::TypeSpace;
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
@@ -104,7 +103,6 @@ impl Action {
                 ctx,
                 obj_node.class(),
                 &binding_map,
-                &[],
                 diagnostics,
             ),
         })
@@ -160,7 +158,6 @@ impl Widget {
                             ctx,
                             &ctx.tab_widget_attached_class,
                             m,
-                            &[],
                             diagnostics,
                         )
                     })
@@ -169,13 +166,8 @@ impl Widget {
         };
 
         let binding_map = diagnostics.consume_err(obj_node.obj().build_binding_map(ctx.source))?;
-        let mut properties = property::collect_properties(
-            ctx,
-            obj_node.class(),
-            &binding_map,
-            &["actions"],
-            diagnostics,
-        );
+        let mut properties =
+            property::collect_properties(ctx, obj_node.class(), &binding_map, diagnostics);
         if obj_node.class().is_derived_from(&ctx.push_button_class) {
             // see metatype_tweak.rs, "default" is a reserved word
             if let Some((mut k, v)) = properties.remove_entry("default_") {
@@ -183,10 +175,14 @@ impl Widget {
                 properties.insert(k, v);
             }
         }
-        let actions = binding_map
-            .get("actions")
-            .map(|v| collect_identifiers(v, ctx.source, diagnostics))
-            .unwrap_or_default();
+        let actions = match properties.remove_entry("actions") {
+            Some((_, Value::CstringList(names))) => names,
+            Some((k, v)) => {
+                properties.insert(k, v); // weird, but process as generic property
+                vec![]
+            }
+            None => vec![],
+        };
 
         let child_container_kind = if obj_node.class().is_derived_from(&ctx.tab_widget_class) {
             ContainerKind::TabWidget
@@ -251,55 +247,5 @@ pub(super) fn confine_children(obj_node: ObjectNode, diagnostics: &mut Diagnosti
                 obj_node.class().qualified_cxx_name()
             ),
         ));
-    }
-}
-
-fn collect_identifiers(
-    value: &UiBindingValue,
-    source: &str,
-    diagnostics: &mut Diagnostics,
-) -> Vec<String> {
-    match value {
-        UiBindingValue::Node(n) => {
-            parse_as_identifier_array(*n, source, diagnostics).unwrap_or_default()
-        }
-        UiBindingValue::Map(n, _) => {
-            diagnostics.push(Diagnostic::error(
-                n.byte_range(),
-                "binding map cannot be parsed as array of identifiers",
-            ));
-            vec![]
-        }
-    }
-}
-
-fn parse_as_identifier_string(
-    node: Node,
-    source: &str,
-    diagnostics: &mut Diagnostics,
-) -> Option<String> {
-    match diagnostics.consume_err(Expression::from_node(node, source))? {
-        Expression::Identifier(n) => Some(n.to_str(source).to_owned()),
-        _ => {
-            diagnostics.push(Diagnostic::error(node.byte_range(), "not an identifier"));
-            None
-        }
-    }
-}
-
-fn parse_as_identifier_array(
-    node: Node,
-    source: &str,
-    diagnostics: &mut Diagnostics,
-) -> Option<Vec<String>> {
-    match diagnostics.consume_err(Expression::from_node(node, source))? {
-        Expression::Array(ns) => ns
-            .iter()
-            .map(|&n| parse_as_identifier_string(n, source, diagnostics))
-            .collect(),
-        _ => {
-            diagnostics.push(Diagnostic::error(node.byte_range(), "not an array"));
-            None
-        }
     }
 }
