@@ -44,6 +44,8 @@ pub trait ExpressionVisitor<'a> {
     fn visit_bool(&self, value: bool) -> Result<Self::Item, Self::Error>;
     fn visit_enum(&self, enum_ty: Enum<'a>, variant: &str) -> Result<Self::Item, Self::Error>;
 
+    fn visit_array(&self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error>;
+
     fn visit_object_ref(&self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error>;
 
     fn visit_call_expression(
@@ -95,12 +97,12 @@ where
         Expression::Number(v) => diagnostics.consume_node_err(node, visitor.visit_number(v)),
         Expression::String(v) => diagnostics.consume_node_err(node, visitor.visit_string(v)),
         Expression::Bool(v) => diagnostics.consume_node_err(node, visitor.visit_bool(v)),
-        Expression::Array(_) => {
-            diagnostics.push(Diagnostic::error(
-                node.byte_range(),
-                "unsupported constant expression: array",
-            ));
-            None
+        Expression::Array(ns) => {
+            let elements = ns
+                .iter()
+                .map(|&n| walk(parent_space, object_tree, n, source, visitor, diagnostics))
+                .collect::<Option<Vec<_>>>()?;
+            diagnostics.consume_node_err(node, visitor.visit_array(elements))
         }
         Expression::MemberExpression(x) => {
             // TODO: resolve object reference

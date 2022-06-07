@@ -360,6 +360,10 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
         Err(ExpressionError::UnsupportedLiteral("enum")) // enum value is unknown
     }
 
+    fn visit_array(&self, _elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedLiteral("array"))
+    }
+
     fn visit_object_ref(&self, _cls: Class<'a>, _name: &str) -> Result<Self::Item, Self::Error> {
         Err(ExpressionError::UnsupportedReference)
     }
@@ -544,6 +548,10 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
     fn visit_enum(&self, enum_ty: Enum<'a>, variant: &str) -> Result<Self::Item, Self::Error> {
         let res_expr = enum_ty.qualify_cxx_variant_name(variant);
         Ok((TypeDesc::Enum(enum_ty), res_expr, PREC_SCOPE))
+    }
+
+    fn visit_array(&self, _elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedLiteral("array"))
     }
 
     fn visit_object_ref(&self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error> {
