@@ -33,7 +33,7 @@ QDialog {
                         QFormLayout {
                             fieldGrowthPolicy: QFormLayout.ExpandingFieldsGrow
 
-                            QLabel { text: qsTr("To:") }  // TODO: buddy
+                            QLabel { text: qsTr("To:"); buddy: toEdit }
                             QComboBox {
                                 id: toEdit
                                 sizePolicy.horizontalPolicy: QSizePolicy.Expanding
@@ -42,7 +42,7 @@ QDialog {
                                 insertPolicy: QComboBox.InsertAtTop
                             }
 
-                            QLabel { text: qsTr("Cc:") }  // TODO: buddy
+                            QLabel { text: qsTr("Cc:"); buddy: ccEdit }
                             QComboBox {
                                 id: ccEdit
                                 sizePolicy.horizontalPolicy: QSizePolicy.Expanding
@@ -51,7 +51,7 @@ QDialog {
                                 insertPolicy: QComboBox.InsertAtTop
                             }
 
-                            QLabel { text: qsTr("From:") }  // TODO: buddy
+                            QLabel { text: qsTr("From:"); buddy: fromEdit }
                             QComboBox {
                                 id: fromEdit
                                 sizePolicy.horizontalPolicy: QSizePolicy.Expanding
@@ -60,13 +60,13 @@ QDialog {
                                 insertPolicy: QComboBox.InsertAtTop
                             }
 
-                            QLabel { text: qsTr("In-Reply-To:") }  // TODO: buddy
+                            QLabel { text: qsTr("In-Reply-To:"); buddy: inReplyToEdit }
                             QLineEdit {
                                 id: inReplyToEdit
                                 toolTip: qsTr("Message identifier to reply to, for threading")
                             }
 
-                            QLabel { text: qsTr("Flag:") }  // TODO: buddy
+                            QLabel { text: qsTr("Flag:"); buddy: flagEdit }
                             QComboBox {
                                 id: flagEdit
                                 sizePolicy.horizontalPolicy: QSizePolicy.Expanding

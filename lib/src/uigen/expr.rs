@@ -31,6 +31,9 @@ impl Value {
                 TypeKind::Just(t) => {
                     SimpleValue::from_expression(ctx, t, *n, diagnostics).map(Value::Simple)
                 }
+                TypeKind::Pointer(NamedType::Class(cls)) => {
+                    parse_object_reference(ctx, cls, *n, diagnostics).map(Value::Simple)
+                }
                 TypeKind::Pointer(_) | TypeKind::PointerList(_) => {
                     diagnostics.push(Diagnostic::error(
                         n.byte_range(),
@@ -129,6 +132,7 @@ pub enum SimpleValue {
     Bool(bool),
     Number(f64),
     String { s: String, tr: bool },
+    Cstring(String),
     Enum(String),
     Set(String),
 }
@@ -232,6 +236,7 @@ impl SimpleValue {
             Bool(_) => "bool",
             Number(_) => "number",
             String { .. } => "string",
+            Cstring(_) => "cstring",
             Enum(_) => "enum",
             Set(_) => "set",
         };
@@ -283,7 +288,49 @@ impl fmt::Display for SimpleValue {
         match self {
             Bool(b) => write!(f, "{}", if *b { "true" } else { "false" }),
             Number(d) => write!(f, "{}", d),
-            String { s, .. } | Enum(s) | Set(s) => write!(f, "{}", s),
+            String { s, .. } | Cstring(s) | Enum(s) | Set(s) => write!(f, "{}", s),
+        }
+    }
+}
+
+fn parse_object_reference(
+    ctx: &BuildDocContext,
+    expected_cls: &Class,
+    node: Node,
+    diagnostics: &mut Diagnostics,
+) -> Option<SimpleValue> {
+    let (res_cls, obj_ref) = typedexpr::walk(
+        &ctx.type_space,
+        &ctx.object_tree,
+        node,
+        ctx.source,
+        &ObjectRefCollector,
+        diagnostics,
+    )?;
+    match obj_ref {
+        ObjectRef::Just(name) if res_cls.is_derived_from(expected_cls) => {
+            Some(SimpleValue::Cstring(name))
+        }
+        ObjectRef::Just(_) => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                format!(
+                    "reference type mismatch (expected: {}, actual: {})",
+                    expected_cls.qualified_cxx_name(),
+                    res_cls.qualified_cxx_name()
+                ),
+            ));
+            None
+        }
+        ObjectRef::List(_) => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                format!(
+                    "reference type mismatch (expected: {}, actual: list)",
+                    expected_cls.qualified_cxx_name(),
+                ),
+            ));
+            None
         }
     }
 }
