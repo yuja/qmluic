@@ -962,17 +962,14 @@ impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
             for (cls, r) in elements {
                 match r {
                     ObjectRef::Just(s) => {
-                        // TODO: find common base class
-                        base_cls = if cls.is_derived_from(&base_cls) {
-                            base_cls
-                        } else if base_cls.is_derived_from(&cls) {
-                            cls
-                        } else {
-                            return Err(ExpressionError::CannotDeduceType(
-                                base_cls.qualified_cxx_name().into(),
-                                cls.qualified_cxx_name().into(),
-                            ));
-                        };
+                        if base_cls != cls {
+                            base_cls = base_cls.common_base_class(&cls).ok_or_else(|| {
+                                ExpressionError::CannotDeduceType(
+                                    base_cls.qualified_cxx_name().into(),
+                                    cls.qualified_cxx_name().into(),
+                                )
+                            })?;
+                        }
                         names.push(s);
                     }
                     ObjectRef::List(_) => {
