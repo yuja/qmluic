@@ -982,7 +982,7 @@ impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
             }
             Ok((base_cls, ObjectRef::List(names)))
         } else {
-            return Err(ExpressionError::UnsupportedLiteral("empty array"));
+            Err(ExpressionError::UnsupportedLiteral("empty array"))
         }
     }
 
