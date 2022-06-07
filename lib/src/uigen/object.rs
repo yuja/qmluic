@@ -35,7 +35,17 @@ impl UiObject {
     ) -> Option<Self> {
         let cls = obj_node.class();
         if cls.is_derived_from(&ctx.action_class) {
-            Action::from_object_node(ctx, obj_node, diagnostics).map(UiObject::Action)
+            // TODO: hack for menu separator: <addaction name="separator"/> is reserved by uic
+            if obj_node
+                .obj()
+                .object_id()
+                .map(|n| n.to_str(ctx.source) == "separator")
+                .unwrap_or(false)
+            {
+                None
+            } else {
+                Action::from_object_node(ctx, obj_node, diagnostics).map(UiObject::Action)
+            }
         } else if cls.is_derived_from(&ctx.layout_class) {
             Layout::from_object_node(ctx, obj_node, diagnostics).map(UiObject::Layout)
         } else if cls.is_derived_from(&ctx.widget_class) {

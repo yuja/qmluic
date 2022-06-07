@@ -51,7 +51,7 @@ QMainWindow {
             //     <addaction name="separator"/>
             actions: [
                 action_Open,
-                separator,  // TODO
+                separator,
             ]
 
             //    </widget>
@@ -90,6 +90,11 @@ QMainWindow {
         text: qsTr("Foo")
 
         //   </action>
+    }
+
+    // TODO: find better way to represent a menu separator
+    QAction {
+        id: separator
     }
 
     //  </widget>
