@@ -4,7 +4,7 @@ use super::namespace::NamespaceData;
 use super::util::{self, TypeDataRef, TypeMapRef};
 use super::{NamedType, ParentSpace, TypeKind};
 use crate::metatype;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FusedIterator;
 use std::slice;
 
@@ -44,6 +44,10 @@ impl<'a> Class<'a> {
             self.data.as_ref().public_super_class_names.iter(),
             *self.parent_space.clone(),
         )
+    }
+
+    fn base_classes(&self) -> BaseClasses<'a> {
+        BaseClasses::new(self.public_super_classes())
     }
 
     pub fn is_derived_from(&self, base: &Class) -> bool {
@@ -205,3 +209,135 @@ impl<'a> Iterator for SuperClasses<'a> {
 }
 
 impl<'a> FusedIterator for SuperClasses<'a> where slice::Iter<'a, String>: FusedIterator {}
+
+/// Iterator to walk up the super classes.
+///
+/// This runs breadth-first search over super classes just because it's easier to implement
+/// than DFS. That shouldn't matter since the resolution would be ambiguous if two super classes
+/// in different chains had conflicting definitions. Don't rely on the behavior specific to
+/// BFS or DFS.
+#[derive(Clone, Debug)]
+struct BaseClasses<'a> {
+    pending: VecDeque<SuperClasses<'a>>,
+    visited: HashSet<Class<'a>>,
+}
+
+impl<'a> BaseClasses<'a> {
+    fn new(supers: SuperClasses<'a>) -> Self {
+        BaseClasses {
+            pending: VecDeque::from([supers]),
+            visited: HashSet::new(),
+        }
+    }
+}
+
+impl<'a> Iterator for BaseClasses<'a> {
+    type Item = Class<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(supers) = self.pending.front_mut() {
+            for cls in supers.by_ref() {
+                if self.visited.insert(cls.clone()) {
+                    self.pending.push_back(cls.public_super_classes());
+                    return Some(cls);
+                }
+            }
+            self.pending.pop_front();
+        }
+        None
+    }
+}
+
+impl<'a> FusedIterator for BaseClasses<'a> {}
+
+#[cfg(test)]
+mod tests {
+    use super::super::{ModuleData, ModuleId, TypeMap};
+    use super::*;
+    use crate::metatype;
+
+    fn unwrap_class(ty: Option<NamedType>) -> Class {
+        match ty {
+            Some(NamedType::Class(x)) => x,
+            _ => panic!("unexpected type: {ty:?}"),
+        }
+    }
+
+    #[test]
+    fn base_classes_simple() {
+        let mut type_map = TypeMap::empty();
+        let module_id = ModuleId::Named("foo".into());
+        let mut module_data = ModuleData::default();
+        module_data.extend([
+            metatype::Class::new("Root"),
+            metatype::Class::with_supers("Sub1", ["Root"]),
+            metatype::Class::with_supers("Sub2", ["Sub1"]),
+        ]);
+        type_map.insert_module(module_id.clone(), module_data);
+
+        let module = type_map.get_module(module_id).unwrap();
+        let root_class = unwrap_class(module.get_type("Root"));
+        let sub1_class = unwrap_class(module.get_type("Sub1"));
+        let sub2_class = unwrap_class(module.get_type("Sub2"));
+
+        assert_eq!(root_class.base_classes().collect::<Vec<_>>(), []);
+        assert_eq!(
+            sub1_class.base_classes().collect::<Vec<_>>(),
+            [root_class.clone()]
+        );
+        assert_eq!(
+            sub2_class.base_classes().collect::<Vec<_>>(),
+            [sub1_class.clone(), root_class.clone()]
+        );
+    }
+
+    #[test]
+    fn base_classes_multiple() {
+        let mut type_map = TypeMap::empty();
+        let module_id = ModuleId::Named("foo".into());
+        let mut module_data = ModuleData::default();
+        module_data.extend([
+            metatype::Class::new("Root1"),
+            metatype::Class::new("Root2"),
+            metatype::Class::with_supers("Sub1", ["Root1"]),
+            metatype::Class::with_supers("Sub2", ["Sub1", "Root2"]),
+        ]);
+        type_map.insert_module(module_id.clone(), module_data);
+
+        let module = type_map.get_module(module_id).unwrap();
+        let root1_class = unwrap_class(module.get_type("Root1"));
+        let root2_class = unwrap_class(module.get_type("Root2"));
+        let sub1_class = unwrap_class(module.get_type("Sub1"));
+        let sub2_class = unwrap_class(module.get_type("Sub2"));
+
+        assert_eq!(
+            sub2_class.base_classes().collect::<Vec<_>>(),
+            [sub1_class.clone(), root2_class.clone(), root1_class.clone()]
+        );
+    }
+
+    #[test]
+    fn base_classes_diamond() {
+        let mut type_map = TypeMap::empty();
+        let module_id = ModuleId::Named("foo".into());
+        let mut module_data = ModuleData::default();
+        module_data.extend([
+            metatype::Class::new("Root"),
+            metatype::Class::with_supers("Mid1", ["Root"]),
+            metatype::Class::with_supers("Mid2", ["Root"]),
+            metatype::Class::with_supers("Leaf", ["Mid1", "Mid2"]),
+        ]);
+        type_map.insert_module(module_id.clone(), module_data);
+
+        let module = type_map.get_module(module_id).unwrap();
+        let root_class = unwrap_class(module.get_type("Root"));
+        let mid1_class = unwrap_class(module.get_type("Mid1"));
+        let mid2_class = unwrap_class(module.get_type("Mid2"));
+        let leaf_class = unwrap_class(module.get_type("Leaf"));
+
+        assert_eq!(
+            leaf_class.base_classes().collect::<Vec<_>>(),
+            [mid1_class.clone(), mid2_class.clone(), root_class.clone()]
+        );
+    }
+}
