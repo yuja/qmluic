@@ -14,6 +14,7 @@ use thiserror::Error;
 #[derive(Clone, Debug)]
 pub enum Value {
     Simple(SimpleValue),
+    CstringList(Vec<String>),
     Gadget(Gadget),
     SizePolicy(SizePolicy),
 }
@@ -33,6 +34,9 @@ impl Value {
                 }
                 TypeKind::Pointer(NamedType::Class(cls)) => {
                     parse_object_reference(ctx, cls, *n, diagnostics).map(Value::Simple)
+                }
+                TypeKind::PointerList(NamedType::Class(cls)) => {
+                    parse_object_reference_list(ctx, cls, *n, diagnostics).map(Value::CstringList)
                 }
                 TypeKind::Pointer(_) | TypeKind::PointerList(_) => {
                     diagnostics.push(Diagnostic::error(
@@ -89,6 +93,8 @@ impl Value {
         use Value::*;
         match self {
             Simple(x) => x.serialize_to_xml(writer),
+            // TODO: if we add support for <stringlist/>, maybe better to map CstringList to it
+            CstringList(_) => panic!("CstringList cannot be serialized"),
             Gadget(x) => x.serialize_to_xml(writer),
             SizePolicy(x) => x.serialize_to_xml(writer),
         }
@@ -106,6 +112,8 @@ impl Value {
         use Value::*;
         match self {
             Simple(x) => x.serialize_to_xml_as(writer, tag_name),
+            // TODO: if we add support for <stringlist/>, maybe better to map CstringList to it
+            CstringList(_) => panic!("CstringList cannot be serialized"),
             Gadget(x) => x.serialize_to_xml_as(writer, tag_name),
             SizePolicy(x) => x.serialize_to_xml_as(writer, tag_name),
         }
@@ -328,6 +336,46 @@ fn parse_object_reference(
                 format!(
                     "reference type mismatch (expected: {}, actual: list)",
                     expected_cls.qualified_cxx_name(),
+                ),
+            ));
+            None
+        }
+    }
+}
+
+fn parse_object_reference_list(
+    ctx: &BuildDocContext,
+    expected_cls: &Class,
+    node: Node,
+    diagnostics: &mut Diagnostics,
+) -> Option<Vec<String>> {
+    let (res_cls, obj_ref) = typedexpr::walk(
+        &ctx.type_space,
+        &ctx.object_tree,
+        node,
+        ctx.source,
+        &ObjectRefCollector,
+        diagnostics,
+    )?;
+    match obj_ref {
+        ObjectRef::Just(_) => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                format!(
+                    "reference type mismatch (expected: list, actual: {})",
+                    res_cls.qualified_cxx_name(),
+                ),
+            ));
+            None
+        }
+        ObjectRef::List(names) if res_cls.is_derived_from(expected_cls) => Some(names),
+        ObjectRef::List(_) => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                format!(
+                    "element type mismatch (expected: {}, actual: {})",
+                    expected_cls.qualified_cxx_name(),
+                    res_cls.qualified_cxx_name()
                 ),
             ));
             None
