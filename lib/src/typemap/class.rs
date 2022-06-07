@@ -69,6 +69,11 @@ impl<'a> Class<'a> {
         }
     }
 
+    pub fn common_base_class(&self, other: &Class<'a>) -> Option<Class<'a>> {
+        // quadratic, but the inheritance chain should be short
+        self.find_map_self_and_base_classes(|cls| other.is_derived_from(cls).then(|| cls.clone()))
+    }
+
     fn get_type_no_super(&self, name: &str) -> Option<NamedType<'a>> {
         self.data
             .as_ref()
@@ -347,6 +352,76 @@ mod tests {
         assert_eq!(
             leaf_class.base_classes().collect::<Vec<_>>(),
             [mid1_class.clone(), mid2_class.clone(), root_class.clone()]
+        );
+    }
+
+    #[test]
+    fn common_base_class() {
+        let mut type_map = TypeMap::empty();
+        let module_id = ModuleId::Named("foo".into());
+        let mut module_data = ModuleData::default();
+        module_data.extend([
+            metatype::Class::new("Root1"),
+            metatype::Class::new("Root2"),
+            metatype::Class::with_supers("Mid1", ["Root1"]),
+            metatype::Class::with_supers("Mid2", ["Root2"]),
+            metatype::Class::with_supers("Mid3", ["Root2"]),
+            metatype::Class::with_supers("Leaf1", ["Mid1", "Mid2"]),
+            metatype::Class::with_supers("Leaf2", ["Mid3"]),
+        ]);
+        type_map.insert_module(module_id.clone(), module_data);
+
+        // Root1 <--- Mid1 <--- Leaf1
+        //                   /
+        // Root2 <--- Mid2 <-
+        //         \
+        //          - Mid3 <--- Leaf2
+        let module = type_map.get_module(module_id).unwrap();
+        let root1_class = unwrap_class(module.get_type("Root1"));
+        let root2_class = unwrap_class(module.get_type("Root2"));
+        let mid1_class = unwrap_class(module.get_type("Mid1"));
+        let mid2_class = unwrap_class(module.get_type("Mid2"));
+        let mid3_class = unwrap_class(module.get_type("Mid3"));
+        let leaf1_class = unwrap_class(module.get_type("Leaf1"));
+        let leaf2_class = unwrap_class(module.get_type("Leaf2"));
+
+        assert!(Class::common_base_class(&root1_class, &root2_class).is_none());
+        assert!(Class::common_base_class(&mid1_class, &mid2_class).is_none());
+
+        assert_eq!(
+            Class::common_base_class(&mid2_class, &mid3_class).unwrap(),
+            root2_class
+        );
+        assert_eq!(
+            Class::common_base_class(&mid3_class, &mid2_class).unwrap(),
+            root2_class
+        );
+
+        assert_eq!(
+            Class::common_base_class(&leaf1_class, &mid1_class).unwrap(),
+            mid1_class
+        );
+        assert_eq!(
+            Class::common_base_class(&mid1_class, &leaf1_class).unwrap(),
+            mid1_class
+        );
+
+        assert_eq!(
+            Class::common_base_class(&leaf1_class, &mid2_class).unwrap(),
+            mid2_class
+        );
+        assert_eq!(
+            Class::common_base_class(&mid2_class, &leaf1_class).unwrap(),
+            mid2_class
+        );
+
+        assert_eq!(
+            Class::common_base_class(&leaf1_class, &leaf2_class).unwrap(),
+            root2_class
+        );
+        assert_eq!(
+            Class::common_base_class(&leaf2_class, &leaf1_class).unwrap(),
+            root2_class
         );
     }
 }
