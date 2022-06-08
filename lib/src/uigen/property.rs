@@ -186,6 +186,20 @@ where
         .collect()
 }
 
+pub(super) fn make_serializable_properties(
+    properties_map: HashMap<String, WithNode<'_, PropertyValue>>,
+    diagnostics: &mut Diagnostics,
+) -> HashMap<String, Value> {
+    properties_map
+        .into_iter()
+        .filter_map(|(k, v)| {
+            diagnostics
+                .consume_err(v.into_serializable())
+                .map(|v| (k, v))
+        })
+        .collect()
+}
+
 pub(super) fn serialize_properties_to_xml<W, T>(
     writer: &mut XmlWriter<W>,
     tag_name: T,

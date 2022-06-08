@@ -63,14 +63,7 @@ impl Layout {
             process_vbox_layout_children(ctx, obj_node, diagnostics)
         };
 
-        let mut properties: HashMap<_, _> = properties_map
-            .into_iter()
-            .filter_map(|(k, v)| {
-                diagnostics
-                    .consume_err(v.into_serializable())
-                    .map(|v| (k, v))
-            })
-            .collect();
+        let mut properties = property::make_serializable_properties(properties_map, diagnostics);
         // TODO: if metatypes were broken, contentsMargins could be of different type
         if let Some(Value::Gadget(m)) = properties.remove("contentsMargins") {
             properties.extend(m.properties.into_iter().map(|(k, v)| (k + "Margin", v)));
