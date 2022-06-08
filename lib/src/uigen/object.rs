@@ -147,7 +147,7 @@ impl Widget {
     ) -> Option<Self> {
         let attached_type_map =
             diagnostics.consume_err(obj_node.obj().build_attached_type_map(ctx.source))?;
-        let attributes = match container_kind {
+        let mut attributes = match container_kind {
             ContainerKind::Any => HashMap::new(),
             ContainerKind::TabWidget => {
                 // TODO: resolve against imported types,
@@ -186,6 +186,28 @@ impl Widget {
             }
             None => vec![],
         };
+        if obj_node.class().is_derived_from(&ctx.table_view_class) {
+            flatten_object_properties_into_attributes(
+                &mut attributes,
+                &mut properties_map,
+                "horizontalHeader",
+                diagnostics,
+            );
+            flatten_object_properties_into_attributes(
+                &mut attributes,
+                &mut properties_map,
+                "verticalHeader",
+                diagnostics,
+            );
+        }
+        if obj_node.class().is_derived_from(&ctx.tree_view_class) {
+            flatten_object_properties_into_attributes(
+                &mut attributes,
+                &mut properties_map,
+                "header",
+                diagnostics,
+            );
+        }
         let mut properties = property::make_serializable_properties(properties_map, diagnostics);
         if obj_node.class().is_derived_from(&ctx.push_button_class) {
             // see metatype_tweak.rs, "default" is a reserved word
@@ -246,6 +268,43 @@ impl Widget {
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
     }
+}
+
+fn flatten_object_properties_into_attributes(
+    attributes: &mut HashMap<String, Value>,
+    properties_map: &mut HashMap<String, WithNode<'_, PropertyValue>>,
+    name: &str,
+    diagnostics: &mut Diagnostics,
+) {
+    match properties_map.remove(name) {
+        Some(WithNode {
+            value: PropertyValue::ObjectProperties(props),
+            ..
+        }) => {
+            attributes.extend(props.into_iter().filter_map(|(k, v)| {
+                diagnostics
+                    .consume_err(v.into_serializable())
+                    .map(|v| (concat_camel_case_names(name, &k), v))
+            }));
+        }
+        Some(x) => {
+            diagnostics.push(Diagnostic::error(
+                x.node().byte_range(),
+                "not a properties map",
+            ));
+        }
+        None => {}
+    }
+}
+
+fn concat_camel_case_names(head: &str, tail: &str) -> String {
+    let mut name = head.to_owned();
+    let mut chars = tail.chars();
+    if let Some(c) = chars.next() {
+        name.push(c.to_ascii_uppercase());
+        name.extend(chars);
+    }
+    name
 }
 
 pub(super) fn confine_children(obj_node: ObjectNode, diagnostics: &mut Diagnostics) {

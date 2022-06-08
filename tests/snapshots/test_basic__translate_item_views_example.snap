@@ -1,0 +1,32 @@
+---
+source: tests/test_basic.rs
+expression: "common::translate_file(\"examples/ItemViews.qml\").unwrap()"
+---
+<ui version="4.0">
+ <class>ItemViews</class>
+ <widget class="QWidget">
+  <layout class="QVBoxLayout">
+   <item>
+    <widget class="QTreeView" name="treeView">
+     <attribute name="headerMinimumSectionSize">
+      <number>100</number>
+     </attribute>
+    </widget>
+   </item>
+   <item>
+    <widget class="QTableView" name="tableView">
+     <attribute name="horizontalHeaderShowSortIndicator">
+      <bool>true</bool>
+     </attribute>
+     <attribute name="horizontalHeaderStretchLastSection">
+      <bool>true</bool>
+     </attribute>
+     <attribute name="verticalHeaderVisible">
+      <bool>false</bool>
+     </attribute>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+</ui>
+
