@@ -67,7 +67,7 @@ impl<'t, V> WithNode<'t, V> {
     }
 }
 
-impl<'t> WithNode<'t, PropertyValue> {
+impl<'t> WithNode<'t, PropertyValue<'_>> {
     pub fn to_enum(&self) -> Result<&str, ValueTypeError<'t>> {
         self.as_serializable()
             .and_then(|v| v.as_enum())
@@ -150,7 +150,7 @@ pub(super) fn collect_properties_with_node<'t>(
     cls: &Class,
     binding_map: &UiBindingMap<'t, '_>,
     diagnostics: &mut Diagnostics,
-) -> HashMap<String, WithNode<'t, PropertyValue>> {
+) -> HashMap<String, WithNode<'t, PropertyValue<'t>>> {
     resolve_properties(ctx, cls, binding_map, diagnostics, |v, _| Option::Some(v))
 }
 
@@ -162,7 +162,7 @@ fn resolve_properties<'t, 's, B, F>(
     mut make_value: F,
 ) -> HashMap<String, B>
 where
-    F: FnMut(WithNode<'t, PropertyValue>, &mut Diagnostics) -> Option<B>,
+    F: FnMut(WithNode<'t, PropertyValue<'t>>, &mut Diagnostics) -> Option<B>,
 {
     binding_map
         .iter()

@@ -1,4 +1,5 @@
 use super::gadget::{Gadget, SizePolicy};
+use super::property::{self, WithNode};
 use super::xmlutil;
 use super::{BuildDocContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
@@ -6,24 +7,27 @@ use crate::qmlast::{BinaryOperator, Node, UiBindingMap, UiBindingValue, UnaryOpe
 use crate::typedexpr::{self, DescribeType, ExpressionVisitor, TypeDesc};
 use crate::typemap::{Class, Enum, NamedType, PrimitiveType, TypeKind, TypeSpace};
 use quick_xml::events::{BytesStart, BytesText, Event};
+use std::collections::HashMap;
 use std::fmt;
 use std::io;
 use thiserror::Error;
 
 /// Variant for the property values that can or cannot be serialized to UI XML.
 #[derive(Clone, Debug)]
-pub(super) enum PropertyValue {
+pub(super) enum PropertyValue<'t> {
     Serializable(Value),
     /// List of identifiers referencing the objects.
     ObjectRefList(Vec<String>),
+    /// Map of properties assigned to object pointer property.
+    ObjectProperties(HashMap<String, WithNode<'t, PropertyValue<'t>>>),
 }
 
-impl PropertyValue {
+impl<'t> PropertyValue<'t> {
     /// Generates constant expression of `ty` type from the given `binding_value`.
     pub(super) fn from_binding_value(
         ctx: &BuildDocContext,
         ty: &TypeKind,
-        binding_value: &UiBindingValue,
+        binding_value: &UiBindingValue<'t, '_>,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         match binding_value {
@@ -53,6 +57,9 @@ impl PropertyValue {
                 TypeKind::Just(NamedType::Class(cls)) => {
                     Self::from_binding_map(ctx, cls, *n, m, diagnostics)
                 }
+                TypeKind::Pointer(NamedType::Class(cls)) => Some(PropertyValue::ObjectProperties(
+                    property::collect_properties_with_node(ctx, cls, m, diagnostics),
+                )),
                 _ => {
                     diagnostics.push(Diagnostic::error(
                         n.byte_range(),
