@@ -5817,6 +5817,8 @@ Module {
         Property { name: "sortingEnabled"; type: "bool" }
         Property { name: "wordWrap"; type: "bool" }
         Property { name: "cornerButtonEnabled"; type: "bool" }
+        Property { name: "horizontalHeader"; type: "QHeaderView"; isReadonly: true; isPointer: true }
+        Property { name: "verticalHeader"; type: "QHeaderView"; isReadonly: true; isPointer: true }
         Method {
             name: "selectRow"
             Parameter { name: "row"; type: "int" }
@@ -6570,6 +6572,7 @@ Module {
         Property { name: "wordWrap"; type: "bool" }
         Property { name: "headerHidden"; type: "bool" }
         Property { name: "expandsOnDoubleClick"; type: "bool" }
+        Property { name: "header"; type: "QHeaderView"; isReadonly: true; isPointer: true }
         Signal {
             name: "expanded"
             Parameter { name: "index"; type: "QModelIndex" }

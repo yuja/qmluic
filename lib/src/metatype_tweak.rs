@@ -20,6 +20,8 @@ pub fn fix_classes(classes: &mut [Class]) {
             "QPushButton" => fix_push_button(cls),
             "QSizePolicy" => fix_size_policy(cls),
             "QTabWidget" => fix_tab_widget(cls),
+            "QTableView" => fix_table_view(cls),
+            "QTreeView" => fix_tree_view(cls),
             "QWidget" => fix_widget(cls),
             _ => {}
         }
@@ -188,6 +190,19 @@ fn fix_size_policy(cls: &mut Class) {
 fn fix_tab_widget(cls: &mut Class) {
     cls.class_infos
         .push(ClassInfo::new("QML.Attached", "QTabWidgetAttached"));
+}
+
+fn fix_table_view(cls: &mut Class) {
+    cls.properties.extend([
+        Property::new("horizontalHeader", "QHeaderView*"), // handled by uigen
+        Property::new("verticalHeader", "QHeaderView*"),   // handled by uigen
+    ]);
+}
+
+fn fix_tree_view(cls: &mut Class) {
+    cls.properties.extend([
+        Property::new("header", "QHeaderView*"), // handled by uigen
+    ]);
 }
 
 fn fix_widget(cls: &mut Class) {
