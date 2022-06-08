@@ -166,8 +166,7 @@ where
         .iter()
         .filter_map(|(&name, value)| {
             if let Some(ty) = cls.get_property_type(name) {
-                Value::from_binding_value(ctx, &ty, value, diagnostics)
-                    .map(PropertyValue::Serializable)
+                PropertyValue::from_binding_value(ctx, &ty, value, diagnostics)
             } else {
                 diagnostics.push(Diagnostic::error(
                     value.binding_node().byte_range(),

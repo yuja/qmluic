@@ -16,16 +16,7 @@ pub(super) enum PropertyValue {
     Serializable(Value),
 }
 
-/// Variant for the constant expressions which can be serialized to UI XML.
-#[derive(Clone, Debug)]
-pub enum Value {
-    Simple(SimpleValue),
-    CstringList(Vec<String>),
-    Gadget(Gadget),
-    SizePolicy(SizePolicy),
-}
-
-impl Value {
+impl PropertyValue {
     /// Generates constant expression of `ty` type from the given `binding_value`.
     pub(super) fn from_binding_value(
         ctx: &BuildDocContext,
@@ -35,14 +26,15 @@ impl Value {
     ) -> Option<Self> {
         match binding_value {
             UiBindingValue::Node(n) => match ty {
-                TypeKind::Just(t) => {
-                    SimpleValue::from_expression(ctx, t, *n, diagnostics).map(Value::Simple)
-                }
+                TypeKind::Just(t) => SimpleValue::from_expression(ctx, t, *n, diagnostics)
+                    .map(|v| PropertyValue::Serializable(Value::Simple(v))),
                 TypeKind::Pointer(NamedType::Class(cls)) => {
-                    parse_object_reference(ctx, cls, *n, diagnostics).map(Value::Simple)
+                    parse_object_reference(ctx, cls, *n, diagnostics)
+                        .map(|v| PropertyValue::Serializable(Value::Simple(v)))
                 }
                 TypeKind::PointerList(NamedType::Class(cls)) => {
-                    parse_object_reference_list(ctx, cls, *n, diagnostics).map(Value::CstringList)
+                    parse_object_reference_list(ctx, cls, *n, diagnostics)
+                        .map(|v| PropertyValue::Serializable(Value::CstringList(v)))
                 }
                 TypeKind::Pointer(_) | TypeKind::PointerList(_) => {
                     diagnostics.push(Diagnostic::error(
@@ -84,13 +76,24 @@ impl Value {
         match cls.name() {
             "QSizePolicy" => {
                 let policy = SizePolicy::from_binding_map(ctx, cls, binding_map, diagnostics);
-                Some(Value::SizePolicy(policy))
+                Some(PropertyValue::Serializable(Value::SizePolicy(policy)))
             }
             _ => Gadget::from_binding_map(ctx, cls, node, binding_map, diagnostics)
-                .map(Value::Gadget),
+                .map(|v| PropertyValue::Serializable(Value::Gadget(v))),
         }
     }
+}
 
+/// Variant for the constant expressions which can be serialized to UI XML.
+#[derive(Clone, Debug)]
+pub enum Value {
+    Simple(SimpleValue),
+    CstringList(Vec<String>),
+    Gadget(Gadget),
+    SizePolicy(SizePolicy),
+}
+
+impl Value {
     /// Serializes this to UI XML.
     pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
     where
