@@ -15,7 +15,7 @@ use thiserror::Error;
 #[derive(Clone, Copy, Debug)]
 pub(super) struct WithNode<'t, V> {
     node: Node<'t>,
-    value: V,
+    pub value: V,
 }
 
 impl<'t, V> WithNode<'t, V> {
@@ -92,12 +92,14 @@ impl<'t> WithNode<'t, PropertyValue> {
     pub fn as_serializable(&self) -> Option<&Value> {
         match &self.value {
             PropertyValue::Serializable(v) => Some(v),
+            _ => None,
         }
     }
 
     pub fn into_serializable(self) -> Result<Value, ValueTypeError<'t>> {
         match self.value {
             PropertyValue::Serializable(v) => Ok(v),
+            _ => Err(self.make_type_error()),
         }
     }
 }

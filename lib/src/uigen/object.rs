@@ -1,6 +1,6 @@
-use super::expr::Value;
+use super::expr::{PropertyValue, Value};
 use super::layout::Layout;
-use super::property;
+use super::property::{self, WithNode};
 use super::{BuildDocContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectNode;
@@ -166,8 +166,27 @@ impl Widget {
         };
 
         let binding_map = diagnostics.consume_err(obj_node.obj().build_binding_map(ctx.source))?;
-        let mut properties =
-            property::collect_properties(ctx, obj_node.class(), &binding_map, diagnostics);
+        let mut properties_map = property::collect_properties_with_node(
+            ctx,
+            obj_node.class(),
+            &binding_map,
+            diagnostics,
+        );
+        let actions = match properties_map.remove("actions") {
+            Some(WithNode {
+                value: PropertyValue::ObjectRefList(refs),
+                ..
+            }) => refs,
+            Some(x) => {
+                diagnostics.push(Diagnostic::error(
+                    x.node().byte_range(),
+                    "not an actions list",
+                ));
+                vec![]
+            }
+            None => vec![],
+        };
+        let mut properties = property::make_serializable_properties(properties_map, diagnostics);
         if obj_node.class().is_derived_from(&ctx.push_button_class) {
             // see metatype_tweak.rs, "default" is a reserved word
             if let Some((mut k, v)) = properties.remove_entry("default_") {
@@ -175,14 +194,6 @@ impl Widget {
                 properties.insert(k, v);
             }
         }
-        let actions = match properties.remove_entry("actions") {
-            Some((_, Value::CstringList(names))) => names,
-            Some((k, v)) => {
-                properties.insert(k, v); // weird, but process as generic property
-                vec![]
-            }
-            None => vec![],
-        };
 
         let child_container_kind = if obj_node.class().is_derived_from(&ctx.tab_widget_class) {
             ContainerKind::TabWidget

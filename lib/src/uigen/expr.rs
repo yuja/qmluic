@@ -14,6 +14,8 @@ use thiserror::Error;
 #[derive(Clone, Debug)]
 pub(super) enum PropertyValue {
     Serializable(Value),
+    /// List of identifiers referencing the objects.
+    ObjectRefList(Vec<String>),
 }
 
 impl PropertyValue {
@@ -34,7 +36,7 @@ impl PropertyValue {
                 }
                 TypeKind::PointerList(NamedType::Class(cls)) => {
                     parse_object_reference_list(ctx, cls, *n, diagnostics)
-                        .map(|v| PropertyValue::Serializable(Value::CstringList(v)))
+                        .map(PropertyValue::ObjectRefList)
                 }
                 TypeKind::Pointer(_) | TypeKind::PointerList(_) => {
                     diagnostics.push(Diagnostic::error(
@@ -88,7 +90,6 @@ impl PropertyValue {
 #[derive(Clone, Debug)]
 pub enum Value {
     Simple(SimpleValue),
-    CstringList(Vec<String>),
     Gadget(Gadget),
     SizePolicy(SizePolicy),
 }
@@ -102,8 +103,6 @@ impl Value {
         use Value::*;
         match self {
             Simple(x) => x.serialize_to_xml(writer),
-            // TODO: if we add support for <stringlist/>, maybe better to map CstringList to it
-            CstringList(_) => panic!("CstringList cannot be serialized"),
             Gadget(x) => x.serialize_to_xml(writer),
             SizePolicy(x) => x.serialize_to_xml(writer),
         }
@@ -121,8 +120,6 @@ impl Value {
         use Value::*;
         match self {
             Simple(x) => x.serialize_to_xml_as(writer, tag_name),
-            // TODO: if we add support for <stringlist/>, maybe better to map CstringList to it
-            CstringList(_) => panic!("CstringList cannot be serialized"),
             Gadget(x) => x.serialize_to_xml_as(writer, tag_name),
             SizePolicy(x) => x.serialize_to_xml_as(writer, tag_name),
         }
