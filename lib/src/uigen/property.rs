@@ -1,4 +1,4 @@
-use super::expr::Value;
+use super::expr::{PropertyValue, Value};
 use super::{BuildDocContext, XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
@@ -67,9 +67,11 @@ impl<'t, V> WithNode<'t, V> {
     }
 }
 
-impl<'t> WithNode<'t, Value> {
+impl<'t> WithNode<'t, PropertyValue> {
     pub fn to_enum(&self) -> Result<&str, ValueTypeError<'t>> {
-        self.value.as_enum().ok_or_else(|| self.make_type_error())
+        self.as_serializable()
+            .and_then(|v| v.as_enum())
+            .ok_or_else(|| self.make_type_error())
     }
 
     pub fn to_enum_with_node(&self) -> Result<WithNode<'t, &str>, ValueTypeError<'t>> {
@@ -77,14 +79,26 @@ impl<'t> WithNode<'t, Value> {
     }
 
     pub fn to_i32(&self) -> Result<i32, ValueTypeError<'t>> {
-        self.value
-            .as_number()
+        self.as_serializable()
+            .and_then(|v| v.as_number())
             .map(|d| d as i32)
             .ok_or_else(|| self.make_type_error())
     }
 
     pub fn to_i32_with_node(&self) -> Result<WithNode<'t, i32>, ValueTypeError<'t>> {
         Ok(self.rewrap(self.to_i32()?))
+    }
+
+    pub fn as_serializable(&self) -> Option<&Value> {
+        match &self.value {
+            PropertyValue::Serializable(v) => Some(v),
+        }
+    }
+
+    pub fn into_serializable(self) -> Result<Value, ValueTypeError<'t>> {
+        match self.value {
+            PropertyValue::Serializable(v) => Ok(v),
+        }
     }
 }
 
@@ -124,7 +138,9 @@ pub(super) fn collect_properties(
     binding_map: &UiBindingMap,
     diagnostics: &mut Diagnostics,
 ) -> HashMap<String, Value> {
-    resolve_properties(ctx, cls, binding_map, diagnostics, |_, x| x)
+    resolve_properties(ctx, cls, binding_map, diagnostics, |v, diagnostics| {
+        diagnostics.consume_err(v.into_serializable())
+    })
 }
 
 pub(super) fn collect_properties_with_node<'t>(
@@ -132,8 +148,8 @@ pub(super) fn collect_properties_with_node<'t>(
     cls: &Class,
     binding_map: &UiBindingMap<'t, '_>,
     diagnostics: &mut Diagnostics,
-) -> HashMap<String, WithNode<'t, Value>> {
-    resolve_properties(ctx, cls, binding_map, diagnostics, WithNode::new)
+) -> HashMap<String, WithNode<'t, PropertyValue>> {
+    resolve_properties(ctx, cls, binding_map, diagnostics, |v, _| Option::Some(v))
 }
 
 fn resolve_properties<'t, 's, B, F>(
@@ -144,13 +160,14 @@ fn resolve_properties<'t, 's, B, F>(
     mut make_value: F,
 ) -> HashMap<String, B>
 where
-    F: FnMut(&UiBindingValue<'t, 's>, Value) -> B,
+    F: FnMut(WithNode<'t, PropertyValue>, &mut Diagnostics) -> Option<B>,
 {
     binding_map
         .iter()
         .filter_map(|(&name, value)| {
             if let Some(ty) = cls.get_property_type(name) {
                 Value::from_binding_value(ctx, &ty, value, diagnostics)
+                    .map(PropertyValue::Serializable)
             } else {
                 diagnostics.push(Diagnostic::error(
                     value.binding_node().byte_range(),
@@ -162,7 +179,9 @@ where
                 ));
                 None
             }
-            .map(|x| (name.to_owned(), make_value(value, x)))
+            .and_then(|x| {
+                make_value(WithNode::new(value, x), diagnostics).map(|v| (name.to_owned(), v))
+            })
         })
         .collect()
 }

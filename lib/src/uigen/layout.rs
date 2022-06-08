@@ -1,4 +1,4 @@
-use super::expr::Value;
+use super::expr::{PropertyValue, Value};
 use super::object::{self, ContainerKind, Widget};
 use super::property::{self, WithNode};
 use super::{BuildDocContext, XmlResult, XmlWriter};
@@ -65,7 +65,11 @@ impl Layout {
 
         let mut properties: HashMap<_, _> = properties_map
             .into_iter()
-            .map(|(k, v)| (k, v.into_value()))
+            .filter_map(|(k, v)| {
+                diagnostics
+                    .consume_err(v.into_serializable())
+                    .map(|v| (k, v))
+            })
             .collect();
         // TODO: if metatypes were broken, contentsMargins could be of different type
         if let Some(Value::Gadget(m)) = properties.remove("contentsMargins") {
@@ -572,7 +576,7 @@ impl LayoutIndexCounter {
 
 impl LayoutFlow {
     fn parse(
-        properties_map: &mut HashMap<String, WithNode<Value>>,
+        properties_map: &mut HashMap<String, WithNode<PropertyValue>>,
         diagnostics: &mut Diagnostics,
     ) -> Self {
         // should be kept sync with QGridLayout definition in metatype_tweak.rs

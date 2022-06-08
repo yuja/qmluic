@@ -10,6 +10,12 @@ use std::fmt;
 use std::io;
 use thiserror::Error;
 
+/// Variant for the property values that can or cannot be serialized to UI XML.
+#[derive(Clone, Debug)]
+pub(super) enum PropertyValue {
+    Serializable(Value),
+}
+
 /// Variant for the constant expressions which can be serialized to UI XML.
 #[derive(Clone, Debug)]
 pub enum Value {
