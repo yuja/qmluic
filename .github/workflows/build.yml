@@ -46,3 +46,12 @@ jobs:
           override: true
       - name: Check format
         run: cargo fmt --all --check
+
+  clang-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install clang-format
+        run: sudo apt install clang-format
+      - name: Check format
+        run: find \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format -n -Werror --
