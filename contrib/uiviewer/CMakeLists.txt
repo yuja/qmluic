@@ -11,7 +11,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt5 5.15 REQUIRED COMPONENTS Widgets)
+find_package(Qt5 5.15 REQUIRED COMPONENTS UiTools Widgets)
 
 add_executable(qmluic-uiviewer
   main.cpp
@@ -30,5 +30,6 @@ target_compile_definitions(qmluic-uiviewer
 
 target_link_libraries(qmluic-uiviewer
   PRIVATE
+    Qt::UiTools
     Qt::Widgets
 )
