@@ -15,6 +15,8 @@ find_package(Qt5 5.15 REQUIRED COMPONENTS UiTools Widgets)
 
 add_executable(qmluic-uiviewer
   main.cpp
+  pipeserver.cpp
+  pipeserver.h
 )
 
 target_compile_definitions(qmluic-uiviewer
