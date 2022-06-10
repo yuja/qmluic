@@ -11,6 +11,7 @@ use qmluic::qmldoc::UiDocumentsCache;
 use qmluic::typemap::{ModuleData, ModuleId, TypeMap};
 use qmluic::uigen::{self, BuildContext, FileNameRules, XmlWriter};
 use qmluic_cli::{reporting, QtPaths};
+use std::env;
 use std::fs;
 use std::io::{self, BufWriter, Write as _};
 use std::path::Path;
@@ -28,6 +29,7 @@ struct Cli {
 enum Command {
     DumpMetatypes(DumpMetatypesArgs),
     GenerateUi(GenerateUiArgs),
+    Preview(PreviewArgs),
 }
 
 #[derive(Debug, Error)]
@@ -64,6 +66,7 @@ fn dispatch(cli: &Cli) -> Result<(), CommandError> {
     match &cli.command {
         Command::DumpMetatypes(args) => dump_metatypes(args),
         Command::GenerateUi(args) => generate_ui(args),
+        Command::Preview(args) => preview(args),
     }
 }
 
@@ -279,6 +282,89 @@ fn generate_ui_file(
         form.serialize_to_xml(&mut writer)
     })
     .context("failed to write UI XML")?;
+    Ok(())
+}
+
+/// Preview UI QML (.qml)
+///
+/// The previewer tries to render the UI QML document even it had syntax/semantic errors.
+#[derive(Args, Clone, Debug)]
+struct PreviewArgs {
+    /// QML file to load
+    source: Utf8PathBuf,
+    #[clap(long)]
+    /// Qt metatypes.json file to load (default: QT_INSTALL_LIBS/metatypes)
+    foreign_types: Vec<Utf8PathBuf>,
+}
+
+fn preview(args: &PreviewArgs) -> Result<(), CommandError> {
+    let mut type_map = load_type_map(&args.foreign_types)?;
+    let mut docs_cache = UiDocumentsCache::new();
+    let mut project_diagnostics = ProjectDiagnostics::new();
+    qmldir::populate_directories(
+        &mut type_map,
+        &mut docs_cache,
+        [&args.source],
+        &mut project_diagnostics,
+    )
+    .map_err(anyhow::Error::from)?;
+    for (p, ds) in project_diagnostics.iter() {
+        reporting::print_diagnostics(docs_cache.get(p).unwrap(), ds)?;
+    }
+
+    // TODO: installation path of qmluic-uiviewer
+    let mut viewer_cmd = process::Command::new(
+        env::current_exe()
+            .context("failed to get executable path")?
+            .with_file_name("qmluic-uiviewer"),
+    );
+    viewer_cmd
+        .arg("--pipe")
+        .stdin(process::Stdio::piped())
+        .stdout(process::Stdio::piped());
+    log::debug!("spawning {viewer_cmd:?}");
+    let mut viewer = viewer_cmd
+        .spawn()
+        .with_context(|| format!("failed to spawn {:?}", viewer_cmd.get_program()))?;
+    let mut viewer_stdin = viewer.stdin.take().unwrap();
+
+    let file_name_rules = FileNameRules::default();
+    let ctx = BuildContext::prepare(&type_map, file_name_rules).map_err(anyhow::Error::from)?;
+
+    eprintln!(
+        "{} {}",
+        console::style("processing").for_stderr().green().bold(),
+        args.source
+    );
+    let doc = docs_cache
+        .get(&args.source)
+        .ok_or_else(|| anyhow!("QML source not loaded (bad file suffix?): {}", args.source))?;
+    if doc.has_syntax_error() {
+        reporting::print_syntax_errors(doc)?;
+    }
+
+    log::debug!("building ui for {:?}", args.source);
+    let mut diagnostics = Diagnostics::new();
+    let maybe_form = uigen::build(&ctx, doc, &mut diagnostics);
+    reporting::print_diagnostics(doc, &diagnostics)?;
+    if let Some(form) = maybe_form {
+        let mut data = Vec::new();
+        form.serialize_to_xml(&mut XmlWriter::new(&mut data))
+            .context("failed to serialize UI to XML")?;
+        let size = i32::try_from(data.len()).context("serialized XML too large")?;
+        viewer_stdin
+            .write_all(&size.to_ne_bytes())
+            .context("failed to communicate with viewer")?;
+        viewer_stdin
+            .write_all(&data)
+            .context("failed to communicate with viewer")?;
+        viewer_stdin
+            .flush()
+            .context("failed to communicate with viewer")?;
+    }
+
+    drop(viewer_stdin);
+    viewer.wait().context("failed to wait for viewer exit")?;
     Ok(())
 }
 
