@@ -9,7 +9,10 @@
 \#*#
 
 # Qt Creator
+*.autosave
 *.qmlproject.user
+CMakeLists.txt.user
+build-*/
 
 # qmluic
 /examples/**/*.ui
