@@ -32,3 +32,17 @@ jobs:
         run: cargo build --workspace --verbose
       - name: Run tests
         run: cargo test --workspace --verbose
+
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install rustfmt
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          components: rustfmt
+          override: true
+      - name: Check format
+        run: cargo fmt --all --check
