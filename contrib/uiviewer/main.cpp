@@ -3,6 +3,7 @@
 #include <QCommandLineParser>
 #include <QDialog>
 #include <QFile>
+#include <QLabel>
 #include <QLayout>
 #include <QUiLoader>
 #include <QVBoxLayout>
@@ -54,6 +55,8 @@ int main(int argc, char *argv[])
 
     QDialog dlg;
     QVBoxLayout lay(&dlg);
+    lay.setContentsMargins({ 0, 0, 0, 0 });
+    lay.addWidget(new QLabel(QApplication::translate("main", "Placeholder")));
 
     const auto args = parser.positionalArguments();
     if (args.size() > 1)
@@ -66,6 +69,7 @@ int main(int argc, char *argv[])
         if (w) {
             // TODO: auto vs fixed layout
             // TODO: if w were window?
+            clearLayoutChildren(lay);
             lay.addWidget(w.release());
         }
     }
