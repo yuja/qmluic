@@ -1,17 +1,14 @@
 #include <QApplication>
 #include <QBuffer>
 #include <QCommandLineParser>
-#include <QDialog>
 #include <QFile>
-#include <QLabel>
-#include <QLayout>
 #include <QLoggingCategory>
 #include <QUiLoader>
-#include <QVBoxLayout>
 #include <QWidget>
 #include <QtDebug>
 #include <memory>
 #include "pipeserver.h"
+#include "uiviewerdialog.h"
 
 namespace {
 std::unique_ptr<QWidget> loadUiFile(QUiLoader &loader, const QString &fileName)
@@ -31,15 +28,6 @@ std::unique_ptr<QWidget> loadUiData(QUiLoader &loader, const QByteArray &data)
     buf.open(QIODevice::ReadOnly);
     return std::unique_ptr<QWidget>(loader.load(&buf));
 }
-
-void clearLayoutChildren(QLayout &lay)
-{
-    while (lay.count() > 0) {
-        auto it = lay.takeAt(0);
-        delete it->widget();
-        delete it;
-    }
-}
 }
 
 int main(int argc, char *argv[])
@@ -58,35 +46,27 @@ int main(int argc, char *argv[])
     QLoggingCategory::setFilterRules(QStringLiteral("*.debug=false\n*.info=false"));
 #endif
 
-    QDialog dlg;
-    QVBoxLayout lay(&dlg);
-    lay.setContentsMargins({ 0, 0, 0, 0 });
-    lay.addWidget(new QLabel(QApplication::translate("main", "Placeholder")));
-
     const auto args = parser.positionalArguments();
     if (args.size() > 1)
         return 1;
 
+    UiViewerDialog dlg;
     QUiLoader loader;
 
     if (!args.isEmpty()) {
         auto w = loadUiFile(loader, args.first());
         if (w) {
-            // TODO: auto vs fixed layout
-            // TODO: if w were window?
-            clearLayoutChildren(lay);
-            lay.addWidget(w.release());
+            dlg.setContentWidget(std::move(w));
         }
     }
 
     PipeServer pipeServer;
     if (parser.isSet("pipe")) {
         QObject::connect(&pipeServer, &PipeServer::dataReceived, &dlg,
-                         [&loader, &lay](const QByteArray &data) {
+                         [&loader, &dlg](const QByteArray &data) {
                              auto w = loadUiData(loader, data);
                              if (w) {
-                                 clearLayoutChildren(lay);
-                                 lay.addWidget(w.release());
+                                 dlg.setContentWidget(std::move(w));
                              }
                          });
         QObject::connect(&app, &QApplication::aboutToQuit, &pipeServer, [&pipeServer]() {

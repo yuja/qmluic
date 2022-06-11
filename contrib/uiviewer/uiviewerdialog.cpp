@@ -8,3 +8,11 @@ UiViewerDialog::UiViewerDialog(QWidget *parent)
 }
 
 UiViewerDialog::~UiViewerDialog() = default;
+
+void UiViewerDialog::setContentWidget(std::unique_ptr<QWidget> widget)
+{
+    // TODO: auto vs fixed layout
+    // TODO: if w were window?
+    contentWidget_ = std::move(widget);
+    ui_->mainLayout->addWidget(contentWidget_.get());
+}

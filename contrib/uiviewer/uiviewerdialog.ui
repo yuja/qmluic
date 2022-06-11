@@ -1,5 +1,7 @@
 <ui version="4.0">
  <class>UiViewerDialog</class>
  <widget class="QDialog">
+  <layout class="QVBoxLayout" name="mainLayout">
+  </layout>
  </widget>
 </ui>
