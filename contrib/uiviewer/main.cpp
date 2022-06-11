@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QLabel>
 #include <QLayout>
+#include <QLoggingCategory>
 #include <QUiLoader>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -52,6 +53,10 @@ int main(int argc, char *argv[])
     parser.addPositionalArgument("file", QApplication::translate("main", ".ui file to load"),
                                  "[file]");
     parser.process(app);
+
+#ifdef QT_NO_DEBUG
+    QLoggingCategory::setFilterRules(QStringLiteral("*.debug=false\n*.info=false"));
+#endif
 
     QDialog dlg;
     QVBoxLayout lay(&dlg);
