@@ -1,0 +1,4 @@
+import qmluic.QtWidgets
+
+QDialog {
+}

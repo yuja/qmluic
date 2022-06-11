@@ -11,6 +11,9 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Help Qt Creator find our type stub
+set(QML_IMPORT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../imports CACHE STRING "" FORCE)
+
 find_package(Qt5 5.15 REQUIRED COMPONENTS UiTools Widgets)
 
 add_executable(qmluic-uiviewer
@@ -20,6 +23,12 @@ add_executable(qmluic-uiviewer
   uiviewerdialog.cpp
   uiviewerdialog.h
   uiviewerdialog.ui
+)
+
+# Makes .qml files appear in Qt Creator project
+target_sources(qmluic-uiviewer
+  PRIVATE
+    UiViewerDialog.qml
 )
 
 target_compile_definitions(qmluic-uiviewer
