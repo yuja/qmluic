@@ -212,23 +212,7 @@ struct GenerateUiArgs {
 }
 
 fn generate_ui(args: &GenerateUiArgs) -> Result<(), CommandError> {
-    let mut type_map = TypeMap::with_primitive_types();
-    let mut classes = if args.foreign_types.is_empty() {
-        let paths = QtPaths::query().context("failed to query Qt paths")?;
-        if let Some(p) = &paths.install_libs {
-            load_metatypes(&[p.join("metatypes")])?
-        } else {
-            eprintln!("Qt metatypes path cannot be detected");
-            process::exit(1);
-        }
-    } else {
-        load_metatypes(&args.foreign_types)?
-    };
-    metatype_tweak::apply_all(&mut classes);
-    let mut module_data = ModuleData::with_builtins();
-    module_data.extend(classes);
-    type_map.insert_module(ModuleId::Named("qmluic.QtWidgets".into()), module_data);
-
+    let mut type_map = load_type_map(&args.foreign_types)?;
     let mut docs_cache = UiDocumentsCache::new();
     let mut project_diagnostics = ProjectDiagnostics::new();
     qmldir::populate_directories(
@@ -296,6 +280,26 @@ fn generate_ui_file(
     })
     .context("failed to write UI XML")?;
     Ok(())
+}
+
+fn load_type_map(foreign_type_paths: &[Utf8PathBuf]) -> anyhow::Result<TypeMap> {
+    let mut type_map = TypeMap::with_primitive_types();
+    let mut classes = if foreign_type_paths.is_empty() {
+        let paths = QtPaths::query().context("failed to query Qt paths")?;
+        if let Some(p) = &paths.install_libs {
+            load_metatypes(&[p.join("metatypes")])?
+        } else {
+            return Err(anyhow!("Qt metatypes path cannot be detected"));
+        }
+    } else {
+        load_metatypes(foreign_type_paths)?
+    };
+
+    metatype_tweak::apply_all(&mut classes);
+    let mut module_data = ModuleData::with_builtins();
+    module_data.extend(classes);
+    type_map.insert_module(ModuleId::Named("qmluic.QtWidgets".into()), module_data);
+    Ok(type_map)
 }
 
 fn load_metatypes(paths: &[Utf8PathBuf]) -> anyhow::Result<Vec<metatype::Class>> {
