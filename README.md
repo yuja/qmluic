@@ -1,10 +1,10 @@
-qmluic
-======
+qmluic - Write QtWidgets UI in QML
+==================================
 
-Write QtWidgets UI in QML. **(EXPERIMENTAL)**
+A `.qml`-to-`.ui` transpiler. No dynamic binding support at the moment.
 
-Basic Usage
------------
+Usage
+-----
 
 `qmluic generate-ui` command translates `.qml` file to `.ui` XML file, which
 can then be processed by Qt User Interface Compiler `uic` command.
@@ -14,44 +14,46 @@ $ qmluic generate-ui SettingsDialog.qml
 $ uic settingsdialog.ui -o ui_settingsdialog.h
 ```
 
-`qmluic generate-ui` loads type information from the `QT_INSTALL_LIBS/metatypes`
-directory by default. Specify `--foreign-types` option to load metatype.json
-files from the other directory or files.
+By default, `qmluic generate-ui` loads type information from the
+`QT_INSTALL_LIBS/metatypes` directory. Use `--foreign-types` option to load
+metatype.json files from the other directory or files.
 
-Tested with Qt 5.15 on Debian sid. `qmluic` should run with Qt 6 in principle,
-but there may be silly bugs.
+`qmluic` is tested with Qt 5.15 on Debian sid. It should run with Qt 6 in
+principle, but there may be silly bugs.
 
-Code Completion
----------------
+### Code Completion
 
-You can leverage the Qt Creator's QML editor. You need to add `contrib/imports`
-to `QML_IMPORT_PATH` so the creator can find our type stubs.
+You can leverage the excellent Qt Creator's QML editor. You just need to add
+[`contrib/imports`](contrib/imports) to the `QML_IMPORT_PATH` so the creator
+can find our type stubs.
 
 See the following examples:
 
 * [contrib/uiviewer/CMakeLists.txt](contrib/uiviewer/CMakeLists.txt)
 * [examples/examples.qmlproject](examples/examples.qmlproject)
 
-Live Preview
-------------
+### Live Preview
 
-`qmluic preview` command starts filesystem watcher and updates the preview
-window when the source QML file changes.
+`qmluic preview` command starts filesystem watcher, and updates the preview
+window to reflect the source QML file changes. It does not support multi-file
+QML sources yet.
 
 ```
 $ qmluic preview SettingsDialog.qml
 ```
 
 The preview window is a separate Qt C++ application, which needs to be built
-in addition to `cargo build --workspace`. See [Makefile](Makefile) for
-details.
+in addition to the standard `cargo build --workspace` command.
+See [Makefile](Makefile) for the build instructions (or just run `make release`
+on Linux.)
 
-This might not work on Windows because of the stdio use. Patches are welcome.
+The previewer might not work on Windows because of the stdio use. Patches are
+welcome.
 
 Example QML file
 ----------------
 
-(see examples/*.qml)
+(see [examples/*.qml](examples))
 
 ```qml
 // qmluic hosts all classes under this module. This also helps Qt Creator
@@ -86,21 +88,6 @@ QWidget {
 
     // this is not
     QLabel { text: qsTr("The quick fox jumps over ") + qsTr("the lazy dog.") }
-}
-```
-
-Dynamic property bindings are unsupported at all.
-
-```qml
-QWidget {
-    QCheckBox {
-        id: check
-        text: qsTr("Check")
-    }
-
-    QFrame {
-        enabled: check.checked // not work
-    }
 }
 ```
 
