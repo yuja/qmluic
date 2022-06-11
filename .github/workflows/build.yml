@@ -33,6 +33,25 @@ jobs:
       - name: Run tests
         run: cargo test --workspace --verbose
 
+  build-with-qt:
+    # ubuntu-latest is not the latest
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install Qt and build dependencies
+        run: sudo apt install build-essential cmake ninja-build qtbase5-dev qttools5-dev
+      - name: Build debug
+        run: make debug
+      - name: Build release
+        run: make release
+      - name: Generate examples
+        run: make generate-examples
+
   rustfmt:
     runs-on: ubuntu-latest
     steps:
