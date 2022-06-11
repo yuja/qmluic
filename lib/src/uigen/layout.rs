@@ -45,13 +45,13 @@ impl Layout {
         );
 
         let cls = obj_node.class();
-        let (attributes, children) = if cls.is_derived_from(&ctx.vbox_layout_class) {
+        let (attributes, children) = if cls.is_derived_from(&ctx.classes.vbox_layout) {
             process_vbox_layout_children(ctx, obj_node, diagnostics)
-        } else if cls.is_derived_from(&ctx.hbox_layout_class) {
+        } else if cls.is_derived_from(&ctx.classes.hbox_layout) {
             process_hbox_layout_children(ctx, obj_node, diagnostics)
-        } else if cls.is_derived_from(&ctx.form_layout_class) {
+        } else if cls.is_derived_from(&ctx.classes.form_layout) {
             process_form_layout_children(ctx, obj_node, diagnostics)
-        } else if cls.is_derived_from(&ctx.grid_layout_class) {
+        } else if cls.is_derived_from(&ctx.classes.grid_layout) {
             let flow = LayoutFlow::parse(&mut properties_map, diagnostics);
             process_grid_layout_children(ctx, obj_node, flow, diagnostics)
         } else {
@@ -218,7 +218,7 @@ impl<'t> LayoutItemAttached<'t> {
         let binding_map = attached_type_map.get(["QLayout"].as_ref())?; // TODO: resolve against imported types
         let properties_map = property::collect_properties_with_node(
             ctx,
-            &ctx.layout_attached_class,
+            &ctx.classes.layout_attached,
             binding_map,
             diagnostics,
         );
@@ -265,12 +265,12 @@ impl LayoutItemContent {
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let cls = obj_node.class();
-        if cls.is_derived_from(&ctx.layout_class) {
+        if cls.is_derived_from(&ctx.classes.layout) {
             Layout::from_object_node(ctx, obj_node, diagnostics).map(LayoutItemContent::Layout)
-        } else if cls.is_derived_from(&ctx.spacer_item_class) {
+        } else if cls.is_derived_from(&ctx.classes.spacer_item) {
             SpacerItem::from_object_node(ctx, obj_node, diagnostics)
                 .map(LayoutItemContent::SpacerItem)
-        } else if cls.is_derived_from(&ctx.widget_class) {
+        } else if cls.is_derived_from(&ctx.classes.widget) {
             Widget::from_object_node(ctx, obj_node, ContainerKind::Any, diagnostics)
                 .map(LayoutItemContent::Widget)
         } else {

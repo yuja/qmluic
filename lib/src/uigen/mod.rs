@@ -119,41 +119,34 @@ fn make_doc_module_space<'a>(
 pub struct BuildContext<'a> {
     type_map: &'a TypeMap,
     pub file_name_rules: FileNameRules,
-    action_class: Class<'a>,
-    form_layout_class: Class<'a>,
-    grid_layout_class: Class<'a>,
-    hbox_layout_class: Class<'a>,
-    layout_class: Class<'a>,
-    layout_attached_class: Class<'a>,
-    push_button_class: Class<'a>,
-    spacer_item_class: Class<'a>,
-    tab_widget_class: Class<'a>,
-    tab_widget_attached_class: Class<'a>,
-    table_view_class: Class<'a>,
-    tree_view_class: Class<'a>,
-    vbox_layout_class: Class<'a>,
-    widget_class: Class<'a>,
+    classes: KnownClasses<'a>,
 }
 
 #[derive(Clone, Debug)]
 struct BuildDocContext<'a, 't, 's> {
     source: &'s str,
-    action_class: Class<'a>,
-    form_layout_class: Class<'a>,
-    grid_layout_class: Class<'a>,
-    hbox_layout_class: Class<'a>,
-    layout_class: Class<'a>,
-    layout_attached_class: Class<'a>,
-    push_button_class: Class<'a>,
-    spacer_item_class: Class<'a>,
-    tab_widget_class: Class<'a>,
-    tab_widget_attached_class: Class<'a>,
-    table_view_class: Class<'a>,
-    tree_view_class: Class<'a>,
-    vbox_layout_class: Class<'a>,
-    widget_class: Class<'a>,
+    classes: &'s KnownClasses<'a>,
     type_space: ImportedModuleSpace<'a>,
     object_tree: ObjectTree<'a, 't>,
+}
+
+/// Classes to be used to switch uigen paths.
+#[derive(Clone, Debug)]
+struct KnownClasses<'a> {
+    action: Class<'a>,
+    form_layout: Class<'a>,
+    grid_layout: Class<'a>,
+    hbox_layout: Class<'a>,
+    layout: Class<'a>,
+    layout_attached: Class<'a>,
+    push_button: Class<'a>,
+    spacer_item: Class<'a>,
+    tab_widget: Class<'a>,
+    tab_widget_attached: Class<'a>,
+    table_view: Class<'a>,
+    tree_view: Class<'a>,
+    vbox_layout: Class<'a>,
+    widget: Class<'a>,
 }
 
 impl<'a> BuildContext<'a> {
@@ -173,23 +166,26 @@ impl<'a> BuildContext<'a> {
                 Err(BuildContextError::ClassNotFound(name))
             }
         };
+        let classes = KnownClasses {
+            action: get_class("QAction")?,
+            form_layout: get_class("QFormLayout")?,
+            grid_layout: get_class("QGridLayout")?,
+            hbox_layout: get_class("QHBoxLayout")?,
+            layout: get_class("QLayout")?,
+            layout_attached: get_class("QLayoutAttached")?,
+            push_button: get_class("QPushButton")?,
+            spacer_item: get_class("QSpacerItem")?,
+            tab_widget: get_class("QTabWidget")?,
+            tab_widget_attached: get_class("QTabWidgetAttached")?,
+            table_view: get_class("QTableView")?,
+            tree_view: get_class("QTreeView")?,
+            vbox_layout: get_class("QVBoxLayout")?,
+            widget: get_class("QWidget")?,
+        };
         Ok(BuildContext {
             type_map,
             file_name_rules,
-            action_class: get_class("QAction")?,
-            form_layout_class: get_class("QFormLayout")?,
-            grid_layout_class: get_class("QGridLayout")?,
-            hbox_layout_class: get_class("QHBoxLayout")?,
-            layout_class: get_class("QLayout")?,
-            layout_attached_class: get_class("QLayoutAttached")?,
-            push_button_class: get_class("QPushButton")?,
-            spacer_item_class: get_class("QSpacerItem")?,
-            tab_widget_class: get_class("QTabWidget")?,
-            tab_widget_attached_class: get_class("QTabWidgetAttached")?,
-            table_view_class: get_class("QTableView")?,
-            tree_view_class: get_class("QTreeView")?,
-            vbox_layout_class: get_class("QVBoxLayout")?,
-            widget_class: get_class("QWidget")?,
+            classes,
         })
     }
 }
@@ -199,24 +195,11 @@ impl<'a, 't, 's> BuildDocContext<'a, 't, 's> {
         doc: &'s UiDocument,
         type_space: ImportedModuleSpace<'a>,
         object_tree: ObjectTree<'a, 't>,
-        base_ctx: &BuildContext<'a>,
+        base_ctx: &'s BuildContext<'a>,
     ) -> Self {
         BuildDocContext {
             source: doc.source(),
-            action_class: base_ctx.action_class.clone(),
-            form_layout_class: base_ctx.form_layout_class.clone(),
-            grid_layout_class: base_ctx.grid_layout_class.clone(),
-            hbox_layout_class: base_ctx.hbox_layout_class.clone(),
-            layout_class: base_ctx.layout_class.clone(),
-            layout_attached_class: base_ctx.layout_attached_class.clone(),
-            push_button_class: base_ctx.push_button_class.clone(),
-            spacer_item_class: base_ctx.spacer_item_class.clone(),
-            tab_widget_class: base_ctx.tab_widget_class.clone(),
-            tab_widget_attached_class: base_ctx.tab_widget_attached_class.clone(),
-            table_view_class: base_ctx.table_view_class.clone(),
-            tree_view_class: base_ctx.tree_view_class.clone(),
-            vbox_layout_class: base_ctx.vbox_layout_class.clone(),
-            widget_class: base_ctx.widget_class.clone(),
+            classes: &base_ctx.classes,
             type_space,
             object_tree,
         }

@@ -33,7 +33,7 @@ impl UiObject {
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let cls = obj_node.class();
-        if cls.is_derived_from(&ctx.action_class) {
+        if cls.is_derived_from(&ctx.classes.action) {
             // TODO: hack for menu separator: <addaction name="separator"/> is reserved by uic
             if obj_node
                 .obj()
@@ -45,9 +45,9 @@ impl UiObject {
             } else {
                 Action::from_object_node(ctx, obj_node, diagnostics).map(UiObject::Action)
             }
-        } else if cls.is_derived_from(&ctx.layout_class) {
+        } else if cls.is_derived_from(&ctx.classes.layout) {
             Layout::from_object_node(ctx, obj_node, diagnostics).map(UiObject::Layout)
-        } else if cls.is_derived_from(&ctx.widget_class) {
+        } else if cls.is_derived_from(&ctx.classes.widget) {
             Widget::from_object_node(ctx, obj_node, container_kind, diagnostics)
                 .map(UiObject::Widget)
         } else {
@@ -156,7 +156,7 @@ impl Widget {
                     .map(|m| {
                         property::collect_properties(
                             ctx,
-                            &ctx.tab_widget_attached_class,
+                            &ctx.classes.tab_widget_attached,
                             m,
                             diagnostics,
                         )
@@ -186,7 +186,7 @@ impl Widget {
             }
             None => vec![],
         };
-        if obj_node.class().is_derived_from(&ctx.table_view_class) {
+        if obj_node.class().is_derived_from(&ctx.classes.table_view) {
             flatten_object_properties_into_attributes(
                 &mut attributes,
                 &mut properties_map,
@@ -200,7 +200,7 @@ impl Widget {
                 diagnostics,
             );
         }
-        if obj_node.class().is_derived_from(&ctx.tree_view_class) {
+        if obj_node.class().is_derived_from(&ctx.classes.tree_view) {
             flatten_object_properties_into_attributes(
                 &mut attributes,
                 &mut properties_map,
@@ -209,7 +209,7 @@ impl Widget {
             );
         }
         let mut properties = property::make_serializable_properties(properties_map, diagnostics);
-        if obj_node.class().is_derived_from(&ctx.push_button_class) {
+        if obj_node.class().is_derived_from(&ctx.classes.push_button) {
             // see metatype_tweak.rs, "default" is a reserved word
             if let Some((mut k, v)) = properties.remove_entry("default_") {
                 k.pop();
@@ -217,7 +217,7 @@ impl Widget {
             }
         }
 
-        let child_container_kind = if obj_node.class().is_derived_from(&ctx.tab_widget_class) {
+        let child_container_kind = if obj_node.class().is_derived_from(&ctx.classes.tab_widget) {
             ContainerKind::TabWidget
         } else {
             ContainerKind::Any
