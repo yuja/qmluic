@@ -3,6 +3,7 @@
 use anyhow::{anyhow, Context as _};
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::{Args, Parser, Subcommand};
+use notify::{DebouncedEvent, RecursiveMode, Watcher as _};
 use qmluic::diagnostic::{Diagnostics, ProjectDiagnostics};
 use qmluic::metatype;
 use qmluic::metatype_tweak;
@@ -16,6 +17,8 @@ use std::fs;
 use std::io::{self, BufWriter, Write as _};
 use std::path::Path;
 use std::process;
+use std::sync::mpsc;
+use std::time::Duration;
 use tempfile::NamedTempFile;
 use thiserror::Error;
 
@@ -330,22 +333,58 @@ fn preview(args: &PreviewArgs) -> Result<(), CommandError> {
 
     let file_name_rules = FileNameRules::default();
     let ctx = BuildContext::prepare(&type_map, file_name_rules).map_err(anyhow::Error::from)?;
+    preview_file(&mut viewer_stdin, &ctx, &mut docs_cache, &args.source)?;
 
+    let (tx, rx) = mpsc::channel();
+    let mut watcher =
+        notify::watcher(tx, Duration::from_millis(100)).context("failed to create file watcher")?;
+    watcher
+        .watch(&args.source, RecursiveMode::NonRecursive)
+        .with_context(|| format!("failed to watch {:?}", args.source))?;
+    while let Ok(ev) = rx.recv() {
+        log::trace!("watched event: {ev:?}");
+        match ev {
+            DebouncedEvent::Create(_) | DebouncedEvent::Write(_) | DebouncedEvent::Rename(_, _) => {
+                // TODO: refresh populated qmldirs as needed
+                docs_cache.remove(&args.source);
+                preview_file(&mut viewer_stdin, &ctx, &mut docs_cache, &args.source)?;
+            }
+            DebouncedEvent::NoticeWrite(_)
+            | DebouncedEvent::NoticeRemove(_)
+            | DebouncedEvent::Chmod(_)
+            | DebouncedEvent::Remove(_)
+            | DebouncedEvent::Rescan
+            | DebouncedEvent::Error(..) => {}
+        }
+    }
+
+    // TODO: quit on previewer window closed
+    drop(viewer_stdin);
+    viewer.wait().context("failed to wait for viewer exit")?;
+    Ok(())
+}
+
+fn preview_file(
+    viewer_stdin: &mut impl io::Write,
+    ctx: &BuildContext,
+    docs_cache: &mut UiDocumentsCache,
+    source: &Utf8Path,
+) -> Result<(), CommandError> {
     eprintln!(
         "{} {}",
         console::style("processing").for_stderr().green().bold(),
-        args.source
+        source
     );
     let doc = docs_cache
-        .get(&args.source)
-        .ok_or_else(|| anyhow!("QML source not loaded (bad file suffix?): {}", args.source))?;
+        .read(source)
+        .with_context(|| format!("failed to load QML document: {source}"))?;
     if doc.has_syntax_error() {
         reporting::print_syntax_errors(doc)?;
     }
 
-    log::debug!("building ui for {:?}", args.source);
+    log::debug!("building ui for {:?}", source);
     let mut diagnostics = Diagnostics::new();
-    let maybe_form = uigen::build(&ctx, doc, &mut diagnostics);
+    let maybe_form = uigen::build(ctx, doc, &mut diagnostics);
     reporting::print_diagnostics(doc, &diagnostics)?;
     if let Some(form) = maybe_form {
         let mut data = Vec::new();
@@ -362,9 +401,6 @@ fn preview(args: &PreviewArgs) -> Result<(), CommandError> {
             .flush()
             .context("failed to communicate with viewer")?;
     }
-
-    drop(viewer_stdin);
-    viewer.wait().context("failed to wait for viewer exit")?;
     Ok(())
 }
 
