@@ -21,6 +21,17 @@ files from the other directory or files.
 Tested with Qt 5.15 on Debian sid. `qmluic` should run with Qt 6 in principle,
 but there may be silly bugs.
 
+Code Completion
+---------------
+
+You can leverage the Qt Creator's QML editor. You need to add `contrib/imports`
+to `QML_IMPORT_PATH` so the creator can find our type stubs.
+
+See the following examples:
+
+* [contrib/uiviewer/CMakeLists.txt](contrib/uiviewer/CMakeLists.txt)
+* [examples/examples.qmlproject](examples/examples.qmlproject)
+
 Live Preview
 ------------
 
