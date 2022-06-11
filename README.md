@@ -3,8 +3,8 @@ qmluic
 
 Write QtWidgets UI in QML. **(EXPERIMENTAL)**
 
-Usage
------
+Basic Usage
+-----------
 
 `qmluic generate-ui` command translates `.qml` file to `.ui` XML file, which
 can then be processed by Qt User Interface Compiler `uic` command.
@@ -20,6 +20,22 @@ files from the other directory or files.
 
 Tested with Qt 5.15 on Debian sid. `qmluic` should run with Qt 6 in principle,
 but there may be silly bugs.
+
+Live Preview
+------------
+
+`qmluic preview` command starts filesystem watcher and updates the preview
+window when the source QML file changes.
+
+```
+$ qmluic preview SettingsDialog.qml
+```
+
+The preview window is a separate Qt C++ application, which needs to be built
+in addition to `cargo build --workspace`. See [Makefile](Makefile) for
+details.
+
+This might not work on Windows because of the stdio use. Patches are welcome.
 
 Example QML file
 ----------------
