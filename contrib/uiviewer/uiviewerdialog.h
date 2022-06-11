@@ -19,6 +19,9 @@ public:
 
     void setContentWidget(std::unique_ptr<QWidget> widget);
 
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private slots:
     void reparentContentWidget();
 
