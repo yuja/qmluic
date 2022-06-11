@@ -144,6 +144,17 @@ impl UiDocumentsCache {
     {
         self.get(path).is_some()
     }
+
+    /// Evicts the specified document from the cache.
+    pub fn remove<P>(&mut self, path: P) -> Option<UiDocument>
+    where
+        P: AsRef<Utf8Path>,
+    {
+        path.as_ref()
+            .canonicalize_utf8()
+            .ok()
+            .and_then(|p| self.docs.remove(&p))
+    }
 }
 
 fn new_parser() -> Parser {
