@@ -17,6 +17,9 @@ add_executable(qmluic-uiviewer
   main.cpp
   pipeserver.cpp
   pipeserver.h
+  uiviewerdialog.cpp
+  uiviewerdialog.h
+  uiviewerdialog.ui
 )
 
 target_compile_definitions(qmluic-uiviewer
