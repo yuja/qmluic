@@ -350,13 +350,23 @@ fn preview(args: &PreviewArgs) -> Result<(), CommandError> {
     let (tx, rx) = mpsc::channel();
     let mut watcher =
         notify::watcher(tx, Duration::from_millis(100)).context("failed to create file watcher")?;
+    let canonical_doc_path = args
+        .source
+        .canonicalize()
+        .context("failed to get canonical doc path")?;
+    // watches the parent directory as the doc file may be recreated
+    let watch_base_path = canonical_doc_path
+        .parent()
+        .expect("file path should have parent");
     watcher
-        .watch(&args.source, RecursiveMode::NonRecursive)
-        .with_context(|| format!("failed to watch {:?}", args.source))?;
+        .watch(watch_base_path, RecursiveMode::NonRecursive)
+        .with_context(|| format!("failed to watch {:?}", watch_base_path))?;
     while let Ok(ev) = rx.recv() {
         log::trace!("watched event: {ev:?}");
         match ev {
-            DebouncedEvent::Create(_) | DebouncedEvent::Write(_) | DebouncedEvent::Rename(_, _) => {
+            DebouncedEvent::Create(p) | DebouncedEvent::Write(p) | DebouncedEvent::Rename(_, p)
+                if p == canonical_doc_path =>
+            {
                 // TODO: refresh populated qmldirs as needed
                 docs_cache.remove(&args.source);
                 preview_file(
@@ -367,7 +377,10 @@ fn preview(args: &PreviewArgs) -> Result<(), CommandError> {
                     &args.source,
                 )?;
             }
-            DebouncedEvent::NoticeWrite(_)
+            DebouncedEvent::Create(_)
+            | DebouncedEvent::Write(_)
+            | DebouncedEvent::Rename(..)
+            | DebouncedEvent::NoticeWrite(_)
             | DebouncedEvent::NoticeRemove(_)
             | DebouncedEvent::Chmod(_)
             | DebouncedEvent::Remove(_)
