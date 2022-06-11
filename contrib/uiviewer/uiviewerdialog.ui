@@ -1,7 +1,38 @@
 <ui version="4.0">
  <class>UiViewerDialog</class>
  <widget class="QDialog">
-  <layout class="QVBoxLayout" name="mainLayout">
+  <layout class="QVBoxLayout">
+   <item>
+    <widget class="QCheckBox" name="separateWindowCheck">
+     <property name="text">
+      <string>Show in separate window</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QFrame">
+     <property name="frameShadow">
+      <enum>QFrame::Plain</enum>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <layout class="QVBoxLayout" name="contentLayout">
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+     </layout>
+    </widget>
+   </item>
   </layout>
  </widget>
 </ui>
