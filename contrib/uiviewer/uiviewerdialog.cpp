@@ -15,6 +15,9 @@ void UiViewerDialog::setContentWidget(std::unique_ptr<QWidget> widget)
 {
     contentWidget_ = std::move(widget);
     contentWindowFlags_ = contentWidget_->windowFlags(); // backup
+    setWindowTitle(contentWidget_->windowTitle().isEmpty()
+                           ? tr("UI Viewer")
+                           : tr("%1 - UI Viewer").arg(contentWidget_->windowTitle()));
     reparentContentWidget();
 }
 
