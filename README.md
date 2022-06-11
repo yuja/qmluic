@@ -95,5 +95,7 @@ Major TODOs
 - [ ] Load type stubs from qmldir/plugins.qmltypes instead of metatypes.json
 - [ ] Better type resolution, namespace support
 - [ ] Build integration (maybe cmake?)
+- [ ] Live preview triggered by lsp
+- [ ] Live preview for multi-document file
 - [ ] Support signal-slot connections (`on<Signal>` syntax)
 - [ ] Support dynamic property bindings
