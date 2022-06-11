@@ -69,11 +69,14 @@ int main(int argc, char *argv[])
                                  dlg.setContentWidget(std::move(w));
                              }
                          });
+        QObject::connect(&pipeServer, &PipeServer::finished, &dlg,
+                         [&dlg]() { dlg.setClosable(true); });
         QObject::connect(&app, &QApplication::aboutToQuit, &pipeServer, [&pipeServer]() {
             qInfo() << "waiting for pipe thread shutdown";
             pipeServer.wait();
         });
         pipeServer.start();
+        dlg.setClosable(false);
     }
 
     dlg.show();

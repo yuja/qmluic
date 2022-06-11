@@ -1,3 +1,5 @@
+#include <QCloseEvent>
+#include <QMessageBox>
 #include <QEvent>
 #include <QMetaObject>
 #include "uiviewerdialog.h"
@@ -12,6 +14,21 @@ UiViewerDialog::UiViewerDialog(QWidget *parent)
 }
 
 UiViewerDialog::~UiViewerDialog() = default;
+
+void UiViewerDialog::closeEvent(QCloseEvent *event)
+{
+    if (closable_)
+        return;
+    QMessageBox::information(this, {},
+                             tr("Cannot close viewer while pipe server is running.\n\n"
+                                "Terminate the preview command instead."));
+    event->ignore();
+}
+
+void UiViewerDialog::setClosable(bool closable)
+{
+    closable_ = closable;
+}
 
 void UiViewerDialog::setContentWidget(std::unique_ptr<QWidget> widget)
 {
