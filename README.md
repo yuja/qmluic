@@ -1,7 +1,7 @@
 qmluic - Write QtWidgets UI in QML
 ==================================
 
-A `.qml`-to-`.ui` transpiler. No dynamic binding support at the moment.
+*A .qml-to-.ui transpiler. No dynamic binding support at the moment.*
 
 Usage
 -----
