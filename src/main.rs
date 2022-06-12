@@ -11,10 +11,9 @@ use qmluic::qmldir;
 use qmluic::qmldoc::UiDocumentsCache;
 use qmluic::typemap::{ModuleData, ModuleId, TypeMap};
 use qmluic::uigen::{self, BuildContext, FileNameRules, XmlWriter};
-use qmluic_cli::{reporting, QtPaths};
-use std::env;
+use qmluic_cli::{reporting, QtPaths, UiViewer};
 use std::fs;
-use std::io::{self, BufWriter, Read as _, Write as _};
+use std::io::{self, BufWriter, Write as _};
 use std::path::Path;
 use std::process;
 use std::sync::mpsc;
@@ -315,37 +314,10 @@ fn preview(args: &PreviewArgs) -> Result<(), CommandError> {
         reporting::print_diagnostics(docs_cache.get(p).unwrap(), ds)?;
     }
 
-    // TODO: installation path of qmluic-uiviewer
-    // TODO: extract viewer interface
-    let mut viewer_cmd = process::Command::new(
-        env::current_exe()
-            .context("failed to get executable path")?
-            .with_file_name("qmluic-uiviewer"),
-    );
-    viewer_cmd
-        .arg("--pipe")
-        .stdin(process::Stdio::piped())
-        .stdout(process::Stdio::piped());
-    log::debug!("spawning {viewer_cmd:?}");
-    let mut viewer = viewer_cmd
-        .spawn()
-        .with_context(|| format!("failed to spawn {:?}", viewer_cmd.get_program()))?;
-    let mut viewer_stdin = viewer.stdin.take().unwrap();
-    let mut viewer_stdout = viewer.stdout.take().unwrap();
-    log::trace!("waiting for viewer start message");
-    viewer_stdout
-        .read_exact(&mut [0; 4])
-        .context("failed to wait for viewer start message")?;
-
+    let mut viewer = UiViewer::spawn()?;
     let file_name_rules = FileNameRules::default();
     let ctx = BuildContext::prepare(&type_map, file_name_rules).map_err(anyhow::Error::from)?;
-    preview_file(
-        &mut viewer_stdin,
-        &mut viewer_stdout,
-        &ctx,
-        &mut docs_cache,
-        &args.source,
-    )?;
+    preview_file(&mut viewer, &ctx, &mut docs_cache, &args.source)?;
 
     let (tx, rx) = mpsc::channel();
     let mut watcher =
@@ -369,13 +341,7 @@ fn preview(args: &PreviewArgs) -> Result<(), CommandError> {
             {
                 // TODO: refresh populated qmldirs as needed
                 docs_cache.remove(&args.source);
-                preview_file(
-                    &mut viewer_stdin,
-                    &mut viewer_stdout,
-                    &ctx,
-                    &mut docs_cache,
-                    &args.source,
-                )?;
+                preview_file(&mut viewer, &ctx, &mut docs_cache, &args.source)?;
             }
             DebouncedEvent::Create(_)
             | DebouncedEvent::Write(_)
@@ -390,14 +356,12 @@ fn preview(args: &PreviewArgs) -> Result<(), CommandError> {
     }
 
     // TODO: quit on previewer window closed
-    drop(viewer_stdin);
-    viewer.wait().context("failed to wait for viewer exit")?;
+    viewer.wait()?;
     Ok(())
 }
 
 fn preview_file(
-    viewer_stdin: &mut impl io::Write,
-    viewer_stdout: &mut impl io::Read,
+    viewer: &mut UiViewer,
     ctx: &BuildContext,
     docs_cache: &mut UiDocumentsCache,
     source: &Utf8Path,
@@ -422,21 +386,7 @@ fn preview_file(
         let mut data = Vec::new();
         form.serialize_to_xml(&mut XmlWriter::new(&mut data))
             .context("failed to serialize UI to XML")?;
-        let size = i32::try_from(data.len()).context("serialized XML too large")?;
-        log::trace!("sending serialized data to viewer");
-        viewer_stdin
-            .write_all(&size.to_ne_bytes())
-            .context("failed to communicate with viewer")?;
-        viewer_stdin
-            .write_all(&data)
-            .context("failed to communicate with viewer")?;
-        viewer_stdin
-            .flush()
-            .context("failed to communicate with viewer")?;
-        log::trace!("waiting for viewer response");
-        viewer_stdout
-            .read_exact(&mut [0; 4])
-            .context("failed to get viewer response")?;
+        viewer.write_ui_data(&data)?;
     }
     Ok(())
 }
