@@ -1,6 +1,6 @@
 //! Modifications on Qt metatypes data.
 
-use crate::metatype::{Class, ClassInfo, Enum, Property};
+use crate::metatype::{Class, ClassInfo, Enum, Property, SuperClassSpecifier};
 
 /// Applies all modifications on the given `classes` data.
 pub fn apply_all(classes: &mut Vec<Class>) {
@@ -254,6 +254,16 @@ pub fn internal_core_classes() -> impl IntoIterator<Item = Class> {
 /// in the Qt metatypes.json.
 pub fn internal_widgets_classes() -> impl IntoIterator<Item = Class> {
     [
+        Class {
+            // placeholder object for QMenu/QToolBar.addSeparator(), which does NOT
+            // inherit QAction because no QAction properties should be set.
+            class_name: "QActionSeparator".to_owned(),
+            qualified_class_name: "QActionSeparator".to_owned(),
+            super_classes: vec![SuperClassSpecifier::public("QObject")],
+            class_infos: vec![ClassInfo::new("QML.Element", "auto")],
+            object: true,
+            ..Default::default()
+        },
         Class {
             class_name: "QLayoutAttached".to_owned(),
             qualified_class_name: "QLayoutAttached".to_owned(),

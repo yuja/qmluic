@@ -932,6 +932,12 @@ Module {
         Method { name: "_q_actionHovered" }
     }
     Component {
+        name: "QActionSeparator"
+        prototype: "QObject"
+        exports: ["qmluic.QtWidgets/QActionSeparator 5.0"]
+        exportMetaObjectRevisions: [0]
+    }
+    Component {
         file: "qeffects.cpp"
         name: "QAlphaWidget"
         prototype: "QWidget"
