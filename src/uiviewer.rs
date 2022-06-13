@@ -68,7 +68,7 @@ impl UiViewer {
 
     fn write_data(&mut self, len: i32, data: &[u8]) -> io::Result<()> {
         self.stdin.write_all(&len.to_ne_bytes())?;
-        self.stdin.write_all(&data)?;
+        self.stdin.write_all(data)?;
         self.stdin.flush()
     }
 }
