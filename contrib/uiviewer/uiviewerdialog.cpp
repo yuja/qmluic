@@ -46,7 +46,9 @@ bool UiViewerDialog::eventFilter(QObject *watched, QEvent *event)
     if (watched != contentWidget_.get())
         return QDialog::eventFilter(watched, event);
     switch (event->type()) {
-    case QEvent::Close:
+    case QEvent::Hide:
+        if (event->spontaneous())
+            return false;
         // move widget back to content area on close
         ui_->separateWindowCheck->setChecked(false);
         QMetaObject::invokeMethod(this, &UiViewerDialog::reparentContentWidget,
@@ -61,6 +63,7 @@ void UiViewerDialog::reparentContentWidget()
 {
     if (!contentWidget_)
         return;
+    contentWidget_->removeEventFilter(this); // widget will temporarily get hidden
     if (ui_->separateWindowCheck->isChecked()) {
         ui_->contentLayout->removeWidget(contentWidget_.get());
         contentWidget_->setWindowFlags(contentWindowFlags_ | Qt::Window);
@@ -69,4 +72,5 @@ void UiViewerDialog::reparentContentWidget()
         ui_->contentLayout->addWidget(contentWidget_.get());
     }
     contentWidget_->show();
+    contentWidget_->installEventFilter(this);
 }
