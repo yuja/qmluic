@@ -21,6 +21,7 @@ pub(super) enum ContainerKind {
 pub enum UiObject {
     Action(Action),
     Layout(Layout),
+    Menu(Widget),
     Widget(Widget),
 }
 
@@ -47,6 +48,8 @@ impl UiObject {
             }
         } else if cls.is_derived_from(&ctx.classes.layout) {
             Layout::from_object_node(ctx, obj_node, diagnostics).map(UiObject::Layout)
+        } else if cls.is_derived_from(&ctx.classes.menu) {
+            Widget::from_object_node(ctx, obj_node, container_kind, diagnostics).map(UiObject::Menu)
         } else if cls.is_derived_from(&ctx.classes.widget) {
             Widget::from_object_node(ctx, obj_node, container_kind, diagnostics)
                 .map(UiObject::Widget)
@@ -71,7 +74,7 @@ impl UiObject {
         match self {
             Action(x) => x.serialize_to_xml(writer),
             Layout(x) => x.serialize_to_xml(writer),
-            Widget(x) => x.serialize_to_xml(writer),
+            Menu(x) | Widget(x) => x.serialize_to_xml(writer),
         }
     }
 }
@@ -145,6 +148,16 @@ impl Widget {
         container_kind: ContainerKind,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
+        let child_container_kind = if obj_node.class().is_derived_from(&ctx.classes.tab_widget) {
+            ContainerKind::TabWidget
+        } else {
+            ContainerKind::Any
+        };
+        let mut children: Vec<_> = obj_node
+            .children()
+            .filter_map(|n| UiObject::from_object_node(ctx, n, child_container_kind, diagnostics))
+            .collect();
+
         let attached_type_map =
             diagnostics.consume_err(obj_node.obj().build_attached_type_map(ctx.source))?;
         let mut attributes = match container_kind {
@@ -184,7 +197,7 @@ impl Widget {
                 ));
                 vec![]
             }
-            None => vec![],
+            None => collect_action_like_children(ctx, &mut children),
         };
         if obj_node.class().is_derived_from(&ctx.classes.table_view) {
             flatten_object_properties_into_attributes(
@@ -216,16 +229,6 @@ impl Widget {
                 properties.insert(k, v);
             }
         }
-
-        let child_container_kind = if obj_node.class().is_derived_from(&ctx.classes.tab_widget) {
-            ContainerKind::TabWidget
-        } else {
-            ContainerKind::Any
-        };
-        let children = obj_node
-            .children()
-            .filter_map(|n| UiObject::from_object_node(ctx, n, child_container_kind, diagnostics))
-            .collect();
 
         Some(Widget {
             class: obj_node.class().qualified_cxx_name().into_owned(),
@@ -268,6 +271,25 @@ impl Widget {
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
     }
+}
+
+fn collect_action_like_children(ctx: &BuildDocContext, children: &mut [UiObject]) -> Vec<String> {
+    children
+        .iter_mut()
+        .filter_map(|child| match child {
+            UiObject::Action(a) => Some(
+                a.name
+                    .get_or_insert_with(|| ctx.generate_object_id("action"))
+                    .to_owned(),
+            ),
+            UiObject::Menu(w) => Some(
+                w.name
+                    .get_or_insert_with(|| ctx.generate_object_id("menu"))
+                    .to_owned(),
+            ),
+            UiObject::Layout(_) | UiObject::Widget(_) => None,
+        })
+        .collect()
 }
 
 fn flatten_object_properties_into_attributes(

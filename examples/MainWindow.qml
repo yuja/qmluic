@@ -3,19 +3,17 @@ import qmluic.QtWidgets
 QMainWindow {
     geometry { x: 0; y: 0; width: 800; height: 600 }
     windowTitle: qsTr("MainWindow")
+
+    // QAction and QMenu instances will be added automatically unless 'actions'
+    // is explicitly set.
     actions: []
 
     QWidget { id: centralwidget }
 
     QMenuBar {
         id: menubar
-        actions: [
-            menu_File,
-            menu_Edit,
-        ]
 
         QMenu {
-            id: menu_File
             title: qsTr("&File")
             actions: [
                 action_Open,
@@ -25,12 +23,28 @@ QMainWindow {
         }
 
         QMenu {
-            id: menu_Edit
             title: qsTr("&Edit")
             actions: [
                 action_Undo,
                 action_Redo,
             ]
+        }
+
+        QMenu {
+            title: qsTr("&Help")
+
+            QAction {
+                id: action_About
+                text: qsTr("&About")
+            }
+
+            QMenu {
+                title: qsTr("&Developer tools")
+
+                QAction {
+                    text: qsTr("&Console")
+                }
+            }
         }
     }
 
@@ -40,6 +54,8 @@ QMainWindow {
             separator,
             action_Undo,
             action_Redo,
+            separator,
+            action_About,
         ]
     }
 
