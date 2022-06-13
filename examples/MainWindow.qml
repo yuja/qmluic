@@ -8,7 +8,6 @@ QMainWindow {
 
     QMenuBar {
         id: menubar
-        geometry { x: 0; y: 0; width: 800; height: 20 }
         actions: [
             menu_File,
             menu_Edit,

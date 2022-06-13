@@ -19,14 +19,6 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
   <widget class="QWidget" name="centralwidget">
   </widget>
   <widget class="QMenuBar" name="menubar">
-   <property name="geometry">
-    <rect>
-     <height>20</height>
-     <width>800</width>
-     <x>0</x>
-     <y>0</y>
-    </rect>
-   </property>
    <addaction name="menu_File"/>
    <addaction name="menu_Edit"/>
    <widget class="QMenu" name="menu_File">
