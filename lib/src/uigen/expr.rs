@@ -381,7 +381,7 @@ fn parse_object_reference(
             ));
             None
         }
-        ObjectRef::List(..) => {
+        ObjectRef::List(..) | ObjectRef::EmptyList => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
                 format!(
@@ -420,6 +420,7 @@ fn parse_object_reference_list(
             None
         }
         ObjectRef::List(res_cls, names) if res_cls.is_derived_from(expected_cls) => Some(names),
+        ObjectRef::EmptyList => Some(vec![]),
         ObjectRef::List(res_cls, _) => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
@@ -763,7 +764,9 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
                 Minus | Plus => Err(type_error()),
                 Typeof | Void | Delete => Err(type_error()),
             },
-            TypeDesc::ObjectRef(_) | TypeDesc::ObjectRefList(_) => Err(type_error()),
+            TypeDesc::ObjectRef(_) | TypeDesc::ObjectRefList(_) | TypeDesc::EmptyList => {
+                Err(type_error())
+            }
         }
     }
 
@@ -975,6 +978,7 @@ struct ObjectRefCollector;
 enum ObjectRef<'a> {
     Just(Class<'a>, String),
     List(Class<'a>, Vec<String>),
+    EmptyList,
 }
 
 impl<'a> DescribeType<'a> for ObjectRef<'a> {
@@ -982,6 +986,7 @@ impl<'a> DescribeType<'a> for ObjectRef<'a> {
         match self {
             ObjectRef::Just(cls, _) => TypeDesc::ObjectRef(cls.clone()),
             ObjectRef::List(cls, _) => TypeDesc::ObjectRefList(cls.clone()),
+            ObjectRef::EmptyList => TypeDesc::EmptyList,
         }
     }
 }
@@ -1026,7 +1031,7 @@ impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
                     };
                     names.push(s);
                 }
-                ObjectRef::List(..) => {
+                ObjectRef::List(..) | ObjectRef::EmptyList => {
                     return Err(ExpressionError::UnsupportedLiteral("nested array"));
                 }
             }
@@ -1035,7 +1040,7 @@ impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
         if let Some(base) = base_cls {
             Ok(ObjectRef::List(base, names))
         } else {
-            Err(ExpressionError::UnsupportedLiteral("empty array"))
+            Ok(ObjectRef::EmptyList)
         }
     }
 

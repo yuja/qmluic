@@ -3,6 +3,7 @@ import qmluic.QtWidgets
 QMainWindow {
     geometry { x: 0; y: 0; width: 800; height: 600 }
     windowTitle: qsTr("MainWindow")
+    actions: []
 
     QWidget { id: centralwidget }
 
