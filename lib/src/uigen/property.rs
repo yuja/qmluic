@@ -1,5 +1,6 @@
+use super::context::BuildDocContext;
 use super::expr::{PropertyValue, Value};
-use super::{BuildDocContext, XmlResult, XmlWriter};
+use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
 use crate::typemap::{Class, TypeSpace};

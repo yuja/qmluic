@@ -1,7 +1,8 @@
+use super::context::BuildDocContext;
 use super::expr::{PropertyValue, Value};
 use super::object::{self, ContainerKind, Widget};
 use super::property::{self, WithNode};
-use super::{BuildDocContext, XmlResult, XmlWriter};
+use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectNode;
 use crate::typemap::TypeSpace;

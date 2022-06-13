@@ -1,7 +1,8 @@
+use super::context::BuildDocContext;
 use super::gadget::{Gadget, SizePolicy};
 use super::property::{self, WithNode};
 use super::xmlutil;
-use super::{BuildDocContext, XmlResult, XmlWriter};
+use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{BinaryOperator, Node, UiBindingMap, UiBindingValue, UnaryOperator};
 use crate::typedexpr::{self, DescribeType, ExpressionVisitor, TypeDesc};
