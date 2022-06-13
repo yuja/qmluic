@@ -137,6 +137,7 @@ struct BuildDocContext<'a, 't, 's> {
 #[derive(Clone, Debug)]
 struct KnownClasses<'a> {
     action: Class<'a>,
+    action_separator: Class<'a>,
     form_layout: Class<'a>,
     grid_layout: Class<'a>,
     hbox_layout: Class<'a>,
@@ -182,6 +183,7 @@ impl<'a> BuildContext<'a> {
         };
         let classes = KnownClasses {
             action: get_class("QAction")?,
+            action_separator: get_class("QActionSeparator")?,
             form_layout: get_class("QFormLayout")?,
             grid_layout: get_class("QGridLayout")?,
             hbox_layout: get_class("QHBoxLayout")?,

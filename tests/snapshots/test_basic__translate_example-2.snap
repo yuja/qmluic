@@ -42,6 +42,7 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
      <string>&amp;Help</string>
     </property>
     <addaction name="action_About"/>
+    <addaction name="separator"/>
     <addaction name="menu_0"/>
     <action name="action_About">
      <property name="text">

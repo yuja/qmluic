@@ -9,6 +9,9 @@ use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
 use std::io;
 
+/// Reserved name for <addaction name="separator"/>.
+const ACTION_SEPARATOR_NAME: &str = "separator";
+
 /// Type of the object parent.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum ContainerKind {
@@ -20,6 +23,7 @@ pub(super) enum ContainerKind {
 #[derive(Clone, Debug)]
 pub enum UiObject {
     Action(Action),
+    ActionSeparator,
     Layout(Layout),
     Menu(Widget),
     Widget(Widget),
@@ -35,17 +39,10 @@ impl UiObject {
     ) -> Option<Self> {
         let cls = obj_node.class();
         if cls.is_derived_from(&ctx.classes.action) {
-            // TODO: hack for menu separator: <addaction name="separator"/> is reserved by uic
-            if obj_node
-                .obj()
-                .object_id()
-                .map(|n| n.to_str(ctx.source) == "separator")
-                .unwrap_or(false)
-            {
-                None
-            } else {
-                Action::from_object_node(ctx, obj_node, diagnostics).map(UiObject::Action)
-            }
+            Action::from_object_node(ctx, obj_node, diagnostics).map(UiObject::Action)
+        } else if cls.is_derived_from(&ctx.classes.action_separator) {
+            confine_children(obj_node, diagnostics);
+            Some(UiObject::ActionSeparator)
         } else if cls.is_derived_from(&ctx.classes.layout) {
             Layout::from_object_node(ctx, obj_node, diagnostics).map(UiObject::Layout)
         } else if cls.is_derived_from(&ctx.classes.menu) {
@@ -73,6 +70,7 @@ impl UiObject {
         use UiObject::*;
         match self {
             Action(x) => x.serialize_to_xml(writer),
+            ActionSeparator => Ok(()),
             Layout(x) => x.serialize_to_xml(writer),
             Menu(x) | Widget(x) => x.serialize_to_xml(writer),
         }
@@ -189,7 +187,22 @@ impl Widget {
             Some(WithNode {
                 value: PropertyValue::ObjectRefList(refs),
                 ..
-            }) => refs,
+            }) => refs
+                .into_iter()
+                .map(|id| {
+                    if ctx
+                        .object_tree
+                        .get_by_id(&id)
+                        .expect("object ref must be valid")
+                        .class()
+                        .is_derived_from(&ctx.classes.action_separator)
+                    {
+                        ACTION_SEPARATOR_NAME.to_owned()
+                    } else {
+                        id
+                    }
+                })
+                .collect(),
             Some(x) => {
                 diagnostics.push(Diagnostic::error(
                     x.node().byte_range(),
@@ -282,6 +295,7 @@ fn collect_action_like_children(ctx: &BuildDocContext, children: &mut [UiObject]
                     .get_or_insert_with(|| ctx.generate_object_id("action"))
                     .to_owned(),
             ),
+            UiObject::ActionSeparator => Some(ACTION_SEPARATOR_NAME.to_owned()),
             UiObject::Menu(w) => Some(
                 w.name
                     .get_or_insert_with(|| ctx.generate_object_id("menu"))

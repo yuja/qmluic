@@ -17,7 +17,7 @@ QMainWindow {
             title: qsTr("&File")
             actions: [
                 action_Open,
-                separator,
+                whateverSeparator,
                 action_Quit,
             ]
         }
@@ -38,6 +38,8 @@ QMainWindow {
                 text: qsTr("&About")
             }
 
+            QActionSeparator {}
+
             QMenu {
                 title: qsTr("&Developer tools")
 
@@ -51,10 +53,10 @@ QMainWindow {
     QToolBar {
         actions: [
             action_Open,
-            separator,
+            whateverSeparator,
             action_Undo,
             action_Redo,
-            separator,
+            whateverSeparator,
             action_About,
         ]
     }
@@ -91,8 +93,8 @@ QMainWindow {
         text: qsTr("Foo")
     }
 
-    // TODO: find better way to represent a menu separator
-    QAction {
-        id: separator
+    // Pseudo action representing a menu/toolbar separator.
+    QActionSeparator {
+        id: whateverSeparator
     }
 }
