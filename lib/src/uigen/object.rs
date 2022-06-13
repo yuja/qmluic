@@ -13,13 +13,6 @@ use std::io;
 /// Reserved name for <addaction name="separator"/>.
 const ACTION_SEPARATOR_NAME: &str = "separator";
 
-/// Type of the object parent.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum ContainerKind {
-    Any,
-    TabWidget,
-}
-
 /// Variant for the object definitions which can be serialized to UI XML.
 #[derive(Clone, Debug)]
 pub enum UiObject {
@@ -35,7 +28,6 @@ impl UiObject {
     pub(super) fn from_object_node(
         ctx: &BuildDocContext,
         obj_node: ObjectNode,
-        container_kind: ContainerKind,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let cls = obj_node.class();
@@ -47,10 +39,9 @@ impl UiObject {
         } else if cls.is_derived_from(&ctx.classes.layout) {
             Layout::from_object_node(ctx, obj_node, diagnostics).map(UiObject::Layout)
         } else if cls.is_derived_from(&ctx.classes.menu) {
-            Widget::from_object_node(ctx, obj_node, container_kind, diagnostics).map(UiObject::Menu)
+            Widget::from_object_node(ctx, obj_node, diagnostics).map(UiObject::Menu)
         } else if cls.is_derived_from(&ctx.classes.widget) {
-            Widget::from_object_node(ctx, obj_node, container_kind, diagnostics)
-                .map(UiObject::Widget)
+            Widget::from_object_node(ctx, obj_node, diagnostics).map(UiObject::Widget)
         } else {
             diagnostics.push(Diagnostic::error(
                 obj_node.obj().node().byte_range(),
@@ -144,37 +135,12 @@ impl Widget {
     pub(super) fn from_object_node(
         ctx: &BuildDocContext,
         obj_node: ObjectNode,
-        container_kind: ContainerKind,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let child_container_kind = if obj_node.class().is_derived_from(&ctx.classes.tab_widget) {
-            ContainerKind::TabWidget
+        let mut children = if obj_node.class().is_derived_from(&ctx.classes.tab_widget) {
+            process_tab_widget_children(ctx, obj_node, diagnostics)
         } else {
-            ContainerKind::Any
-        };
-        let mut children: Vec<_> = obj_node
-            .children()
-            .filter_map(|n| UiObject::from_object_node(ctx, n, child_container_kind, diagnostics))
-            .collect();
-
-        let attached_type_map =
-            diagnostics.consume_err(obj_node.obj().build_attached_type_map(ctx.source))?;
-        let mut attributes = match container_kind {
-            ContainerKind::Any => HashMap::new(),
-            ContainerKind::TabWidget => {
-                // TODO: resolve against imported types,
-                attached_type_map
-                    .get(["QTabWidget"].as_ref())
-                    .map(|m| {
-                        property::collect_properties(
-                            ctx,
-                            &ctx.classes.tab_widget_attached,
-                            m,
-                            diagnostics,
-                        )
-                    })
-                    .unwrap_or_default()
-            }
+            process_widget_children(ctx, obj_node, diagnostics)
         };
 
         let binding_map = diagnostics.consume_err(obj_node.obj().build_binding_map(ctx.source))?;
@@ -213,6 +179,7 @@ impl Widget {
             }
             None => collect_action_like_children(ctx, &mut children),
         };
+        let mut attributes = HashMap::new();
         if obj_node.class().is_derived_from(&ctx.classes.table_view) {
             flatten_object_properties_into_attributes(
                 &mut attributes,
@@ -285,6 +252,47 @@ impl Widget {
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
     }
+}
+
+fn process_tab_widget_children(
+    ctx: &BuildDocContext,
+    obj_node: ObjectNode,
+    diagnostics: &mut Diagnostics,
+) -> Vec<UiObject> {
+    obj_node
+        .children()
+        .filter_map(|n| {
+            let mut o = UiObject::from_object_node(ctx, n, diagnostics)?;
+            match &mut o {
+                UiObject::Menu(w) | UiObject::Widget(w) => {
+                    let attached_type_map =
+                        diagnostics.consume_err(n.obj().build_attached_type_map(ctx.source))?;
+                    // TODO: resolve against imported types,
+                    if let Some(m) = attached_type_map.get(["QTabWidget"].as_ref()) {
+                        w.attributes.extend(property::collect_properties(
+                            ctx,
+                            &ctx.classes.tab_widget_attached,
+                            m,
+                            diagnostics,
+                        ));
+                    }
+                }
+                UiObject::Action(_) | UiObject::ActionSeparator | UiObject::Layout(_) => {}
+            }
+            Some(o)
+        })
+        .collect()
+}
+
+fn process_widget_children(
+    ctx: &BuildDocContext,
+    obj_node: ObjectNode,
+    diagnostics: &mut Diagnostics,
+) -> Vec<UiObject> {
+    obj_node
+        .children()
+        .filter_map(|n| UiObject::from_object_node(ctx, n, diagnostics))
+        .collect()
 }
 
 fn collect_action_like_children(ctx: &BuildDocContext, children: &mut [UiObject]) -> Vec<String> {

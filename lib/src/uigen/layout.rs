@@ -1,6 +1,6 @@
 use super::context::BuildDocContext;
 use super::expr::{PropertyValue, Value};
-use super::object::{self, ContainerKind, Widget};
+use super::object::{self, Widget};
 use super::property::{self, WithNode};
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
@@ -272,8 +272,7 @@ impl LayoutItemContent {
             SpacerItem::from_object_node(ctx, obj_node, diagnostics)
                 .map(LayoutItemContent::SpacerItem)
         } else if cls.is_derived_from(&ctx.classes.widget) {
-            Widget::from_object_node(ctx, obj_node, ContainerKind::Any, diagnostics)
-                .map(LayoutItemContent::Widget)
+            Widget::from_object_node(ctx, obj_node, diagnostics).map(LayoutItemContent::Widget)
         } else {
             diagnostics.push(Diagnostic::error(
                 obj_node.obj().node().byte_range(),
