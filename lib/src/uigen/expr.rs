@@ -205,16 +205,6 @@ impl SimpleValue {
                     }
                 }
             }
-            NamedType::Class(_) | NamedType::QmlComponent(_) => {
-                diagnostics.push(Diagnostic::error(
-                    node.byte_range(),
-                    format!(
-                        "unsupported constant value expression: class '{}'",
-                        ty.qualified_cxx_name(),
-                    ),
-                ));
-                None
-            }
             NamedType::Enum(en) => {
                 let (res_t, res_expr, _) = typedexpr::walk(
                     &ctx.type_space,
@@ -245,16 +235,6 @@ impl SimpleValue {
                     }
                 }
             }
-            NamedType::Namespace(_) => {
-                diagnostics.push(Diagnostic::error(
-                    node.byte_range(),
-                    format!(
-                        "unsupported constant value expression: namespace '{}'",
-                        ty.qualified_cxx_name(),
-                    ),
-                ));
-                None
-            }
             NamedType::Primitive(p) => {
                 let res = typedexpr::walk(
                     &ctx.type_space,
@@ -281,6 +261,26 @@ impl SimpleValue {
                     EvaluatedValue::String(s) => Some(SimpleValue::String { s, tr: false }),
                     EvaluatedValue::TrString(s) => Some(SimpleValue::String { s, tr: true }),
                 }
+            }
+            NamedType::Class(_) | NamedType::QmlComponent(_) => {
+                diagnostics.push(Diagnostic::error(
+                    node.byte_range(),
+                    format!(
+                        "unsupported constant value expression: class '{}'",
+                        ty.qualified_cxx_name(),
+                    ),
+                ));
+                None
+            }
+            NamedType::Namespace(_) => {
+                diagnostics.push(Diagnostic::error(
+                    node.byte_range(),
+                    format!(
+                        "unsupported constant value expression: namespace '{}'",
+                        ty.qualified_cxx_name(),
+                    ),
+                ));
+                None
             }
         }
     }
