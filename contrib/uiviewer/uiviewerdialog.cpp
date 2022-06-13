@@ -1,6 +1,8 @@
 #include <QCloseEvent>
-#include <QMessageBox>
 #include <QEvent>
+#include <QKeyEvent>
+#include <QKeySequence>
+#include <QMessageBox>
 #include <QMetaObject>
 #include "uiviewerdialog.h"
 #include "ui_uiviewerdialog.h"
@@ -23,6 +25,15 @@ void UiViewerDialog::closeEvent(QCloseEvent *event)
                              tr("Cannot close viewer while pipe server is running.\n\n"
                                 "Terminate the preview command instead."));
     event->ignore();
+}
+
+void UiViewerDialog::keyPressEvent(QKeyEvent *event)
+{
+    if (event->matches(QKeySequence::Cancel)) {
+        event->ignore();
+        return; // do not close by escape key
+    }
+    QDialog::keyPressEvent(event);
 }
 
 void UiViewerDialog::setClosable(bool closable)
