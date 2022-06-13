@@ -358,7 +358,7 @@ fn parse_object_reference(
     node: Node,
     diagnostics: &mut Diagnostics,
 ) -> Option<SimpleValue> {
-    let (res_cls, obj_ref) = typedexpr::walk(
+    let obj_ref = typedexpr::walk(
         &ctx.type_space,
         &ctx.object_tree,
         node,
@@ -367,10 +367,10 @@ fn parse_object_reference(
         diagnostics,
     )?;
     match obj_ref {
-        ObjectRef::Just(name) if res_cls.is_derived_from(expected_cls) => {
+        ObjectRef::Just(res_cls, name) if res_cls.is_derived_from(expected_cls) => {
             Some(SimpleValue::Cstring(name))
         }
-        ObjectRef::Just(_) => {
+        ObjectRef::Just(res_cls, _) => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
                 format!(
@@ -381,7 +381,7 @@ fn parse_object_reference(
             ));
             None
         }
-        ObjectRef::List(_) => {
+        ObjectRef::List(..) => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
                 format!(
@@ -400,7 +400,7 @@ fn parse_object_reference_list(
     node: Node,
     diagnostics: &mut Diagnostics,
 ) -> Option<Vec<String>> {
-    let (res_cls, obj_ref) = typedexpr::walk(
+    let obj_ref = typedexpr::walk(
         &ctx.type_space,
         &ctx.object_tree,
         node,
@@ -409,7 +409,7 @@ fn parse_object_reference_list(
         diagnostics,
     )?;
     match obj_ref {
-        ObjectRef::Just(_) => {
+        ObjectRef::Just(res_cls, _) => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
                 format!(
@@ -419,8 +419,8 @@ fn parse_object_reference_list(
             ));
             None
         }
-        ObjectRef::List(names) if res_cls.is_derived_from(expected_cls) => Some(names),
-        ObjectRef::List(_) => {
+        ObjectRef::List(res_cls, names) if res_cls.is_derived_from(expected_cls) => Some(names),
+        ObjectRef::List(res_cls, _) => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
                 format!(
@@ -972,22 +972,22 @@ fn binary_operator_str(operator: BinaryOperator) -> &'static str {
 struct ObjectRefCollector;
 
 #[derive(Clone, Debug)]
-enum ObjectRef {
-    Just(String),
-    List(Vec<String>),
+enum ObjectRef<'a> {
+    Just(Class<'a>, String),
+    List(Class<'a>, Vec<String>),
 }
 
-impl<'a> DescribeType<'a> for (Class<'a>, ObjectRef) {
+impl<'a> DescribeType<'a> for ObjectRef<'a> {
     fn type_desc(&self) -> TypeDesc<'a> {
         match self {
-            (cls, ObjectRef::Just(_)) => TypeDesc::ObjectRef(cls.clone()),
-            (cls, ObjectRef::List(_)) => TypeDesc::ObjectRefList(cls.clone()),
+            ObjectRef::Just(cls, _) => TypeDesc::ObjectRef(cls.clone()),
+            ObjectRef::List(cls, _) => TypeDesc::ObjectRefList(cls.clone()),
         }
     }
 }
 
 impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
-    type Item = (Class<'a>, ObjectRef);
+    type Item = ObjectRef<'a>;
     type Error = ExpressionError;
 
     fn visit_number(&self, _value: f64) -> Result<Self::Item, Self::Error> {
@@ -1007,35 +1007,40 @@ impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
     }
 
     fn visit_array(&self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
-        if let Some((cls, _)) = elements.first() {
-            let mut base_cls = cls.clone();
-            let mut names = Vec::with_capacity(elements.len());
-            for (cls, r) in elements {
-                match r {
-                    ObjectRef::Just(s) => {
-                        if base_cls != cls {
-                            base_cls = base_cls.common_base_class(&cls).ok_or_else(|| {
+        let mut base_cls: Option<Class> = None;
+        let mut names = Vec::with_capacity(elements.len());
+        for r in elements {
+            match r {
+                ObjectRef::Just(cls, s) => {
+                    base_cls = match base_cls {
+                        Some(base) if base != cls => {
+                            Some(base.common_base_class(&cls).ok_or_else(|| {
                                 ExpressionError::CannotDeduceType(
-                                    base_cls.qualified_cxx_name().into(),
+                                    base.qualified_cxx_name().into(),
                                     cls.qualified_cxx_name().into(),
                                 )
-                            })?;
+                            })?)
                         }
-                        names.push(s);
-                    }
-                    ObjectRef::List(_) => {
-                        return Err(ExpressionError::UnsupportedLiteral("nested array"));
-                    }
+                        Some(_) => base_cls,
+                        None => Some(cls),
+                    };
+                    names.push(s);
+                }
+                ObjectRef::List(..) => {
+                    return Err(ExpressionError::UnsupportedLiteral("nested array"));
                 }
             }
-            Ok((base_cls, ObjectRef::List(names)))
+        }
+
+        if let Some(base) = base_cls {
+            Ok(ObjectRef::List(base, names))
         } else {
             Err(ExpressionError::UnsupportedLiteral("empty array"))
         }
     }
 
     fn visit_object_ref(&self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error> {
-        Ok((cls, ObjectRef::Just(name.to_owned())))
+        Ok(ObjectRef::Just(cls, name.to_owned()))
     }
 
     fn visit_call_expression(
