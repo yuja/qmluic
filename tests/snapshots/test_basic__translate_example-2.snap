@@ -46,11 +46,17 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
   <widget class="QStatusBar" name="statusbar">
   </widget>
   <action name="action_Open">
+   <property name="shortcut">
+    <enum>QKeySequence::Open</enum>
+   </property>
    <property name="text">
     <string>&amp;Open</string>
    </property>
   </action>
   <action name="action_Quit">
+   <property name="shortcut">
+    <string notr="true">Ctrl+X, Ctrl+C</string>
+   </property>
    <property name="text">
     <string>&amp;Quit</string>
    </property>

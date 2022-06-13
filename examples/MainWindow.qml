@@ -47,11 +47,15 @@ QMainWindow {
     QAction {
         id: action_Open
         text: qsTr("&Open")
+        // QUiLoader nor designer doesn't support StandardKey enum, but uic
+        // can generate a valid code (because it is just an enum property.)
+        shortcut: QKeySequence.Open
     }
 
     QAction {
         id: action_Quit
         text: qsTr("&Quit")
+        shortcut: "Ctrl+X, Ctrl+C"
     }
 
     QAction {

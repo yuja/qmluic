@@ -5,7 +5,7 @@ use crate::objtree::ObjectTree;
 use crate::qmlast::{UiImportSource, UiProgram};
 use crate::qmldir;
 use crate::qmldoc::UiDocument;
-use crate::typemap::{Class, ImportedModuleSpace, ModuleId, NamedType, TypeMap, TypeSpace};
+use crate::typemap::{Class, Enum, ImportedModuleSpace, ModuleId, NamedType, TypeMap, TypeSpace};
 use itertools::Itertools as _;
 use thiserror::Error;
 
@@ -137,6 +137,8 @@ struct KnownClasses<'a> {
     form_layout: Class<'a>,
     grid_layout: Class<'a>,
     hbox_layout: Class<'a>,
+    key_sequence: Class<'a>,
+    key_sequence_standard_key: Enum<'a>,
     layout: Class<'a>,
     layout_attached: Class<'a>,
     push_button: Class<'a>,
@@ -166,11 +168,21 @@ impl<'a> BuildContext<'a> {
                 Err(BuildContextError::ClassNotFound(name))
             }
         };
+        let get_enum = |scoped_name| {
+            if let Some(NamedType::Enum(en)) = module.get_type_scoped(scoped_name) {
+                Ok(en)
+            } else {
+                // not a "class", but who cares
+                Err(BuildContextError::ClassNotFound(scoped_name))
+            }
+        };
         let classes = KnownClasses {
             action: get_class("QAction")?,
             form_layout: get_class("QFormLayout")?,
             grid_layout: get_class("QGridLayout")?,
             hbox_layout: get_class("QHBoxLayout")?,
+            key_sequence: get_class("QKeySequence")?,
+            key_sequence_standard_key: get_enum("QKeySequence::StandardKey")?,
             layout: get_class("QLayout")?,
             layout_attached: get_class("QLayoutAttached")?,
             push_button: get_class("QPushButton")?,

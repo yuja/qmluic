@@ -167,6 +167,44 @@ impl SimpleValue {
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         match ty {
+            NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.key_sequence) => {
+                // ExpressionFormatter can handle both enum and string literals, so try it first.
+                let (res_t, res_expr, _) = typedexpr::walk(
+                    &ctx.type_space,
+                    &ctx.object_tree,
+                    node,
+                    ctx.source,
+                    &ExpressionFormatter,
+                    diagnostics,
+                )?;
+                let standard_key_en = &ctx.classes.key_sequence_standard_key;
+                let string_ty = NamedType::Primitive(PrimitiveType::QString);
+                match &res_t {
+                    TypeDesc::Enum(res_en) if is_compatible_enum(res_en, standard_key_en) => {
+                        if standard_key_en.is_flag() {
+                            Some(SimpleValue::Set(res_expr))
+                        } else {
+                            Some(SimpleValue::Enum(res_expr))
+                        }
+                    }
+                    TypeDesc::String => {
+                        // evaluate as string
+                        Self::from_expression(ctx, &string_ty, node, diagnostics)
+                    }
+                    _ => {
+                        diagnostics.push(Diagnostic::error(
+                            node.byte_range(),
+                            format!(
+                                "expression type mismatch (expected: {} | {}, actual: {})",
+                                standard_key_en.qualified_cxx_name(),
+                                string_ty.qualified_cxx_name(),
+                                res_t.qualified_name()
+                            ),
+                        ));
+                        None
+                    }
+                }
+            }
             NamedType::Class(_) | NamedType::QmlComponent(_) => {
                 diagnostics.push(Diagnostic::error(
                     node.byte_range(),
