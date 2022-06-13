@@ -101,6 +101,11 @@ impl<'a, 't> ObjectTree<'a, 't> {
         self.nodes.iter().map(|d| ObjectNode::new(d, self))
     }
 
+    /// Number of the objects in the tree.
+    pub fn flat_len(&self) -> usize {
+        self.nodes.len()
+    }
+
     /// Check whether or not the specified object id exists.
     pub fn contains_id<S>(&self, object_id: S) -> bool
     where
