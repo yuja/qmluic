@@ -1,6 +1,6 @@
 ---
 source: tests/test_basic.rs
-expression: "translate_file(\"examples/MainWindow.qml\")"
+expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
 ---
 <ui version="4.0">
  <class>MainWindow</class>
@@ -28,19 +28,52 @@ expression: "translate_file(\"examples/MainWindow.qml\")"
     </rect>
    </property>
    <addaction name="menu_File"/>
+   <addaction name="menu_Edit"/>
    <widget class="QMenu" name="menu_File">
     <property name="title">
      <string>&amp;File</string>
     </property>
     <addaction name="action_Open"/>
     <addaction name="separator"/>
+    <addaction name="action_Quit"/>
    </widget>
+   <widget class="QMenu" name="menu_Edit">
+    <property name="title">
+     <string>&amp;Edit</string>
+    </property>
+    <addaction name="action_Undo"/>
+    <addaction name="action_Redo"/>
+   </widget>
+  </widget>
+  <widget class="QToolBar">
+   <addaction name="action_Open"/>
+   <addaction name="separator"/>
+   <addaction name="action_Undo"/>
+   <addaction name="action_Redo"/>
   </widget>
   <widget class="QStatusBar" name="statusbar">
   </widget>
   <action name="action_Open">
    <property name="text">
     <string>&amp;Open</string>
+   </property>
+  </action>
+  <action name="action_Quit">
+   <property name="text">
+    <string>&amp;Quit</string>
+   </property>
+  </action>
+  <action name="action_Undo">
+   <property name="text">
+    <string>&amp;Undo</string>
+   </property>
+  </action>
+  <action name="action_Redo">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>&amp;Redo</string>
    </property>
   </action>
   <action name="actionFoo">
