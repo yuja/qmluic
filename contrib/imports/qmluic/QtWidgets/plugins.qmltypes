@@ -931,9 +931,10 @@ Module {
         Method { name: "_q_actionChanged" }
         Method { name: "_q_actionHovered" }
     }
+    Component { name: "QActionOrMenu" }
     Component {
         name: "QActionSeparator"
-        prototype: "QObject"
+        prototype: "QActionOrMenu"
         exports: ["qmluic.QtWidgets/QActionSeparator 5.0"]
         exportMetaObjectRevisions: [0]
     }
@@ -7061,7 +7062,7 @@ Module {
         Property { name: "locale"; type: "QLocale" }
         Property { name: "windowFilePath"; type: "string" }
         Property { name: "inputMethodHints"; type: "Qt::InputMethodHints" }
-        Property { name: "actions"; type: "QList<QObject*>"; isReadonly: true }
+        Property { name: "actions"; type: "QList<QActionOrMenu*>"; isReadonly: true }
         Signal {
             name: "windowTitleChanged"
             Parameter { name: "title"; type: "string" }

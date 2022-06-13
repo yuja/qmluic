@@ -2,6 +2,9 @@
 
 use crate::metatype::{Class, ClassInfo, Enum, Property, SuperClassSpecifier};
 
+/// Pseudo base class for `QAction* | QMenu*`.
+const PSEUDO_ACTION_BASE_NAME: &str = "QActionOrMenu";
+
 /// Applies all modifications on the given `classes` data.
 pub fn apply_all(classes: &mut Vec<Class>) {
     fix_classes(classes);
@@ -13,10 +16,12 @@ pub fn apply_all(classes: &mut Vec<Class>) {
 pub fn fix_classes(classes: &mut [Class]) {
     for cls in classes.iter_mut() {
         match cls.qualified_class_name.as_ref() {
+            "QAction" => fix_action(cls),
             "QFont" => fix_font(cls),
             "QGridLayout" => fix_grid_layout(cls),
             "QLabel" => fix_label(cls),
             "QLayout" => fix_layout(cls),
+            "QMenu" => fix_menu(cls),
             "QPushButton" => fix_push_button(cls),
             "QSizePolicy" => fix_size_policy(cls),
             "QTabWidget" => fix_tab_widget(cls),
@@ -26,6 +31,11 @@ pub fn fix_classes(classes: &mut [Class]) {
             _ => {}
         }
     }
+}
+
+fn fix_action(cls: &mut Class) {
+    cls.super_classes
+        .push(SuperClassSpecifier::public(PSEUDO_ACTION_BASE_NAME));
 }
 
 fn fix_font(cls: &mut Class) {
@@ -148,6 +158,11 @@ fn fix_layout(cls: &mut Class) {
     }
 }
 
+fn fix_menu(cls: &mut Class) {
+    cls.super_classes
+        .push(SuperClassSpecifier::public(PSEUDO_ACTION_BASE_NAME));
+}
+
 fn fix_push_button(cls: &mut Class) {
     if let Some(p) = cls.properties.iter_mut().find(|p| p.name == "default") {
         p.name += "_"; // reserved world
@@ -207,8 +222,7 @@ fn fix_tree_view(cls: &mut Class) {
 
 fn fix_widget(cls: &mut Class) {
     cls.properties.extend([
-        // TODO: QAction* or QMenu*
-        Property::new("actions", "QList<QObject*>"), // handled by uigen
+        Property::new("actions", format!("QList<{PSEUDO_ACTION_BASE_NAME}*>")), // handled by uigen
     ]);
 }
 
@@ -254,12 +268,13 @@ pub fn internal_core_classes() -> impl IntoIterator<Item = Class> {
 /// in the Qt metatypes.json.
 pub fn internal_widgets_classes() -> impl IntoIterator<Item = Class> {
     [
+        Class::new(PSEUDO_ACTION_BASE_NAME),
         Class {
             // placeholder object for QMenu/QToolBar.addSeparator(), which does NOT
             // inherit QAction because no QAction properties should be set.
             class_name: "QActionSeparator".to_owned(),
             qualified_class_name: "QActionSeparator".to_owned(),
-            super_classes: vec![SuperClassSpecifier::public("QObject")],
+            super_classes: vec![SuperClassSpecifier::public(PSEUDO_ACTION_BASE_NAME)],
             class_infos: vec![ClassInfo::new("QML.Element", "auto")],
             object: true,
             ..Default::default()
