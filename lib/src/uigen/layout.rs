@@ -31,20 +31,13 @@ pub struct LayoutAttributes {
 }
 
 impl Layout {
-    /// Generates layout and its children recursively from the given `obj_node`.
-    pub(super) fn from_object_node(
+    /// Creates a serializable tree by visiting the children recursively.
+    pub(super) fn build(
         ctx: &BuildDocContext,
         obj_node: ObjectNode,
+        mut properties_map: PropertiesMap,
         diagnostics: &mut Diagnostics,
-    ) -> Option<Self> {
-        let binding_map = diagnostics.consume_err(obj_node.obj().build_binding_map(ctx.source))?;
-        let mut properties_map = property::collect_properties_with_node(
-            ctx,
-            obj_node.class(),
-            &binding_map,
-            diagnostics,
-        );
-
+    ) -> Self {
         let cls = obj_node.class();
         let (attributes, children) = if cls.is_derived_from(&ctx.classes.vbox_layout) {
             process_vbox_layout_children(ctx, obj_node, diagnostics)
@@ -64,7 +57,7 @@ impl Layout {
             process_vbox_layout_children(ctx, obj_node, diagnostics)
         };
 
-        Some(Self::new(
+        Self::new(
             obj_node.class(),
             obj_node
                 .obj()
@@ -74,7 +67,7 @@ impl Layout {
             properties_map,
             children,
             diagnostics,
-        ))
+        )
     }
 
     pub(super) fn new(
@@ -278,19 +271,40 @@ pub enum LayoutItemContent {
 
 impl LayoutItemContent {
     /// Generates layout content and its children recursively from the given `obj_node`.
-    fn from_object_node(
+    fn build(
         ctx: &BuildDocContext,
         obj_node: ObjectNode,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let cls = obj_node.class();
+        let binding_map = diagnostics.consume_err(obj_node.obj().build_binding_map(ctx.source))?;
+        let properties_map =
+            property::collect_properties_with_node(ctx, cls, &binding_map, diagnostics);
+
         if cls.is_derived_from(&ctx.classes.layout) {
-            Layout::from_object_node(ctx, obj_node, diagnostics).map(LayoutItemContent::Layout)
+            Some(LayoutItemContent::Layout(Layout::build(
+                ctx,
+                obj_node,
+                properties_map,
+                diagnostics,
+            )))
         } else if cls.is_derived_from(&ctx.classes.spacer_item) {
-            SpacerItem::from_object_node(ctx, obj_node, diagnostics)
-                .map(LayoutItemContent::SpacerItem)
+            object::confine_children(obj_node, diagnostics);
+            Some(LayoutItemContent::SpacerItem(SpacerItem::new(
+                obj_node
+                    .obj()
+                    .object_id()
+                    .map(|n| n.to_str(ctx.source).to_owned()),
+                properties_map,
+                diagnostics,
+            )))
         } else if cls.is_derived_from(&ctx.classes.widget) {
-            Widget::from_object_node(ctx, obj_node, diagnostics).map(LayoutItemContent::Widget)
+            Some(LayoutItemContent::Widget(Widget::build(
+                ctx,
+                obj_node,
+                properties_map,
+                diagnostics,
+            )))
         } else {
             diagnostics.push(Diagnostic::error(
                 obj_node.obj().node().byte_range(),
@@ -324,28 +338,13 @@ pub struct SpacerItem {
 }
 
 impl SpacerItem {
-    /// Generates spacer item from the given `obj_node`.
-    ///
-    /// The given `obj_node` is supposed to be of `QSpacerItem` type.
-    fn from_object_node(
-        ctx: &BuildDocContext,
-        obj_node: ObjectNode,
+    pub(super) fn new(
+        name: Option<String>,
+        properties_map: PropertiesMap,
         diagnostics: &mut Diagnostics,
-    ) -> Option<Self> {
-        let binding_map = diagnostics.consume_err(obj_node.obj().build_binding_map(ctx.source))?;
-        object::confine_children(obj_node, diagnostics);
-        Some(SpacerItem {
-            name: obj_node
-                .obj()
-                .object_id()
-                .map(|n| n.to_str(ctx.source).to_owned()),
-            properties: property::collect_properties(
-                ctx,
-                obj_node.class(),
-                &binding_map,
-                diagnostics,
-            ),
-        })
+    ) -> Self {
+        let properties = property::make_serializable_properties(properties_map, diagnostics);
+        SpacerItem { name, properties }
     }
 
     /// Serializes this to UI XML.
@@ -500,7 +499,7 @@ fn make_layout_item_pair<'t>(
 ) -> Option<(LayoutItemAttached<'t>, LayoutItemContent)> {
     let attached =
         LayoutItemAttached::from_object_node(ctx, obj_node, diagnostics).unwrap_or_default();
-    let content = LayoutItemContent::from_object_node(ctx, obj_node, diagnostics)?;
+    let content = LayoutItemContent::build(ctx, obj_node, diagnostics)?;
     Some((attached, content))
 }
 

@@ -43,7 +43,7 @@ pub fn build(
         diagnostics,
     )?;
     let ctx = BuildDocContext::new(doc, type_space, object_tree, base_ctx);
-    let root_object = UiObject::from_object_node(&ctx, ctx.object_tree.root(), diagnostics)?;
+    let root_object = UiObject::build(&ctx, ctx.object_tree.root(), diagnostics)?;
     let custom_widgets = ctx
         .object_tree
         .flat_iter()

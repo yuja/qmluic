@@ -24,24 +24,51 @@ pub enum UiObject {
 }
 
 impl UiObject {
-    /// Generates object and its children recursively from the given `obj_node`.
-    pub(super) fn from_object_node(
+    /// Creates a serializable tree by visiting the given node and its children recursively.
+    pub(super) fn build(
         ctx: &BuildDocContext,
         obj_node: ObjectNode,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let cls = obj_node.class();
+        let binding_map = diagnostics.consume_err(obj_node.obj().build_binding_map(ctx.source))?;
+        let properties_map =
+            property::collect_properties_with_node(ctx, cls, &binding_map, diagnostics);
+
         if cls.is_derived_from(&ctx.classes.action) {
-            Action::from_object_node(ctx, obj_node, diagnostics).map(UiObject::Action)
+            confine_children(obj_node, diagnostics);
+            Some(UiObject::Action(Action::new(
+                obj_node
+                    .obj()
+                    .object_id()
+                    .map(|n| n.to_str(ctx.source).to_owned()),
+                properties_map,
+                diagnostics,
+            )))
         } else if cls.is_derived_from(&ctx.classes.action_separator) {
             confine_children(obj_node, diagnostics);
             Some(UiObject::ActionSeparator)
         } else if cls.is_derived_from(&ctx.classes.layout) {
-            Layout::from_object_node(ctx, obj_node, diagnostics).map(UiObject::Layout)
+            Some(UiObject::Layout(Layout::build(
+                ctx,
+                obj_node,
+                properties_map,
+                diagnostics,
+            )))
         } else if cls.is_derived_from(&ctx.classes.menu) {
-            Widget::from_object_node(ctx, obj_node, diagnostics).map(UiObject::Menu)
+            Some(UiObject::Menu(Widget::build(
+                ctx,
+                obj_node,
+                properties_map,
+                diagnostics,
+            )))
         } else if cls.is_derived_from(&ctx.classes.widget) {
-            Widget::from_object_node(ctx, obj_node, diagnostics).map(UiObject::Widget)
+            Some(UiObject::Widget(Widget::build(
+                ctx,
+                obj_node,
+                properties_map,
+                diagnostics,
+            )))
         } else {
             diagnostics.push(Diagnostic::error(
                 obj_node.obj().node().byte_range(),
@@ -77,28 +104,13 @@ pub struct Action {
 }
 
 impl Action {
-    /// Generates action from the given `obj_node`.
-    ///
-    /// The given `obj_node` is supposed to be of `QAction` type.
-    fn from_object_node(
-        ctx: &BuildDocContext,
-        obj_node: ObjectNode,
+    pub(super) fn new(
+        name: Option<String>,
+        properties_map: PropertiesMap,
         diagnostics: &mut Diagnostics,
-    ) -> Option<Self> {
-        let binding_map = diagnostics.consume_err(obj_node.obj().build_binding_map(ctx.source))?;
-        confine_children(obj_node, diagnostics);
-        Some(Action {
-            name: obj_node
-                .obj()
-                .object_id()
-                .map(|n| n.to_str(ctx.source).to_owned()),
-            properties: property::collect_properties(
-                ctx,
-                obj_node.class(),
-                &binding_map,
-                diagnostics,
-            ),
-        })
+    ) -> Self {
+        let properties = property::make_serializable_properties(properties_map, diagnostics);
+        Action { name, properties }
     }
 
     /// Serializes this to UI XML.
@@ -131,27 +143,20 @@ pub struct Widget {
 }
 
 impl Widget {
-    /// Generates widget and its children recursively from the given `obj_node`.
-    pub(super) fn from_object_node(
+    /// Creates a serializable tree by visiting the children recursively.
+    pub(super) fn build(
         ctx: &BuildDocContext,
         obj_node: ObjectNode,
+        properties_map: PropertiesMap,
         diagnostics: &mut Diagnostics,
-    ) -> Option<Self> {
+    ) -> Self {
         let children = if obj_node.class().is_derived_from(&ctx.classes.tab_widget) {
             process_tab_widget_children(ctx, obj_node, diagnostics)
         } else {
             process_widget_children(ctx, obj_node, diagnostics)
         };
 
-        let binding_map = diagnostics.consume_err(obj_node.obj().build_binding_map(ctx.source))?;
-        let properties_map = property::collect_properties_with_node(
-            ctx,
-            obj_node.class(),
-            &binding_map,
-            diagnostics,
-        );
-
-        Some(Self::new(
+        Self::new(
             ctx,
             obj_node.class(),
             obj_node
@@ -161,7 +166,7 @@ impl Widget {
             properties_map,
             children,
             diagnostics,
-        ))
+        )
     }
 
     pub(super) fn new(
@@ -281,7 +286,7 @@ fn process_tab_widget_children(
     obj_node
         .children()
         .filter_map(|n| {
-            let mut o = UiObject::from_object_node(ctx, n, diagnostics)?;
+            let mut o = UiObject::build(ctx, n, diagnostics)?;
             match &mut o {
                 UiObject::Menu(w) | UiObject::Widget(w) => {
                     let attached_type_map =
@@ -310,7 +315,7 @@ fn process_widget_children(
 ) -> Vec<UiObject> {
     obj_node
         .children()
-        .filter_map(|n| UiObject::from_object_node(ctx, n, diagnostics))
+        .filter_map(|n| UiObject::build(ctx, n, diagnostics))
         .collect()
 }
 
