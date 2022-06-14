@@ -1,11 +1,11 @@
 use super::context::BuildDocContext;
 use super::expr::{PropertyValue, Value};
 use super::object::{self, Widget};
-use super::property::{self, WithNode};
+use super::property::{self, PropertiesMap, WithNode};
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectNode;
-use crate::typemap::TypeSpace;
+use crate::typemap::{Class, TypeSpace};
 use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
@@ -64,22 +64,40 @@ impl Layout {
             process_vbox_layout_children(ctx, obj_node, diagnostics)
         };
 
+        Some(Self::new(
+            obj_node.class(),
+            obj_node
+                .obj()
+                .object_id()
+                .map(|n| n.to_str(ctx.source).to_owned()),
+            attributes,
+            properties_map,
+            children,
+            diagnostics,
+        ))
+    }
+
+    pub(super) fn new(
+        class: &Class,
+        name: Option<String>,
+        attributes: LayoutAttributes,
+        properties_map: PropertiesMap,
+        children: Vec<LayoutItem>,
+        diagnostics: &mut Diagnostics,
+    ) -> Self {
         let mut properties = property::make_serializable_properties(properties_map, diagnostics);
         // TODO: if metatypes were broken, contentsMargins could be of different type
         if let Some(Value::Gadget(m)) = properties.remove("contentsMargins") {
             properties.extend(m.properties.into_iter().map(|(k, v)| (k + "Margin", v)));
         }
 
-        Some(Layout {
-            class: obj_node.class().qualified_cxx_name().into_owned(),
-            name: obj_node
-                .obj()
-                .object_id()
-                .map(|n| n.to_str(ctx.source).to_owned()),
+        Layout {
+            class: class.qualified_cxx_name().into_owned(),
+            name,
             attributes,
             properties,
             children,
-        })
+        }
     }
 
     /// Serializes this to UI XML.
