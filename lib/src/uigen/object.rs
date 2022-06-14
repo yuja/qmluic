@@ -1,11 +1,11 @@
 use super::context::BuildDocContext;
 use super::expr::{PropertyValue, Value};
 use super::layout::Layout;
-use super::property::{self, WithNode};
+use super::property::{self, PropertiesMap, WithNode};
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectNode;
-use crate::typemap::TypeSpace;
+use crate::typemap::{Class, TypeSpace};
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
 use std::io;
@@ -137,19 +137,41 @@ impl Widget {
         obj_node: ObjectNode,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let mut children = if obj_node.class().is_derived_from(&ctx.classes.tab_widget) {
+        let children = if obj_node.class().is_derived_from(&ctx.classes.tab_widget) {
             process_tab_widget_children(ctx, obj_node, diagnostics)
         } else {
             process_widget_children(ctx, obj_node, diagnostics)
         };
 
         let binding_map = diagnostics.consume_err(obj_node.obj().build_binding_map(ctx.source))?;
-        let mut properties_map = property::collect_properties_with_node(
+        let properties_map = property::collect_properties_with_node(
             ctx,
             obj_node.class(),
             &binding_map,
             diagnostics,
         );
+
+        Some(Self::new(
+            ctx,
+            obj_node.class(),
+            obj_node
+                .obj()
+                .object_id()
+                .map(|n| n.to_str(ctx.source).to_owned()),
+            properties_map,
+            children,
+            diagnostics,
+        ))
+    }
+
+    pub(super) fn new(
+        ctx: &BuildDocContext,
+        class: &Class,
+        name: Option<String>,
+        mut properties_map: PropertiesMap,
+        mut children: Vec<UiObject>,
+        diagnostics: &mut Diagnostics,
+    ) -> Self {
         let actions = match properties_map.remove("actions") {
             Some(WithNode {
                 value: PropertyValue::ObjectRefList(refs),
@@ -180,7 +202,7 @@ impl Widget {
             None => collect_action_like_children(ctx, &mut children),
         };
         let mut attributes = HashMap::new();
-        if obj_node.class().is_derived_from(&ctx.classes.table_view) {
+        if class.is_derived_from(&ctx.classes.table_view) {
             flatten_object_properties_into_attributes(
                 &mut attributes,
                 &mut properties_map,
@@ -194,7 +216,7 @@ impl Widget {
                 diagnostics,
             );
         }
-        if obj_node.class().is_derived_from(&ctx.classes.tree_view) {
+        if class.is_derived_from(&ctx.classes.tree_view) {
             flatten_object_properties_into_attributes(
                 &mut attributes,
                 &mut properties_map,
@@ -203,7 +225,7 @@ impl Widget {
             );
         }
         let mut properties = property::make_serializable_properties(properties_map, diagnostics);
-        if obj_node.class().is_derived_from(&ctx.classes.push_button) {
+        if class.is_derived_from(&ctx.classes.push_button) {
             // see metatype_tweak.rs, "default" is a reserved word
             if let Some((mut k, v)) = properties.remove_entry("default_") {
                 k.pop();
@@ -211,17 +233,14 @@ impl Widget {
             }
         }
 
-        Some(Widget {
-            class: obj_node.class().qualified_cxx_name().into_owned(),
-            name: obj_node
-                .obj()
-                .object_id()
-                .map(|n| n.to_str(ctx.source).to_owned()),
+        Widget {
+            class: class.qualified_cxx_name().into_owned(),
+            name,
             attributes,
             properties,
             actions,
             children,
-        })
+        }
     }
 
     /// Serializes this to UI XML.
