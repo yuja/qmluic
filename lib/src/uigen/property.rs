@@ -129,6 +129,8 @@ impl From<ValueTypeError<'_>> for Diagnostic {
     }
 }
 
+pub(super) type PropertiesMap<'t> = HashMap<String, WithNode<'t, PropertyValue<'t>>>;
+
 /// Parses the given `binding_map` into a map of constant expressions.
 ///
 /// Unparsable properties are excluded from the resulting map so as many diagnostic messages
@@ -151,7 +153,7 @@ pub(super) fn collect_properties_with_node<'t>(
     cls: &Class,
     binding_map: &UiBindingMap<'t, '_>,
     diagnostics: &mut Diagnostics,
-) -> HashMap<String, WithNode<'t, PropertyValue<'t>>> {
+) -> PropertiesMap<'t> {
     resolve_properties(ctx, cls, binding_map, diagnostics, |v, _| Option::Some(v))
 }
 
@@ -189,7 +191,7 @@ where
 }
 
 pub(super) fn make_serializable_properties(
-    properties_map: HashMap<String, WithNode<'_, PropertyValue>>,
+    properties_map: PropertiesMap,
     diagnostics: &mut Diagnostics,
 ) -> HashMap<String, Value> {
     properties_map
