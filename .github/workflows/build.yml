@@ -65,7 +65,7 @@ jobs:
           override: true
       # TODO: should we switch to actions-rs/clippy-check?
       - name: Lint with clippy
-        run: cargo clippy
+        run: cargo clippy -- -Dwarnings
 
   rustfmt:
     runs-on: ubuntu-latest
