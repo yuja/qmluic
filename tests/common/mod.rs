@@ -1,3 +1,4 @@
+use assert_cmd::Command;
 use camino::Utf8Path;
 use codespan_reporting::diagnostic::{Label, Severity};
 use codespan_reporting::files::SimpleFile;
@@ -9,9 +10,70 @@ use qmluic::qmldir;
 use qmluic::qmldoc::{UiDocument, UiDocumentsCache};
 use qmluic::typemap::{ModuleData, ModuleId, TypeMap};
 use qmluic::uigen::{self, BuildContext, FileNameRules, XmlWriter};
+use std::ffi::OsStr;
 use std::fs;
+use std::path::{Path, PathBuf};
 use std::str;
+use tempfile::TempDir;
 use termcolor::NoColor;
+
+pub struct TestEnv {
+    temp_dir: TempDir,
+}
+
+impl TestEnv {
+    pub fn prepare() -> Self {
+        let temp_dir = TempDir::new().unwrap();
+        TestEnv { temp_dir }
+    }
+
+    pub fn base_path(&self) -> &Path {
+        self.temp_dir.path()
+    }
+
+    pub fn join(&self, path: impl AsRef<Path>) -> PathBuf {
+        self.base_path().join(path)
+    }
+
+    pub fn write_dedent(&self, path: impl AsRef<Path>, data: impl AsRef<str>) {
+        fs::write(self.join(path), dedent(data)).unwrap()
+    }
+
+    pub fn read_to_string(&self, path: impl AsRef<Path>) -> String {
+        fs::read_to_string(self.join(path)).unwrap()
+    }
+
+    pub fn generate_ui_cmd(&self, args: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Command {
+        let mut cmd = Command::cargo_bin("qmluic").unwrap();
+        cmd.current_dir(self.base_path())
+            .env("NO_COLOR", "")
+            .arg("generate-ui")
+            .arg("--foreign-types")
+            .arg(Path::new("contrib/metatypes").canonicalize().unwrap())
+            .args(args);
+        cmd
+    }
+
+    pub fn replace_base_path(&self, data: impl AsRef<str>) -> String {
+        let norm_path = self.base_path().canonicalize().unwrap();
+        let pat = norm_path.as_os_str().to_str().unwrap();
+        data.as_ref().replace(pat, "$BASE_PATH").replace('\\', "/")
+    }
+}
+
+pub fn dedent(data: impl AsRef<str>) -> String {
+    let data = data.as_ref();
+    let mut leader: String = data
+        .chars()
+        .take_while(|&c| c == '\n' || c == ' ')
+        .collect();
+    let data = &data[leader.len()..];
+    if !leader.starts_with('\n') {
+        leader.insert(0, '\n');
+    }
+    assert_eq!(leader.chars().filter(|&c| c == '\n').count(), 1);
+    data.replace(&leader, "\n")
+}
 
 pub fn translate_file(path: impl AsRef<Utf8Path>) -> Result<String, String> {
     let doc = UiDocument::read(path).unwrap();
