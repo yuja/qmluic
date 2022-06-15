@@ -79,11 +79,12 @@ fn dispatch(cli: &Cli) -> Result<(), CommandError> {
 #[derive(Args, Clone, Debug)]
 struct DumpMetatypesArgs {
     /// Source metatypes file (.json)
+    #[clap(action)]
     input: Utf8PathBuf,
-    #[clap(short = 'o', long)]
+    #[clap(short = 'o', long, action)]
     /// Write metatypes output to file (e.g. metatypes.json)
     output_metatypes: Option<Utf8PathBuf>,
-    #[clap(long)]
+    #[clap(long, action)]
     /// Write qmltypes output to file (e.g. plugins.qmltypes)
     output_qmltypes: Option<Utf8PathBuf>,
 }
@@ -206,13 +207,13 @@ fn generate_qmltypes(
 #[derive(Args, Clone, Debug)]
 struct GenerateUiArgs {
     /// QML files to parse
-    #[clap(required = true)]
+    #[clap(required = true, action)]
     sources: Vec<Utf8PathBuf>,
-    #[clap(long)]
+    #[clap(long, action)]
     /// Qt metatypes.json file to load (default: QT_INSTALL_LIBS/metatypes)
     foreign_types: Vec<Utf8PathBuf>,
     /// Do not convert output file names to lowercase
-    #[clap(long)]
+    #[clap(long, action)]
     no_lowercase_file_name: bool,
 }
 
@@ -293,8 +294,9 @@ fn generate_ui_file(
 #[derive(Args, Clone, Debug)]
 struct PreviewArgs {
     /// QML file to load
+    #[clap(action)]
     source: Utf8PathBuf,
-    #[clap(long)]
+    #[clap(long, action)]
     /// Qt metatypes.json file to load (default: QT_INSTALL_LIBS/metatypes)
     foreign_types: Vec<Utf8PathBuf>,
 }
