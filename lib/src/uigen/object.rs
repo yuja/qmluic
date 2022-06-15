@@ -29,46 +29,33 @@ impl UiObject {
         ctx: &BuildDocContext,
         obj_node: ObjectNode,
         diagnostics: &mut Diagnostics,
-    ) -> Option<Self> {
+    ) -> Self {
         let cls = obj_node.class();
-        let binding_map = diagnostics.consume_err(obj_node.obj().build_binding_map(ctx.source))?;
+        let binding_map = diagnostics
+            .consume_err(obj_node.obj().build_binding_map(ctx.source))
+            .unwrap_or_default();
         let properties_map =
             property::collect_properties_with_node(ctx, cls, &binding_map, diagnostics);
 
         if cls.is_derived_from(&ctx.classes.action) {
             confine_children(obj_node, diagnostics);
-            Some(UiObject::Action(Action::new(
+            UiObject::Action(Action::new(
                 obj_node
                     .obj()
                     .object_id()
                     .map(|n| n.to_str(ctx.source).to_owned()),
                 properties_map,
                 diagnostics,
-            )))
+            ))
         } else if cls.is_derived_from(&ctx.classes.action_separator) {
             confine_children(obj_node, diagnostics);
-            Some(UiObject::ActionSeparator)
+            UiObject::ActionSeparator
         } else if cls.is_derived_from(&ctx.classes.layout) {
-            Some(UiObject::Layout(Layout::build(
-                ctx,
-                obj_node,
-                properties_map,
-                diagnostics,
-            )))
+            UiObject::Layout(Layout::build(ctx, obj_node, properties_map, diagnostics))
         } else if cls.is_derived_from(&ctx.classes.menu) {
-            Some(UiObject::Menu(Widget::build(
-                ctx,
-                obj_node,
-                properties_map,
-                diagnostics,
-            )))
+            UiObject::Menu(Widget::build(ctx, obj_node, properties_map, diagnostics))
         } else if cls.is_derived_from(&ctx.classes.widget) {
-            Some(UiObject::Widget(Widget::build(
-                ctx,
-                obj_node,
-                properties_map,
-                diagnostics,
-            )))
+            UiObject::Widget(Widget::build(ctx, obj_node, properties_map, diagnostics))
         } else {
             diagnostics.push(Diagnostic::error(
                 obj_node.obj().node().byte_range(),
@@ -77,7 +64,8 @@ impl UiObject {
                     cls.qualified_cxx_name()
                 ),
             ));
-            None
+            // but process as widget to report as many errors as possible
+            UiObject::Widget(Widget::build(ctx, obj_node, properties_map, diagnostics))
         }
     }
 
@@ -285,12 +273,13 @@ fn process_tab_widget_children(
 ) -> Vec<UiObject> {
     obj_node
         .children()
-        .filter_map(|n| {
-            let mut o = UiObject::build(ctx, n, diagnostics)?;
+        .map(|n| {
+            let mut o = UiObject::build(ctx, n, diagnostics);
             match &mut o {
                 UiObject::Menu(w) | UiObject::Widget(w) => {
-                    let attached_type_map =
-                        diagnostics.consume_err(n.obj().build_attached_type_map(ctx.source))?;
+                    let attached_type_map = diagnostics
+                        .consume_err(n.obj().build_attached_type_map(ctx.source))
+                        .unwrap_or_default();
                     // TODO: resolve against imported types,
                     if let Some(m) = attached_type_map.get(["QTabWidget"].as_ref()) {
                         w.attributes.extend(property::collect_properties(
@@ -303,7 +292,7 @@ fn process_tab_widget_children(
                 }
                 UiObject::Action(_) | UiObject::ActionSeparator | UiObject::Layout(_) => {}
             }
-            Some(o)
+            o
         })
         .collect()
 }
@@ -315,7 +304,7 @@ fn process_widget_children(
 ) -> Vec<UiObject> {
     obj_node
         .children()
-        .filter_map(|n| UiObject::build(ctx, n, diagnostics))
+        .map(|n| UiObject::build(ctx, n, diagnostics))
         .collect()
 }
 

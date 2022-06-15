@@ -271,40 +271,28 @@ pub enum LayoutItemContent {
 
 impl LayoutItemContent {
     /// Generates layout content and its children recursively from the given `obj_node`.
-    fn build(
-        ctx: &BuildDocContext,
-        obj_node: ObjectNode,
-        diagnostics: &mut Diagnostics,
-    ) -> Option<Self> {
+    fn build(ctx: &BuildDocContext, obj_node: ObjectNode, diagnostics: &mut Diagnostics) -> Self {
         let cls = obj_node.class();
-        let binding_map = diagnostics.consume_err(obj_node.obj().build_binding_map(ctx.source))?;
+        let binding_map = diagnostics
+            .consume_err(obj_node.obj().build_binding_map(ctx.source))
+            .unwrap_or_default();
         let properties_map =
             property::collect_properties_with_node(ctx, cls, &binding_map, diagnostics);
 
         if cls.is_derived_from(&ctx.classes.layout) {
-            Some(LayoutItemContent::Layout(Layout::build(
-                ctx,
-                obj_node,
-                properties_map,
-                diagnostics,
-            )))
+            LayoutItemContent::Layout(Layout::build(ctx, obj_node, properties_map, diagnostics))
         } else if cls.is_derived_from(&ctx.classes.spacer_item) {
             object::confine_children(obj_node, diagnostics);
-            Some(LayoutItemContent::SpacerItem(SpacerItem::new(
+            LayoutItemContent::SpacerItem(SpacerItem::new(
                 obj_node
                     .obj()
                     .object_id()
                     .map(|n| n.to_str(ctx.source).to_owned()),
                 properties_map,
                 diagnostics,
-            )))
+            ))
         } else if cls.is_derived_from(&ctx.classes.widget) {
-            Some(LayoutItemContent::Widget(Widget::build(
-                ctx,
-                obj_node,
-                properties_map,
-                diagnostics,
-            )))
+            LayoutItemContent::Widget(Widget::build(ctx, obj_node, properties_map, diagnostics))
         } else {
             diagnostics.push(Diagnostic::error(
                 obj_node.obj().node().byte_range(),
@@ -313,7 +301,8 @@ impl LayoutItemContent {
                     cls.qualified_cxx_name()
                 ),
             ));
-            None
+            // but process as widget to report as many errors as possible
+            LayoutItemContent::Widget(Widget::build(ctx, obj_node, properties_map, diagnostics))
         }
     }
 
@@ -374,8 +363,8 @@ fn process_vbox_layout_children(
     let children = layout_obj_node
         .children()
         .enumerate()
-        .filter_map(|(row, n)| {
-            let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
+        .map(|(row, n)| {
+            let (attached, content) = make_layout_item_pair(ctx, n, diagnostics);
             check_unsupported_property(&attached.column, diagnostics);
             check_unsupported_property(&attached.column_minimum_width, diagnostics);
             check_unsupported_property(&attached.column_span, diagnostics);
@@ -389,7 +378,7 @@ fn process_vbox_layout_children(
                 attached.row_stretch,
                 diagnostics,
             );
-            Some(LayoutItem::new(None, None, attached, content))
+            LayoutItem::new(None, None, attached, content)
         })
         .collect();
     (attributes, children)
@@ -404,8 +393,8 @@ fn process_hbox_layout_children(
     let children = layout_obj_node
         .children()
         .enumerate()
-        .filter_map(|(column, n)| {
-            let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
+        .map(|(column, n)| {
+            let (attached, content) = make_layout_item_pair(ctx, n, diagnostics);
             check_unsupported_property(&attached.column, diagnostics);
             check_unsupported_property(&attached.column_minimum_width, diagnostics);
             check_unsupported_property(&attached.column_span, diagnostics);
@@ -419,7 +408,7 @@ fn process_hbox_layout_children(
             check_unsupported_property(&attached.row_minimum_height, diagnostics);
             check_unsupported_property(&attached.row_span, diagnostics);
             check_unsupported_property(&attached.row_stretch, diagnostics);
-            Some(LayoutItem::new(None, None, attached, content))
+            LayoutItem::new(None, None, attached, content)
         })
         .collect();
     (attributes, children)
@@ -434,16 +423,16 @@ fn process_form_layout_children(
     let mut index_counter = LayoutIndexCounter::new(LayoutFlow::LeftToRight { columns: 2 });
     let children = layout_obj_node
         .children()
-        .filter_map(|n| {
-            let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
-            let (row, column) = index_counter.parse_next(&attached, diagnostics)?;
+        .map(|n| {
+            let (attached, content) = make_layout_item_pair(ctx, n, diagnostics);
+            let (row, column) = index_counter.parse_next(&attached, diagnostics);
             check_unsupported_property(&attached.column_minimum_width, diagnostics);
             check_unsupported_property(&attached.column_span, diagnostics);
             check_unsupported_property(&attached.column_stretch, diagnostics);
             check_unsupported_property(&attached.row_minimum_height, diagnostics);
             check_unsupported_property(&attached.row_span, diagnostics);
             check_unsupported_property(&attached.row_stretch, diagnostics);
-            Some(LayoutItem::new(Some(row), Some(column), attached, content))
+            LayoutItem::new(Some(row), Some(column), attached, content)
         })
         .collect();
     (attributes, children)
@@ -459,9 +448,9 @@ fn process_grid_layout_children(
     let mut index_counter = LayoutIndexCounter::new(flow);
     let children = layout_obj_node
         .children()
-        .filter_map(|n| {
-            let (attached, content) = make_layout_item_pair(ctx, n, diagnostics)?;
-            let (row, column) = index_counter.parse_next(&attached, diagnostics)?;
+        .map(|n| {
+            let (attached, content) = make_layout_item_pair(ctx, n, diagnostics);
+            let (row, column) = index_counter.parse_next(&attached, diagnostics);
             maybe_insert_into_opt_i32_array(
                 &mut attributes.column_minimum_width,
                 column as usize,
@@ -486,7 +475,7 @@ fn process_grid_layout_children(
                 attached.row_stretch,
                 diagnostics,
             );
-            Some(LayoutItem::new(Some(row), Some(column), attached, content))
+            LayoutItem::new(Some(row), Some(column), attached, content)
         })
         .collect();
     (attributes, children)
@@ -496,11 +485,11 @@ fn make_layout_item_pair<'t>(
     ctx: &BuildDocContext,
     obj_node: ObjectNode<'_, 't, '_>,
     diagnostics: &mut Diagnostics,
-) -> Option<(LayoutItemAttached<'t>, LayoutItemContent)> {
+) -> (LayoutItemAttached<'t>, LayoutItemContent) {
     let attached =
         LayoutItemAttached::from_object_node(ctx, obj_node, diagnostics).unwrap_or_default();
-    let content = LayoutItemContent::build(ctx, obj_node, diagnostics)?;
-    Some((attached, content))
+    let content = LayoutItemContent::build(ctx, obj_node, diagnostics);
+    (attached, content)
 }
 
 fn check_unsupported_property<V>(value: &Option<WithNode<V>>, diagnostics: &mut Diagnostics) {
@@ -571,16 +560,16 @@ impl LayoutIndexCounter {
         &mut self,
         attached: &LayoutItemAttached,
         diagnostics: &mut Diagnostics,
-    ) -> Option<(i32, i32)> {
+    ) -> (i32, i32) {
         const MAX_INDEX: i32 = 65535; // arbitrary value to avoid excessive allocation
         let (max_row, max_column) = match self.flow {
             LayoutFlow::LeftToRight { columns } => (MAX_INDEX, columns - 1),
             LayoutFlow::TopToBottom { rows } => (rows - 1, MAX_INDEX),
         };
-        Some(self.next(
-            maybe_parse_layout_index("row", attached.row, max_row, diagnostics)?,
-            maybe_parse_layout_index("column", attached.column, max_column, diagnostics)?,
-        ))
+        self.next(
+            maybe_parse_layout_index("row", attached.row, max_row, diagnostics),
+            maybe_parse_layout_index("column", attached.column, max_column, diagnostics),
+        )
     }
 }
 
@@ -648,25 +637,25 @@ fn maybe_parse_layout_index(
     index: Option<WithNode<i32>>,
     max_index: i32,
     diagnostics: &mut Diagnostics,
-) -> Option<Option<i32>> {
-    match index {
-        Some(i) if *i.value() < 0 => {
+) -> Option<i32> {
+    index.and_then(|i| {
+        let v = *i.value();
+        if v < 0 {
             diagnostics.push(Diagnostic::error(
                 i.node().byte_range(),
                 format!("negative {field_name} is not allowed"),
             ));
             None
-        }
-        Some(i) if *i.value() > max_index => {
+        } else if v > max_index {
             diagnostics.push(Diagnostic::error(
                 i.node().byte_range(),
                 format!("{field_name} is too large"),
             ));
             None
+        } else {
+            Some(v)
         }
-        Some(i) => Some(Some(*i.value())),
-        None => Some(None),
-    }
+    })
 }
 
 fn maybe_insert_into_opt_i32_array(
