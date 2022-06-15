@@ -9,6 +9,7 @@ const PSEUDO_ACTION_BASE_NAME: &str = "QActionOrMenu";
 pub fn apply_all(classes: &mut Vec<Class>) {
     fix_classes(classes);
     classes.extend(internal_core_classes());
+    classes.extend(internal_gui_classes());
     classes.extend(internal_widgets_classes());
 }
 
@@ -259,6 +260,28 @@ pub fn internal_core_classes() -> impl IntoIterator<Item = Class> {
                 Property::new_final("width", "int"),
                 Property::new_final("height", "int"),
             ],
+            ..Default::default()
+        },
+    ]
+}
+
+/// Creates meta data for QtGui classes which are internally required, but not defined
+/// in the Qt metatypes.json.
+pub fn internal_gui_classes() -> impl IntoIterator<Item = Class> {
+    [
+        Class {
+            class_name: "QCursor".to_owned(),
+            qualified_class_name: "QCursor".to_owned(),
+            ..Default::default()
+        },
+        Class {
+            class_name: "QIcon".to_owned(),
+            qualified_class_name: "QIcon".to_owned(),
+            ..Default::default()
+        },
+        Class {
+            class_name: "QPixmap".to_owned(),
+            qualified_class_name: "QPixmap".to_owned(),
             ..Default::default()
         },
     ]
