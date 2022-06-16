@@ -910,6 +910,10 @@ fn is_compatible_enum(left_en: &Enum, right_en: &Enum) -> bool {
         || right_en.alias_enum().map_or(false, |en| &en == left_en)
 }
 
+pub(super) fn strip_enum_prefix(s: &str) -> &str {
+    s.split_once("::").map(|(_, t)| t).unwrap_or(s)
+}
+
 fn maybe_paren(res_prec: u32, arg_expr: String, arg_prec: u32) -> String {
     if res_prec >= arg_prec {
         arg_expr

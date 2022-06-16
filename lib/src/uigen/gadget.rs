@@ -1,5 +1,5 @@
 use super::context::BuildDocContext;
-use super::expr::{SimpleValue, Value};
+use super::expr::{self, SimpleValue, Value};
 use super::property;
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
@@ -83,7 +83,7 @@ impl Gadget {
             let t = k.to_ascii_lowercase(); // apparently tag name of .ui is lowercase
             match v {
                 Value::Simple(SimpleValue::Enum(s)) if self.no_enum_prefix => {
-                    xmlutil::write_tagged_str(writer, &t, strip_enum_prefix(s))?;
+                    xmlutil::write_tagged_str(writer, &t, expr::strip_enum_prefix(s))?;
                 }
                 _ => v.serialize_to_xml_as(writer, &t)?,
             }
@@ -168,8 +168,8 @@ impl SizePolicy {
     {
         let mut tag = BytesStart::borrowed_name(tag_name.as_ref());
         if let Some((h, v)) = &self.policy {
-            tag.push_attribute(("hsizetype", strip_enum_prefix(h)));
-            tag.push_attribute(("vsizetype", strip_enum_prefix(v)));
+            tag.push_attribute(("hsizetype", expr::strip_enum_prefix(h)));
+            tag.push_attribute(("vsizetype", expr::strip_enum_prefix(v)));
         }
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
@@ -183,8 +183,4 @@ impl SizePolicy {
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
     }
-}
-
-fn strip_enum_prefix(s: &str) -> &str {
-    s.split_once("::").map(|(_, t)| t).unwrap_or(s)
 }
