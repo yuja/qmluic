@@ -1,6 +1,22 @@
 pub mod common;
 
 #[test]
+fn test_cursor() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QWidget { cursor: Qt.IBeamCursor }
+    "###).unwrap(), @r###"
+    <ui version="4.0">
+     <widget class="QWidget">
+      <property name="cursor">
+       <cursorShape>IBeamCursor</cursorShape>
+      </property>
+     </widget>
+    </ui>
+    "###);
+}
+
+#[test]
 fn test_pixmap() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets

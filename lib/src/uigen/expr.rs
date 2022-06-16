@@ -157,6 +157,7 @@ pub enum SimpleValue {
     Cstring(String),
     Enum(String),
     Set(String),
+    CursorShape(String),
     Pixmap(String),
 }
 
@@ -169,6 +170,36 @@ impl SimpleValue {
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         match ty {
+            NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.cursor) => {
+                let (res_t, res_expr, _) = typedexpr::walk(
+                    &ctx.type_space,
+                    &ctx.object_tree,
+                    node,
+                    ctx.source,
+                    &ExpressionFormatter,
+                    diagnostics,
+                )?;
+                match &res_t {
+                    TypeDesc::Enum(res_en)
+                        if is_compatible_enum(res_en, &ctx.classes.cursor_shape) =>
+                    {
+                        Some(SimpleValue::CursorShape(
+                            strip_enum_prefix(&res_expr).to_owned(),
+                        ))
+                    }
+                    _ => {
+                        diagnostics.push(Diagnostic::error(
+                            node.byte_range(),
+                            format!(
+                                "expression type mismatch (expected: {}, actual: {})",
+                                ctx.classes.cursor_shape.qualified_cxx_name(),
+                                res_t.qualified_name()
+                            ),
+                        ));
+                        None
+                    }
+                }
+            }
             NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.key_sequence) => {
                 // ExpressionFormatter can handle both enum and string literals, so try it first.
                 let (res_t, res_expr, _) = typedexpr::walk(
@@ -324,6 +355,7 @@ impl SimpleValue {
             Cstring(_) => "cstring",
             Enum(_) => "enum",
             Set(_) => "set",
+            CursorShape(_) => "cursorShape",
             Pixmap(_) => "pixmap",
         };
         self.serialize_to_xml_as(writer, tag_name)
@@ -374,7 +406,9 @@ impl fmt::Display for SimpleValue {
         match self {
             Bool(b) => write!(f, "{}", if *b { "true" } else { "false" }),
             Number(d) => write!(f, "{}", d),
-            String { s, .. } | Cstring(s) | Enum(s) | Set(s) | Pixmap(s) => write!(f, "{}", s),
+            String { s, .. } | Cstring(s) | Enum(s) | Set(s) | CursorShape(s) | Pixmap(s) => {
+                write!(f, "{}", s)
+            }
         }
     }
 }
