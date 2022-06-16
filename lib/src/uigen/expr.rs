@@ -157,6 +157,7 @@ pub enum SimpleValue {
     Cstring(String),
     Enum(String),
     Set(String),
+    Pixmap(String),
 }
 
 impl SimpleValue {
@@ -200,6 +201,30 @@ impl SimpleValue {
                                 standard_key_en.qualified_cxx_name(),
                                 string_ty.qualified_cxx_name(),
                                 res_t.qualified_name()
+                            ),
+                        ));
+                        None
+                    }
+                }
+            }
+            NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.pixmap) => {
+                let res = typedexpr::walk(
+                    &ctx.type_space,
+                    &ctx.object_tree,
+                    node,
+                    ctx.source,
+                    &ExpressionEvaluator,
+                    diagnostics,
+                )?;
+                match res {
+                    EvaluatedValue::String(s) => Some(SimpleValue::Pixmap(s)),
+                    _ => {
+                        diagnostics.push(Diagnostic::error(
+                            node.byte_range(),
+                            format!(
+                                "evaluated type mismatch (expected: {}, actual: {})",
+                                ty.qualified_cxx_name(),
+                                res.type_desc().qualified_name()
                             ),
                         ));
                         None
@@ -299,6 +324,7 @@ impl SimpleValue {
             Cstring(_) => "cstring",
             Enum(_) => "enum",
             Set(_) => "set",
+            Pixmap(_) => "pixmap",
         };
         self.serialize_to_xml_as(writer, tag_name)
     }
@@ -348,7 +374,7 @@ impl fmt::Display for SimpleValue {
         match self {
             Bool(b) => write!(f, "{}", if *b { "true" } else { "false" }),
             Number(d) => write!(f, "{}", d),
-            String { s, .. } | Cstring(s) | Enum(s) | Set(s) => write!(f, "{}", s),
+            String { s, .. } | Cstring(s) | Enum(s) | Set(s) | Pixmap(s) => write!(f, "{}", s),
         }
     }
 }
