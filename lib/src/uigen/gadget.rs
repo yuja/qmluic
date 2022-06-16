@@ -1,10 +1,10 @@
 use super::context::BuildDocContext;
 use super::expr::{self, SimpleValue, Value};
-use super::property;
+use super::property::{self, PropertiesMap};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::qmlast::{Node, UiBindingMap};
+use crate::qmlast::UiBindingMap;
 use crate::typemap::{Class, TypeSpace};
 use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
@@ -19,24 +19,13 @@ pub struct Gadget {
 }
 
 impl Gadget {
-    /// Generates gadget of `cls` type from the given `binding_map`.
-    pub(super) fn from_binding_map(
-        ctx: &BuildDocContext,
-        cls: &Class,
-        node: Node,
-        binding_map: &UiBindingMap,
+    pub(super) fn new(
+        kind: GadgetKind,
+        properties_map: PropertiesMap,
         diagnostics: &mut Diagnostics,
-    ) -> Option<Self> {
-        let properties = property::collect_properties(ctx, cls, binding_map, diagnostics);
-        if let Some(kind) = GadgetKind::from_class(cls) {
-            Some(Gadget { kind, properties })
-        } else {
-            diagnostics.push(Diagnostic::error(
-                node.byte_range(),
-                format!("unsupported gadget type: {}", cls.qualified_cxx_name()),
-            ));
-            None
-        }
+    ) -> Self {
+        let properties = property::make_serializable_properties(properties_map, diagnostics);
+        Gadget { kind, properties }
     }
 
     /// Serializes this to UI XML.

@@ -1,5 +1,5 @@
 use super::context::BuildDocContext;
-use super::gadget::{Gadget, SizePolicy};
+use super::gadget::{Gadget, GadgetKind, SizePolicy};
 use super::property::{self, WithNode};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
@@ -88,8 +88,20 @@ impl<'t> PropertyValue<'t> {
                 let policy = SizePolicy::from_binding_map(ctx, cls, binding_map, diagnostics);
                 Some(PropertyValue::Serializable(Value::SizePolicy(policy)))
             }
-            _ => Gadget::from_binding_map(ctx, cls, node, binding_map, diagnostics)
-                .map(|v| PropertyValue::Serializable(Value::Gadget(v))),
+            _ => {
+                let properties_map =
+                    property::collect_properties_with_node(ctx, cls, binding_map, diagnostics);
+                if let Some(kind) = GadgetKind::from_class(cls) {
+                    let v = Gadget::new(kind, properties_map, diagnostics);
+                    Some(PropertyValue::Serializable(Value::Gadget(v)))
+                } else {
+                    diagnostics.push(Diagnostic::error(
+                        node.byte_range(),
+                        format!("unsupported gadget type: {}", cls.qualified_cxx_name()),
+                    ));
+                    None
+                }
+            }
         }
     }
 }
