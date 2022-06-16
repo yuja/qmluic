@@ -3304,6 +3304,12 @@ Module {
         Method { name: "_q_sectionsChanged" }
     }
     Component {
+        name: "QIcon"
+        exports: ["qmluic.QtWidgets/QIcon 5.0"]
+        isCreatable: false
+        exportMetaObjectRevisions: [0]
+    }
+    Component {
         file: "qinputdialog.h"
         name: "QInputDialog"
         prototype: "QDialog"

@@ -277,6 +277,8 @@ pub fn internal_gui_classes() -> impl IntoIterator<Item = Class> {
         Class {
             class_name: "QIcon".to_owned(),
             qualified_class_name: "QIcon".to_owned(),
+            class_infos: vec![ClassInfo::new("QML.Element", "auto")],
+            gadget: true, // mark as "uncreatable" object in .qmltypes
             ..Default::default()
         },
         Class {

@@ -112,6 +112,10 @@ fn dump_metatypes(args: &DumpMetatypesArgs) -> Result<(), CommandError> {
 
     // attached type shouldn't be exported as QML.Element
     units.push(metatype::CompilationUnit {
+        classes: metatype_tweak::internal_gui_classes().into_iter().collect(),
+        ..Default::default()
+    });
+    units.push(metatype::CompilationUnit {
         classes: metatype_tweak::internal_widgets_classes()
             .into_iter()
             .collect(),
