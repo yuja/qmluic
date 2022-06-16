@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod color;
 pub mod diagnostic;
 pub mod metatype;
 pub mod metatype_tweak;
