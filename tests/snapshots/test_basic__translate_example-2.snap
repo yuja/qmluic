@@ -45,6 +45,11 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
     <addaction name="separator"/>
     <addaction name="menu_0"/>
     <action name="action_About">
+     <property name="icon">
+      <iconset>
+       <normaloff>app.png</normaloff>
+      </iconset>
+     </property>
      <property name="text">
       <string>&amp;About</string>
      </property>
@@ -73,6 +78,10 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
   <widget class="QStatusBar" name="statusbar">
   </widget>
   <action name="action_Open">
+   <property name="icon">
+    <iconset theme="document-open">
+    </iconset>
+   </property>
    <property name="shortcut">
     <enum>QKeySequence::Open</enum>
    </property>
@@ -89,6 +98,10 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
    </property>
   </action>
   <action name="action_Undo">
+   <property name="icon">
+    <iconset theme="edit-undo">
+    </iconset>
+   </property>
    <property name="text">
     <string>&amp;Undo</string>
    </property>
@@ -96,6 +109,10 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
   <action name="action_Redo">
    <property name="enabled">
     <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset theme="edit-redo">
+    </iconset>
    </property>
    <property name="text">
     <string>&amp;Redo</string>

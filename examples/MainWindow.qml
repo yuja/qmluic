@@ -35,6 +35,7 @@ QMainWindow {
 
             QAction {
                 id: action_About
+                icon.normalOff: "app.png"
                 text: qsTr("&About")
             }
 
@@ -65,6 +66,7 @@ QMainWindow {
 
     QAction {
         id: action_Open
+        icon.name: "document-open"
         text: qsTr("&Open")
         // QUiLoader nor designer doesn't support StandardKey enum, but uic
         // can generate a valid code (because it is just an enum property.)
@@ -79,11 +81,13 @@ QMainWindow {
 
     QAction {
         id: action_Undo
+        icon.name: "edit-undo"
         text: qsTr("&Undo")
     }
 
     QAction {
         id: action_Redo
+        icon.name: "edit-redo"
         text: qsTr("&Redo")
         enabled: false
     }
