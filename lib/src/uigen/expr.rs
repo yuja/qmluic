@@ -1,5 +1,5 @@
 use super::context::BuildDocContext;
-use super::gadget::{Gadget, GadgetKind, SizePolicy};
+use super::gadget::{Gadget, GadgetKind};
 use super::property::{self, WithNode};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
@@ -83,25 +83,17 @@ impl<'t> PropertyValue<'t> {
         binding_map: &UiBindingMap,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        match cls.name() {
-            "QSizePolicy" => {
-                let policy = SizePolicy::from_binding_map(ctx, cls, binding_map, diagnostics);
-                Some(PropertyValue::Serializable(Value::SizePolicy(policy)))
-            }
-            _ => {
-                let properties_map =
-                    property::collect_properties_with_node(ctx, cls, binding_map, diagnostics);
-                if let Some(kind) = GadgetKind::from_class(cls) {
-                    let v = Gadget::new(kind, properties_map, diagnostics);
-                    Some(PropertyValue::Serializable(Value::Gadget(v)))
-                } else {
-                    diagnostics.push(Diagnostic::error(
-                        node.byte_range(),
-                        format!("unsupported gadget type: {}", cls.qualified_cxx_name()),
-                    ));
-                    None
-                }
-            }
+        let properties_map =
+            property::collect_properties_with_node(ctx, cls, binding_map, diagnostics);
+        if let Some(kind) = GadgetKind::from_class(cls) {
+            let v = Gadget::new(kind, properties_map, diagnostics);
+            Some(PropertyValue::Serializable(Value::Gadget(v)))
+        } else {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                format!("unsupported gadget type: {}", cls.qualified_cxx_name()),
+            ));
+            None
         }
     }
 }
@@ -111,7 +103,6 @@ impl<'t> PropertyValue<'t> {
 pub enum Value {
     Simple(SimpleValue),
     Gadget(Gadget),
-    SizePolicy(SizePolicy),
 }
 
 impl Value {
@@ -124,7 +115,6 @@ impl Value {
         match self {
             Simple(x) => x.serialize_to_xml(writer),
             Gadget(x) => x.serialize_to_xml(writer),
-            SizePolicy(x) => x.serialize_to_xml(writer),
         }
     }
 
@@ -141,7 +131,6 @@ impl Value {
         match self {
             Simple(x) => x.serialize_to_xml_as(writer, tag_name),
             Gadget(x) => x.serialize_to_xml_as(writer, tag_name),
-            SizePolicy(x) => x.serialize_to_xml_as(writer, tag_name),
         }
     }
 

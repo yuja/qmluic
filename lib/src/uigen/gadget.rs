@@ -1,10 +1,8 @@
-use super::context::BuildDocContext;
 use super::expr::{self, SimpleValue, Value};
 use super::property::{self, PropertiesMap};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::qmlast::UiBindingMap;
 use crate::typemap::{Class, TypeSpace};
 use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
@@ -15,6 +13,7 @@ use std::io;
 #[derive(Clone, Debug)]
 pub struct Gadget {
     pub kind: GadgetKind,
+    pub attributes: HashMap<String, SimpleValue>,
     pub properties: HashMap<String, Value>,
 }
 
@@ -24,8 +23,18 @@ impl Gadget {
         properties_map: PropertiesMap,
         diagnostics: &mut Diagnostics,
     ) -> Self {
-        let properties = property::make_serializable_properties(properties_map, diagnostics);
-        Gadget { kind, properties }
+        let (attributes, properties) = match kind {
+            GadgetKind::SizePolicy => make_size_policy_properties(properties_map, diagnostics),
+            _ => (
+                HashMap::new(),
+                property::make_serializable_properties(properties_map, diagnostics),
+            ),
+        };
+        Gadget {
+            kind,
+            attributes,
+            properties,
+        }
     }
 
     /// Serializes this to UI XML.
@@ -45,8 +54,17 @@ impl Gadget {
         W: io::Write,
         T: AsRef<[u8]>,
     {
-        let tag = BytesStart::borrowed_name(tag_name.as_ref());
+        let mut tag = BytesStart::borrowed_name(tag_name.as_ref());
+        for (k, v) in self.attributes.iter().sorted_by_key(|&(k, _)| k) {
+            match v {
+                SimpleValue::Enum(s) if self.kind.no_enum_prefix() => {
+                    tag.push_attribute((k.as_str(), expr::strip_enum_prefix(s)))
+                }
+                _ => tag.push_attribute((k.as_str(), v.to_string().as_str())),
+            }
+        }
         writer.write_event(Event::Start(tag.to_borrowed()))?;
+
         for (k, v) in self.properties.iter().sorted_by_key(|&(k, _)| k) {
             let t = k.to_ascii_lowercase(); // apparently tag name of .ui is lowercase
             match v {
@@ -56,8 +74,8 @@ impl Gadget {
                 _ => v.serialize_to_xml_as(writer, &t)?,
             }
         }
-        writer.write_event(Event::End(tag.to_end()))?;
-        Ok(())
+
+        writer.write_event(Event::End(tag.to_end()))
     }
 }
 
@@ -67,6 +85,7 @@ pub enum GadgetKind {
     Margins,
     Rect,
     Size,
+    SizePolicy,
 }
 
 impl GadgetKind {
@@ -76,6 +95,7 @@ impl GadgetKind {
             "QMargins" => Some(GadgetKind::Margins),
             "QRect" => Some(GadgetKind::Rect),
             "QSize" => Some(GadgetKind::Size),
+            "QSizePolicy" => Some(GadgetKind::SizePolicy),
             _ => None,
         }
     }
@@ -86,6 +106,7 @@ impl GadgetKind {
             GadgetKind::Margins => "margins", // not supported by uic
             GadgetKind::Rect => "rect",
             GadgetKind::Size => "size",
+            GadgetKind::SizePolicy => "sizepolicy",
         }
     }
 
@@ -95,98 +116,56 @@ impl GadgetKind {
             GadgetKind::Margins => false,
             GadgetKind::Rect => false,
             GadgetKind::Size => false,
+            GadgetKind::SizePolicy => true,
         }
     }
 }
 
-/// Constant size policy which can be serialized to UI XML.
-///
-/// `QSizePolicy` is special in that
-/// - it is registered as gadget type but have no useful property,
-/// - UI XML attribute names are diverged from the method/property names.
-#[derive(Clone, Debug, Default)]
-pub struct SizePolicy {
-    pub policy: Option<(String, String)>,
-    pub horizontal_stretch: Option<i32>,
-    pub vertical_stretch: Option<i32>,
-}
-
-impl SizePolicy {
-    /// Generates size policy from the given `binding_map`.
-    ///
-    /// The `cls` is supposed to be of `QSizePolicy` type.
-    pub(super) fn from_binding_map(
-        ctx: &BuildDocContext,
-        cls: &Class,
-        binding_map: &UiBindingMap,
-        diagnostics: &mut Diagnostics,
-    ) -> Self {
-        let properties_map =
-            property::collect_properties_with_node(ctx, cls, binding_map, diagnostics);
-        let get_enum_property = |name, diagnostics: &mut Diagnostics| {
-            properties_map
-                .get(name)
-                .and_then(|v| diagnostics.consume_err(v.to_enum_with_node()))
-        };
-        let get_i32_property = |name, diagnostics: &mut Diagnostics| {
-            properties_map
-                .get(name)
-                .and_then(|v| diagnostics.consume_err(v.to_i32()))
-        };
-        let policy = match (
-            get_enum_property("horizontalPolicy", diagnostics),
-            get_enum_property("verticalPolicy", diagnostics),
-        ) {
-            (Some(h), Some(v)) => Some((h.into_value().to_owned(), v.into_value().to_owned())),
-            (Some(x), _) | (_, Some(x)) => {
-                diagnostics.push(Diagnostic::error(
-                    x.binding_node().byte_range(),
-                    "both horizontal and vertical policies must be specified",
-                ));
-                None
+fn make_size_policy_properties(
+    mut properties_map: PropertiesMap,
+    diagnostics: &mut Diagnostics,
+) -> (HashMap<String, SimpleValue>, HashMap<String, Value>) {
+    let mut attributes = HashMap::new();
+    match (
+        properties_map.remove("horizontalPolicy"),
+        properties_map.remove("verticalPolicy"),
+    ) {
+        (Some(h), Some(v)) => {
+            if let Some(s) = diagnostics.consume_err(h.into_simple()) {
+                attributes.insert("hsizetype".to_owned(), s);
             }
-            (None, None) => None,
-        };
-        SizePolicy {
-            // should be kept sync with QSizePolicy definition in metatype_tweak.rs
-            policy,
-            horizontal_stretch: get_i32_property("horizontalStretch", diagnostics),
-            vertical_stretch: get_i32_property("verticalStretch", diagnostics),
+            if let Some(s) = diagnostics.consume_err(v.into_simple()) {
+                attributes.insert("vsizetype".to_owned(), s);
+            }
+        }
+        (Some(x), None) | (None, Some(x)) => {
+            diagnostics.push(Diagnostic::error(
+                x.binding_node().byte_range(),
+                "both horizontal and vertical policies must be specified",
+            ));
+        }
+        (None, None) => {}
+    }
+
+    let mut properties = HashMap::new();
+    for (k0, k1) in [
+        ("horizontalStretch", "horstretch"),
+        ("verticalStretch", "verstretch"),
+    ] {
+        if let Some(s) = properties_map
+            .remove(k0)
+            .and_then(|v| diagnostics.consume_err(v.into_serializable()))
+        {
+            properties.insert(k1.to_owned(), s);
         }
     }
 
-    /// Serializes this to UI XML.
-    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
-    where
-        W: io::Write,
-    {
-        self.serialize_to_xml_as(writer, "sizepolicy")
+    for x in properties_map.values() {
+        diagnostics.push(Diagnostic::error(
+            x.binding_node().byte_range(),
+            "unknown property of size policy",
+        ));
     }
 
-    pub(super) fn serialize_to_xml_as<W, T>(
-        &self,
-        writer: &mut XmlWriter<W>,
-        tag_name: T,
-    ) -> XmlResult<()>
-    where
-        W: io::Write,
-        T: AsRef<[u8]>,
-    {
-        let mut tag = BytesStart::borrowed_name(tag_name.as_ref());
-        if let Some((h, v)) = &self.policy {
-            tag.push_attribute(("hsizetype", expr::strip_enum_prefix(h)));
-            tag.push_attribute(("vsizetype", expr::strip_enum_prefix(v)));
-        }
-        writer.write_event(Event::Start(tag.to_borrowed()))?;
-
-        if let Some(d) = self.horizontal_stretch {
-            xmlutil::write_tagged_str(writer, "horstretch", d.to_string())?;
-        }
-        if let Some(d) = self.vertical_stretch {
-            xmlutil::write_tagged_str(writer, "verstretch", d.to_string())?;
-        }
-
-        writer.write_event(Event::End(tag.to_end()))?;
-        Ok(())
-    }
+    (attributes, properties)
 }

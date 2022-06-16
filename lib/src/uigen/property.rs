@@ -1,5 +1,5 @@
 use super::context::BuildDocContext;
-use super::expr::{PropertyValue, Value};
+use super::expr::{PropertyValue, SimpleValue, Value};
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
@@ -100,6 +100,13 @@ impl<'t> WithNode<'t, PropertyValue<'_>> {
     pub fn into_serializable(self) -> Result<Value, ValueTypeError<'t>> {
         match self.value {
             PropertyValue::Serializable(v) => Ok(v),
+            _ => Err(self.make_type_error()),
+        }
+    }
+
+    pub fn into_simple(self) -> Result<SimpleValue, ValueTypeError<'t>> {
+        match self.value {
+            PropertyValue::Serializable(Value::Simple(v)) => Ok(v),
             _ => Err(self.make_type_error()),
         }
     }
