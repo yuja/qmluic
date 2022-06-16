@@ -113,3 +113,16 @@ Major TODOs
 - [ ] Live preview for multi-document file
 - [ ] Support signal-slot connections (`on<Signal>` syntax)
 - [ ] Support dynamic property bindings
+
+Comparison to DeclarativeWidgets
+--------------------------------
+
+[DeclarativeWidgets](https://github.com/KDAB/DeclarativeWidgets) exports
+QtWidgets classes to the QML world. You can write widget application in a way
+you would do for QtQuick applications. You can fully leverage property
+bindings, etc. The downside is the runtime dependency. And I guess it would
+be a bit tedious to "control" a widget from C++ side.
+
+`qmluic` is merely a .ui file generator. You can't write expressive property
+bindings (though I'm thinking of adding a C++ codegen pass for trivial
+expressions.) You can (and need to) implement C++ counterpart for each QML UI.
