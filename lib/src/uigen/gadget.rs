@@ -14,9 +14,8 @@ use std::io;
 /// Constant map-like object which can be serialized to UI XML.
 #[derive(Clone, Debug)]
 pub struct Gadget {
-    pub name: String,
+    pub kind: GadgetKind,
     pub properties: HashMap<String, Value>,
-    pub no_enum_prefix: bool,
 }
 
 impl Gadget {
@@ -29,34 +28,14 @@ impl Gadget {
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let properties = property::collect_properties(ctx, cls, binding_map, diagnostics);
-        match cls.name() {
-            "QFont" => Some(Gadget {
-                name: "font".to_owned(),
-                properties,
-                no_enum_prefix: true,
-            }),
-            "QMargins" => Some(Gadget {
-                name: "margins".to_owned(), // not supported by uic
-                properties,
-                no_enum_prefix: false,
-            }),
-            "QRect" => Some(Gadget {
-                name: "rect".to_owned(),
-                properties,
-                no_enum_prefix: false,
-            }),
-            "QSize" => Some(Gadget {
-                name: "size".to_owned(),
-                properties,
-                no_enum_prefix: false,
-            }),
-            _ => {
-                diagnostics.push(Diagnostic::error(
-                    node.byte_range(),
-                    format!("unsupported gadget type: {}", cls.qualified_cxx_name()),
-                ));
-                None
-            }
+        if let Some(kind) = GadgetKind::from_class(cls) {
+            Some(Gadget { kind, properties })
+        } else {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                format!("unsupported gadget type: {}", cls.qualified_cxx_name()),
+            ));
+            None
         }
     }
 
@@ -65,7 +44,7 @@ impl Gadget {
     where
         W: io::Write,
     {
-        self.serialize_to_xml_as(writer, &self.name)
+        self.serialize_to_xml_as(writer, self.kind.as_tag_name())
     }
 
     pub(super) fn serialize_to_xml_as<W, T>(
@@ -82,7 +61,7 @@ impl Gadget {
         for (k, v) in self.properties.iter().sorted_by_key(|&(k, _)| k) {
             let t = k.to_ascii_lowercase(); // apparently tag name of .ui is lowercase
             match v {
-                Value::Simple(SimpleValue::Enum(s)) if self.no_enum_prefix => {
+                Value::Simple(SimpleValue::Enum(s)) if self.kind.no_enum_prefix() => {
                     xmlutil::write_tagged_str(writer, &t, expr::strip_enum_prefix(s))?;
                 }
                 _ => v.serialize_to_xml_as(writer, &t)?,
@@ -90,6 +69,44 @@ impl Gadget {
         }
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum GadgetKind {
+    Font,
+    Margins,
+    Rect,
+    Size,
+}
+
+impl GadgetKind {
+    pub(super) fn from_class(cls: &Class) -> Option<GadgetKind> {
+        match cls.name() {
+            "QFont" => Some(GadgetKind::Font),
+            "QMargins" => Some(GadgetKind::Margins),
+            "QRect" => Some(GadgetKind::Rect),
+            "QSize" => Some(GadgetKind::Size),
+            _ => None,
+        }
+    }
+
+    pub fn as_tag_name(&self) -> &'static str {
+        match self {
+            GadgetKind::Font => "font",
+            GadgetKind::Margins => "margins", // not supported by uic
+            GadgetKind::Rect => "rect",
+            GadgetKind::Size => "size",
+        }
+    }
+
+    fn no_enum_prefix(&self) -> bool {
+        match self {
+            GadgetKind::Font => true,
+            GadgetKind::Margins => false,
+            GadgetKind::Rect => false,
+            GadgetKind::Size => false,
+        }
     }
 }
 
