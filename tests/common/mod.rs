@@ -80,8 +80,8 @@ pub fn translate_file(path: impl AsRef<Utf8Path>) -> Result<String, String> {
     translate_doc(&doc)
 }
 
-pub fn translate_str(source: impl Into<String>) -> Result<String, String> {
-    let doc = UiDocument::parse(source, None);
+pub fn translate_str(source: impl AsRef<str>) -> Result<String, String> {
+    let doc = UiDocument::parse(dedent(source), None);
     translate_doc(&doc)
 }
 

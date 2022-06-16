@@ -39,5 +39,5 @@ fn test_unpaired_size_policy() {
     QWidget {
         sizePolicy.horizontalPolicy: QSizePolicy.Expanding
     }
-    "###).unwrap_err(), @"<unknown>:4:9: error: both horizontal and vertical policies must be specified");
+    "###).unwrap_err(), @"<unknown>:3:5: error: both horizontal and vertical policies must be specified");
 }
