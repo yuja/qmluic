@@ -17,6 +17,45 @@ fn test_cursor() {
 }
 
 #[test]
+fn test_icon_themed() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QToolButton { icon.name: "edit-copy" }
+    "###).unwrap(), @r###"
+    <ui version="4.0">
+     <widget class="QToolButton">
+      <property name="icon">
+       <iconset theme="edit-copy">
+       </iconset>
+      </property>
+     </widget>
+    </ui>
+    "###);
+}
+
+#[test]
+fn test_icon_state_pixmaps() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QToolButton {
+        icon.normalOff: "normal-off.png"
+        icon.normalOn: "normal-on.png"
+    }
+    "###).unwrap(), @r###"
+    <ui version="4.0">
+     <widget class="QToolButton">
+      <property name="icon">
+       <iconset>
+        <normaloff>normal-off.png</normaloff>
+        <normalon>normal-on.png</normalon>
+       </iconset>
+      </property>
+     </widget>
+    </ui>
+    "###);
+}
+
+#[test]
 fn test_pixmap() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets

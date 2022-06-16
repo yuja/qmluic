@@ -279,6 +279,19 @@ pub fn internal_gui_classes() -> impl IntoIterator<Item = Class> {
             qualified_class_name: "QIcon".to_owned(),
             class_infos: vec![ClassInfo::new("QML.Element", "auto")],
             gadget: true, // mark as "uncreatable" object in .qmltypes
+            properties: vec![
+                // follows QtQuick.Controls naming:
+                Property::new("name", "QString"),
+                // follows uic naming:
+                Property::new("normalOff", "QPixmap"),
+                Property::new("normalOn", "QPixmap"),
+                Property::new("disabledOff", "QPixmap"),
+                Property::new("disabledOn", "QPixmap"),
+                Property::new("activeOff", "QPixmap"),
+                Property::new("activeOn", "QPixmap"),
+                Property::new("selectedOff", "QPixmap"),
+                Property::new("selectedOn", "QPixmap"),
+            ],
             ..Default::default()
         },
         Class {

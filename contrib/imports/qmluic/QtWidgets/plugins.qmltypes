@@ -3308,6 +3308,15 @@ Module {
         exports: ["qmluic.QtWidgets/QIcon 5.0"]
         isCreatable: false
         exportMetaObjectRevisions: [0]
+        Property { name: "name"; type: "string"; isReadonly: true }
+        Property { name: "normalOff"; type: "QPixmap"; isReadonly: true }
+        Property { name: "normalOn"; type: "QPixmap"; isReadonly: true }
+        Property { name: "disabledOff"; type: "QPixmap"; isReadonly: true }
+        Property { name: "disabledOn"; type: "QPixmap"; isReadonly: true }
+        Property { name: "activeOff"; type: "QPixmap"; isReadonly: true }
+        Property { name: "activeOn"; type: "QPixmap"; isReadonly: true }
+        Property { name: "selectedOff"; type: "QPixmap"; isReadonly: true }
+        Property { name: "selectedOn"; type: "QPixmap"; isReadonly: true }
     }
     Component {
         file: "qinputdialog.h"

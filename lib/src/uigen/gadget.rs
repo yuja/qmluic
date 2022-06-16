@@ -24,6 +24,7 @@ impl Gadget {
         diagnostics: &mut Diagnostics,
     ) -> Self {
         let (attributes, properties) = match kind {
+            GadgetKind::Icon => make_icon_properties(properties_map, diagnostics),
             GadgetKind::SizePolicy => make_size_policy_properties(properties_map, diagnostics),
             _ => (
                 HashMap::new(),
@@ -82,6 +83,7 @@ impl Gadget {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GadgetKind {
     Font,
+    Icon,
     Margins,
     Rect,
     Size,
@@ -92,6 +94,7 @@ impl GadgetKind {
     pub(super) fn from_class(cls: &Class) -> Option<GadgetKind> {
         match cls.name() {
             "QFont" => Some(GadgetKind::Font),
+            "QIcon" => Some(GadgetKind::Icon),
             "QMargins" => Some(GadgetKind::Margins),
             "QRect" => Some(GadgetKind::Rect),
             "QSize" => Some(GadgetKind::Size),
@@ -103,6 +106,7 @@ impl GadgetKind {
     pub fn as_tag_name(&self) -> &'static str {
         match self {
             GadgetKind::Font => "font",
+            GadgetKind::Icon => "iconset",
             GadgetKind::Margins => "margins", // not supported by uic
             GadgetKind::Rect => "rect",
             GadgetKind::Size => "size",
@@ -113,12 +117,29 @@ impl GadgetKind {
     fn no_enum_prefix(&self) -> bool {
         match self {
             GadgetKind::Font => true,
+            GadgetKind::Icon => false,
             GadgetKind::Margins => false,
             GadgetKind::Rect => false,
             GadgetKind::Size => false,
             GadgetKind::SizePolicy => true,
         }
     }
+}
+
+fn make_icon_properties(
+    mut properties_map: PropertiesMap,
+    diagnostics: &mut Diagnostics,
+) -> (HashMap<String, SimpleValue>, HashMap<String, Value>) {
+    let mut attributes = HashMap::new();
+    if let Some(s) = properties_map
+        .remove("name")
+        .and_then(|v| diagnostics.consume_err(v.into_simple()))
+    {
+        attributes.insert("theme".to_owned(), s);
+    }
+
+    let properties = property::make_serializable_properties(properties_map, diagnostics);
+    (attributes, properties)
 }
 
 fn make_size_policy_properties(
