@@ -4,7 +4,7 @@ use super::property::{self, WithNode};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::qmlast::{BinaryOperator, Node, UiBindingMap, UiBindingValue, UnaryOperator};
+use crate::qmlast::{BinaryOperator, Node, UiBindingValue, UnaryOperator};
 use crate::typedexpr::{self, DescribeType, ExpressionVisitor, TypeDesc};
 use crate::typemap::{Class, Enum, NamedType, PrimitiveType, TypeKind, TypeSpace};
 use quick_xml::events::{BytesStart, BytesText, Event};
@@ -56,7 +56,18 @@ impl<'t> PropertyValue<'t> {
             },
             UiBindingValue::Map(n, m) => match ty {
                 TypeKind::Just(NamedType::Class(cls)) => {
-                    Self::from_binding_map(ctx, cls, *n, m, diagnostics)
+                    let properties_map =
+                        property::collect_properties_with_node(ctx, cls, m, diagnostics);
+                    if let Some(kind) = GadgetKind::from_class(cls) {
+                        let v = Gadget::new(kind, properties_map, diagnostics);
+                        Some(PropertyValue::Serializable(Value::Gadget(v)))
+                    } else {
+                        diagnostics.push(Diagnostic::error(
+                            n.byte_range(),
+                            format!("unsupported gadget type: {}", cls.qualified_cxx_name()),
+                        ));
+                        None
+                    }
                 }
                 TypeKind::Pointer(NamedType::Class(cls)) => Some(PropertyValue::ObjectProperties(
                     property::collect_properties_with_node(ctx, cls, m, diagnostics),
@@ -72,28 +83,6 @@ impl<'t> PropertyValue<'t> {
                     None
                 }
             },
-        }
-    }
-
-    /// Generates constant expression of `cls` type from the given `binding_map`.
-    fn from_binding_map(
-        ctx: &BuildDocContext,
-        cls: &Class,
-        node: Node,
-        binding_map: &UiBindingMap,
-        diagnostics: &mut Diagnostics,
-    ) -> Option<Self> {
-        let properties_map =
-            property::collect_properties_with_node(ctx, cls, binding_map, diagnostics);
-        if let Some(kind) = GadgetKind::from_class(cls) {
-            let v = Gadget::new(kind, properties_map, diagnostics);
-            Some(PropertyValue::Serializable(Value::Gadget(v)))
-        } else {
-            diagnostics.push(Diagnostic::error(
-                node.byte_range(),
-                format!("unsupported gadget type: {}", cls.qualified_cxx_name()),
-            ));
-            None
         }
     }
 }
