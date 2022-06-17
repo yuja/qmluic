@@ -88,7 +88,8 @@ impl From<Color> for Gadget {
         let prop = |n: &str, v: u8| (n.to_owned(), Value::Simple(SimpleValue::Number(v.into())));
         let (attributes, properties) = match color {
             Color::Rgb8(c) => (
-                HashMap::new(),
+                // forcibly set alpha since QUiLoader can't handle color without alpha component
+                HashMap::from([attr("alpha", 0xff)]),
                 HashMap::from([
                     prop("red", c.red),
                     prop("green", c.green),

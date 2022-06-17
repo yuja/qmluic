@@ -13,7 +13,7 @@ fn test_brush() {
      <widget class="QGraphicsView">
       <property name="backgroundBrush">
        <brush brushstyle="Dense4Pattern">
-        <color>
+        <color alpha="255">
          <blue>188</blue>
          <green>58</green>
          <red>18</red>
@@ -58,7 +58,7 @@ fn test_color() {
     <ui version="4.0">
      <widget class="QColorDialog">
       <property name="currentColor">
-       <color>
+       <color alpha="255">
         <blue>188</blue>
         <green>58</green>
         <red>18</red>
