@@ -25,6 +25,7 @@ impl Gadget {
         diagnostics: &mut Diagnostics,
     ) -> Self {
         let (attributes, properties) = match kind {
+            GadgetKind::Brush => make_brush_properties(properties_map, diagnostics),
             GadgetKind::Icon => make_icon_properties(properties_map, diagnostics),
             GadgetKind::SizePolicy => make_size_policy_properties(properties_map, diagnostics),
             _ => (
@@ -114,6 +115,7 @@ impl From<Color> for Gadget {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GadgetKind {
+    Brush,
     Color,
     Font,
     Icon,
@@ -126,6 +128,7 @@ pub enum GadgetKind {
 impl GadgetKind {
     pub(super) fn from_class(cls: &Class) -> Option<GadgetKind> {
         match cls.name() {
+            "QBrush" => Some(GadgetKind::Brush),
             // incompatible property names: "QColor" => Some(GadgetKind::Color),
             "QFont" => Some(GadgetKind::Font),
             "QIcon" => Some(GadgetKind::Icon),
@@ -139,6 +142,7 @@ impl GadgetKind {
 
     pub fn as_tag_name(&self) -> &'static str {
         match self {
+            GadgetKind::Brush => "brush",
             GadgetKind::Color => "color",
             GadgetKind::Font => "font",
             GadgetKind::Icon => "iconset",
@@ -151,6 +155,7 @@ impl GadgetKind {
 
     fn no_enum_prefix(&self) -> bool {
         match self {
+            GadgetKind::Brush => true,
             GadgetKind::Color => false,
             GadgetKind::Font => true,
             GadgetKind::Icon => false,
@@ -160,6 +165,22 @@ impl GadgetKind {
             GadgetKind::SizePolicy => true,
         }
     }
+}
+
+fn make_brush_properties(
+    mut properties_map: PropertiesMap,
+    diagnostics: &mut Diagnostics,
+) -> (HashMap<String, SimpleValue>, HashMap<String, Value>) {
+    let mut attributes = HashMap::new();
+    if let Some(s) = properties_map
+        .remove("style")
+        .and_then(|v| diagnostics.consume_err(v.into_simple()))
+    {
+        attributes.insert("brushstyle".to_owned(), s);
+    }
+
+    let properties = property::make_serializable_properties(properties_map, diagnostics);
+    (attributes, properties)
 }
 
 fn make_icon_properties(

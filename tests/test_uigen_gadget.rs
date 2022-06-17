@@ -1,6 +1,31 @@
 pub mod common;
 
 #[test]
+fn test_brush() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QGraphicsView {
+        backgroundBrush.color: "#123abc"
+        backgroundBrush.style: Qt.Dense4Pattern
+    }
+    "###).unwrap(), @r###"
+    <ui version="4.0">
+     <widget class="QGraphicsView">
+      <property name="backgroundBrush">
+       <brush brushstyle="Dense4Pattern">
+        <color>
+         <blue>188</blue>
+         <green>58</green>
+         <red>18</red>
+        </color>
+       </brush>
+      </property>
+     </widget>
+    </ui>
+    "###);
+}
+
+#[test]
 fn test_color() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
