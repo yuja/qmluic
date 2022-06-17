@@ -33,7 +33,7 @@ impl<'t> PropertyValue<'t> {
     ) -> Option<Self> {
         match binding_value {
             UiBindingValue::Node(n) => match ty {
-                TypeKind::Just(t) => SimpleValue::from_expression(ctx, t, *n, diagnostics)
+                TypeKind::Just(t) => parse_as_value_type(ctx, t, *n, diagnostics)
                     .map(|v| PropertyValue::Serializable(Value::Simple(v))),
                 TypeKind::Pointer(NamedType::Class(cls)) => {
                     parse_object_reference(ctx, cls, *n, diagnostics)
@@ -152,151 +152,6 @@ pub enum SimpleValue {
 }
 
 impl SimpleValue {
-    /// Generates value of `ty` type from the given expression `node`.
-    fn from_expression(
-        ctx: &BuildDocContext,
-        ty: &NamedType,
-        node: Node,
-        diagnostics: &mut Diagnostics,
-    ) -> Option<Self> {
-        match ty {
-            NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.cursor) => {
-                let (res_t, res_expr) = format_expression(ctx, node, diagnostics)?;
-                match &res_t {
-                    TypeDesc::Enum(res_en)
-                        if is_compatible_enum(res_en, &ctx.classes.cursor_shape) =>
-                    {
-                        Some(SimpleValue::CursorShape(
-                            strip_enum_prefix(&res_expr).to_owned(),
-                        ))
-                    }
-                    _ => {
-                        diagnostics.push(Diagnostic::error(
-                            node.byte_range(),
-                            format!(
-                                "expression type mismatch (expected: {}, actual: {})",
-                                ctx.classes.cursor_shape.qualified_cxx_name(),
-                                res_t.qualified_name()
-                            ),
-                        ));
-                        None
-                    }
-                }
-            }
-            NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.key_sequence) => {
-                // ExpressionFormatter can handle both enum and string literals, so try it first.
-                let (res_t, res_expr) = format_expression(ctx, node, diagnostics)?;
-                let standard_key_en = &ctx.classes.key_sequence_standard_key;
-                let string_ty = NamedType::Primitive(PrimitiveType::QString);
-                match &res_t {
-                    TypeDesc::Enum(res_en) if is_compatible_enum(res_en, standard_key_en) => {
-                        if standard_key_en.is_flag() {
-                            Some(SimpleValue::Set(res_expr))
-                        } else {
-                            Some(SimpleValue::Enum(res_expr))
-                        }
-                    }
-                    TypeDesc::String => {
-                        // evaluate as string
-                        Self::from_expression(ctx, &string_ty, node, diagnostics)
-                    }
-                    _ => {
-                        diagnostics.push(Diagnostic::error(
-                            node.byte_range(),
-                            format!(
-                                "expression type mismatch (expected: {} | {}, actual: {})",
-                                standard_key_en.qualified_cxx_name(),
-                                string_ty.qualified_cxx_name(),
-                                res_t.qualified_name()
-                            ),
-                        ));
-                        None
-                    }
-                }
-            }
-            NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.pixmap) => {
-                let res = evaluate_expression(ctx, node, diagnostics)?;
-                match res {
-                    EvaluatedValue::String(s) => Some(SimpleValue::Pixmap(s)),
-                    _ => {
-                        diagnostics.push(Diagnostic::error(
-                            node.byte_range(),
-                            format!(
-                                "evaluated type mismatch (expected: {}, actual: {})",
-                                ty.qualified_cxx_name(),
-                                res.type_desc().qualified_name()
-                            ),
-                        ));
-                        None
-                    }
-                }
-            }
-            NamedType::Enum(en) => {
-                let (res_t, res_expr) = format_expression(ctx, node, diagnostics)?;
-                match &res_t {
-                    TypeDesc::Enum(res_en) if is_compatible_enum(res_en, en) => {
-                        if en.is_flag() {
-                            Some(SimpleValue::Set(res_expr))
-                        } else {
-                            Some(SimpleValue::Enum(res_expr))
-                        }
-                    }
-                    _ => {
-                        diagnostics.push(Diagnostic::error(
-                            node.byte_range(),
-                            format!(
-                                "expression type mismatch (expected: {}, actual: {})",
-                                ty.qualified_cxx_name(),
-                                res_t.qualified_name()
-                            ),
-                        ));
-                        None
-                    }
-                }
-            }
-            NamedType::Primitive(p) => {
-                let res = evaluate_expression(ctx, node, diagnostics)?;
-                if !describe_primitive_type(*p).map_or(false, |t| res.type_desc() == t) {
-                    diagnostics.push(Diagnostic::error(
-                        node.byte_range(),
-                        format!(
-                            "evaluated type mismatch (expected: {}, actual: {})",
-                            ty.qualified_cxx_name(),
-                            res.type_desc().qualified_name()
-                        ),
-                    ));
-                    return None;
-                }
-                match res {
-                    EvaluatedValue::Bool(v) => Some(SimpleValue::Bool(v)),
-                    EvaluatedValue::Number(v) => Some(SimpleValue::Number(v)),
-                    EvaluatedValue::String(s) => Some(SimpleValue::String { s, tr: false }),
-                    EvaluatedValue::TrString(s) => Some(SimpleValue::String { s, tr: true }),
-                }
-            }
-            NamedType::Class(_) | NamedType::QmlComponent(_) => {
-                diagnostics.push(Diagnostic::error(
-                    node.byte_range(),
-                    format!(
-                        "unsupported constant value expression: class '{}'",
-                        ty.qualified_cxx_name(),
-                    ),
-                ));
-                None
-            }
-            NamedType::Namespace(_) => {
-                diagnostics.push(Diagnostic::error(
-                    node.byte_range(),
-                    format!(
-                        "unsupported constant value expression: namespace '{}'",
-                        ty.qualified_cxx_name(),
-                    ),
-                ));
-                None
-            }
-        }
-    }
-
     /// Serializes this to UI XML.
     pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
     where
@@ -364,6 +219,148 @@ impl fmt::Display for SimpleValue {
             String { s, .. } | Cstring(s) | Enum(s) | Set(s) | CursorShape(s) | Pixmap(s) => {
                 write!(f, "{}", s)
             }
+        }
+    }
+}
+
+fn parse_as_value_type(
+    ctx: &BuildDocContext,
+    ty: &NamedType,
+    node: Node,
+    diagnostics: &mut Diagnostics,
+) -> Option<SimpleValue> {
+    match ty {
+        NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.cursor) => {
+            let (res_t, res_expr) = format_expression(ctx, node, diagnostics)?;
+            match &res_t {
+                TypeDesc::Enum(res_en) if is_compatible_enum(res_en, &ctx.classes.cursor_shape) => {
+                    Some(SimpleValue::CursorShape(
+                        strip_enum_prefix(&res_expr).to_owned(),
+                    ))
+                }
+                _ => {
+                    diagnostics.push(Diagnostic::error(
+                        node.byte_range(),
+                        format!(
+                            "expression type mismatch (expected: {}, actual: {})",
+                            ctx.classes.cursor_shape.qualified_cxx_name(),
+                            res_t.qualified_name()
+                        ),
+                    ));
+                    None
+                }
+            }
+        }
+        NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.key_sequence) => {
+            // ExpressionFormatter can handle both enum and string literals, so try it first.
+            let (res_t, res_expr) = format_expression(ctx, node, diagnostics)?;
+            let standard_key_en = &ctx.classes.key_sequence_standard_key;
+            let string_ty = NamedType::Primitive(PrimitiveType::QString);
+            match &res_t {
+                TypeDesc::Enum(res_en) if is_compatible_enum(res_en, standard_key_en) => {
+                    if standard_key_en.is_flag() {
+                        Some(SimpleValue::Set(res_expr))
+                    } else {
+                        Some(SimpleValue::Enum(res_expr))
+                    }
+                }
+                TypeDesc::String => {
+                    // evaluate as string
+                    parse_as_value_type(ctx, &string_ty, node, diagnostics)
+                }
+                _ => {
+                    diagnostics.push(Diagnostic::error(
+                        node.byte_range(),
+                        format!(
+                            "expression type mismatch (expected: {} | {}, actual: {})",
+                            standard_key_en.qualified_cxx_name(),
+                            string_ty.qualified_cxx_name(),
+                            res_t.qualified_name()
+                        ),
+                    ));
+                    None
+                }
+            }
+        }
+        NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.pixmap) => {
+            let res = evaluate_expression(ctx, node, diagnostics)?;
+            match res {
+                EvaluatedValue::String(s) => Some(SimpleValue::Pixmap(s)),
+                _ => {
+                    diagnostics.push(Diagnostic::error(
+                        node.byte_range(),
+                        format!(
+                            "evaluated type mismatch (expected: {}, actual: {})",
+                            ty.qualified_cxx_name(),
+                            res.type_desc().qualified_name()
+                        ),
+                    ));
+                    None
+                }
+            }
+        }
+        NamedType::Enum(en) => {
+            let (res_t, res_expr) = format_expression(ctx, node, diagnostics)?;
+            match &res_t {
+                TypeDesc::Enum(res_en) if is_compatible_enum(res_en, en) => {
+                    if en.is_flag() {
+                        Some(SimpleValue::Set(res_expr))
+                    } else {
+                        Some(SimpleValue::Enum(res_expr))
+                    }
+                }
+                _ => {
+                    diagnostics.push(Diagnostic::error(
+                        node.byte_range(),
+                        format!(
+                            "expression type mismatch (expected: {}, actual: {})",
+                            ty.qualified_cxx_name(),
+                            res_t.qualified_name()
+                        ),
+                    ));
+                    None
+                }
+            }
+        }
+        NamedType::Primitive(p) => {
+            let res = evaluate_expression(ctx, node, diagnostics)?;
+            if !describe_primitive_type(*p).map_or(false, |t| res.type_desc() == t) {
+                diagnostics.push(Diagnostic::error(
+                    node.byte_range(),
+                    format!(
+                        "evaluated type mismatch (expected: {}, actual: {})",
+                        ty.qualified_cxx_name(),
+                        res.type_desc().qualified_name()
+                    ),
+                ));
+                return None;
+            }
+            match res {
+                EvaluatedValue::Bool(v) => Some(SimpleValue::Bool(v)),
+                EvaluatedValue::Number(v) => Some(SimpleValue::Number(v)),
+                EvaluatedValue::String(s) => Some(SimpleValue::String { s, tr: false }),
+                EvaluatedValue::TrString(s) => Some(SimpleValue::String { s, tr: true }),
+            }
+        }
+        NamedType::Class(_) | NamedType::QmlComponent(_) => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                format!(
+                    "unsupported constant value expression: class '{}'",
+                    ty.qualified_cxx_name(),
+                ),
+            ));
+            None
+        }
+        NamedType::Namespace(_) => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                format!(
+                    "unsupported constant value expression: namespace '{}'",
+                    ty.qualified_cxx_name(),
+                ),
+            ));
+            None
         }
     }
 }
