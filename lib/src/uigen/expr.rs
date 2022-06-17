@@ -153,7 +153,7 @@ impl Value {
 pub enum SimpleValue {
     Bool(bool),
     Number(f64),
-    String { s: String, tr: bool },
+    String(String, StringKind),
     Cstring(String),
     Enum(String),
     Set(String),
@@ -192,9 +192,9 @@ impl SimpleValue {
     {
         use SimpleValue::*;
         match self {
-            String { s, tr } => {
+            String(s, k) => {
                 let mut tag = BytesStart::borrowed_name(tag_name.as_ref());
-                if !tr {
+                if *k == StringKind::NoTr {
                     tag.push_attribute(("notr", "true"));
                 }
                 writer.write_event(Event::Start(tag.to_borrowed()))?;
@@ -226,11 +226,20 @@ impl fmt::Display for SimpleValue {
         match self {
             Bool(b) => write!(f, "{}", if *b { "true" } else { "false" }),
             Number(d) => write!(f, "{}", d),
-            String { s, .. } | Cstring(s) | Enum(s) | Set(s) | CursorShape(s) | Pixmap(s) => {
+            String(s, _) | Cstring(s) | Enum(s) | Set(s) | CursorShape(s) | Pixmap(s) => {
                 write!(f, "{}", s)
             }
         }
     }
+}
+
+/// Marker of bare or translatable string.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StringKind {
+    /// Bare string.
+    NoTr,
+    /// String wrapped with `qsTr()`.
+    Tr,
 }
 
 fn parse_as_value_type(
@@ -307,7 +316,9 @@ fn parse_as_value_type(
         NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.pixmap) => {
             let res = evaluate_expression(ctx, node, diagnostics)?;
             match res {
-                EvaluatedValue::String(s) => Some(Value::Simple(SimpleValue::Pixmap(s))),
+                EvaluatedValue::String(s, StringKind::NoTr) => {
+                    Some(Value::Simple(SimpleValue::Pixmap(s)))
+                }
                 _ => {
                     diagnostics.push(Diagnostic::error(
                         node.byte_range(),
@@ -360,8 +371,7 @@ fn parse_as_value_type(
             let v = match res {
                 EvaluatedValue::Bool(v) => SimpleValue::Bool(v),
                 EvaluatedValue::Number(v) => SimpleValue::Number(v),
-                EvaluatedValue::String(s) => SimpleValue::String { s, tr: false },
-                EvaluatedValue::TrString(s) => SimpleValue::String { s, tr: true },
+                EvaluatedValue::String(s, k) => SimpleValue::String(s, k),
             };
             Some(Value::Simple(v))
         }
@@ -427,7 +437,7 @@ fn parse_color_value(
     // TODO: handle Qt::GlobalColor enum
     let res = evaluate_expression(ctx, node, diagnostics)?;
     match res {
-        EvaluatedValue::String(s) => match s.parse::<Color>() {
+        EvaluatedValue::String(s, StringKind::NoTr) => match s.parse::<Color>() {
             Ok(c) => Some(c.into()),
             Err(e) => {
                 diagnostics.push(Diagnostic::error(node.byte_range(), e.to_string()));
@@ -569,8 +579,7 @@ struct ExpressionEvaluator;
 enum EvaluatedValue {
     Bool(bool),
     Number(f64),
-    String(String),
-    TrString(String),
+    String(String, StringKind),
 }
 
 impl DescribeType<'_> for EvaluatedValue {
@@ -578,8 +587,7 @@ impl DescribeType<'_> for EvaluatedValue {
         match self {
             EvaluatedValue::Bool(_) => TypeDesc::Bool,
             EvaluatedValue::Number(_) => TypeDesc::Number,
-            EvaluatedValue::String(_) => TypeDesc::String,
-            EvaluatedValue::TrString(_) => TypeDesc::String,
+            EvaluatedValue::String(..) => TypeDesc::String,
         }
     }
 }
@@ -593,7 +601,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
     }
 
     fn visit_string(&self, value: String) -> Result<Self::Item, Self::Error> {
-        Ok(EvaluatedValue::String(value))
+        Ok(EvaluatedValue::String(value, StringKind::NoTr))
     }
 
     fn visit_bool(&self, value: bool) -> Result<Self::Item, Self::Error> {
@@ -619,7 +627,9 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
     ) -> Result<Self::Item, Self::Error> {
         match function {
             "qsTr" if arguments.len() == 1 => match arguments.pop() {
-                Some(EvaluatedValue::String(a)) => Ok(EvaluatedValue::TrString(a)),
+                Some(EvaluatedValue::String(a, StringKind::NoTr)) => {
+                    Ok(EvaluatedValue::String(a, StringKind::Tr))
+                }
                 _ => Err(ExpressionError::UnsupportedFunctionCall),
             },
             _ => Err(ExpressionError::UnsupportedFunctionCall),
@@ -656,8 +666,10 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
                 Plus => Ok(EvaluatedValue::Number(a)),
                 Typeof | Void | Delete => Err(type_error()),
             },
-            EvaluatedValue::String(_) => Err(type_error()),
-            EvaluatedValue::TrString(_) => Err(ExpressionError::CannotEvaluateAsConstant),
+            EvaluatedValue::String(_, StringKind::NoTr) => Err(type_error()),
+            EvaluatedValue::String(_, StringKind::Tr) => {
+                Err(ExpressionError::CannotEvaluateAsConstant)
+            }
         }
     }
 
@@ -728,11 +740,14 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
                 Instanceof => Err(type_error()),
                 In => Err(type_error()),
             },
-            (EvaluatedValue::String(l), EvaluatedValue::String(r)) => match operator {
+            (
+                EvaluatedValue::String(l, StringKind::NoTr),
+                EvaluatedValue::String(r, StringKind::NoTr),
+            ) => match operator {
                 LogicalAnd | LogicalOr => Err(type_error()),
                 RightShift | UnsignedRightShift | LeftShift => Err(type_error()),
                 BitwiseAnd | BitwiseXor | BitwiseOr => Err(type_error()),
-                Add => Ok(EvaluatedValue::String(l + &r)),
+                Add => Ok(EvaluatedValue::String(l + &r, StringKind::NoTr)),
                 Sub | Mul | Div | Rem | Exp => Err(type_error()),
                 Equal => Ok(EvaluatedValue::Bool(l == r)),
                 StrictEqual => Ok(EvaluatedValue::Bool(l == r)),
@@ -746,8 +761,10 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
                 Instanceof => Err(type_error()),
                 In => Err(type_error()),
             },
-            (EvaluatedValue::TrString(_), _) => Err(ExpressionError::CannotEvaluateAsConstant),
-            (_, EvaluatedValue::TrString(_)) => Err(ExpressionError::CannotEvaluateAsConstant),
+            (EvaluatedValue::String(_, StringKind::Tr), _)
+            | (_, EvaluatedValue::String(_, StringKind::Tr)) => {
+                Err(ExpressionError::CannotEvaluateAsConstant)
+            }
             _ => Err(type_error()),
         }
     }
