@@ -232,6 +232,15 @@ fn parse_as_value_type(
     diagnostics: &mut Diagnostics,
 ) -> Option<Value> {
     match ty {
+        NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.brush) => {
+            let color = parse_color_value(ctx, node, diagnostics).map(Value::Gadget)?;
+            let style = SimpleValue::Enum("Qt::SolidPattern".to_owned());
+            Some(Value::Gadget(Gadget {
+                kind: GadgetKind::Brush,
+                attributes: HashMap::from([("brushstyle".to_owned(), style)]),
+                properties: HashMap::from([("color".to_owned(), color)]),
+            }))
+        }
         NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.color) => {
             parse_color_value(ctx, node, diagnostics).map(Value::Gadget)
         }

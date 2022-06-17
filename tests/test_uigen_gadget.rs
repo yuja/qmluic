@@ -26,6 +26,30 @@ fn test_brush() {
 }
 
 #[test]
+fn test_brush_solid_color() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QGraphicsView {
+        backgroundBrush: "#80123abc"
+    }
+    "###).unwrap(), @r###"
+    <ui version="4.0">
+     <widget class="QGraphicsView">
+      <property name="backgroundBrush">
+       <brush brushstyle="SolidPattern">
+        <color alpha="128">
+         <blue>188</blue>
+         <green>58</green>
+         <red>18</red>
+        </color>
+       </brush>
+      </property>
+     </widget>
+    </ui>
+    "###);
+}
+
+#[test]
 fn test_color() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
