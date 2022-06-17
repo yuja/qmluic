@@ -1028,6 +1028,14 @@ Module {
         exportMetaObjectRevisions: [0]
     }
     Component {
+        name: "QBrush"
+        exports: ["qmluic.QtWidgets/QBrush 5.0"]
+        isCreatable: false
+        exportMetaObjectRevisions: [0]
+        Property { name: "color"; type: "QColor"; isReadonly: true }
+        Property { name: "style"; type: "Qt::BrushStyle"; isReadonly: true }
+    }
+    Component {
         file: "qbuttongroup.h"
         name: "QButtonGroup"
         prototype: "QObject"
@@ -1268,6 +1276,12 @@ Module {
             name: "stateChanged"
             Parameter { type: "int" }
         }
+    }
+    Component {
+        name: "QColor"
+        exports: ["qmluic.QtWidgets/QColor 5.0"]
+        isCreatable: false
+        exportMetaObjectRevisions: [0]
     }
     Component {
         file: "qcolordialog.h"
