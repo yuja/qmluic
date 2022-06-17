@@ -3,6 +3,7 @@ use super::gadget::{Gadget, GadgetKind};
 use super::property::{self, WithNode};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
+use crate::color::Color;
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{BinaryOperator, Node, UiBindingValue, UnaryOperator};
 use crate::typedexpr::{self, DescribeType, ExpressionVisitor, TypeDesc};
@@ -231,6 +232,9 @@ fn parse_as_value_type(
     diagnostics: &mut Diagnostics,
 ) -> Option<Value> {
     match ty {
+        NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.color) => {
+            parse_color_value(ctx, node, diagnostics).map(Value::Gadget)
+        }
         NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.cursor) => {
             let (res_t, res_expr) = format_expression(ctx, node, diagnostics)?;
             match &res_t {
@@ -396,6 +400,34 @@ fn format_expression<'a>(
         diagnostics,
     )
     .map(|(t, expr, _)| (t, expr))
+}
+
+fn parse_color_value(
+    ctx: &BuildDocContext,
+    node: Node,
+    diagnostics: &mut Diagnostics,
+) -> Option<Gadget> {
+    // TODO: handle Qt::GlobalColor enum
+    let res = evaluate_expression(ctx, node, diagnostics)?;
+    match res {
+        EvaluatedValue::String(s) => match s.parse::<Color>() {
+            Ok(c) => Some(c.into()),
+            Err(e) => {
+                diagnostics.push(Diagnostic::error(node.byte_range(), e.to_string()));
+                None
+            }
+        },
+        _ => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                format!(
+                    "evaluated type mismatch (expected: color, actual: {})",
+                    res.type_desc().qualified_name()
+                ),
+            ));
+            None
+        }
+    }
 }
 
 fn parse_object_reference(

@@ -27,6 +27,7 @@ pub(super) struct BuildDocContext<'a, 't, 's> {
 pub(super) struct KnownClasses<'a> {
     pub action: Class<'a>,
     pub action_separator: Class<'a>,
+    pub color: Class<'a>,
     pub cursor: Class<'a>,
     pub cursor_shape: Enum<'a>,
     pub form_layout: Class<'a>,
@@ -76,6 +77,7 @@ impl<'a> BuildContext<'a> {
         let classes = KnownClasses {
             action: get_class("QAction")?,
             action_separator: get_class("QActionSeparator")?,
+            color: get_class("QColor")?,
             cursor: get_class("QCursor")?,
             cursor_shape: get_enum("Qt::CursorShape")?,
             form_layout: get_class("QFormLayout")?,

@@ -1,6 +1,54 @@
 pub mod common;
 
 #[test]
+fn test_color() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QColorDialog { currentColor: "#123abc" }
+    "###).unwrap(), @r###"
+    <ui version="4.0">
+     <widget class="QColorDialog">
+      <property name="currentColor">
+       <color>
+        <blue>188</blue>
+        <green>58</green>
+        <red>18</red>
+       </color>
+      </property>
+     </widget>
+    </ui>
+    "###);
+}
+
+#[test]
+fn test_color_alpha() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QColorDialog { currentColor: "#80123abc" }
+    "###).unwrap(), @r###"
+    <ui version="4.0">
+     <widget class="QColorDialog">
+      <property name="currentColor">
+       <color alpha="128">
+        <blue>188</blue>
+        <green>58</green>
+        <red>18</red>
+       </color>
+      </property>
+     </widget>
+    </ui>
+    "###);
+}
+
+#[test]
+fn test_invalid_color() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QColorDialog { currentColor: "#wtf" }
+    "###).unwrap_err(), @"<unknown>:2:30: error: invalid hex color");
+}
+
+#[test]
 fn test_cursor() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets

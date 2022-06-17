@@ -2,6 +2,7 @@ use super::expr::{self, SimpleValue, Value};
 use super::property::{self, PropertiesMap};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
+use crate::color::Color;
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::typemap::{Class, TypeSpace};
 use itertools::Itertools as _;
@@ -80,8 +81,40 @@ impl Gadget {
     }
 }
 
+impl From<Color> for Gadget {
+    fn from(color: Color) -> Self {
+        let attr = |n: &str, v: u8| (n.to_owned(), SimpleValue::Number(v.into()));
+        let prop = |n: &str, v: u8| (n.to_owned(), Value::Simple(SimpleValue::Number(v.into())));
+        let (attributes, properties) = match color {
+            Color::Rgb8(c) => (
+                HashMap::new(),
+                HashMap::from([
+                    prop("red", c.red),
+                    prop("green", c.green),
+                    prop("blue", c.blue),
+                ]),
+            ),
+            Color::Rgba8(c) => (
+                // "alpha" is attribute for unknown reason
+                HashMap::from([attr("alpha", c.alpha)]),
+                HashMap::from([
+                    prop("red", c.red),
+                    prop("green", c.green),
+                    prop("blue", c.blue),
+                ]),
+            ),
+        };
+        Gadget {
+            kind: GadgetKind::Color,
+            attributes,
+            properties,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GadgetKind {
+    Color,
     Font,
     Icon,
     Margins,
@@ -93,6 +126,7 @@ pub enum GadgetKind {
 impl GadgetKind {
     pub(super) fn from_class(cls: &Class) -> Option<GadgetKind> {
         match cls.name() {
+            // incompatible property names: "QColor" => Some(GadgetKind::Color),
             "QFont" => Some(GadgetKind::Font),
             "QIcon" => Some(GadgetKind::Icon),
             "QMargins" => Some(GadgetKind::Margins),
@@ -105,6 +139,7 @@ impl GadgetKind {
 
     pub fn as_tag_name(&self) -> &'static str {
         match self {
+            GadgetKind::Color => "color",
             GadgetKind::Font => "font",
             GadgetKind::Icon => "iconset",
             GadgetKind::Margins => "margins", // not supported by uic
@@ -116,6 +151,7 @@ impl GadgetKind {
 
     fn no_enum_prefix(&self) -> bool {
         match self {
+            GadgetKind::Color => false,
             GadgetKind::Font => true,
             GadgetKind::Icon => false,
             GadgetKind::Margins => false,
