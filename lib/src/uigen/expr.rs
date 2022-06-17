@@ -1,5 +1,5 @@
 use super::context::BuildDocContext;
-use super::gadget::{Gadget, GadgetKind};
+use super::gadget::{Gadget, GadgetKind, PaletteColorGroup};
 use super::property::{self, WithNode};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
@@ -63,6 +63,9 @@ impl<'t> PropertyValue<'t> {
                     if let Some(kind) = GadgetKind::from_class(cls) {
                         let v = Gadget::new(kind, properties_map, diagnostics);
                         Some(PropertyValue::Serializable(Value::Gadget(v)))
+                    } else if cls.name() == "QPaletteColorGroup" {
+                        let v = PaletteColorGroup::new(properties_map, diagnostics);
+                        Some(PropertyValue::Serializable(Value::PaletteColorGroup(v)))
                     } else {
                         diagnostics.push(Diagnostic::error(
                             n.byte_range(),
@@ -93,7 +96,10 @@ impl<'t> PropertyValue<'t> {
 #[derive(Clone, Debug)]
 pub enum Value {
     Simple(SimpleValue),
+    /// Generic structured value.
     Gadget(Gadget),
+    /// Map of palette color roles created per color group.
+    PaletteColorGroup(PaletteColorGroup),
 }
 
 impl Value {
@@ -106,6 +112,7 @@ impl Value {
         match self {
             Simple(x) => x.serialize_to_xml(writer),
             Gadget(x) => x.serialize_to_xml(writer),
+            PaletteColorGroup(x) => x.serialize_to_xml(writer),
         }
     }
 
@@ -122,6 +129,7 @@ impl Value {
         match self {
             Simple(x) => x.serialize_to_xml_as(writer, tag_name),
             Gadget(x) => x.serialize_to_xml_as(writer, tag_name),
+            PaletteColorGroup(x) => x.serialize_to_xml_as(writer, tag_name),
         }
     }
 

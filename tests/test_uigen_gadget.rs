@@ -153,6 +153,102 @@ fn test_icon_state_pixmaps() {
 }
 
 #[test]
+fn test_palette_color_group() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QWidget {
+        palette.active { window: "black"; windowText: "white" }
+    }
+    "###).unwrap(), @r###"
+    <ui version="4.0">
+     <widget class="QWidget">
+      <property name="palette">
+       <palette>
+        <active>
+         <colorrole role="Window">
+          <brush brushstyle="SolidPattern">
+           <color alpha="255">
+            <blue>0</blue>
+            <green>0</green>
+            <red>0</red>
+           </color>
+          </brush>
+         </colorrole>
+         <colorrole role="WindowText">
+          <brush brushstyle="SolidPattern">
+           <color alpha="255">
+            <blue>255</blue>
+            <green>255</green>
+            <red>255</red>
+           </color>
+          </brush>
+         </colorrole>
+        </active>
+        <disabled>
+        </disabled>
+        <inactive>
+        </inactive>
+       </palette>
+      </property>
+     </widget>
+    </ui>
+    "###);
+}
+
+#[test]
+fn test_palette_default_role() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QWidget {
+        palette.window: "black"
+        palette.disabled.window: "gray"
+    }
+    "###).unwrap(), @r###"
+    <ui version="4.0">
+     <widget class="QWidget">
+      <property name="palette">
+       <palette>
+        <active>
+         <colorrole role="Window">
+          <brush brushstyle="SolidPattern">
+           <color alpha="255">
+            <blue>0</blue>
+            <green>0</green>
+            <red>0</red>
+           </color>
+          </brush>
+         </colorrole>
+        </active>
+        <disabled>
+         <colorrole role="Window">
+          <brush brushstyle="SolidPattern">
+           <color alpha="255">
+            <blue>128</blue>
+            <green>128</green>
+            <red>128</red>
+           </color>
+          </brush>
+         </colorrole>
+        </disabled>
+        <inactive>
+         <colorrole role="Window">
+          <brush brushstyle="SolidPattern">
+           <color alpha="255">
+            <blue>0</blue>
+            <green>0</green>
+            <red>0</red>
+           </color>
+          </brush>
+         </colorrole>
+        </inactive>
+       </palette>
+      </property>
+     </widget>
+    </ui>
+    "###);
+}
+
+#[test]
 fn test_pixmap() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets

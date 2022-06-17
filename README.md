@@ -105,7 +105,6 @@ https://docs.rs/env_logger/latest/env_logger/
 Major TODOs
 -----------
 
-- [ ] Support more gadget types: QPalette, ...
 - [ ] Load type stubs from qmldir/plugins.qmltypes instead of metatypes.json
 - [ ] Better type resolution, namespace support
 - [ ] Build integration (maybe cmake?)

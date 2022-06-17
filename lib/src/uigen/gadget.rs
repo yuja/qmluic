@@ -27,6 +27,7 @@ impl Gadget {
         let (attributes, properties) = match kind {
             GadgetKind::Brush => make_brush_properties(properties_map, diagnostics),
             GadgetKind::Icon => make_icon_properties(properties_map, diagnostics),
+            GadgetKind::Palette => make_palette_properties(properties_map, diagnostics),
             GadgetKind::SizePolicy => make_size_policy_properties(properties_map, diagnostics),
             _ => (
                 HashMap::new(),
@@ -121,6 +122,7 @@ pub enum GadgetKind {
     Font,
     Icon,
     Margins,
+    Palette,
     Rect,
     Size,
     SizePolicy,
@@ -134,6 +136,7 @@ impl GadgetKind {
             "QFont" => Some(GadgetKind::Font),
             "QIcon" => Some(GadgetKind::Icon),
             "QMargins" => Some(GadgetKind::Margins),
+            "QPalette" => Some(GadgetKind::Palette),
             "QRect" => Some(GadgetKind::Rect),
             "QSize" => Some(GadgetKind::Size),
             "QSizePolicy" => Some(GadgetKind::SizePolicy),
@@ -148,6 +151,7 @@ impl GadgetKind {
             GadgetKind::Font => "font",
             GadgetKind::Icon => "iconset",
             GadgetKind::Margins => "margins", // not supported by uic
+            GadgetKind::Palette => "palette",
             GadgetKind::Rect => "rect",
             GadgetKind::Size => "size",
             GadgetKind::SizePolicy => "sizepolicy",
@@ -161,6 +165,7 @@ impl GadgetKind {
             GadgetKind::Font => true,
             GadgetKind::Icon => false,
             GadgetKind::Margins => false,
+            GadgetKind::Palette => false,
             GadgetKind::Rect => false,
             GadgetKind::Size => false,
             GadgetKind::SizePolicy => true,
@@ -197,6 +202,40 @@ fn make_icon_properties(
     }
 
     let properties = property::make_serializable_properties(properties_map, diagnostics);
+    (attributes, properties)
+}
+
+fn make_palette_properties(
+    properties_map: PropertiesMap,
+    diagnostics: &mut Diagnostics,
+) -> (HashMap<String, SimpleValue>, HashMap<String, Value>) {
+    let mut color_groups = HashMap::from([
+        ("active".to_owned(), PaletteColorGroup::default()),
+        ("inactive".to_owned(), PaletteColorGroup::default()),
+        ("disabled".to_owned(), PaletteColorGroup::default()),
+    ]);
+    let mut default_roles = Vec::new();
+    for (k, v) in properties_map {
+        match diagnostics.consume_err(v.into_serializable()) {
+            Some(Value::PaletteColorGroup(g)) => {
+                color_groups.insert(k, g);
+            }
+            Some(x) => {
+                default_roles.push((uppercase_first_char(&k), x));
+            }
+            None => {}
+        }
+    }
+
+    for g in color_groups.values_mut() {
+        g.merge_default_roles(&default_roles);
+    }
+
+    let attributes = HashMap::new();
+    let properties = color_groups
+        .into_iter()
+        .map(|(k, g)| (k, Value::PaletteColorGroup(g)))
+        .collect();
     (attributes, properties)
 }
 
@@ -247,4 +286,70 @@ fn make_size_policy_properties(
     }
 
     (attributes, properties)
+}
+
+/// Map of palette color role to brush.
+#[derive(Clone, Debug, Default)]
+pub struct PaletteColorGroup {
+    pub roles: HashMap<String, Value>,
+}
+
+impl PaletteColorGroup {
+    pub(super) fn new(properties_map: PropertiesMap, diagnostics: &mut Diagnostics) -> Self {
+        let roles = properties_map
+            .into_iter()
+            .filter_map(|(k, v)| {
+                diagnostics
+                    .consume_err(v.into_serializable())
+                    .map(|v| (uppercase_first_char(&k), v))
+            })
+            .collect();
+        PaletteColorGroup { roles }
+    }
+
+    pub(super) fn merge_default_roles(&mut self, default_roles: &[(String, Value)]) {
+        for (k, v) in default_roles {
+            self.roles.entry(k.to_owned()).or_insert_with(|| v.clone());
+        }
+    }
+
+    pub(super) fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    where
+        W: io::Write,
+    {
+        self.serialize_to_xml_as(writer, "colorgroup") // not supported by uic
+    }
+
+    pub(super) fn serialize_to_xml_as<W, T>(
+        &self,
+        writer: &mut XmlWriter<W>,
+        tag_name: T,
+    ) -> XmlResult<()>
+    where
+        W: io::Write,
+        T: AsRef<[u8]>,
+    {
+        let group_tag = BytesStart::borrowed_name(tag_name.as_ref());
+        writer.write_event(Event::Start(group_tag.to_borrowed()))?;
+
+        for (k, v) in self.roles.iter().sorted_by_key(|&(k, _)| k) {
+            let tag =
+                BytesStart::borrowed_name(b"colorrole").with_attributes([("role", k.as_ref())]);
+            writer.write_event(Event::Start(tag.to_borrowed()))?;
+            v.serialize_to_xml(writer)?;
+            writer.write_event(Event::End(tag.to_end()))?;
+        }
+
+        writer.write_event(Event::End(group_tag.to_end()))
+    }
+}
+
+fn uppercase_first_char(name: &str) -> String {
+    let mut chars = name.chars();
+    let mut upper_name = String::new();
+    if let Some(c) = chars.next() {
+        upper_name.push(c.to_ascii_uppercase());
+        upper_name.extend(chars);
+    }
+    upper_name
 }
