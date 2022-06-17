@@ -33,8 +33,9 @@ impl<'t> PropertyValue<'t> {
     ) -> Option<Self> {
         match binding_value {
             UiBindingValue::Node(n) => match ty {
-                TypeKind::Just(t) => parse_as_value_type(ctx, t, *n, diagnostics)
-                    .map(|v| PropertyValue::Serializable(Value::Simple(v))),
+                TypeKind::Just(t) => {
+                    parse_as_value_type(ctx, t, *n, diagnostics).map(PropertyValue::Serializable)
+                }
                 TypeKind::Pointer(NamedType::Class(cls)) => {
                     parse_object_reference(ctx, cls, *n, diagnostics)
                         .map(|v| PropertyValue::Serializable(Value::Simple(v)))
@@ -228,15 +229,15 @@ fn parse_as_value_type(
     ty: &NamedType,
     node: Node,
     diagnostics: &mut Diagnostics,
-) -> Option<SimpleValue> {
+) -> Option<Value> {
     match ty {
         NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.cursor) => {
             let (res_t, res_expr) = format_expression(ctx, node, diagnostics)?;
             match &res_t {
                 TypeDesc::Enum(res_en) if is_compatible_enum(res_en, &ctx.classes.cursor_shape) => {
-                    Some(SimpleValue::CursorShape(
+                    Some(Value::Simple(SimpleValue::CursorShape(
                         strip_enum_prefix(&res_expr).to_owned(),
-                    ))
+                    )))
                 }
                 _ => {
                     diagnostics.push(Diagnostic::error(
@@ -259,9 +260,9 @@ fn parse_as_value_type(
             match &res_t {
                 TypeDesc::Enum(res_en) if is_compatible_enum(res_en, standard_key_en) => {
                     if standard_key_en.is_flag() {
-                        Some(SimpleValue::Set(res_expr))
+                        Some(Value::Simple(SimpleValue::Set(res_expr)))
                     } else {
-                        Some(SimpleValue::Enum(res_expr))
+                        Some(Value::Simple(SimpleValue::Enum(res_expr)))
                     }
                 }
                 TypeDesc::String => {
@@ -285,7 +286,7 @@ fn parse_as_value_type(
         NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.pixmap) => {
             let res = evaluate_expression(ctx, node, diagnostics)?;
             match res {
-                EvaluatedValue::String(s) => Some(SimpleValue::Pixmap(s)),
+                EvaluatedValue::String(s) => Some(Value::Simple(SimpleValue::Pixmap(s))),
                 _ => {
                     diagnostics.push(Diagnostic::error(
                         node.byte_range(),
@@ -304,9 +305,9 @@ fn parse_as_value_type(
             match &res_t {
                 TypeDesc::Enum(res_en) if is_compatible_enum(res_en, en) => {
                     if en.is_flag() {
-                        Some(SimpleValue::Set(res_expr))
+                        Some(Value::Simple(SimpleValue::Set(res_expr)))
                     } else {
-                        Some(SimpleValue::Enum(res_expr))
+                        Some(Value::Simple(SimpleValue::Enum(res_expr)))
                     }
                 }
                 _ => {
@@ -335,12 +336,13 @@ fn parse_as_value_type(
                 ));
                 return None;
             }
-            match res {
-                EvaluatedValue::Bool(v) => Some(SimpleValue::Bool(v)),
-                EvaluatedValue::Number(v) => Some(SimpleValue::Number(v)),
-                EvaluatedValue::String(s) => Some(SimpleValue::String { s, tr: false }),
-                EvaluatedValue::TrString(s) => Some(SimpleValue::String { s, tr: true }),
-            }
+            let v = match res {
+                EvaluatedValue::Bool(v) => SimpleValue::Bool(v),
+                EvaluatedValue::Number(v) => SimpleValue::Number(v),
+                EvaluatedValue::String(s) => SimpleValue::String { s, tr: false },
+                EvaluatedValue::TrString(s) => SimpleValue::String { s, tr: true },
+            };
+            Some(Value::Simple(v))
         }
         NamedType::Class(_) | NamedType::QmlComponent(_) => {
             diagnostics.push(Diagnostic::error(
