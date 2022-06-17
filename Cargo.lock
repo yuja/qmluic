@@ -563,6 +563,7 @@ dependencies = [
  "camino",
  "itertools",
  "log",
+ "once_cell",
  "quick-xml",
  "serde",
  "serde_json",
