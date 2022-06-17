@@ -316,6 +316,51 @@ pub fn internal_gui_classes() -> impl IntoIterator<Item = Class> {
             ..Default::default()
         },
         Class {
+            class_name: "QPalette".to_owned(),
+            qualified_class_name: "QPalette".to_owned(),
+            super_classes: vec![SuperClassSpecifier::public("QPaletteColorGroup")],
+            class_infos: vec![ClassInfo::new("QML.Element", "auto")],
+            gadget: true, // mark as "uncreatable" object in .qmltypes
+            properties: vec![
+                // modeled after QQuickPalette
+                Property::new("active", "QPaletteColorGroup"),
+                Property::new("disabled", "QPaletteColorGroup"),
+                Property::new("inactive", "QPaletteColorGroup"),
+            ],
+            ..Default::default()
+        },
+        Class {
+            class_name: "QPaletteColorGroup".to_owned(),
+            qualified_class_name: "QPaletteColorGroup".to_owned(),
+            class_infos: vec![ClassInfo::new("QML.Element", "auto")],
+            gadget: true, // mark as "uncreatable" object in .qmltypes
+            properties: vec![
+                // modeled after QQuickColorGroup
+                Property::new("active", "QBrush"),
+                Property::new("alternateBase", "QBrush"),
+                Property::new("base", "QBrush"),
+                Property::new("brightText", "QBrush"),
+                Property::new("button", "QBrush"),
+                Property::new("buttonText", "QBrush"),
+                Property::new("dark", "QBrush"),
+                Property::new("highlight", "QBrush"),
+                Property::new("highlightedText", "QBrush"),
+                Property::new("light", "QBrush"),
+                Property::new("link", "QBrush"),
+                Property::new("linkVisited", "QBrush"),
+                Property::new("mid", "QBrush"),
+                Property::new("midlight", "QBrush"),
+                Property::new("placeholderText", "QBrush"),
+                Property::new("shadow", "QBrush"),
+                Property::new("text", "QBrush"),
+                Property::new("toolTipBase", "QBrush"),
+                Property::new("toolTipText", "QBrush"),
+                Property::new("window", "QBrush"),
+                Property::new("windowText", "QBrush"),
+            ],
+            ..Default::default()
+        },
+        Class {
             class_name: "QPixmap".to_owned(),
             qualified_class_name: "QPixmap".to_owned(),
             ..Default::default()

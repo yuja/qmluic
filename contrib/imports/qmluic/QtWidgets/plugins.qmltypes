@@ -4204,6 +4204,43 @@ Module {
         Signal { name: "resized" }
     }
     Component {
+        name: "QPalette"
+        prototype: "QPaletteColorGroup"
+        exports: ["qmluic.QtWidgets/QPalette 5.0"]
+        isCreatable: false
+        exportMetaObjectRevisions: [0]
+        Property { name: "active"; type: "QPaletteColorGroup"; isReadonly: true }
+        Property { name: "disabled"; type: "QPaletteColorGroup"; isReadonly: true }
+        Property { name: "inactive"; type: "QPaletteColorGroup"; isReadonly: true }
+    }
+    Component {
+        name: "QPaletteColorGroup"
+        exports: ["qmluic.QtWidgets/QPaletteColorGroup 5.0"]
+        isCreatable: false
+        exportMetaObjectRevisions: [0]
+        Property { name: "active"; type: "QBrush"; isReadonly: true }
+        Property { name: "alternateBase"; type: "QBrush"; isReadonly: true }
+        Property { name: "base"; type: "QBrush"; isReadonly: true }
+        Property { name: "brightText"; type: "QBrush"; isReadonly: true }
+        Property { name: "button"; type: "QBrush"; isReadonly: true }
+        Property { name: "buttonText"; type: "QBrush"; isReadonly: true }
+        Property { name: "dark"; type: "QBrush"; isReadonly: true }
+        Property { name: "highlight"; type: "QBrush"; isReadonly: true }
+        Property { name: "highlightedText"; type: "QBrush"; isReadonly: true }
+        Property { name: "light"; type: "QBrush"; isReadonly: true }
+        Property { name: "link"; type: "QBrush"; isReadonly: true }
+        Property { name: "linkVisited"; type: "QBrush"; isReadonly: true }
+        Property { name: "mid"; type: "QBrush"; isReadonly: true }
+        Property { name: "midlight"; type: "QBrush"; isReadonly: true }
+        Property { name: "placeholderText"; type: "QBrush"; isReadonly: true }
+        Property { name: "shadow"; type: "QBrush"; isReadonly: true }
+        Property { name: "text"; type: "QBrush"; isReadonly: true }
+        Property { name: "toolTipBase"; type: "QBrush"; isReadonly: true }
+        Property { name: "toolTipText"; type: "QBrush"; isReadonly: true }
+        Property { name: "window"; type: "QBrush"; isReadonly: true }
+        Property { name: "windowText"; type: "QBrush"; isReadonly: true }
+    }
+    Component {
         file: "qgesture.h"
         name: "QPanGesture"
         prototype: "QGesture"
