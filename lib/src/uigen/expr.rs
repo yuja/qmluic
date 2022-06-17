@@ -161,14 +161,7 @@ impl SimpleValue {
     ) -> Option<Self> {
         match ty {
             NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.cursor) => {
-                let (res_t, res_expr, _) = typedexpr::walk(
-                    &ctx.type_space,
-                    &ctx.object_tree,
-                    node,
-                    ctx.source,
-                    &ExpressionFormatter,
-                    diagnostics,
-                )?;
+                let (res_t, res_expr) = format_expression(ctx, node, diagnostics)?;
                 match &res_t {
                     TypeDesc::Enum(res_en)
                         if is_compatible_enum(res_en, &ctx.classes.cursor_shape) =>
@@ -192,14 +185,7 @@ impl SimpleValue {
             }
             NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.key_sequence) => {
                 // ExpressionFormatter can handle both enum and string literals, so try it first.
-                let (res_t, res_expr, _) = typedexpr::walk(
-                    &ctx.type_space,
-                    &ctx.object_tree,
-                    node,
-                    ctx.source,
-                    &ExpressionFormatter,
-                    diagnostics,
-                )?;
+                let (res_t, res_expr) = format_expression(ctx, node, diagnostics)?;
                 let standard_key_en = &ctx.classes.key_sequence_standard_key;
                 let string_ty = NamedType::Primitive(PrimitiveType::QString);
                 match &res_t {
@@ -229,14 +215,7 @@ impl SimpleValue {
                 }
             }
             NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.pixmap) => {
-                let res = typedexpr::walk(
-                    &ctx.type_space,
-                    &ctx.object_tree,
-                    node,
-                    ctx.source,
-                    &ExpressionEvaluator,
-                    diagnostics,
-                )?;
+                let res = evaluate_expression(ctx, node, diagnostics)?;
                 match res {
                     EvaluatedValue::String(s) => Some(SimpleValue::Pixmap(s)),
                     _ => {
@@ -253,14 +232,7 @@ impl SimpleValue {
                 }
             }
             NamedType::Enum(en) => {
-                let (res_t, res_expr, _) = typedexpr::walk(
-                    &ctx.type_space,
-                    &ctx.object_tree,
-                    node,
-                    ctx.source,
-                    &ExpressionFormatter,
-                    diagnostics,
-                )?;
+                let (res_t, res_expr) = format_expression(ctx, node, diagnostics)?;
                 match &res_t {
                     TypeDesc::Enum(res_en) if is_compatible_enum(res_en, en) => {
                         if en.is_flag() {
@@ -283,14 +255,7 @@ impl SimpleValue {
                 }
             }
             NamedType::Primitive(p) => {
-                let res = typedexpr::walk(
-                    &ctx.type_space,
-                    &ctx.object_tree,
-                    node,
-                    ctx.source,
-                    &ExpressionEvaluator,
-                    diagnostics,
-                )?;
+                let res = evaluate_expression(ctx, node, diagnostics)?;
                 if !describe_primitive_type(*p).map_or(false, |t| res.type_desc() == t) {
                     diagnostics.push(Diagnostic::error(
                         node.byte_range(),
@@ -401,6 +366,37 @@ impl fmt::Display for SimpleValue {
             }
         }
     }
+}
+
+fn evaluate_expression(
+    ctx: &BuildDocContext,
+    node: Node,
+    diagnostics: &mut Diagnostics,
+) -> Option<EvaluatedValue> {
+    typedexpr::walk(
+        &ctx.type_space,
+        &ctx.object_tree,
+        node,
+        ctx.source,
+        &ExpressionEvaluator,
+        diagnostics,
+    )
+}
+
+fn format_expression<'a>(
+    ctx: &BuildDocContext<'a, '_, '_>,
+    node: Node,
+    diagnostics: &mut Diagnostics,
+) -> Option<(TypeDesc<'a>, String)> {
+    typedexpr::walk(
+        &ctx.type_space,
+        &ctx.object_tree,
+        node,
+        ctx.source,
+        &ExpressionFormatter,
+        diagnostics,
+    )
+    .map(|(t, expr, _)| (t, expr))
 }
 
 fn parse_object_reference(
