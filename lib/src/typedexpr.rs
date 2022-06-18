@@ -16,6 +16,7 @@ pub enum TypeDesc<'a> {
     Enum(Enum<'a>),
     ObjectRef(Class<'a>),
     ObjectRefList(Class<'a>),
+    StringList,
     EmptyList,
 }
 
@@ -28,6 +29,7 @@ impl TypeDesc<'_> {
             TypeDesc::Enum(en) => en.qualified_cxx_name(),
             TypeDesc::ObjectRef(cls) => cls.qualified_cxx_name(),
             TypeDesc::ObjectRefList(cls) => format!("list<{}>", cls.qualified_cxx_name()).into(),
+            TypeDesc::StringList => "list<string>".into(),
             TypeDesc::EmptyList => "list".into(),
         }
     }

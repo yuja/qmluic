@@ -372,6 +372,9 @@ fn parse_as_value_type(
                 EvaluatedValue::Bool(v) => SimpleValue::Bool(v),
                 EvaluatedValue::Number(v) => SimpleValue::Number(v),
                 EvaluatedValue::String(s, k) => SimpleValue::String(s, k),
+                EvaluatedValue::StringList(_) | EvaluatedValue::EmptyList => {
+                    unreachable!("primitive type should never be a list type")
+                }
             };
             Some(Value::Simple(v))
         }
@@ -580,6 +583,8 @@ enum EvaluatedValue {
     Bool(bool),
     Number(f64),
     String(String, StringKind),
+    StringList(Vec<(String, StringKind)>),
+    EmptyList,
 }
 
 impl DescribeType<'_> for EvaluatedValue {
@@ -588,6 +593,8 @@ impl DescribeType<'_> for EvaluatedValue {
             EvaluatedValue::Bool(_) => TypeDesc::Bool,
             EvaluatedValue::Number(_) => TypeDesc::Number,
             EvaluatedValue::String(..) => TypeDesc::String,
+            EvaluatedValue::StringList(_) => TypeDesc::StringList,
+            EvaluatedValue::EmptyList => TypeDesc::EmptyList,
         }
     }
 }
@@ -612,8 +619,22 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
         Err(ExpressionError::UnsupportedLiteral("enum")) // enum value is unknown
     }
 
-    fn visit_array(&self, _elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedLiteral("array"))
+    fn visit_array(&self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
+        match elements.first() {
+            Some(EvaluatedValue::String(..)) => elements
+                .into_iter()
+                .map(|x| match x {
+                    EvaluatedValue::String(s, k) => Ok((s, k)),
+                    _ => Err(ExpressionError::CannotDeduceType(
+                        "string".to_owned(),
+                        x.type_desc().qualified_name().into(),
+                    )),
+                })
+                .collect::<Result<_, _>>()
+                .map(EvaluatedValue::StringList),
+            Some(_) => Err(ExpressionError::UnsupportedLiteral("non-string array")),
+            None => Ok(EvaluatedValue::EmptyList),
+        }
     }
 
     fn visit_object_ref(&self, _cls: Class<'a>, _name: &str) -> Result<Self::Item, Self::Error> {
@@ -670,6 +691,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
             EvaluatedValue::String(_, StringKind::Tr) => {
                 Err(ExpressionError::CannotEvaluateAsConstant)
             }
+            EvaluatedValue::StringList(_) | EvaluatedValue::EmptyList => Err(type_error()),
         }
     }
 
@@ -812,6 +834,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
     }
 
     fn visit_array(&self, _elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
+        // TODO: handle string/object-ref list
         Err(ExpressionError::UnsupportedLiteral("array"))
     }
 
@@ -876,9 +899,10 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
                 Minus | Plus => Err(type_error()),
                 Typeof | Void | Delete => Err(type_error()),
             },
-            TypeDesc::ObjectRef(_) | TypeDesc::ObjectRefList(_) | TypeDesc::EmptyList => {
-                Err(type_error())
-            }
+            TypeDesc::ObjectRef(_)
+            | TypeDesc::ObjectRefList(_)
+            | TypeDesc::StringList
+            | TypeDesc::EmptyList => Err(type_error()),
         }
     }
 
