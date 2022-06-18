@@ -481,6 +481,7 @@ Module {
         Property { name: "textElideMode"; type: "Qt::TextElideMode" }
         Property { name: "verticalScrollMode"; type: "ScrollMode" }
         Property { name: "horizontalScrollMode"; type: "ScrollMode" }
+        Property { name: "model"; type: "QAbstractItemModel"; isReadonly: true; isPointer: true }
         Signal {
             name: "pressed"
             Parameter { name: "index"; type: "QModelIndex" }
@@ -1482,6 +1483,7 @@ Module {
         Property { name: "duplicatesEnabled"; type: "bool" }
         Property { name: "frame"; type: "bool" }
         Property { name: "modelColumn"; type: "int" }
+        Property { name: "model"; type: "QAbstractItemModel"; isReadonly: true; isPointer: true }
         Signal {
             name: "editTextChanged"
             Parameter { type: "string" }

@@ -17,7 +17,9 @@ pub fn apply_all(classes: &mut Vec<Class>) {
 pub fn fix_classes(classes: &mut [Class]) {
     for cls in classes.iter_mut() {
         match cls.qualified_class_name.as_ref() {
+            "QAbstractItemView" => fix_abstract_item_view(cls),
             "QAction" => fix_action(cls),
+            "QComboBox" => fix_combo_box(cls),
             "QFont" => fix_font(cls),
             "QGridLayout" => fix_grid_layout(cls),
             "QLabel" => fix_label(cls),
@@ -34,9 +36,23 @@ pub fn fix_classes(classes: &mut [Class]) {
     }
 }
 
+fn fix_abstract_item_view(cls: &mut Class) {
+    cls.properties.extend([
+        // handled by uigen
+        Property::new("model", "QAbstractItemModel*"),
+    ])
+}
+
 fn fix_action(cls: &mut Class) {
     cls.super_classes
         .push(SuperClassSpecifier::public(PSEUDO_ACTION_BASE_NAME));
+}
+
+fn fix_combo_box(cls: &mut Class) {
+    cls.properties.extend([
+        // handled by uigen
+        Property::new("model", "QAbstractItemModel*"),
+    ])
 }
 
 fn fix_font(cls: &mut Class) {
