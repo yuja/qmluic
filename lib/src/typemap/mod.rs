@@ -44,7 +44,13 @@ impl TypeMap {
         use PrimitiveType::*;
 
         let builtins = ModuleData::with_namespace(NamespaceData::with_primitive_types(&[
-            Bool, Int, QReal, QString, UInt, Void,
+            Bool,
+            Int,
+            QReal,
+            QString,
+            QStringList,
+            UInt,
+            Void,
         ]));
 
         TypeMap {
@@ -223,6 +229,7 @@ pub enum PrimitiveType {
     Int,
     QReal,
     QString,
+    QStringList,
     UInt,
     Void,
     // TODO: ...
@@ -236,6 +243,7 @@ impl PrimitiveType {
             Int => "int",
             QReal => "qreal",
             QString => "QString",
+            QStringList => "QStringList",
             UInt => "uint",
             Void => "void",
         }

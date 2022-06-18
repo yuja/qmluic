@@ -100,6 +100,8 @@ pub enum Value {
     Gadget(Gadget),
     /// Map of palette color roles created per color group.
     PaletteColorGroup(PaletteColorGroup),
+    /// List of strings.
+    StringList(Vec<String>, StringKind),
 }
 
 impl Value {
@@ -113,6 +115,7 @@ impl Value {
             Simple(x) => x.serialize_to_xml(writer),
             Gadget(x) => x.serialize_to_xml(writer),
             PaletteColorGroup(x) => x.serialize_to_xml(writer),
+            StringList(x, k) => serialize_string_list_to_xml(writer, "stringlist", x, *k),
         }
     }
 
@@ -130,6 +133,7 @@ impl Value {
             Simple(x) => x.serialize_to_xml_as(writer, tag_name),
             Gadget(x) => x.serialize_to_xml_as(writer, tag_name),
             PaletteColorGroup(x) => x.serialize_to_xml_as(writer, tag_name),
+            StringList(x, k) => serialize_string_list_to_xml(writer, tag_name, x, *k),
         }
     }
 
@@ -240,6 +244,27 @@ pub enum StringKind {
     NoTr,
     /// String wrapped with `qsTr()`.
     Tr,
+}
+
+fn serialize_string_list_to_xml<W, T>(
+    writer: &mut XmlWriter<W>,
+    tag_name: T,
+    strings: &[String],
+    kind: StringKind,
+) -> XmlResult<()>
+where
+    W: io::Write,
+    T: AsRef<[u8]>,
+{
+    let mut tag = BytesStart::borrowed_name(tag_name.as_ref());
+    if kind == StringKind::NoTr {
+        tag.push_attribute(("notr", "true"));
+    }
+    writer.write_event(Event::Start(tag.to_borrowed()))?;
+    for s in strings {
+        xmlutil::write_tagged_str(writer, "string", s)?;
+    }
+    writer.write_event(Event::End(tag.to_end()))
 }
 
 fn parse_as_value_type(
@@ -368,14 +393,29 @@ fn parse_as_value_type(
                 (PrimitiveType::QString, EvaluatedValue::String(s, k)) => {
                     Some(Value::Simple(SimpleValue::String(s, k)))
                 }
-                (_, EvaluatedValue::StringList(_) | EvaluatedValue::EmptyList) => {
-                    unreachable!("primitive type should never be a list type")
+                (PrimitiveType::QStringList, EvaluatedValue::StringList(xs)) => {
+                    // unfortunately, notr attribute is list level
+                    let kind = xs.first().map(|(_, k)| *k).unwrap_or(StringKind::NoTr);
+                    if xs.iter().all(|(_, k)| *k == kind) {
+                        let ss = xs.into_iter().map(|(s, _)| s).collect();
+                        Some(Value::StringList(ss, kind))
+                    } else {
+                        diagnostics.push(Diagnostic::error(
+                            node.byte_range(),
+                            "cannot mix bare and translatable strings",
+                        ));
+                        None
+                    }
+                }
+                (PrimitiveType::QStringList, EvaluatedValue::EmptyList) => {
+                    Some(Value::StringList(vec![], StringKind::NoTr))
                 }
                 (
                     PrimitiveType::Bool
                     | PrimitiveType::Int
                     | PrimitiveType::QReal
                     | PrimitiveType::QString
+                    | PrimitiveType::QStringList
                     | PrimitiveType::UInt
                     | PrimitiveType::Void,
                     res,

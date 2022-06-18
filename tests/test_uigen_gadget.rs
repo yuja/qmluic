@@ -273,3 +273,66 @@ fn test_unpaired_size_policy() {
     }
     "###).unwrap_err(), @"<unknown>:3:5: error: both horizontal and vertical policies must be specified");
 }
+
+#[test]
+fn test_string_list_tr() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QTextBrowser { searchPaths: [qsTr("a"), qsTr("b")] }
+    "###).unwrap(), @r###"
+    <ui version="4.0">
+     <widget class="QTextBrowser">
+      <property name="searchPaths">
+       <stringlist>
+        <string>a</string>
+        <string>b</string>
+       </stringlist>
+      </property>
+     </widget>
+    </ui>
+    "###);
+}
+
+#[test]
+fn test_string_list_notr() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QTextBrowser { searchPaths: ["a", "b"] }
+    "###).unwrap(), @r###"
+    <ui version="4.0">
+     <widget class="QTextBrowser">
+      <property name="searchPaths">
+       <stringlist notr="true">
+        <string>a</string>
+        <string>b</string>
+       </stringlist>
+      </property>
+     </widget>
+    </ui>
+    "###);
+}
+
+#[test]
+fn test_string_list_empty() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QTextBrowser { searchPaths: [] }
+    "###).unwrap(), @r###"
+    <ui version="4.0">
+     <widget class="QTextBrowser">
+      <property name="searchPaths">
+       <stringlist notr="true">
+       </stringlist>
+      </property>
+     </widget>
+    </ui>
+    "###);
+}
+
+#[test]
+fn test_string_list_mixed() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QTextBrowser { searchPaths: [qsTr("a"), "b"] }
+    "###).unwrap_err(), @"<unknown>:2:29: error: cannot mix bare and translatable strings");
+}
