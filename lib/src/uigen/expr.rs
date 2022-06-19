@@ -1,6 +1,6 @@
 use super::context::BuildDocContext;
 use super::gadget::{Gadget, GadgetKind, ModelItem, PaletteColorGroup};
-use super::property::{self, WithNode};
+use super::property::{self, PropertiesMap};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
 use crate::color::Color;
@@ -23,7 +23,7 @@ pub(super) enum PropertyValue<'t> {
     /// List of identifiers referencing the objects.
     ObjectRefList(Vec<String>),
     /// Map of properties assigned to object pointer property.
-    ObjectProperties(HashMap<String, WithNode<'t, PropertyValue<'t>>>),
+    ObjectProperties(PropertiesMap<'t>),
 }
 
 impl<'t> PropertyValue<'t> {
