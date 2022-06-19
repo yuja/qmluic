@@ -17,16 +17,36 @@ set(QML_IMPORT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/imports CACHE STRING 
 find_package(Qt5 5.15 REQUIRED COMPONENTS Widgets)
 
 add_executable(qmluic-examples
+  itemviews.cpp
+  itemviews.h
+  itemviews.ui
+  layoutflow.cpp
+  layoutflow.h
+  layoutflow.ui
   main.cpp
   mainwindow.cpp
   mainwindow.h
   mainwindow.ui
+  settingsdialog.cpp
+  settingsdialog.h
+  settingsdialog.ui
+  staticitemmodel.cpp
+  staticitemmodel.h
+  staticitemmodel.ui
+  variouslayouts.cpp
+  variouslayouts.h
+  variouslayouts.ui
 )
 
 # Makes .qml files appear in Qt Creator project
 target_sources(qmluic-examples
   PRIVATE
+    ItemViews.qml
+    LayoutFlow.qml
     MainWindow.qml
+    SettingsDialog.qml
+    StaticItemModel.qml
+    VariousLayouts.qml
 )
 
 target_compile_definitions(qmluic-examples
