@@ -1,11 +1,6 @@
 pub mod common;
 
 #[test]
-fn test_gadget_properties() {
-    insta::assert_snapshot!(common::translate_file("examples/GadgetProperties.qml").unwrap());
-}
-
-#[test]
 fn test_item_views() {
     insta::assert_snapshot!(common::translate_file("examples/ItemViews.qml").unwrap());
 }

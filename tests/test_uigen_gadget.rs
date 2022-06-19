@@ -114,6 +114,40 @@ fn test_cursor() {
 }
 
 #[test]
+fn test_font() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QLabel {
+        font.family: "Monospace"
+        font.pointSize: 9
+        font.weight: 75
+        font.italic: false
+        font.bold: true
+        font.strikeout: true
+        font.styleStrategy: QFont.PreferDefault
+        font.kerning: true
+    }
+    "###).unwrap(), @r###"
+    <ui version="4.0">
+     <widget class="QLabel">
+      <property name="font">
+       <font>
+        <bold>true</bold>
+        <family notr="true">Monospace</family>
+        <italic>false</italic>
+        <kerning>true</kerning>
+        <pointsize>9</pointsize>
+        <strikeout>true</strikeout>
+        <stylestrategy>PreferDefault</stylestrategy>
+        <weight>75</weight>
+       </font>
+      </property>
+     </widget>
+    </ui>
+    "###);
+}
+
+#[test]
 fn test_icon_themed() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
