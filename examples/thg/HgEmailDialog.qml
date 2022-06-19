@@ -5,8 +5,7 @@
 import qmluic.QtWidgets
 
 QDialog {
-    width: 660
-    height: 520
+    geometry { width: 660; height: 520 }
     windowTitle: qsTr("Email")
     sizeGripEnabled: true
 

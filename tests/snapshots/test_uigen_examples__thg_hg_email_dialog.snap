@@ -5,14 +5,14 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
 <ui version="4.0">
  <class>HgEmailDialog</class>
  <widget class="QDialog">
-  <property name="height" stdset="0">
-   <number>520</number>
+  <property name="geometry">
+   <rect>
+    <height>520</height>
+    <width>660</width>
+   </rect>
   </property>
   <property name="sizeGripEnabled">
    <bool>true</bool>
-  </property>
-  <property name="width" stdset="0">
-   <number>660</number>
   </property>
   <property name="windowTitle">
    <string>Email</string>
