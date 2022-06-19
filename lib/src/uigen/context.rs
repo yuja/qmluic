@@ -25,10 +25,12 @@ pub(super) struct BuildDocContext<'a, 't, 's> {
 /// Classes to be used to switch uigen paths.
 #[derive(Clone, Debug)]
 pub(super) struct KnownClasses<'a> {
+    pub abstract_item_model: Class<'a>,
     pub action: Class<'a>,
     pub action_separator: Class<'a>,
     pub brush: Class<'a>,
     pub color: Class<'a>,
+    pub combo_box: Class<'a>,
     pub cursor: Class<'a>,
     pub cursor_shape: Enum<'a>,
     pub form_layout: Class<'a>,
@@ -38,6 +40,7 @@ pub(super) struct KnownClasses<'a> {
     pub key_sequence_standard_key: Enum<'a>,
     pub layout: Class<'a>,
     pub layout_attached: Class<'a>,
+    pub list_widget: Class<'a>,
     pub menu: Class<'a>,
     pub pixmap: Class<'a>,
     pub push_button: Class<'a>,
@@ -76,10 +79,12 @@ impl<'a> BuildContext<'a> {
             }
         };
         let classes = KnownClasses {
+            abstract_item_model: get_class("QAbstractItemModel")?,
             action: get_class("QAction")?,
             action_separator: get_class("QActionSeparator")?,
             brush: get_class("QBrush")?,
             color: get_class("QColor")?,
+            combo_box: get_class("QComboBox")?,
             cursor: get_class("QCursor")?,
             cursor_shape: get_enum("Qt::CursorShape")?,
             form_layout: get_class("QFormLayout")?,
@@ -89,6 +94,7 @@ impl<'a> BuildContext<'a> {
             key_sequence_standard_key: get_enum("QKeySequence::StandardKey")?,
             layout: get_class("QLayout")?,
             layout_attached: get_class("QLayoutAttached")?,
+            list_widget: get_class("QListWidget")?,
             menu: get_class("QMenu")?,
             pixmap: get_class("QPixmap")?,
             push_button: get_class("QPushButton")?,

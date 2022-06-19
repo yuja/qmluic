@@ -1,5 +1,5 @@
 use super::context::BuildDocContext;
-use super::gadget::{Gadget, GadgetKind, PaletteColorGroup};
+use super::gadget::{Gadget, GadgetKind, ModelItem, PaletteColorGroup};
 use super::property::{self, WithNode};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
@@ -18,6 +18,8 @@ use thiserror::Error;
 #[derive(Clone, Debug)]
 pub(super) enum PropertyValue<'t> {
     Serializable(Value),
+    /// List of static QComboBox/QAbstractItemView items.
+    ItemModel(Vec<ModelItem>),
     /// List of identifiers referencing the objects.
     ObjectRefList(Vec<String>),
     /// Map of properties assigned to object pointer property.
@@ -36,6 +38,11 @@ impl<'t> PropertyValue<'t> {
             UiBindingValue::Node(n) => match ty {
                 TypeKind::Just(t) => {
                     parse_as_value_type(ctx, t, *n, diagnostics).map(PropertyValue::Serializable)
+                }
+                TypeKind::Pointer(NamedType::Class(cls))
+                    if cls.is_derived_from(&ctx.classes.abstract_item_model) =>
+                {
+                    parse_item_model(ctx, *n, diagnostics).map(PropertyValue::ItemModel)
                 }
                 TypeKind::Pointer(NamedType::Class(cls)) => {
                     parse_object_reference(ctx, cls, *n, diagnostics)
@@ -506,6 +513,35 @@ fn parse_color_value(
                 node.byte_range(),
                 format!(
                     "evaluated type mismatch (expected: color, actual: {})",
+                    res.type_desc().qualified_name()
+                ),
+            ));
+            None
+        }
+    }
+}
+
+/// Parses string list as a static item model.
+fn parse_item_model(
+    ctx: &BuildDocContext,
+    node: Node,
+    diagnostics: &mut Diagnostics,
+) -> Option<Vec<ModelItem>> {
+    let res = evaluate_expression(ctx, node, diagnostics)?;
+    match res {
+        EvaluatedValue::StringList(xs) => {
+            let items = xs
+                .into_iter()
+                .map(|(s, k)| ModelItem::with_text(s, k))
+                .collect();
+            Some(items)
+        }
+        EvaluatedValue::EmptyList => Some(vec![]),
+        _ => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                format!(
+                    "evaluated type mismatch (expected: list, actual: {})",
                     res.type_desc().qualified_name()
                 ),
             ));

@@ -1,5 +1,6 @@
 use super::context::BuildDocContext;
 use super::expr::{PropertyValue, Value};
+use super::gadget::ModelItem;
 use super::layout::Layout;
 use super::property::{self, PropertiesMap, WithNode};
 use super::{XmlResult, XmlWriter};
@@ -127,6 +128,7 @@ pub struct Widget {
     pub attributes: HashMap<String, Value>,
     pub properties: HashMap<String, Value>,
     pub actions: Vec<String>,
+    pub items: Vec<ModelItem>,
     pub children: Vec<UiObject>,
 }
 
@@ -194,6 +196,28 @@ impl Widget {
             }
             None => collect_action_like_children(ctx, &mut children),
         };
+
+        let items = if class.is_derived_from(&ctx.classes.combo_box)
+            || class.is_derived_from(&ctx.classes.list_widget)
+        {
+            match properties_map.remove("model") {
+                Some(WithNode {
+                    value: PropertyValue::ItemModel(items),
+                    ..
+                }) => items,
+                Some(x) => {
+                    diagnostics.push(Diagnostic::error(
+                        x.node().byte_range(),
+                        "not an item model",
+                    ));
+                    vec![]
+                }
+                None => vec![],
+            }
+        } else {
+            vec![]
+        };
+
         let mut attributes = HashMap::new();
         if class.is_derived_from(&ctx.classes.table_view) {
             flatten_object_properties_into_attributes(
@@ -232,6 +256,7 @@ impl Widget {
             attributes,
             properties,
             actions,
+            items,
             children,
         }
     }
@@ -255,6 +280,10 @@ impl Widget {
             writer.write_event(Event::Empty(
                 BytesStart::borrowed_name(b"addaction").with_attributes([("name", n.as_ref())]),
             ))?;
+        }
+
+        for e in &self.items {
+            e.serialize_to_xml(writer)?;
         }
 
         for c in &self.children {

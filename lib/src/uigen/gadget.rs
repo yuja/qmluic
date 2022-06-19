@@ -1,4 +1,4 @@
-use super::expr::{self, SimpleValue, Value};
+use super::expr::{self, SimpleValue, StringKind, Value};
 use super::property::{self, PropertiesMap};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
@@ -286,6 +286,30 @@ fn make_size_policy_properties(
     }
 
     (attributes, properties)
+}
+
+/// QComboBox/QAbstractItemView item.
+#[derive(Clone, Debug)]
+pub struct ModelItem {
+    pub properties: HashMap<String, Value>,
+}
+
+impl ModelItem {
+    pub(super) fn with_text(s: String, k: StringKind) -> Self {
+        let properties =
+            HashMap::from([("text".to_owned(), Value::Simple(SimpleValue::String(s, k)))]);
+        ModelItem { properties }
+    }
+
+    pub(super) fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    where
+        W: io::Write,
+    {
+        let tag = BytesStart::borrowed_name(b"item");
+        writer.write_event(Event::Start(tag.to_borrowed()))?;
+        property::serialize_properties_to_xml(writer, "property", &self.properties)?;
+        writer.write_event(Event::End(tag.to_end()))
+    }
 }
 
 /// Map of palette color role to brush.
