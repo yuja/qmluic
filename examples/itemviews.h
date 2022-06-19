@@ -3,7 +3,9 @@
 #include <QWidget>
 #include <memory>
 
-namespace Ui { class ItemViews; }
+namespace Ui {
+class ItemViews;
+}
 
 class ItemViews : public QWidget
 {

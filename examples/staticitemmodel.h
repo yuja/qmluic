@@ -3,7 +3,9 @@
 #include <QWidget>
 #include <memory>
 
-namespace Ui { class StaticItemModel; }
+namespace Ui {
+class StaticItemModel;
+}
 
 class StaticItemModel : public QWidget
 {

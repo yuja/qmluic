@@ -2,8 +2,7 @@
 #include "ui_settingsdialog.h"
 
 SettingsDialog::SettingsDialog(QWidget *parent)
-    : QDialog(parent)
-    , ui_(std::make_unique<Ui::SettingsDialog>())
+    : QDialog(parent), ui_(std::make_unique<Ui::SettingsDialog>())
 {
     ui_->setupUi(this);
 }

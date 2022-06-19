@@ -3,7 +3,9 @@
 #include <QWidget>
 #include <memory>
 
-namespace Ui { class LayoutFlow; }
+namespace Ui {
+class LayoutFlow;
+}
 
 class LayoutFlow : public QWidget
 {

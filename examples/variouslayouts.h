@@ -3,7 +3,9 @@
 #include <QWidget>
 #include <memory>
 
-namespace Ui { class VariousLayouts; }
+namespace Ui {
+class VariousLayouts;
+}
 
 class VariousLayouts : public QWidget
 {
