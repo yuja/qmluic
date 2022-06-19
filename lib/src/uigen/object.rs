@@ -2,7 +2,7 @@ use super::context::BuildDocContext;
 use super::expr::{PropertyValue, Value};
 use super::gadget::ModelItem;
 use super::layout::Layout;
-use super::property::{self, PropertiesMap, WithNode};
+use super::property::{self, PropertiesMap, PropertySetter, WithNode};
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectNode;
@@ -41,6 +41,7 @@ impl UiObject {
         if cls.is_derived_from(&ctx.classes.action) {
             confine_children(obj_node, diagnostics);
             UiObject::Action(Action::new(
+                cls,
                 obj_node
                     .obj()
                     .object_id()
@@ -89,16 +90,17 @@ impl UiObject {
 #[derive(Clone, Debug)]
 pub struct Action {
     pub name: Option<String>,
-    pub properties: HashMap<String, Value>,
+    pub properties: HashMap<String, (Value, PropertySetter)>,
 }
 
 impl Action {
     pub(super) fn new(
+        cls: &Class,
         name: Option<String>,
         properties_map: PropertiesMap,
         diagnostics: &mut Diagnostics,
     ) -> Self {
-        let properties = property::make_serializable_properties(properties_map, diagnostics);
+        let properties = property::make_serializable_properties(cls, properties_map, diagnostics);
         Action { name, properties }
     }
 
@@ -125,8 +127,8 @@ impl Action {
 pub struct Widget {
     pub class: String,
     pub name: Option<String>,
-    pub attributes: HashMap<String, Value>,
-    pub properties: HashMap<String, Value>,
+    pub attributes: HashMap<String, (Value, PropertySetter)>,
+    pub properties: HashMap<String, (Value, PropertySetter)>,
     pub actions: Vec<String>,
     pub items: Vec<ModelItem>,
     pub children: Vec<UiObject>,
@@ -241,12 +243,13 @@ impl Widget {
                 diagnostics,
             );
         }
-        let mut properties = property::make_serializable_properties(properties_map, diagnostics);
+        let mut properties =
+            property::make_serializable_properties(class, properties_map, diagnostics);
         if class.is_derived_from(&ctx.classes.push_button) {
             // see metatype_tweak.rs, "default" is a reserved word
-            if let Some((mut k, v)) = properties.remove_entry("default_") {
+            if let Some((mut k, (v, _))) = properties.remove_entry("default_") {
                 k.pop();
-                properties.insert(k, v);
+                properties.insert(k, (v, PropertySetter::StdSet));
             }
         }
 
@@ -311,12 +314,17 @@ fn process_tab_widget_children(
                         .unwrap_or_default();
                     // TODO: resolve against imported types,
                     if let Some(m) = attached_type_map.get(["QTabWidget"].as_ref()) {
-                        w.attributes.extend(property::collect_properties(
-                            ctx,
-                            &ctx.classes.tab_widget_attached,
-                            m,
-                            diagnostics,
-                        ));
+                        w.attributes.extend(
+                            property::collect_properties(
+                                ctx,
+                                &ctx.classes.tab_widget_attached,
+                                m,
+                                diagnostics,
+                            )
+                            .into_iter()
+                            // don't care the setter since uic will handle them specially
+                            .map(|(k, v)| (k, (v, PropertySetter::StdSet))),
+                        );
                     }
                 }
                 UiObject::Action(_) | UiObject::ActionSeparator | UiObject::Layout(_) => {}
@@ -358,20 +366,25 @@ fn collect_action_like_children(ctx: &BuildDocContext, children: &mut [UiObject]
 }
 
 fn flatten_object_properties_into_attributes(
-    attributes: &mut HashMap<String, Value>,
+    attributes: &mut HashMap<String, (Value, PropertySetter)>,
     properties_map: &mut HashMap<String, WithNode<'_, PropertyValue>>,
     name: &str,
     diagnostics: &mut Diagnostics,
 ) {
     match properties_map.remove(name) {
         Some(WithNode {
-            value: PropertyValue::ObjectProperties(_, props),
+            value: PropertyValue::ObjectProperties(cls, props),
             ..
         }) => {
             attributes.extend(props.into_iter().filter_map(|(k, v)| {
-                diagnostics
-                    .consume_err(v.into_serializable())
-                    .map(|v| (concat_camel_case_names(name, &k), v))
+                diagnostics.consume_err(v.into_serializable()).map(|v| {
+                    let s = if cls.is_property_std_set(&k).expect("name should be valid") {
+                        PropertySetter::StdSet
+                    } else {
+                        PropertySetter::Var
+                    };
+                    (concat_camel_case_names(name, &k), (v, s))
+                })
             }));
         }
         Some(x) => {

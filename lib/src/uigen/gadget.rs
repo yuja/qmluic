@@ -31,7 +31,7 @@ impl Gadget {
             GadgetKind::SizePolicy => make_size_policy_properties(properties_map, diagnostics),
             _ => (
                 HashMap::new(),
-                property::make_serializable_properties(properties_map, diagnostics),
+                property::make_gadget_properties(properties_map, diagnostics),
             ),
         };
         Gadget {
@@ -185,7 +185,7 @@ fn make_brush_properties(
         attributes.insert("brushstyle".to_owned(), s);
     }
 
-    let properties = property::make_serializable_properties(properties_map, diagnostics);
+    let properties = property::make_gadget_properties(properties_map, diagnostics);
     (attributes, properties)
 }
 
@@ -201,7 +201,7 @@ fn make_icon_properties(
         attributes.insert("theme".to_owned(), s);
     }
 
-    let properties = property::make_serializable_properties(properties_map, diagnostics);
+    let properties = property::make_gadget_properties(properties_map, diagnostics);
     (attributes, properties)
 }
 
@@ -307,9 +307,25 @@ impl ModelItem {
     {
         let tag = BytesStart::borrowed_name(b"item");
         writer.write_event(Event::Start(tag.to_borrowed()))?;
-        property::serialize_properties_to_xml(writer, "property", &self.properties)?;
+        serialize_item_properties_to_xml(writer, &self.properties)?;
         writer.write_event(Event::End(tag.to_end()))
     }
+}
+
+fn serialize_item_properties_to_xml<W>(
+    writer: &mut XmlWriter<W>,
+    properties: &HashMap<String, Value>,
+) -> XmlResult<()>
+where
+    W: io::Write,
+{
+    for (k, v) in properties.iter().sorted_by_key(|&(k, _)| k) {
+        let tag = BytesStart::borrowed_name(b"property").with_attributes([("name", k.as_ref())]);
+        writer.write_event(Event::Start(tag.to_borrowed()))?;
+        v.serialize_to_xml(writer)?;
+        writer.write_event(Event::End(tag.to_end()))?;
+    }
+    Ok(())
 }
 
 /// Map of palette color role to brush.

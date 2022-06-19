@@ -5,13 +5,13 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
 <ui version="4.0">
  <class>HgEmailDialog</class>
  <widget class="QDialog">
-  <property name="height">
+  <property name="height" stdset="0">
    <number>520</number>
   </property>
   <property name="sizeGripEnabled">
    <bool>true</bool>
   </property>
-  <property name="width">
+  <property name="width" stdset="0">
    <number>660</number>
   </property>
   <property name="windowTitle">
@@ -272,7 +272,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
              </item>
              <item>
               <spacer>
-               <property name="orientation">
+               <property name="orientation" stdset="0">
                 <enum>Qt::Horizontal</enum>
                </property>
               </spacer>
@@ -372,7 +372,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
              </item>
              <item>
               <spacer>
-               <property name="orientation">
+               <property name="orientation" stdset="0">
                 <enum>Qt::Horizontal</enum>
                </property>
               </spacer>
@@ -415,7 +415,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
      </item>
      <item>
       <spacer>
-       <property name="orientation">
+       <property name="orientation" stdset="0">
         <enum>Qt::Horizontal</enum>
        </property>
       </spacer>

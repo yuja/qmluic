@@ -12,6 +12,15 @@ use std::io;
 use std::ops::Range;
 use thiserror::Error;
 
+/// Type of the property setter to be used by `uic`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PropertySetter {
+    /// `QObject::setProperty(<name>, <value>)`
+    Var,
+    /// `set<Name>(<value>)`
+    StdSet,
+}
+
 /// Parsed property value with its AST node.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct WithNode<'t, V> {
@@ -197,7 +206,7 @@ where
         .collect()
 }
 
-pub(super) fn make_serializable_properties(
+pub(super) fn make_gadget_properties(
     properties_map: PropertiesMap,
     diagnostics: &mut Diagnostics,
 ) -> HashMap<String, Value> {
@@ -211,18 +220,41 @@ pub(super) fn make_serializable_properties(
         .collect()
 }
 
+pub(super) fn make_serializable_properties(
+    cls: &Class,
+    properties_map: PropertiesMap,
+    diagnostics: &mut Diagnostics,
+) -> HashMap<String, (Value, PropertySetter)> {
+    properties_map
+        .into_iter()
+        .filter_map(|(k, v)| {
+            diagnostics.consume_err(v.into_serializable()).map(|v| {
+                let s = if cls.is_property_std_set(&k).expect("name should be valid") {
+                    PropertySetter::StdSet
+                } else {
+                    PropertySetter::Var
+                };
+                (k, (v, s))
+            })
+        })
+        .collect()
+}
+
 pub(super) fn serialize_properties_to_xml<W, T>(
     writer: &mut XmlWriter<W>,
     tag_name: T,
-    properties: &HashMap<String, Value>,
+    properties: &HashMap<String, (Value, PropertySetter)>,
 ) -> XmlResult<()>
 where
     W: io::Write,
     T: AsRef<[u8]>,
 {
     let tag_name = tag_name.as_ref();
-    for (k, v) in properties.iter().sorted_by_key(|&(k, _)| k) {
-        let tag = BytesStart::borrowed_name(tag_name).with_attributes([("name", k.as_ref())]);
+    for (k, (v, s)) in properties.iter().sorted_by_key(|&(k, _)| k) {
+        let mut tag = BytesStart::borrowed_name(tag_name).with_attributes([("name", k.as_ref())]);
+        if *s != PropertySetter::StdSet {
+            tag.push_attribute(("stdset", "0"));
+        }
         writer.write_event(Event::Start(tag.to_borrowed()))?;
         v.serialize_to_xml(writer)?;
         writer.write_event(Event::End(tag.to_end()))?;

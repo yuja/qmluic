@@ -1,7 +1,7 @@
 use super::context::BuildDocContext;
 use super::expr::{PropertyValue, Value};
 use super::object::{self, Widget};
-use super::property::{self, PropertiesMap, WithNode};
+use super::property::{self, PropertiesMap, PropertySetter, WithNode};
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectNode;
@@ -17,7 +17,7 @@ pub struct Layout {
     pub class: String,
     pub name: Option<String>,
     attributes: LayoutAttributes,
-    pub properties: HashMap<String, Value>,
+    pub properties: HashMap<String, (Value, PropertySetter)>,
     pub children: Vec<LayoutItem>,
 }
 
@@ -78,10 +78,16 @@ impl Layout {
         children: Vec<LayoutItem>,
         diagnostics: &mut Diagnostics,
     ) -> Self {
-        let mut properties = property::make_serializable_properties(properties_map, diagnostics);
+        let mut properties =
+            property::make_serializable_properties(class, properties_map, diagnostics);
         // TODO: if metatypes were broken, contentsMargins could be of different type
-        if let Some(Value::Gadget(m)) = properties.remove("contentsMargins") {
-            properties.extend(m.properties.into_iter().map(|(k, v)| (k + "Margin", v)));
+        if let Some((Value::Gadget(m), s)) = properties.remove("contentsMargins") {
+            // don't care the property setter since uic will anyway retranslate them
+            properties.extend(
+                m.properties
+                    .into_iter()
+                    .map(|(k, v)| (k + "Margin", (v, s))),
+            );
         }
 
         Layout {
@@ -284,6 +290,7 @@ impl LayoutItemContent {
         } else if cls.is_derived_from(&ctx.classes.spacer_item) {
             object::confine_children(obj_node, diagnostics);
             LayoutItemContent::SpacerItem(SpacerItem::new(
+                cls,
                 obj_node
                     .obj()
                     .object_id()
@@ -323,16 +330,17 @@ impl LayoutItemContent {
 #[derive(Clone, Debug)]
 pub struct SpacerItem {
     pub name: Option<String>,
-    pub properties: HashMap<String, Value>,
+    pub properties: HashMap<String, (Value, PropertySetter)>,
 }
 
 impl SpacerItem {
     pub(super) fn new(
+        cls: &Class,
         name: Option<String>,
         properties_map: PropertiesMap,
         diagnostics: &mut Diagnostics,
     ) -> Self {
-        let properties = property::make_serializable_properties(properties_map, diagnostics);
+        let properties = property::make_serializable_properties(cls, properties_map, diagnostics);
         SpacerItem { name, properties }
     }
 
