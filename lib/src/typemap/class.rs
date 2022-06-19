@@ -101,6 +101,27 @@ impl<'a> Class<'a> {
             .get(name)
             .and_then(|p| util::decorated_type(&p.type_name, |n| self.resolve_type_scoped(n)))
     }
+
+    /// Whether or not the specified property provides the standard setter function.
+    ///
+    /// See `PropertyDef::stdCppSet()` in `qtbase/src/tools/moc/moc.h` for details.
+    pub fn is_property_std_set(&self, name: &str) -> Option<bool> {
+        self.find_map_self_and_base_classes(|cls| cls.is_property_std_set_no_super(name))
+    }
+
+    fn is_property_std_set_no_super(&self, name: &str) -> Option<bool> {
+        let p = self.data.as_ref().property_map.get(name)?;
+        if let (Some(f), Some(h)) = (p.write_func_name.as_ref(), name.chars().next()) {
+            // f == set<Name>
+            Some(
+                f.starts_with("set")
+                    && f[3..].starts_with(h.to_ascii_uppercase())
+                    && f[(3 + h.len_utf8())..] == name[h.len_utf8()..],
+            )
+        } else {
+            Some(false)
+        }
+    }
 }
 
 impl<'a> TypeSpace<'a> for Class<'a> {
@@ -175,12 +196,14 @@ impl ClassData {
 #[derive(Clone, Debug)]
 struct PropertyData {
     type_name: String,
+    write_func_name: Option<String>,
 }
 
 impl PropertyData {
     fn pair_from_meta(meta: metatype::Property) -> (String, Self) {
         let data = PropertyData {
             type_name: meta.r#type,
+            write_func_name: meta.write,
         };
         (meta.name, data)
     }
@@ -423,5 +446,63 @@ mod tests {
             Class::common_base_class(&leaf2_class, &leaf1_class).unwrap(),
             root2_class
         );
+    }
+
+    #[test]
+    fn property_std_set() {
+        let mut type_map = TypeMap::empty();
+        let module_id = ModuleId::Named("foo".into());
+        let mut module_data = ModuleData::default();
+        module_data.extend([
+            metatype::Class {
+                class_name: "Root".to_owned(),
+                qualified_class_name: "Foo".to_owned(),
+                properties: vec![
+                    metatype::Property {
+                        name: "rootStd".to_owned(),
+                        r#type: "int".to_owned(),
+                        write: Some("setRootStd".to_owned()),
+                        ..Default::default()
+                    },
+                    metatype::Property {
+                        name: "rootNoStd".to_owned(),
+                        r#type: "int".to_owned(),
+                        write: Some("setRootNoStdWriteFunc".to_owned()),
+                        ..Default::default()
+                    },
+                ],
+                ..Default::default()
+            },
+            metatype::Class {
+                class_name: "Sub".to_owned(),
+                qualified_class_name: "Sub".to_owned(),
+                super_classes: vec![metatype::SuperClassSpecifier::public("Root")],
+                properties: vec![
+                    metatype::Property {
+                        name: "subStd".to_owned(),
+                        r#type: "int".to_owned(),
+                        write: Some("setSubStd".to_owned()),
+                        ..Default::default()
+                    },
+                    metatype::Property {
+                        name: "subNoWrite".to_owned(),
+                        r#type: "int".to_owned(),
+                        write: None,
+                        ..Default::default()
+                    },
+                ],
+                ..Default::default()
+            },
+        ]);
+        type_map.insert_module(module_id.clone(), module_data);
+
+        let module = type_map.get_module(module_id).unwrap();
+        let sub_class = unwrap_class(module.get_type("Sub"));
+
+        assert_eq!(sub_class.is_property_std_set("rootStd"), Some(true));
+        assert_eq!(sub_class.is_property_std_set("rootNoStd"), Some(false));
+        assert_eq!(sub_class.is_property_std_set("subStd"), Some(true));
+        assert_eq!(sub_class.is_property_std_set("subNoWrite"), Some(false));
+        assert!(sub_class.is_property_std_set("unknown").is_none());
     }
 }
