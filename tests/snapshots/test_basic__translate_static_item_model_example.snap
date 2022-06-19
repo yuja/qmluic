@@ -1,0 +1,67 @@
+---
+source: tests/test_basic.rs
+expression: "common::translate_file(\"examples/StaticItemModel.qml\").unwrap()"
+---
+<ui version="4.0">
+ <class>StaticItemModel</class>
+ <widget class="QWidget">
+  <layout class="QFormLayout">
+   <item column="0" row="0">
+    <widget class="QLabel">
+     <property name="text">
+      <string notr="true">QComboBox</string>
+     </property>
+    </widget>
+   </item>
+   <item column="1" row="0">
+    <widget class="QComboBox">
+     <property name="currentIndex">
+      <number>1</number>
+     </property>
+     <item>
+      <property name="text">
+       <string>Foo</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Bar</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Baz</string>
+      </property>
+     </item>
+    </widget>
+   </item>
+   <item column="0" row="1">
+    <widget class="QLabel">
+     <property name="text">
+      <string notr="true">QListWidget</string>
+     </property>
+    </widget>
+   </item>
+   <item column="1" row="1">
+    <widget class="QListWidget">
+     <item>
+      <property name="text">
+       <string>Foo</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Bar</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Baz</string>
+      </property>
+     </item>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+</ui>
+

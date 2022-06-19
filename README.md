@@ -110,6 +110,7 @@ Major TODOs
 - [ ] Build integration (maybe cmake?)
 - [ ] Live preview triggered by lsp
 - [ ] Live preview for multi-document file
+- [ ] Better support for static `QComboBox`/`QListWidget` items
 - [ ] Support signal-slot connections (`on<Signal>` syntax)
 - [ ] Support dynamic property bindings
 

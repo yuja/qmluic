@@ -17,6 +17,11 @@ fn test_translate_item_views_example() {
 }
 
 #[test]
+fn test_translate_static_item_model_example() {
+    insta::assert_snapshot!(common::translate_file("examples/StaticItemModel.qml").unwrap());
+}
+
+#[test]
 fn test_translate_customwidget_example() {
     let base = Utf8PathBuf::from("examples/customwidget");
     insta::assert_snapshot!(common::translate_file(base.join("MainDialog.qml")).unwrap());
