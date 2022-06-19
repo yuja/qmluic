@@ -39,7 +39,7 @@ build-uiviewer:
 .PHONY: format
 format:
 	$(CARGO) fmt --all
-	find contrib/uiviewer -type f \( -name '*.cpp' -o -name '*.h' \) -print0 \
+	find contrib/uiviewer examples -type f \( -name '*.cpp' -o -name '*.h' \) -print0 \
 		| xargs -0 $(CLANG_FORMAT) -i
 
 .PHONY: tests
