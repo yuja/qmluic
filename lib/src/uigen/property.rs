@@ -68,7 +68,7 @@ impl<'t, V> WithNode<'t, V> {
     }
 }
 
-impl<'t> WithNode<'t, PropertyValue<'_>> {
+impl<'t> WithNode<'t, PropertyValue<'_, '_>> {
     pub fn to_enum(&self) -> Result<&str, ValueTypeError<'t>> {
         self.as_serializable()
             .and_then(|v| v.as_enum())
@@ -136,7 +136,7 @@ impl From<ValueTypeError<'_>> for Diagnostic {
     }
 }
 
-pub(super) type PropertiesMap<'t> = HashMap<String, WithNode<'t, PropertyValue<'t>>>;
+pub(super) type PropertiesMap<'a, 't> = HashMap<String, WithNode<'t, PropertyValue<'a, 't>>>;
 
 /// Parses the given `binding_map` into a map of constant expressions.
 ///
@@ -155,24 +155,24 @@ pub(super) fn collect_properties(
     })
 }
 
-pub(super) fn collect_properties_with_node<'t>(
+pub(super) fn collect_properties_with_node<'a, 't>(
     ctx: &BuildDocContext,
-    cls: &Class,
+    cls: &Class<'a>,
     binding_map: &UiBindingMap<'t, '_>,
     diagnostics: &mut Diagnostics,
-) -> PropertiesMap<'t> {
+) -> PropertiesMap<'a, 't> {
     resolve_properties(ctx, cls, binding_map, diagnostics, |v, _| Option::Some(v))
 }
 
-fn resolve_properties<'t, 's, B, F>(
+fn resolve_properties<'a, 't, 's, B, F>(
     ctx: &BuildDocContext,
-    cls: &Class,
+    cls: &Class<'a>,
     binding_map: &UiBindingMap<'t, 's>,
     diagnostics: &mut Diagnostics,
     mut make_value: F,
 ) -> HashMap<String, B>
 where
-    F: FnMut(WithNode<'t, PropertyValue<'t>>, &mut Diagnostics) -> Option<B>,
+    F: FnMut(WithNode<'t, PropertyValue<'a, 't>>, &mut Diagnostics) -> Option<B>,
 {
     binding_map
         .iter()

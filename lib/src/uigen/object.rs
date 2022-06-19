@@ -365,7 +365,7 @@ fn flatten_object_properties_into_attributes(
 ) {
     match properties_map.remove(name) {
         Some(WithNode {
-            value: PropertyValue::ObjectProperties(props),
+            value: PropertyValue::ObjectProperties(_, props),
             ..
         }) => {
             attributes.extend(props.into_iter().filter_map(|(k, v)| {

@@ -16,21 +16,21 @@ use thiserror::Error;
 
 /// Variant for the property values that can or cannot be serialized to UI XML.
 #[derive(Clone, Debug)]
-pub(super) enum PropertyValue<'t> {
+pub(super) enum PropertyValue<'a, 't> {
     Serializable(Value),
     /// List of static QComboBox/QAbstractItemView items.
     ItemModel(Vec<ModelItem>),
     /// List of identifiers referencing the objects.
     ObjectRefList(Vec<String>),
     /// Map of properties assigned to object pointer property.
-    ObjectProperties(PropertiesMap<'t>),
+    ObjectProperties(Class<'a>, PropertiesMap<'a, 't>),
 }
 
-impl<'t> PropertyValue<'t> {
+impl<'a, 't> PropertyValue<'a, 't> {
     /// Generates constant expression of `ty` type from the given `binding_value`.
     pub(super) fn from_binding_value(
         ctx: &BuildDocContext,
-        ty: &TypeKind,
+        ty: &TypeKind<'a>,
         binding_value: &UiBindingValue<'t, '_>,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
@@ -82,6 +82,7 @@ impl<'t> PropertyValue<'t> {
                     }
                 }
                 TypeKind::Pointer(NamedType::Class(cls)) => Some(PropertyValue::ObjectProperties(
+                    cls.clone(),
                     property::collect_properties_with_node(ctx, cls, m, diagnostics),
                 )),
                 _ => {
