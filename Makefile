@@ -15,6 +15,7 @@ help:
 	@echo '  format     - run code formatter'
 	@echo '  tests      - run linter and automated tests'
 	@echo '  generate-examples - generate .ui from example .qml files'
+	@echo '  build-examples - generate .ui from example .qml files and build them'
 
 .PHONY: debug
 debug:
@@ -51,3 +52,11 @@ tests:
 generate-examples:
 	find examples -type f -name '*.qml' -print0 \
 		| xargs -0 $(CARGO) run -- generate-ui
+
+.PHONY: build-examples
+build-examples: BUILD_DIR = target/debug-examples
+build-examples: BUILD_TYPE = Debug
+build-examples: generate-examples
+	mkdir -p $(BUILD_DIR)
+	cd $(BUILD_DIR) && $(CMAKE) -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) $(CMAKE_FLAGS) $(CURDIR)/examples
+	$(CMAKE) --build $(BUILD_DIR) --config $(BUILD_TYPE)
