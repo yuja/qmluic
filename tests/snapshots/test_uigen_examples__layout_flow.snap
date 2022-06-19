@@ -1,6 +1,6 @@
 ---
-source: tests/test_basic.rs
-expression: "translate_file(\"examples/LayoutFlow.qml\")"
+source: tests/test_uigen_examples.rs
+expression: "common::translate_file(\"examples/LayoutFlow.qml\").unwrap()"
 ---
 <ui version="4.0">
  <class>LayoutFlow</class>

@@ -1,6 +1,6 @@
 ---
-source: tests/test_basic.rs
-expression: "common::translate_file(base.join(\"common/MyDialogButtonBox.qml\")).unwrap()"
+source: tests/test_uigen_examples.rs
+expression: "common::translate_file(\"examples/customwidget/common/MyDialogButtonBox.qml\").unwrap()"
 ---
 <ui version="4.0">
  <class>MyDialogButtonBox</class>

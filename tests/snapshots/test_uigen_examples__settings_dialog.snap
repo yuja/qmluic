@@ -1,6 +1,6 @@
 ---
-source: tests/test_basic.rs
-expression: "translate_file(\"examples/SettingsDialog.qml\")"
+source: tests/test_uigen_examples.rs
+expression: "common::translate_file(\"examples/SettingsDialog.qml\").unwrap()"
 ---
 <ui version="4.0">
  <class>SettingsDialog</class>

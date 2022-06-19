@@ -1,6 +1,6 @@
 ---
-source: tests/test_basic.rs
-expression: "common::translate_file(base.join(\"MainDialog.qml\")).unwrap()"
+source: tests/test_uigen_examples.rs
+expression: "common::translate_file(\"examples/customwidget/MainDialog.qml\").unwrap()"
 ---
 <ui version="4.0">
  <class>MainDialog</class>

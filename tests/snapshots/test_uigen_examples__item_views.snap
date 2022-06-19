@@ -1,5 +1,5 @@
 ---
-source: tests/test_basic.rs
+source: tests/test_uigen_examples.rs
 expression: "common::translate_file(\"examples/ItemViews.qml\").unwrap()"
 ---
 <ui version="4.0">
