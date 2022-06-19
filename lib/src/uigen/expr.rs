@@ -357,26 +357,40 @@ fn parse_as_value_type(
         }
         NamedType::Primitive(p) => {
             let res = evaluate_expression(ctx, node, diagnostics)?;
-            if !describe_primitive_type(*p).map_or(false, |t| res.type_desc() == t) {
-                diagnostics.push(Diagnostic::error(
-                    node.byte_range(),
-                    format!(
-                        "evaluated type mismatch (expected: {}, actual: {})",
-                        ty.qualified_cxx_name(),
-                        res.type_desc().qualified_name()
-                    ),
-                ));
-                return None;
-            }
-            let v = match res {
-                EvaluatedValue::Bool(v) => SimpleValue::Bool(v),
-                EvaluatedValue::Number(v) => SimpleValue::Number(v),
-                EvaluatedValue::String(s, k) => SimpleValue::String(s, k),
-                EvaluatedValue::StringList(_) | EvaluatedValue::EmptyList => {
+            match (p, res) {
+                (PrimitiveType::Bool, EvaluatedValue::Bool(v)) => {
+                    Some(Value::Simple(SimpleValue::Bool(v)))
+                }
+                (
+                    PrimitiveType::Int | PrimitiveType::QReal | PrimitiveType::UInt,
+                    EvaluatedValue::Number(v),
+                ) => Some(Value::Simple(SimpleValue::Number(v))),
+                (PrimitiveType::QString, EvaluatedValue::String(s, k)) => {
+                    Some(Value::Simple(SimpleValue::String(s, k)))
+                }
+                (_, EvaluatedValue::StringList(_) | EvaluatedValue::EmptyList) => {
                     unreachable!("primitive type should never be a list type")
                 }
-            };
-            Some(Value::Simple(v))
+                (
+                    PrimitiveType::Bool
+                    | PrimitiveType::Int
+                    | PrimitiveType::QReal
+                    | PrimitiveType::QString
+                    | PrimitiveType::UInt
+                    | PrimitiveType::Void,
+                    res,
+                ) => {
+                    diagnostics.push(Diagnostic::error(
+                        node.byte_range(),
+                        format!(
+                            "evaluated type mismatch (expected: {}, actual: {})",
+                            ty.qualified_cxx_name(),
+                            res.type_desc().qualified_name()
+                        ),
+                    ));
+                    None
+                }
+            }
         }
         NamedType::Class(_) | NamedType::QmlComponent(_) => {
             diagnostics.push(Diagnostic::error(
@@ -540,17 +554,6 @@ fn parse_object_reference_list(
             ));
             None
         }
-    }
-}
-
-fn describe_primitive_type(t: PrimitiveType) -> Option<TypeDesc<'static>> {
-    match t {
-        PrimitiveType::Bool => Some(TypeDesc::Bool),
-        PrimitiveType::Int => Some(TypeDesc::Number),
-        PrimitiveType::QReal => Some(TypeDesc::Number),
-        PrimitiveType::QString => Some(TypeDesc::String),
-        PrimitiveType::UInt => Some(TypeDesc::Number),
-        PrimitiveType::Void => None,
     }
 }
 
