@@ -4,6 +4,7 @@ CMAKE = cmake
 NINJA = ninja
 QMAKE = qmake
 
+QT_INSTALL_BINS = $(shell $(QMAKE) -query QT_INSTALL_BINS)
 QT_VERSION_MAJOR = $(word 1,$(subst ., ,$(shell $(QMAKE) -query QT_VERSION)))
 
 ifneq ($(shell command -v $(NINJA) 2>/dev/null),)
@@ -12,6 +13,10 @@ endif
 
 ifeq ($(QT_VERSION_MAJOR),6)
 CMAKE_FLAGS += -DUSE_QT6=ON
+endif
+
+ifneq ($(QT_INSTALL_BINS),)
+export PATH := $(QT_INSTALL_BINS):$(PATH)
 endif
 
 .PHONY: help
@@ -26,6 +31,7 @@ help:
 	@echo
 	@echo 'Make variables:'
 	@echo '  CMAKE_FLAGS=$(CMAKE_FLAGS)'
+	@echo '  QT_INSTALL_BINS=$(QT_INSTALL_BINS)'
 	@echo '  QT_VERSION_MAJOR=$(QT_VERSION_MAJOR)'
 
 .PHONY: debug
