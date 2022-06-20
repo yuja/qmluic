@@ -51,6 +51,8 @@ jobs:
         run: make release
       - name: Generate examples
         run: make generate-examples
+      - name: Build examples
+        run: make build-examples
 
   clippy:
     runs-on: ubuntu-latest
