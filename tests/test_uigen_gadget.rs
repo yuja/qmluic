@@ -299,6 +299,50 @@ fn test_pixmap() {
 }
 
 #[test]
+fn test_size_policy() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QWidget {
+        sizePolicy.horizontalPolicy: QSizePolicy.Preferred
+        sizePolicy.verticalPolicy: QSizePolicy.Expanding
+    }
+    "###).unwrap(), @r###"
+    <ui version="4.0">
+     <widget class="QWidget">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+       </sizepolicy>
+      </property>
+     </widget>
+    </ui>
+    "###);
+}
+
+#[test]
+fn test_size_policy_with_stretch() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QWidget {
+        sizePolicy.horizontalPolicy: QSizePolicy.Preferred
+        sizePolicy.verticalPolicy: QSizePolicy.Expanding
+        sizePolicy.horizontalStretch: 2
+        sizePolicy.verticalStretch: 1
+    }
+    "###).unwrap(), @r###"
+    <ui version="4.0">
+     <widget class="QWidget">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+        <horstretch>2</horstretch>
+        <verstretch>1</verstretch>
+       </sizepolicy>
+      </property>
+     </widget>
+    </ui>
+    "###);
+}
+
+#[test]
 fn test_unpaired_size_policy() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
@@ -306,6 +350,16 @@ fn test_unpaired_size_policy() {
         sizePolicy.horizontalPolicy: QSizePolicy.Expanding
     }
     "###).unwrap_err(), @"<unknown>:3:5: error: both horizontal and vertical policies must be specified");
+}
+
+#[test]
+fn test_stretch_without_size_policy() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QWidget {
+        sizePolicy.horizontalStretch: 2
+    }
+    "###).unwrap_err(), @"<unknown>:3:5: error: cannot specify stretch without horizontal and vertical policies");
 }
 
 #[test]

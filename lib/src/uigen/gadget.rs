@@ -249,11 +249,12 @@ fn make_size_policy_properties(
         properties_map.remove("verticalPolicy"),
     ) {
         (Some(h), Some(v)) => {
-            if let Some(s) = diagnostics.consume_err(h.into_simple()) {
+            if let (Some(s), Some(t)) = (
+                diagnostics.consume_err(h.into_simple()),
+                diagnostics.consume_err(v.into_simple()),
+            ) {
                 attributes.insert("hsizetype".to_owned(), s);
-            }
-            if let Some(s) = diagnostics.consume_err(v.into_simple()) {
-                attributes.insert("vsizetype".to_owned(), s);
+                attributes.insert("vsizetype".to_owned(), t);
             }
         }
         (Some(x), None) | (None, Some(x)) => {
@@ -270,11 +271,18 @@ fn make_size_policy_properties(
         ("horizontalStretch", "horstretch"),
         ("verticalStretch", "verstretch"),
     ] {
-        if let Some(s) = properties_map
-            .remove(k0)
-            .and_then(|v| diagnostics.consume_err(v.into_serializable()))
-        {
-            properties.insert(k1.to_owned(), s);
+        if let Some(x) = properties_map.remove(k0) {
+            if attributes.is_empty() {
+                // uic would otherwise generate invalid code, which might look correct but is
+                // actually parsed as a function declaration:
+                //     QSizePolicy sizePolicy();
+                diagnostics.push(Diagnostic::error(
+                    x.binding_node().byte_range(),
+                    "cannot specify stretch without horizontal and vertical policies",
+                ));
+            } else if let Some(s) = diagnostics.consume_err(x.into_serializable()) {
+                properties.insert(k1.to_owned(), s);
+            }
         }
     }
 
