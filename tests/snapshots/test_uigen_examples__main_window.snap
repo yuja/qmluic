@@ -36,6 +36,11 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
         </item>
         <item>
          <property name="text">
+          <string notr="true">HgEmailDialog.qml</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
           <string notr="true">ItemViews.qml</string>
          </property>
         </item>
@@ -81,6 +86,8 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
       </widget>
       <widget class="QStackedWidget" name="formStack">
        <widget class="QWidget">
+       </widget>
+       <widget class="HgEmailDialog">
        </widget>
        <widget class="ItemViews">
        </widget>
@@ -204,6 +211,11 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
   </action>
  </widget>
  <customwidgets>
+  <customwidget>
+   <class>HgEmailDialog</class>
+   <extends>QDialog</extends>
+   <header>hgemaildialog.h</header>
+  </customwidget>
   <customwidget>
    <class>ItemViews</class>
    <extends>QWidget</extends>
