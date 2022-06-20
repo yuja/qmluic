@@ -1,0 +1,43 @@
+find_package(Qt5 5.15 REQUIRED COMPONENTS Widgets)
+
+add_executable(qmluic-examples-customwidget
+  common/mydialogbuttonbox.cpp
+  common/mydialogbuttonbox.h
+  common/mydialogbuttonbox.ui
+  main.cpp
+  maindialog.cpp
+  maindialog.h
+  maindialog.ui
+  settingsform.cpp
+  settingsform.h
+  settingsform.ui
+)
+
+# Makes .qml files appear in Qt Creator project
+target_sources(qmluic-examples-customwidget
+  PRIVATE
+    common/MyDialogButtonBox.qml
+    MainDialog.qml
+    SettingsForm.qml
+)
+
+target_compile_definitions(qmluic-examples-customwidget
+  PRIVATE
+    # The following define makes your compiler emit warnings if you use
+    # any feature of Qt which has been marked as deprecated
+    QT_DEPRECATED_WARNINGS
+    # disables all the APIs deprecated before Qt 6.0.0
+    QT_DISABLE_DEPRECATED_BEFORE=0x060000
+    # disables erroneous QString cast, but allows QString("...")
+    QT_RESTRICTED_CAST_FROM_ASCII
+)
+
+target_include_directories(qmluic-examples-customwidget
+  PRIVATE
+    common
+)
+
+target_link_libraries(qmluic-examples-customwidget
+  PRIVATE
+    Qt::Widgets
+)
