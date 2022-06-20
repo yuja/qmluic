@@ -8,7 +8,47 @@ QMainWindow {
     // is explicitly set.
     actions: []
 
-    QWidget { id: centralwidget }
+    QWidget {
+        id: centralwidget
+
+        QVBoxLayout {
+            QFormLayout {
+                QLabel { text: qsTr("Source") }
+                QComboBox {
+                    id: fileNameEdit
+                    model: [
+                        "ItemViews.qml",
+                        "LayoutFlow.qml",
+                        // "MainWindow.qml",
+                        "SettingsDialog.qml",
+                        "StaticItemModel.qml",
+                        "VariousLayouts.qml",
+                    ]
+                }
+            }
+
+            QSplitter {
+                sizePolicy.horizontalPolicy: QSizePolicy.Expanding
+                sizePolicy.verticalPolicy: QSizePolicy.Expanding
+
+                QPlainTextEdit {
+                    id: sourceEdit
+                    font.family: "Monospace"
+                    readOnly: true
+                }
+
+                QStackedWidget {
+                    id: formStack
+
+                    ItemViews {}
+                    LayoutFlow {}
+                    SettingsDialog {}
+                    StaticItemModel {}
+                    VariousLayouts {}
+                }
+            }
+        }
+    }
 
     QMenuBar {
         id: menubar

@@ -17,6 +17,78 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout">
+    <item>
+     <layout class="QFormLayout">
+      <item column="0" row="0">
+       <widget class="QLabel">
+        <property name="text">
+         <string>Source</string>
+        </property>
+       </widget>
+      </item>
+      <item column="1" row="0">
+       <widget class="QComboBox" name="fileNameEdit">
+        <item>
+         <property name="text">
+          <string notr="true">ItemViews.qml</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string notr="true">LayoutFlow.qml</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string notr="true">SettingsDialog.qml</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string notr="true">StaticItemModel.qml</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string notr="true">VariousLayouts.qml</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <widget class="QSplitter">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+       </sizepolicy>
+      </property>
+      <widget class="QPlainTextEdit" name="sourceEdit">
+       <property name="font">
+        <font>
+         <family notr="true">Monospace</family>
+        </font>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+      <widget class="QStackedWidget" name="formStack">
+       <widget class="ItemViews">
+       </widget>
+       <widget class="LayoutFlow">
+       </widget>
+       <widget class="SettingsDialog">
+       </widget>
+       <widget class="StaticItemModel">
+       </widget>
+       <widget class="VariousLayouts">
+       </widget>
+      </widget>
+     </widget>
+    </item>
+   </layout>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <addaction name="menu_1"/>
@@ -124,5 +196,32 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
    </property>
   </action>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>ItemViews</class>
+   <extends>QWidget</extends>
+   <header>itemviews.h</header>
+  </customwidget>
+  <customwidget>
+   <class>LayoutFlow</class>
+   <extends>QWidget</extends>
+   <header>layoutflow.h</header>
+  </customwidget>
+  <customwidget>
+   <class>SettingsDialog</class>
+   <extends>QDialog</extends>
+   <header>settingsdialog.h</header>
+  </customwidget>
+  <customwidget>
+   <class>StaticItemModel</class>
+   <extends>QWidget</extends>
+   <header>staticitemmodel.h</header>
+  </customwidget>
+  <customwidget>
+   <class>VariousLayouts</class>
+   <extends>QWidget</extends>
+   <header>variouslayouts.h</header>
+  </customwidget>
+ </customwidgets>
 </ui>
 
