@@ -17,6 +17,7 @@ set(QML_IMPORT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/imports CACHE STRING 
 find_package(Qt5 5.15 REQUIRED COMPONENTS Widgets)
 
 add_subdirectory(customwidget)
+add_subdirectory(thg)
 
 add_executable(qmluic-examples
   itemviews.cpp
