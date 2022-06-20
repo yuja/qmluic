@@ -18,8 +18,7 @@ By default, `qmluic generate-ui` loads type information from the
 `QT_INSTALL_LIBS/metatypes` directory. Use `--foreign-types` option to load
 metatype.json files from the other directory or files.
 
-`qmluic` is tested with Qt 5.15 on Debian sid. It should run with Qt 6 in
-principle, but there may be silly bugs.
+`qmluic` is tested with Qt 5.15 and 6.2 on Debian sid.
 
 ### Code Completion
 
