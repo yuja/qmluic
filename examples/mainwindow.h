@@ -15,6 +15,9 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
 
+private slots:
+    void updateView();
+
 private:
     std::unique_ptr<Ui::MainWindow> ui_;
 };
