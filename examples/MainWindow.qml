@@ -1,13 +1,23 @@
 import qmluic.QtWidgets
 
+// This is a main window example which is somewhat functional. Selecting the source
+// combo box will update the source/form views.
+//
+// Menu/toolbar actions are all dummy.
 QMainWindow {
+    // Since the width/height properties are readonly, you need to set the geometry instead.
+    // You can also set the size property, but apparently uic generates a slightly better
+    // code for geometry. You can omit 'x: 0; y: 0;' part.
     geometry { x: 0; y: 0; width: 800; height: 600 }
+
     windowTitle: qsTr("MainWindow")
 
     // QAction and QMenu instances will be added automatically unless 'actions'
     // is explicitly set.
     actions: []
 
+    // uic will pick a widget as the central widget if it is not QMenuBar, QToolBar,
+    // QDockWidget, nor QStatusBar.
     QWidget {
         id: centralwidget
 
@@ -39,6 +49,10 @@ QMainWindow {
 
                 QStackedWidget {
                     id: formStack
+
+                    // It would be nice if we could bind the currentIndex, but you have to
+                    // do that in .cpp right now.
+                    // TODO: currentIndex: fileNameEdit.currentIndex
 
                     ItemViews {}
                     LayoutFlow {}
@@ -72,6 +86,9 @@ QMainWindow {
 
         QMenu {
             title: qsTr("&Help")
+
+            // Since 'actions' isn't set, QAction and QMenu instances will be added to
+            // the menu automatically.
 
             QAction {
                 id: action_About
