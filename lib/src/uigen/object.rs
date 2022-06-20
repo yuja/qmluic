@@ -378,7 +378,8 @@ fn flatten_object_properties_into_attributes(
         }) => {
             attributes.extend(props.into_iter().filter_map(|(k, v)| {
                 diagnostics.consume_err(v.into_serializable()).map(|v| {
-                    let s = if cls.is_property_std_set(&k).expect("name should be valid") {
+                    let p = cls.get_property(&k).expect("name should be valid");
+                    let s = if p.is_std_set() {
                         PropertySetter::StdSet
                     } else {
                         PropertySetter::Var

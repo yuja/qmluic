@@ -536,11 +536,19 @@ mod tests {
         let module = type_map.get_module(module_id).unwrap();
         let bar_class = unwrap_class(module.get_type("Bar"));
         assert_eq!(
-            bar_class.get_property_type("bar_prop").unwrap(),
+            bar_class
+                .get_property("bar_prop")
+                .unwrap()
+                .value_type()
+                .unwrap(),
             TypeKind::Just(module.resolve_type("bool").unwrap())
         );
         assert_eq!(
-            bar_class.get_property_type("foo_prop").unwrap(),
+            bar_class
+                .get_property("foo_prop")
+                .unwrap()
+                .value_type()
+                .unwrap(),
             TypeKind::Just(module.resolve_type("int").unwrap())
         );
     }
@@ -562,15 +570,27 @@ mod tests {
         let module = type_map.get_module(module_id).unwrap();
         let foo_class = unwrap_class(module.get_type("Foo"));
         assert_eq!(
-            foo_class.get_property_type("pointer").unwrap(),
+            foo_class
+                .get_property("pointer")
+                .unwrap()
+                .value_type()
+                .unwrap(),
             TypeKind::Pointer(NamedType::Class(foo_class.clone()))
         );
         assert_eq!(
-            foo_class.get_property_type("pointer_list").unwrap(),
+            foo_class
+                .get_property("pointer_list")
+                .unwrap()
+                .value_type()
+                .unwrap(),
             TypeKind::PointerList(NamedType::Class(foo_class.clone()))
         );
         assert_eq!(
-            foo_class.get_property_type("pointer_vector").unwrap(),
+            foo_class
+                .get_property("pointer_vector")
+                .unwrap()
+                .value_type()
+                .unwrap(),
             TypeKind::PointerList(NamedType::Class(foo_class.clone()))
         );
     }

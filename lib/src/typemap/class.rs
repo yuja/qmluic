@@ -88,39 +88,17 @@ impl<'a> Class<'a> {
             .get_enum_by_variant_with(name, || ParentSpace::Class(self.clone()))
     }
 
-    /// Looks up type of the specified property.
-    pub fn get_property_type(&self, name: &str) -> Option<TypeKind<'a>> {
-        self.find_map_self_and_base_classes(|cls| cls.get_property_type_no_super(name))
+    /// Looks up property by name.
+    pub fn get_property(&self, name: &str) -> Option<Property<'a>> {
+        self.find_map_self_and_base_classes(|cls| cls.get_property_no_super(name))
     }
 
-    fn get_property_type_no_super(&self, name: &str) -> Option<TypeKind<'a>> {
-        // TODO: error out if type name can't be resolved?
+    fn get_property_no_super(&self, name: &str) -> Option<Property<'a>> {
         self.data
             .as_ref()
             .property_map
-            .get(name)
-            .and_then(|p| util::decorated_type(&p.type_name, |n| self.resolve_type_scoped(n)))
-    }
-
-    /// Whether or not the specified property provides the standard setter function.
-    ///
-    /// See `PropertyDef::stdCppSet()` in `qtbase/src/tools/moc/moc.h` for details.
-    pub fn is_property_std_set(&self, name: &str) -> Option<bool> {
-        self.find_map_self_and_base_classes(|cls| cls.is_property_std_set_no_super(name))
-    }
-
-    fn is_property_std_set_no_super(&self, name: &str) -> Option<bool> {
-        let p = self.data.as_ref().property_map.get(name)?;
-        if let (Some(f), Some(h)) = (p.write_func_name.as_ref(), name.chars().next()) {
-            // f == set<Name>
-            Some(
-                f.starts_with("set")
-                    && f[3..].starts_with(h.to_ascii_uppercase())
-                    && f[(3 + h.len_utf8())..] == name[h.len_utf8()..],
-            )
-        } else {
-            Some(false)
-        }
+            .get_key_value(name)
+            .map(|(n, d)| Property::new(TypeDataRef(n), TypeDataRef(d), self.clone()))
     }
 }
 
@@ -192,11 +170,71 @@ impl ClassData {
     }
 }
 
+/// Property representation.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct Property<'a> {
+    name: TypeDataRef<'a, String>,
+    data: TypeDataRef<'a, PropertyData>,
+    object_class: Class<'a>,
+}
+
 /// Stored property representation.
 #[derive(Clone, Debug)]
 struct PropertyData {
     type_name: String,
     write_func_name: Option<String>,
+}
+
+impl<'a> Property<'a> {
+    fn new(
+        name: TypeDataRef<'a, String>,
+        data: TypeDataRef<'a, PropertyData>,
+        object_class: Class<'a>,
+    ) -> Self {
+        Property {
+            name,
+            data,
+            object_class,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        self.name.as_ref()
+    }
+
+    /// Type of the property value.
+    pub fn value_type(&self) -> Option<TypeKind<'a>> {
+        // TODO: error out if type name can't be resolved?
+        util::decorated_type(self.value_type_name(), |n| {
+            self.object_class.resolve_type_scoped(n)
+        })
+    }
+
+    /// Type name of the property value.
+    pub fn value_type_name(&self) -> &str {
+        &self.data.as_ref().type_name
+    }
+
+    /// Whether or not this property provides the standard setter function.
+    ///
+    /// See `PropertyDef::stdCppSet()` in `qtbase/src/tools/moc/moc.h` for details.
+    pub fn is_std_set(&self) -> bool {
+        let d = self.data.as_ref();
+        let n = self.name.as_ref();
+        if let (Some(f), Some(h)) = (d.write_func_name.as_ref(), n.chars().next()) {
+            // f == set<Name>
+            f.starts_with("set")
+                && f[3..].starts_with(h.to_ascii_uppercase())
+                && f[(3 + h.len_utf8())..] == n[h.len_utf8()..]
+        } else {
+            false
+        }
+    }
+
+    /// Type of the object which this property is associated with.
+    pub fn object_class(&self) -> &Class<'a> {
+        &self.object_class
+    }
 }
 
 impl PropertyData {
@@ -499,10 +537,18 @@ mod tests {
         let module = type_map.get_module(module_id).unwrap();
         let sub_class = unwrap_class(module.get_type("Sub"));
 
-        assert_eq!(sub_class.is_property_std_set("rootStd"), Some(true));
-        assert_eq!(sub_class.is_property_std_set("rootNoStd"), Some(false));
-        assert_eq!(sub_class.is_property_std_set("subStd"), Some(true));
-        assert_eq!(sub_class.is_property_std_set("subNoWrite"), Some(false));
-        assert!(sub_class.is_property_std_set("unknown").is_none());
+        assert_eq!(
+            sub_class.get_property("rootStd").unwrap().is_std_set(),
+            true
+        );
+        assert_eq!(
+            sub_class.get_property("rootNoStd").unwrap().is_std_set(),
+            false
+        );
+        assert_eq!(sub_class.get_property("subStd").unwrap().is_std_set(), true);
+        assert_eq!(
+            sub_class.get_property("subNoWrite").unwrap().is_std_set(),
+            false
+        );
     }
 }

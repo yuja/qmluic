@@ -186,7 +186,7 @@ where
     binding_map
         .iter()
         .filter_map(|(&name, value)| {
-            if let Some(ty) = cls.get_property_type(name) {
+            if let Some(ty) = cls.get_property(name).and_then(|p| p.value_type()) {
                 PropertyValue::from_binding_value(ctx, &ty, value, diagnostics)
             } else {
                 diagnostics.push(Diagnostic::error(
@@ -229,7 +229,8 @@ pub(super) fn make_serializable_properties(
         .into_iter()
         .filter_map(|(k, v)| {
             diagnostics.consume_err(v.into_serializable()).map(|v| {
-                let s = if cls.is_property_std_set(&k).expect("name should be valid") {
+                let p = cls.get_property(&k).expect("name should be valid");
+                let s = if p.is_std_set() {
                     PropertySetter::StdSet
                 } else {
                     PropertySetter::Var
