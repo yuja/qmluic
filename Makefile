@@ -2,9 +2,16 @@ CARGO = cargo
 CLANG_FORMAT = clang-format
 CMAKE = cmake
 NINJA = ninja
+QMAKE = qmake
+
+QT_VERSION_MAJOR = $(word 1,$(subst ., ,$(shell $(QMAKE) -query QT_VERSION)))
 
 ifneq ($(shell command -v $(NINJA) 2>/dev/null),)
 CMAKE_FLAGS += -GNinja
+endif
+
+ifeq ($(QT_VERSION_MAJOR),6)
+CMAKE_FLAGS += -DUSE_QT6=ON
 endif
 
 .PHONY: help
@@ -16,6 +23,10 @@ help:
 	@echo '  tests      - run linter and automated tests'
 	@echo '  generate-examples - generate .ui from example .qml files'
 	@echo '  build-examples - generate .ui from example .qml files and build them'
+	@echo
+	@echo 'Make variables:'
+	@echo '  CMAKE_FLAGS=$(CMAKE_FLAGS)'
+	@echo '  QT_VERSION_MAJOR=$(QT_VERSION_MAJOR)'
 
 .PHONY: debug
 debug:
