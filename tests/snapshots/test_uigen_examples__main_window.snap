@@ -31,6 +31,11 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
        <widget class="QComboBox" name="fileNameEdit">
         <item>
          <property name="text">
+          <string notr="true">MainWindow.qml</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
           <string notr="true">ItemViews.qml</string>
          </property>
         </item>
@@ -75,6 +80,8 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
        </property>
       </widget>
       <widget class="QStackedWidget" name="formStack">
+       <widget class="QWidget">
+       </widget>
        <widget class="ItemViews">
        </widget>
        <widget class="LayoutFlow">
