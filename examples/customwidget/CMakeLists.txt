@@ -1,4 +1,11 @@
-find_package(Qt5 5.15 REQUIRED COMPONENTS Widgets)
+if(USE_QT6)
+  find_package(Qt6 REQUIRED COMPONENTS Widgets)
+else()
+  find_package(Qt5 5.15 COMPONENTS Widgets)
+  if(NOT Qt5_FOUND)
+    find_package(Qt6 REQUIRED COMPONENTS Widgets)
+  endif()
+endif()
 
 add_executable(qmluic-examples-customwidget
   common/mydialogbuttonbox.cpp

@@ -14,7 +14,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Help Qt Creator find our type stub
 set(QML_IMPORT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/imports CACHE STRING "" FORCE)
 
-find_package(Qt5 5.15 REQUIRED COMPONENTS Widgets)
+option(USE_QT6 "Use Qt6 even if Qt5 found")
+if(USE_QT6)
+  find_package(Qt6 REQUIRED COMPONENTS Widgets)
+else()
+  find_package(Qt5 5.15 COMPONENTS Widgets)
+  if(NOT Qt5_FOUND)
+    find_package(Qt6 REQUIRED COMPONENTS Widgets)
+  endif()
+endif()
 
 add_subdirectory(customwidget)
 
