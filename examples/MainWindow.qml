@@ -27,9 +27,9 @@ QMainWindow {
                 QComboBox {
                     id: fileNameEdit
                     model: [
+                        "MainWindow.qml",
                         "ItemViews.qml",
                         "LayoutFlow.qml",
-                        // "MainWindow.qml",
                         "SettingsDialog.qml",
                         "StaticItemModel.qml",
                         "VariousLayouts.qml",
@@ -54,6 +54,7 @@ QMainWindow {
                     // do that in .cpp right now.
                     // TODO: currentIndex: fileNameEdit.currentIndex
 
+                    QWidget {}  // placeholder for "MainWindow.qml"
                     ItemViews {}
                     LayoutFlow {}
                     SettingsDialog {}
