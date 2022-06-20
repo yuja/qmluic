@@ -17,9 +17,11 @@ set(QML_IMPORT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/imports CACHE STRING 
 find_package(Qt5 5.15 REQUIRED COMPONENTS Widgets)
 
 add_subdirectory(customwidget)
-add_subdirectory(thg)
 
 add_executable(qmluic-examples
+  hgemaildialog.cpp
+  hgemaildialog.h
+  hgemaildialog.ui
   itemviews.cpp
   itemviews.h
   itemviews.ui
@@ -44,6 +46,7 @@ add_executable(qmluic-examples
 # Makes .qml files appear in Qt Creator project
 target_sources(qmluic-examples
   PRIVATE
+    HgEmailDialog.qml
     ItemViews.qml
     LayoutFlow.qml
     MainWindow.qml

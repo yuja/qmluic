@@ -1,6 +1,11 @@
 pub mod common;
 
 #[test]
+fn test_hg_email_dialog() {
+    insta::assert_snapshot!(common::translate_file("examples/HgEmailDialog.qml").unwrap());
+}
+
+#[test]
 fn test_item_views() {
     insta::assert_snapshot!(common::translate_file("examples/ItemViews.qml").unwrap());
 }
@@ -50,9 +55,4 @@ fn test_customwidget_settings_form() {
     insta::assert_snapshot!(
         common::translate_file("examples/customwidget/SettingsForm.qml").unwrap()
     );
-}
-
-#[test]
-fn test_thg_hg_email_dialog() {
-    insta::assert_snapshot!(common::translate_file("examples/thg/HgEmailDialog.qml").unwrap());
 }
