@@ -14,18 +14,14 @@ add_executable(qmluic-examples-customwidget
   main.cpp
   maindialog.cpp
   maindialog.h
-  maindialog.ui
   settingsform.cpp
   settingsform.h
-  settingsform.ui
 )
 
-# Makes .qml files appear in Qt Creator project
-target_sources(qmluic-examples-customwidget
-  PRIVATE
-    common/MyDialogButtonBox.qml
-    MainDialog.qml
-    SettingsForm.qml
+target_qmlui_sources(qmluic-examples-customwidget
+  common/MyDialogButtonBox.qml
+  MainDialog.qml
+  SettingsForm.qml
 )
 
 target_compile_definitions(qmluic-examples-customwidget
