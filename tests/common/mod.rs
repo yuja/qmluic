@@ -35,8 +35,14 @@ impl TestEnv {
         self.base_path().join(path)
     }
 
+    pub fn create_dir_all(&self, path: impl AsRef<Path>) {
+        fs::create_dir_all(self.join(path)).unwrap();
+    }
+
     pub fn write_dedent(&self, path: impl AsRef<Path>, data: impl AsRef<str>) {
-        fs::write(self.join(path), dedent(data)).unwrap()
+        let full_path = self.join(path);
+        fs::create_dir_all(full_path.parent().unwrap()).unwrap();
+        fs::write(&full_path, dedent(data)).unwrap();
     }
 
     pub fn read_to_string(&self, path: impl AsRef<Path>) -> String {
