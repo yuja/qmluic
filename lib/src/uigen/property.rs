@@ -3,7 +3,7 @@ use super::expr::{PropertyValue, SimpleValue, Value};
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
-use crate::typemap::{Class, TypeSpace};
+use crate::typemap::{Class, Property, TypeSpace};
 use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
@@ -11,6 +11,19 @@ use std::fmt::Debug;
 use std::io;
 use std::ops::Range;
 use thiserror::Error;
+
+/// Property value with its description.
+#[derive(Clone, Debug)]
+pub(super) struct PropertyDescValue<'a, 't> {
+    pub desc: Property<'a>,
+    pub value: PropertyValue<'a, 't>, // TODO: remove Class<'a> from ObjectProperties
+}
+
+impl<'a, 't> PropertyDescValue<'a, 't> {
+    pub fn new(desc: Property<'a>, value: PropertyValue<'a, 't>) -> Self {
+        PropertyDescValue { desc, value }
+    }
+}
 
 /// Type of the property setter to be used by `uic`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -77,7 +90,7 @@ impl<'t, V> WithNode<'t, V> {
     }
 }
 
-impl<'t> WithNode<'t, PropertyValue<'_, '_>> {
+impl<'t> WithNode<'t, PropertyDescValue<'_, '_>> {
     pub fn to_enum(&self) -> Result<&str, ValueTypeError<'t>> {
         self.as_serializable()
             .and_then(|v| v.as_enum())
@@ -100,21 +113,30 @@ impl<'t> WithNode<'t, PropertyValue<'_, '_>> {
     }
 
     pub fn as_serializable(&self) -> Option<&Value> {
-        match &self.data {
+        match &self.data.value {
             PropertyValue::Serializable(v) => Some(v),
             _ => None,
         }
     }
 
     pub fn into_serializable(self) -> Result<Value, ValueTypeError<'t>> {
-        match self.data {
+        match self.data.value {
             PropertyValue::Serializable(v) => Ok(v),
             _ => Err(self.make_type_error()),
         }
     }
 
+    pub fn into_serializable_setter(self) -> Result<(Value, PropertySetter), ValueTypeError<'t>> {
+        let s = if self.data.desc.is_std_set() {
+            PropertySetter::StdSet
+        } else {
+            PropertySetter::Var
+        };
+        self.into_serializable().map(|v| (v, s))
+    }
+
     pub fn into_simple(self) -> Result<SimpleValue, ValueTypeError<'t>> {
-        match self.data {
+        match self.data.value {
             PropertyValue::Serializable(Value::Simple(v)) => Ok(v),
             _ => Err(self.make_type_error()),
         }
@@ -145,7 +167,7 @@ impl From<ValueTypeError<'_>> for Diagnostic {
     }
 }
 
-pub(super) type PropertiesMap<'a, 't> = HashMap<String, WithNode<'t, PropertyValue<'a, 't>>>;
+pub(super) type PropertiesMap<'a, 't> = HashMap<String, WithNode<'t, PropertyDescValue<'a, 't>>>;
 
 /// Parses the given `binding_map` into a map of constant expressions.
 ///
@@ -181,13 +203,22 @@ fn resolve_properties<'a, 't, 's, B, F>(
     mut make_value: F,
 ) -> HashMap<String, B>
 where
-    F: FnMut(WithNode<'t, PropertyValue<'a, 't>>, &mut Diagnostics) -> Option<B>,
+    F: FnMut(WithNode<'t, PropertyDescValue<'a, 't>>, &mut Diagnostics) -> Option<B>,
 {
     binding_map
         .iter()
         .filter_map(|(&name, value)| {
-            if let Some(ty) = cls.get_property(name).and_then(|p| p.value_type()) {
-                PropertyValue::from_binding_value(ctx, &ty, value, diagnostics)
+            if let Some(desc) = cls.get_property(name) {
+                if let Some(ty) = desc.value_type() {
+                    PropertyValue::from_binding_value(ctx, &ty, value, diagnostics)
+                        .map(|v| PropertyDescValue::new(desc, v))
+                } else {
+                    diagnostics.push(Diagnostic::error(
+                        value.binding_node().byte_range(),
+                        format!("unresolved property type: {}", desc.value_type_name()),
+                    ));
+                    None
+                }
             } else {
                 diagnostics.push(Diagnostic::error(
                     value.binding_node().byte_range(),
@@ -221,22 +252,16 @@ pub(super) fn make_gadget_properties(
 }
 
 pub(super) fn make_serializable_properties(
-    cls: &Class,
+    _cls: &Class, // TODO: remove
     properties_map: PropertiesMap,
     diagnostics: &mut Diagnostics,
 ) -> HashMap<String, (Value, PropertySetter)> {
     properties_map
         .into_iter()
         .filter_map(|(k, v)| {
-            diagnostics.consume_err(v.into_serializable()).map(|v| {
-                let p = cls.get_property(&k).expect("name should be valid");
-                let s = if p.is_std_set() {
-                    PropertySetter::StdSet
-                } else {
-                    PropertySetter::Var
-                };
-                (k, (v, s))
-            })
+            diagnostics
+                .consume_err(v.into_serializable_setter())
+                .map(|x| (k, x))
         })
         .collect()
 }

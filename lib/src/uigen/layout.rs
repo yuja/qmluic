@@ -1,5 +1,5 @@
 use super::context::BuildDocContext;
-use super::expr::{PropertyValue, Value};
+use super::expr::Value;
 use super::object::{self, Widget};
 use super::property::{self, PropertiesMap, PropertySetter, WithNode};
 use super::{XmlResult, XmlWriter};
@@ -582,10 +582,7 @@ impl LayoutIndexCounter {
 }
 
 impl LayoutFlow {
-    fn parse(
-        properties_map: &mut HashMap<String, WithNode<PropertyValue>>,
-        diagnostics: &mut Diagnostics,
-    ) -> Self {
+    fn parse(properties_map: &mut PropertiesMap, diagnostics: &mut Diagnostics) -> Self {
         // should be kept sync with QGridLayout definition in metatype_tweak.rs
         let left_to_right = if let Some(v) = properties_map.remove("flow") {
             match diagnostics.consume_err(v.to_enum()) {

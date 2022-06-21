@@ -2,7 +2,7 @@ use super::context::BuildDocContext;
 use super::expr::{PropertyValue, Value};
 use super::gadget::ModelItem;
 use super::layout::Layout;
-use super::property::{self, PropertiesMap, PropertySetter, WithNode};
+use super::property::{self, PropertiesMap, PropertyDescValue, PropertySetter, WithNode};
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectNode;
@@ -171,7 +171,11 @@ impl Widget {
     ) -> Self {
         let actions = match properties_map.remove("actions") {
             Some(WithNode {
-                data: PropertyValue::ObjectRefList(refs),
+                data:
+                    PropertyDescValue {
+                        value: PropertyValue::ObjectRefList(refs),
+                        ..
+                    },
                 ..
             }) => refs
                 .into_iter()
@@ -204,7 +208,11 @@ impl Widget {
         {
             match properties_map.remove("model") {
                 Some(WithNode {
-                    data: PropertyValue::ItemModel(items),
+                    data:
+                        PropertyDescValue {
+                            value: PropertyValue::ItemModel(items),
+                            ..
+                        },
                     ..
                 }) => items,
                 Some(x) => {
@@ -367,25 +375,23 @@ fn collect_action_like_children(ctx: &BuildDocContext, children: &mut [UiObject]
 
 fn flatten_object_properties_into_attributes(
     attributes: &mut HashMap<String, (Value, PropertySetter)>,
-    properties_map: &mut HashMap<String, WithNode<'_, PropertyValue>>,
+    properties_map: &mut PropertiesMap,
     name: &str,
     diagnostics: &mut Diagnostics,
 ) {
     match properties_map.remove(name) {
         Some(WithNode {
-            data: PropertyValue::ObjectProperties(cls, props),
+            data:
+                PropertyDescValue {
+                    value: PropertyValue::ObjectProperties(_, props),
+                    ..
+                },
             ..
         }) => {
             attributes.extend(props.into_iter().filter_map(|(k, v)| {
-                diagnostics.consume_err(v.into_serializable()).map(|v| {
-                    let p = cls.get_property(&k).expect("name should be valid");
-                    let s = if p.is_std_set() {
-                        PropertySetter::StdSet
-                    } else {
-                        PropertySetter::Var
-                    };
-                    (concat_camel_case_names(name, &k), (v, s))
-                })
+                diagnostics
+                    .consume_err(v.into_serializable_setter())
+                    .map(|x| (concat_camel_case_names(name, &k), x))
             }));
         }
         Some(x) => {
