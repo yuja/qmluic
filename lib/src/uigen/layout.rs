@@ -171,11 +171,11 @@ impl LayoutItem {
         content: LayoutItemContent,
     ) -> Self {
         LayoutItem {
-            alignment: attached.alignment.take().map(|v| v.into_value()),
+            alignment: attached.alignment.take().map(|v| v.into_data()),
             column,
-            column_span: attached.column_span.take().map(|v| v.into_value()),
+            column_span: attached.column_span.take().map(|v| v.into_data()),
             row,
-            row_span: attached.row_span.take().map(|v| v.into_value()),
+            row_span: attached.row_span.take().map(|v| v.into_data()),
             content,
         }
     }
@@ -244,7 +244,7 @@ impl<'t> LayoutItemAttached<'t> {
             properties_map
                 .get(name)
                 .and_then(|v| diagnostics.consume_err(v.to_enum_with_node()))
-                .map(|v| v.map_value(|s| s.to_owned()))
+                .map(|v| v.map_data(|s| s.to_owned()))
         };
         let get_i32_property = |name, diagnostics: &mut Diagnostics| {
             properties_map
@@ -647,7 +647,7 @@ fn maybe_parse_layout_index(
     diagnostics: &mut Diagnostics,
 ) -> Option<i32> {
     index.and_then(|i| {
-        let v = *i.value();
+        let v = *i.data();
         if v < 0 {
             diagnostics.push(Diagnostic::error(
                 i.node().byte_range(),
@@ -677,14 +677,14 @@ fn maybe_insert_into_opt_i32_array(
             array.resize_with(index + 1, Default::default);
         }
         match array[index] {
-            Some(v0) if v0 != *v1.value() => {
+            Some(v0) if v0 != *v1.data() => {
                 diagnostics.push(Diagnostic::error(
                     v1.node().byte_range(),
                     format!("mismatched with the value previously set: {v0}"),
                 ));
             }
             _ => {
-                array[index] = Some(*v1.value());
+                array[index] = Some(*v1.data());
             }
         }
     }

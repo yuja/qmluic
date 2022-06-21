@@ -171,7 +171,7 @@ impl Widget {
     ) -> Self {
         let actions = match properties_map.remove("actions") {
             Some(WithNode {
-                value: PropertyValue::ObjectRefList(refs),
+                data: PropertyValue::ObjectRefList(refs),
                 ..
             }) => refs
                 .into_iter()
@@ -204,7 +204,7 @@ impl Widget {
         {
             match properties_map.remove("model") {
                 Some(WithNode {
-                    value: PropertyValue::ItemModel(items),
+                    data: PropertyValue::ItemModel(items),
                     ..
                 }) => items,
                 Some(x) => {
@@ -373,7 +373,7 @@ fn flatten_object_properties_into_attributes(
 ) {
     match properties_map.remove(name) {
         Some(WithNode {
-            value: PropertyValue::ObjectProperties(cls, props),
+            data: PropertyValue::ObjectProperties(cls, props),
             ..
         }) => {
             attributes.extend(props.into_iter().filter_map(|(k, v)| {

@@ -25,14 +25,14 @@ pub enum PropertySetter {
 #[derive(Clone, Copy, Debug)]
 pub(super) struct WithNode<'t, V> {
     node: Node<'t>,
-    pub value: V,
+    pub data: V,
 }
 
 impl<'t, V> WithNode<'t, V> {
-    fn new(binding_value: &UiBindingValue<'t, '_>, value: V) -> Self {
+    fn new(binding_value: &UiBindingValue<'t, '_>, data: V) -> Self {
         WithNode {
             node: binding_value.node(),
-            value,
+            data,
         }
     }
 
@@ -47,28 +47,28 @@ impl<'t, V> WithNode<'t, V> {
             .expect("binding value node should have parent")
     }
 
-    pub fn value(&self) -> &V {
-        &self.value
+    pub fn data(&self) -> &V {
+        &self.data
     }
 
-    pub fn into_value(self) -> V {
-        self.value
+    pub fn into_data(self) -> V {
+        self.data
     }
 
-    pub fn map_value<U, F>(self, f: F) -> WithNode<'t, U>
+    pub fn map_data<U, F>(self, f: F) -> WithNode<'t, U>
     where
         F: FnOnce(V) -> U,
     {
         WithNode {
             node: self.node,
-            value: f(self.value),
+            data: f(self.data),
         }
     }
 
-    fn rewrap<U>(&self, value: U) -> WithNode<'t, U> {
+    fn rewrap<U>(&self, data: U) -> WithNode<'t, U> {
         WithNode {
             node: self.node,
-            value,
+            data,
         }
     }
 
@@ -100,21 +100,21 @@ impl<'t> WithNode<'t, PropertyValue<'_, '_>> {
     }
 
     pub fn as_serializable(&self) -> Option<&Value> {
-        match &self.value {
+        match &self.data {
             PropertyValue::Serializable(v) => Some(v),
             _ => None,
         }
     }
 
     pub fn into_serializable(self) -> Result<Value, ValueTypeError<'t>> {
-        match self.value {
+        match self.data {
             PropertyValue::Serializable(v) => Ok(v),
             _ => Err(self.make_type_error()),
         }
     }
 
     pub fn into_simple(self) -> Result<SimpleValue, ValueTypeError<'t>> {
-        match self.value {
+        match self.data {
             PropertyValue::Serializable(Value::Simple(v)) => Ok(v),
             _ => Err(self.make_type_error()),
         }
