@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use anyhow::{anyhow, Context as _};
-use camino::{Utf8Path, Utf8PathBuf};
+use camino::{Utf8Component, Utf8Path, Utf8PathBuf};
 use clap::{Args, Parser, Subcommand};
 use notify::{DebouncedEvent, RecursiveMode, Watcher as _};
 use qmluic::diagnostic::{Diagnostics, ProjectDiagnostics};
@@ -213,6 +213,11 @@ struct GenerateUiArgs {
     /// QML files to parse
     #[clap(required = true, action)]
     sources: Vec<Utf8PathBuf>,
+    /// Create output files in the given directory.
+    ///
+    /// If specified, the source file paths must be relative and not contain "..".
+    #[clap(short = 'O', long, action)]
+    output_directory: Option<Utf8PathBuf>,
     #[clap(long, action)]
     /// Qt metatypes.json files/directories to load
     ///
@@ -225,6 +230,17 @@ struct GenerateUiArgs {
 }
 
 fn generate_ui(args: &GenerateUiArgs) -> Result<(), CommandError> {
+    if args.output_directory.is_some()
+        && args.sources.iter().any(|p| {
+            !p.components()
+                .all(|c| matches!(c, Utf8Component::CurDir | Utf8Component::Normal(_)))
+        })
+    {
+        return Err(CommandError::Other(anyhow!(
+            "source file paths must be relative if --output-directory is specified",
+        )));
+    }
+
     let mut type_map = load_type_map(&args.foreign_types)?;
     let mut docs_cache = UiDocumentsCache::new();
     let mut project_diagnostics = ProjectDiagnostics::new();
@@ -245,7 +261,7 @@ fn generate_ui(args: &GenerateUiArgs) -> Result<(), CommandError> {
     };
     let ctx = BuildContext::prepare(&type_map, file_name_rules).map_err(anyhow::Error::from)?;
     for p in &args.sources {
-        generate_ui_file(&ctx, &docs_cache, p)?;
+        generate_ui_file(&ctx, &docs_cache, p, args.output_directory.as_deref())?;
     }
     Ok(())
 }
@@ -254,6 +270,7 @@ fn generate_ui_file(
     ctx: &BuildContext,
     docs_cache: &UiDocumentsCache,
     source: &Utf8Path,
+    output_directory: Option<&Utf8Path>,
 ) -> Result<(), CommandError> {
     eprintln!(
         "{} {}",
@@ -278,12 +295,18 @@ fn generate_ui_file(
         }
     };
 
-    let out_path = source.with_file_name(
-        ctx.file_name_rules.type_name_to_ui_name(
-            doc.type_name()
-                .expect("valid source path should point to file"),
-        ),
-    );
+    let out_path = {
+        let type_name = doc
+            .type_name()
+            .expect("valid source path should point to file");
+        let name = ctx.file_name_rules.type_name_to_ui_name(type_name);
+        let path = source.with_file_name(name);
+        if let Some(dir) = output_directory {
+            dir.join(path)
+        } else {
+            path
+        }
+    };
     let mut serialized = Vec::new();
     form.serialize_to_xml(&mut XmlWriter::new_with_indent(&mut serialized, b' ', 1))
         .context("failed to serializee UI XML")?;
@@ -491,8 +514,9 @@ where
     E: std::error::Error + Send + Sync + 'static,
 {
     let path = path.as_ref();
-    let mut out =
-        NamedTempFile::new_in(path.parent().ok_or_else(|| anyhow!("invalid file name"))?)?;
+    let dir = path.parent().ok_or_else(|| anyhow!("invalid file name"))?;
+    fs::create_dir_all(dir).context("failed to create output directory")?;
+    let mut out = NamedTempFile::new_in(dir)?;
     f(&mut out)?;
     out.as_file().set_permissions(perm)?;
     out.persist(path)?;
