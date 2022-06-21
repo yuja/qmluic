@@ -28,7 +28,7 @@ can find our type stubs.
 
 See the following examples:
 
-* [contrib/uiviewer/CMakeLists.txt](contrib/uiviewer/CMakeLists.txt)
+* [examples/CMakeLists.txt](examples/CMakeLists.txt)
 * [examples/examples.qmlproject](examples/examples.qmlproject)
 
 ### Live Preview
