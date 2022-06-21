@@ -284,14 +284,20 @@ fn generate_ui_file(
                 .expect("valid source path should point to file"),
         ),
     );
-    let perm = fs::metadata(source)
-        .context("failed to get source file permission")?
-        .permissions(); // assume this is the default file permissions
-    with_output_file(&out_path, perm, |out| {
-        let mut writer = XmlWriter::new_with_indent(BufWriter::new(out), b' ', 1);
-        form.serialize_to_xml(&mut writer)
-    })
-    .context("failed to write UI XML")?;
+    let mut serialized = Vec::new();
+    form.serialize_to_xml(&mut XmlWriter::new_with_indent(&mut serialized, b' ', 1))
+        .context("failed to serializee UI XML")?;
+    // do not touch the output file if unchanged so the subsequent build steps wouldn't run
+    if !fs::read(&out_path)
+        .map(|d| d == serialized)
+        .unwrap_or(false)
+    {
+        let perm = fs::metadata(source)
+            .context("failed to get source file permission")?
+            .permissions(); // assume this is the default file permissions
+        with_output_file(&out_path, perm, |out| out.write_all(&serialized))
+            .context("failed to write UI XML")?;
+    }
     Ok(())
 }
 
