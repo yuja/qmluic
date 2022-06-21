@@ -252,7 +252,6 @@ pub(super) fn make_gadget_properties(
 }
 
 pub(super) fn make_serializable_properties(
-    _cls: &Class, // TODO: remove
     properties_map: PropertiesMap,
     diagnostics: &mut Diagnostics,
 ) -> HashMap<String, (Value, PropertySetter)> {

@@ -41,7 +41,6 @@ impl UiObject {
         if cls.is_derived_from(&ctx.classes.action) {
             confine_children(obj_node, diagnostics);
             UiObject::Action(Action::new(
-                cls,
                 obj_node
                     .obj()
                     .object_id()
@@ -95,12 +94,11 @@ pub struct Action {
 
 impl Action {
     pub(super) fn new(
-        cls: &Class,
         name: Option<String>,
         properties_map: PropertiesMap,
         diagnostics: &mut Diagnostics,
     ) -> Self {
-        let properties = property::make_serializable_properties(cls, properties_map, diagnostics);
+        let properties = property::make_serializable_properties(properties_map, diagnostics);
         Action { name, properties }
     }
 
@@ -251,8 +249,7 @@ impl Widget {
                 diagnostics,
             );
         }
-        let mut properties =
-            property::make_serializable_properties(class, properties_map, diagnostics);
+        let mut properties = property::make_serializable_properties(properties_map, diagnostics);
         if class.is_derived_from(&ctx.classes.push_button) {
             // see metatype_tweak.rs, "default" is a reserved word
             if let Some((mut k, (v, _))) = properties.remove_entry("default_") {

@@ -78,8 +78,7 @@ impl Layout {
         children: Vec<LayoutItem>,
         diagnostics: &mut Diagnostics,
     ) -> Self {
-        let mut properties =
-            property::make_serializable_properties(class, properties_map, diagnostics);
+        let mut properties = property::make_serializable_properties(properties_map, diagnostics);
         // TODO: if metatypes were broken, contentsMargins could be of different type
         if let Some((Value::Gadget(m), s)) = properties.remove("contentsMargins") {
             // don't care the property setter since uic will anyway retranslate them
@@ -290,7 +289,6 @@ impl LayoutItemContent {
         } else if cls.is_derived_from(&ctx.classes.spacer_item) {
             object::confine_children(obj_node, diagnostics);
             LayoutItemContent::SpacerItem(SpacerItem::new(
-                cls,
                 obj_node
                     .obj()
                     .object_id()
@@ -335,12 +333,11 @@ pub struct SpacerItem {
 
 impl SpacerItem {
     pub(super) fn new(
-        cls: &Class,
         name: Option<String>,
         properties_map: PropertiesMap,
         diagnostics: &mut Diagnostics,
     ) -> Self {
-        let properties = property::make_serializable_properties(cls, properties_map, diagnostics);
+        let properties = property::make_serializable_properties(properties_map, diagnostics);
         SpacerItem { name, properties }
     }
 
