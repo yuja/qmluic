@@ -64,8 +64,6 @@ jobs:
         run: make debug
       - name: Build release
         run: make release
-      - name: Generate examples
-        run: make generate-examples
       - name: Build examples
         run: make build-examples
 
