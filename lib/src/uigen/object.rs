@@ -380,7 +380,7 @@ fn flatten_object_properties_into_attributes(
         Some(WithNode {
             data:
                 PropertyDescValue {
-                    value: PropertyValue::ObjectProperties(_, props),
+                    value: PropertyValue::ObjectProperties(props),
                     ..
                 },
             ..

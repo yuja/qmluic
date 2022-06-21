@@ -16,7 +16,7 @@ use thiserror::Error;
 #[derive(Clone, Debug)]
 pub(super) struct PropertyDescValue<'a, 't> {
     pub desc: Property<'a>,
-    pub value: PropertyValue<'a, 't>, // TODO: remove Class<'a> from ObjectProperties
+    pub value: PropertyValue<'a, 't>,
 }
 
 impl<'a, 't> PropertyDescValue<'a, 't> {

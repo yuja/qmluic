@@ -23,7 +23,7 @@ pub(super) enum PropertyValue<'a, 't> {
     /// List of identifiers referencing the objects.
     ObjectRefList(Vec<String>),
     /// Map of properties assigned to object pointer property.
-    ObjectProperties(Class<'a>, PropertiesMap<'a, 't>),
+    ObjectProperties(PropertiesMap<'a, 't>),
 }
 
 impl<'a, 't> PropertyValue<'a, 't> {
@@ -82,7 +82,6 @@ impl<'a, 't> PropertyValue<'a, 't> {
                     }
                 }
                 TypeKind::Pointer(NamedType::Class(cls)) => Some(PropertyValue::ObjectProperties(
-                    cls.clone(),
                     property::collect_properties_with_node(ctx, cls, m, diagnostics),
                 )),
                 _ => {
