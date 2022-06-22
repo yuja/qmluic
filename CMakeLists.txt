@@ -5,6 +5,8 @@ project(qmluic VERSION 0.1)
 # Make our cmake modules available to uiviewer
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
+include(GNUInstallDirs)
+
 find_program(CARGO_COMMAND cargo DOC "cargo command" REQUIRED)
 set(CARGO_BUILD_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/target" CACHE PATH "cargo build directory")
 
@@ -28,5 +30,5 @@ install(PROGRAMS
 )
 install(FILES
   "cmake/QmluicMacros.cmake"
-  DESTINATION "share/cmake/Qmluic"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/cmake/Qmluic"
 )
