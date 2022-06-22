@@ -27,8 +27,8 @@ Please make sure to not enable `CMAKE_AUTOUIC`, which conflicts with the .ui
 generation step.
 
 ```cmake
-list(APPEND CMAKE_MODULE_PATH "/path/to/qmluic/cmake")
-include(QmluicMacros)
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(Qmluic REQUIRED)
 
 # DO NOT ENABLE: set(CMAKE_AUTOUIC ON)
 
