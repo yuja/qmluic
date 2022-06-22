@@ -18,6 +18,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Help Qt Creator find our type stub
 set(QML_IMPORT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/imports CACHE STRING "" FORCE)
 
+# Use the up-to-date version of the qmluic command.
+set(QMLUIC_COMMAND cargo run --)
+
 option(USE_QT6 "Use Qt6 even if Qt5 found")
 if(USE_QT6)
   find_package(Qt6 REQUIRED COMPONENTS Widgets)
