@@ -5,6 +5,7 @@ project(qmluic VERSION 0.1)
 # Make our cmake modules available to uiviewer
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
+include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 
 find_program(CARGO_COMMAND cargo DOC "cargo command" REQUIRED)
@@ -23,12 +24,16 @@ add_custom_target(qmluic ALL
   USES_TERMINAL
 )
 
-# TODO: generate QmluicConfig.cmake and install it
+configure_package_config_file(cmake/QmluicConfig.cmake.in
+  "${CMAKE_CURRENT_BINARY_DIR}/QmluicConfig.cmake"
+  INSTALL_DESTINATION "${CMAKE_INSTALL_DATADIR}/cmake/Qmluic"
+)
 install(PROGRAMS
   "${CARGO_BUILD_TARGET_DIR}/$<IF:$<CONFIG:Release>,release,debug>/qmluic${CMAKE_EXECUTABLE_SUFFIX}"
   TYPE BIN
 )
 install(FILES
   "cmake/QmluicMacros.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/QmluicConfig.cmake"
   DESTINATION "${CMAKE_INSTALL_DATADIR}/cmake/Qmluic"
 )

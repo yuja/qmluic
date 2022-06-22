@@ -1,8 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
 
-# TODO: should be set by QmluicConfig.cmake?, and the user would do find_package(Qmluic)
-set(QMLUIC_COMMAND qmluic CACHE FILEPATH "qmluic command")
-
 function(qmluic_target_qml_sources target)
   cmake_parse_arguments(PARSE_ARGV 1 arg "" "OUTPUT_DIRECTORY" "")
   set(qml_files ${arg_UNPARSED_ARGUMENTS})
@@ -15,6 +12,10 @@ function(qmluic_target_qml_sources target)
   list(TRANSFORM qml_files TOLOWER OUTPUT_VARIABLE ui_files)
   list(TRANSFORM ui_files REPLACE "\.qml$" ".ui")
   list(TRANSFORM ui_files PREPEND "${output_directory}/" OUTPUT_VARIABLE abs_ui_files)
+
+  if(NOT QMLUIC_COMMAND)
+    message(FATAL_ERROR "QMLUIC_COMMAND must be set")
+  endif()
 
   target_sources(${target} PRIVATE ${qml_files})
   add_custom_command(
