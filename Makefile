@@ -31,7 +31,6 @@ help:
 	@echo '  install    - install binaries'
 	@echo '  format     - run code formatter'
 	@echo '  tests      - run linter and automated tests'
-	@echo '  generate-examples - generate .ui from example .qml files'
 	@echo '  build-examples - generate .ui from example .qml files and build them'
 	@echo
 	@echo 'Make variables:'
@@ -68,11 +67,6 @@ format:
 tests:
 	$(CARGO) clippy
 	$(CARGO) test --workspace
-
-.PHONY: generate-examples
-generate-examples:
-	find examples -type f -name '*.qml' -print0 \
-		| xargs -0 $(CARGO) run -- generate-ui
 
 .PHONY: build-examples
 build-examples: BUILD_DIR = target/debug-examples
