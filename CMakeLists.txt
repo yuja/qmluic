@@ -5,7 +5,7 @@ project(qmluic VERSION 0.1)
 find_program(CARGO_COMMAND cargo DOC "cargo command" REQUIRED)
 set(CARGO_BUILD_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/target" CACHE PATH "cargo build directory")
 
-add_subdirectory(contrib/uiviewer)
+add_subdirectory(uiviewer)
 
 add_custom_target(qmluic ALL
   COMMAND
