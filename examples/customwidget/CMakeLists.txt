@@ -18,7 +18,7 @@ add_executable(qmluic-examples-customwidget
   settingsform.h
 )
 
-target_qmlui_sources(qmluic-examples-customwidget
+qmluic_target_qml_sources(qmluic-examples-customwidget
   common/MyDialogButtonBox.qml
   MainDialog.qml
   SettingsForm.qml
