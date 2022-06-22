@@ -40,12 +40,35 @@ add_executable(myapp
 qmluic_target_qml_sources(myapp
   MyDialog.qml
   ...
-  # Enable this if you want to put the generated .ui in the source directory.
-  # OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )
 ```
 
 See [examples/CMakeLists.txt](examples/CMakeLists.txt) for details.
+
+#### Optional CMake
+
+If you want to optionally enable the qmluic integration, try this:
+
+```cmake
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(Qmluic QUIET)
+
+if(Qmluic_FOUND)
+  qmluic_target_qml_sources(myapp
+    MyDialog.qml
+    ...
+    # Put the generated .ui in the source directory so they will be committed.
+    OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  )
+else()
+  set(CMAKE_AUTOUIC ON)
+  target_sources(myapp PRIVATE
+    MyDialog.qml
+    mydialog.ui
+    ...
+  )
+endif()
+```
 
 ### Code Completion
 
