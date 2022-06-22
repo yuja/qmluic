@@ -60,10 +60,10 @@ jobs:
           sudo ln -s /usr/bin/qmake6 /usr/local/bin/qmake
       - name: Show detected Qt version
         run: make help
-      - name: Build debug
-        run: make debug
-      - name: Build release
+      - name: Build release binaries
         run: make release
+      - name: Install release binaries
+        run: sudo make install
       - name: Build examples
         run: make build-examples
 

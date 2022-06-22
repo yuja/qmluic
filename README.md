@@ -69,9 +69,9 @@ $ qmluic preview SettingsDialog.qml
 ```
 
 The preview window is a separate Qt C++ application, which needs to be built
-in addition to the standard `cargo build --workspace` command.
-See [Makefile](Makefile) for the build instructions (or just run `make release`
-on Linux.)
+in addition to the standard `cargo build --workspace` command. Use the
+top-level [CMakeLists.txt](CMakeLists.txt) to build and install the binaries
+(or run `make local` on Linux for in-place usage.)
 
 The previewer might not work on Windows because of the stdio use. Patches are
 welcome.
