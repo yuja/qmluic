@@ -69,8 +69,8 @@ tests:
 	$(CARGO) test --workspace
 
 .PHONY: build-examples
-build-examples: BUILD_DIR = target/debug-examples
-build-examples: BUILD_TYPE = Debug
+build-examples: BUILD_DIR = target/build-examples
+build-examples: export PATH := $(CURDIR)/target/local/bin:$(PATH)
 build-examples:
 	mkdir -p $(BUILD_DIR)
 	cd $(BUILD_DIR) && $(CMAKE) -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) $(CMAKE_FLAGS) $(CURDIR)/examples
