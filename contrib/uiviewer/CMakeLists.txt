@@ -60,3 +60,5 @@ target_link_libraries(qmluic-uiviewer
     Qt::UiTools
     Qt::Widgets
 )
+
+install(TARGETS qmluic-uiviewer)
