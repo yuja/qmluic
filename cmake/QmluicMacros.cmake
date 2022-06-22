@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 
-find_program(QMLUIC_COMMAND qmluic DOC "qmluic command")
+# TODO: should be set by QmluicConfig.cmake?, and the user would do find_package(Qmluic)
+set(QMLUIC_COMMAND qmluic CACHE FILEPATH "qmluic command")
 
 function(qmluic_target_qml_sources target)
   cmake_parse_arguments(PARSE_ARGV 1 arg "" "OUTPUT_DIRECTORY" "")
