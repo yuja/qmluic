@@ -1,8 +1,3 @@
-cmake_minimum_required(VERSION 3.12)
-
-project(uiviewer VERSION 0.1 LANGUAGES CXX)
-
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 include(QmluicMacros)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -15,11 +10,8 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Help Qt Creator find our type stub
-set(QML_IMPORT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../imports CACHE STRING "" FORCE)
-
 # Use the up-to-date version of the qmluic command.
-set(QMLUIC_COMMAND cargo run --)
+set(QMLUIC_COMMAND ${CARGO_COMMAND} run --)
 
 option(USE_QT6 "Use Qt6 even if Qt5 found")
 if(USE_QT6)
