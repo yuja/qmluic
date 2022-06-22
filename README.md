@@ -20,6 +20,33 @@ metatype.json files from the other directory or files.
 
 `qmluic` is tested with Qt 5.15 and 6.2 on Debian sid.
 
+### CMake
+
+There's a basic helper to integrate `qmluic generate-ui` in the build step.
+Please make sure to not enable `CMAKE_AUTOUIC`, which conflicts with the .ui
+generation step.
+
+```cmake
+list(APPEND CMAKE_MODULE_PATH "/path/to/qmluic/cmake")
+include(QmluicMacros)
+
+# DO NOT ENABLE: set(CMAKE_AUTOUIC ON)
+
+add_executable(myapp
+  main.cpp
+  ...
+)
+
+qmluic_target_qml_sources(myapp
+  MyDialog.qml
+  ...
+  # Enable this if you want to put the generated .ui in the source directory.
+  # OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+```
+
+See [examples/CMakeLists.txt](examples/CMakeLists.txt) for details.
+
 ### Code Completion
 
 You can leverage the excellent Qt Creator's QML editor. You just need to add
@@ -106,7 +133,6 @@ Major TODOs
 
 - [ ] Load type stubs from qmldir/plugins.qmltypes instead of metatypes.json
 - [ ] Better type resolution, namespace support
-- [ ] Build integration (maybe cmake?)
 - [ ] Live preview triggered by lsp
 - [ ] Live preview for multi-document file
 - [ ] Better support for static `QComboBox`/`QListWidget` items
