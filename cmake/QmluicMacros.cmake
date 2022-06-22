@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 
-set(QMLUIC_COMMAND cargo run --)
+find_program(QMLUIC_COMMAND qmluic DOC "qmluic command")
 
 function(qmluic_target_qml_sources target)
   set(qml_files ${ARGN})
