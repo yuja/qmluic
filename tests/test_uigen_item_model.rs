@@ -59,5 +59,5 @@ fn test_string_list_as_list_view_item() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
     QListView { model: ["foo"] }
-    "###).unwrap_err(), @"<unknown>:2:20: error: unexpected type of value");
+    "###).unwrap_err(), @"<unknown>:2:13: error: not a writable property");
 }
