@@ -15,8 +15,8 @@ $ uic settingsdialog.ui -o ui_settingsdialog.h
 ```
 
 By default, `qmluic generate-ui` loads type information from the
-`QT_INSTALL_LIBS/metatypes` directory. Use `--foreign-types` option to load
-metatype.json files from the other directory or files.
+`QT_INSTALL_LIBS/metatypes` directory. Use `--qmake` or `--foreign-types`
+option to load metatype.json files from the other directory or files.
 
 `qmluic` is tested with Qt 5.15 and 6.2 on Debian sid.
 

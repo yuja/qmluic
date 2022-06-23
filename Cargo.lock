@@ -585,6 +585,7 @@ dependencies = [
  "insta",
  "log",
  "notify",
+ "once_cell",
  "pretty_env_logger",
  "qmluic",
  "serde_json",

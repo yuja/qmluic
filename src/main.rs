@@ -4,6 +4,7 @@ use anyhow::{anyhow, Context as _};
 use camino::{Utf8Component, Utf8Path, Utf8PathBuf};
 use clap::{Args, Parser, Subcommand};
 use notify::{DebouncedEvent, RecursiveMode, Watcher as _};
+use once_cell::sync::OnceCell;
 use qmluic::diagnostic::{Diagnostics, ProjectDiagnostics};
 use qmluic::metatype;
 use qmluic::metatype_tweak;
@@ -23,8 +24,17 @@ use thiserror::Error;
 
 #[derive(Clone, Debug, Parser)]
 struct Cli {
+    #[clap(flatten)]
+    global_args: GlobalArgs,
     #[clap(subcommand)]
     command: Command,
+}
+
+#[derive(Args, Clone, Debug)]
+struct GlobalArgs {
+    /// Command to query Qt installation paths.
+    #[clap(long, global = true, default_value = "qmake", action)]
+    qmake: String,
 }
 
 #[derive(Clone, Debug, Subcommand)]
@@ -42,10 +52,34 @@ enum CommandError {
     Other(#[from] anyhow::Error),
 }
 
+#[derive(Clone, Debug)]
+struct CommandHelper {
+    global_args: GlobalArgs,
+    qt_paths_cache: OnceCell<QtPaths>,
+}
+
+impl CommandHelper {
+    fn new(global_args: GlobalArgs) -> Self {
+        CommandHelper {
+            global_args,
+            qt_paths_cache: OnceCell::new(),
+        }
+    }
+
+    pub fn qt_paths(&self) -> anyhow::Result<&QtPaths> {
+        self.qt_paths_cache.get_or_try_init(|| {
+            QtPaths::query_with(&self.global_args.qmake).with_context(|| {
+                format!("failed to query Qt paths with '{}'", self.global_args.qmake)
+            })
+        })
+    }
+}
+
 fn main() {
     pretty_env_logger::init_custom_env("QMLUIC_LOG");
     let cli = Cli::parse();
-    match dispatch(&cli) {
+    let helper = CommandHelper::new(cli.global_args);
+    match dispatch(&helper, &cli.command) {
         Ok(()) => {}
         Err(CommandError::DiagnosticGenerated) => {
             process::exit(1);
@@ -64,11 +98,11 @@ fn main() {
     }
 }
 
-fn dispatch(cli: &Cli) -> Result<(), CommandError> {
-    match &cli.command {
-        Command::DumpMetatypes(args) => dump_metatypes(args),
-        Command::GenerateUi(args) => generate_ui(args),
-        Command::Preview(args) => preview(args),
+fn dispatch(helper: &CommandHelper, command: &Command) -> Result<(), CommandError> {
+    match command {
+        Command::DumpMetatypes(args) => dump_metatypes(helper, args),
+        Command::GenerateUi(args) => generate_ui(helper, args),
+        Command::Preview(args) => preview(helper, args),
     }
 }
 
@@ -89,7 +123,7 @@ struct DumpMetatypesArgs {
     output_qmltypes: Option<Utf8PathBuf>,
 }
 
-fn dump_metatypes(args: &DumpMetatypesArgs) -> Result<(), CommandError> {
+fn dump_metatypes(helper: &CommandHelper, args: &DumpMetatypesArgs) -> Result<(), CommandError> {
     eprintln!(
         "{} {}",
         console::style("processing").for_stderr().green().bold(),
@@ -131,11 +165,7 @@ fn dump_metatypes(args: &DumpMetatypesArgs) -> Result<(), CommandError> {
         })
         .with_context(|| format!("failed to dump metatypes to file: {metatypes_path}"))?;
         if let Some(qmltypes_path) = &args.output_qmltypes {
-            generate_qmltypes(
-                &QtPaths::query().context("failed to query Qt paths")?,
-                qmltypes_path,
-                metatypes_path,
-            )?;
+            generate_qmltypes(helper.qt_paths()?, qmltypes_path, metatypes_path)?;
         }
     } else if let Some(qmltypes_path) = &args.output_qmltypes {
         let mut metatypes_file =
@@ -146,7 +176,7 @@ fn dump_metatypes(args: &DumpMetatypesArgs) -> Result<(), CommandError> {
             .flush()
             .context("failed to dump temporary metatypes")?;
         generate_qmltypes(
-            &QtPaths::query().context("failed to query Qt paths")?,
+            helper.qt_paths()?,
             qmltypes_path,
             metatypes_file
                 .path()
@@ -229,7 +259,7 @@ struct GenerateUiArgs {
     no_lowercase_file_name: bool,
 }
 
-fn generate_ui(args: &GenerateUiArgs) -> Result<(), CommandError> {
+fn generate_ui(helper: &CommandHelper, args: &GenerateUiArgs) -> Result<(), CommandError> {
     if args.output_directory.is_some()
         && args.sources.iter().any(|p| {
             !p.components()
@@ -241,7 +271,7 @@ fn generate_ui(args: &GenerateUiArgs) -> Result<(), CommandError> {
         )));
     }
 
-    let mut type_map = load_type_map(&args.foreign_types)?;
+    let mut type_map = load_type_map(helper, &args.foreign_types)?;
     let mut docs_cache = UiDocumentsCache::new();
     let mut project_diagnostics = ProjectDiagnostics::new();
     qmldir::populate_directories(
@@ -340,8 +370,8 @@ struct PreviewArgs {
     foreign_types: Vec<Utf8PathBuf>,
 }
 
-fn preview(args: &PreviewArgs) -> Result<(), CommandError> {
-    let mut type_map = load_type_map(&args.foreign_types)?;
+fn preview(helper: &CommandHelper, args: &PreviewArgs) -> Result<(), CommandError> {
+    let mut type_map = load_type_map(helper, &args.foreign_types)?;
     let mut docs_cache = UiDocumentsCache::new();
     let mut project_diagnostics = ProjectDiagnostics::new();
     qmldir::populate_directories(
@@ -432,11 +462,13 @@ fn preview_file(
     Ok(())
 }
 
-fn load_type_map(foreign_type_paths: &[Utf8PathBuf]) -> anyhow::Result<TypeMap> {
+fn load_type_map(
+    helper: &CommandHelper,
+    foreign_type_paths: &[Utf8PathBuf],
+) -> anyhow::Result<TypeMap> {
     let mut type_map = TypeMap::with_primitive_types();
     let mut classes = if foreign_type_paths.is_empty() {
-        let paths = QtPaths::query().context("failed to query Qt paths")?;
-        load_metatypes(&find_installed_metatype_files(&paths)?)?
+        load_metatypes(&find_installed_metatype_files(helper.qt_paths()?)?)?
     } else {
         load_metatypes(foreign_type_paths)?
     };
