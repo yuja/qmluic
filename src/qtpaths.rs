@@ -1,4 +1,5 @@
 use camino::Utf8PathBuf;
+use std::ffi::OsStr;
 use std::fmt;
 use std::io;
 use std::process::Command;
@@ -38,7 +39,14 @@ pub struct QtPaths {
 impl QtPaths {
     /// Queries paths by executing `qmake -query`.
     pub fn query() -> Result<Self, QueryError> {
-        let mut cmd = Command::new("qmake");
+        Self::query_with("qmake")
+    }
+
+    pub fn query_with<S>(program: S) -> Result<Self, QueryError>
+    where
+        S: AsRef<OsStr>,
+    {
+        let mut cmd = Command::new(program);
         cmd.arg("-query");
         log::debug!("executing {cmd:?}");
         let output = cmd.output()?;
