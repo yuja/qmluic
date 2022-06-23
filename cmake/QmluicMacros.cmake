@@ -16,11 +16,15 @@ function(qmluic_target_qml_sources target)
   if(NOT QMLUIC_COMMAND)
     message(FATAL_ERROR "QMLUIC_COMMAND must be set")
   endif()
+  get_target_property(QMAKE_EXECUTABLE Qt::qmake LOCATION)
 
   target_sources(${target} PRIVATE ${qml_files})
   add_custom_command(
     OUTPUT ${abs_ui_files}
-    COMMAND ${QMLUIC_COMMAND} generate-ui -O "${output_directory}" -- ${qml_files}
+    COMMAND
+      ${QMLUIC_COMMAND} generate-ui -O "${output_directory}"
+                                    --qmake "${QMAKE_EXECUTABLE}"
+                                    -- ${qml_files}
     DEPENDS ${abs_qml_files}
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     COMMENT "Generating UI from QML"
