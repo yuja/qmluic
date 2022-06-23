@@ -3,7 +3,7 @@ import qmluic.QtWidgets
 // This is a main window example which is somewhat functional. Selecting the source
 // combo box will update the source/form views.
 //
-// Menu/toolbar actions are all dummy.
+// Menu/toolbar actions are all dummy but for the quit action.
 QMainWindow {
     // Since the width/height properties are readonly, you need to set the geometry instead.
     // You can also set the size property, but apparently uic generates a slightly better

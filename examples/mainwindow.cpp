@@ -1,3 +1,4 @@
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -10,6 +11,8 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui_->setupUi(this);
     connect(ui_->fileNameEdit, &QComboBox::currentIndexChanged, this, &MainWindow::updateView);
+    connect(ui_->action_Quit, &QAction::triggered, QCoreApplication::instance(),
+            &QCoreApplication::quit, Qt::QueuedConnection);
     updateView();
 }
 
