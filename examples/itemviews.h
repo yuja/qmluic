@@ -3,6 +3,8 @@
 #include <QWidget>
 #include <memory>
 
+class QFileSystemModel;
+
 namespace Ui {
 class ItemViews;
 }
@@ -17,4 +19,5 @@ public:
 
 private:
     std::unique_ptr<Ui::ItemViews> ui_;
+    std::unique_ptr<QFileSystemModel> fsModel_;
 };
