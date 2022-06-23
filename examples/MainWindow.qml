@@ -45,7 +45,9 @@ QMainWindow {
                 QPlainTextEdit {
                     id: sourceEdit
                     font.family: "Monospace"
+                    lineWrapMode: QPlainTextEdit.NoWrap
                     readOnly: true
+                    textInteractionFlags: Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard
                 }
 
                 QStackedWidget {
