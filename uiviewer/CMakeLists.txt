@@ -13,16 +13,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Use the up-to-date version of the qmluic command.
 set(QMLUIC_COMMAND ${CARGO_COMMAND} run --)
 
-option(USE_QT6 "Use Qt6 even if Qt5 found")
-if(USE_QT6)
-  find_package(Qt6 REQUIRED COMPONENTS UiTools Widgets)
-else()
-  find_package(Qt5 5.15 COMPONENTS UiTools Widgets)
-  if(NOT Qt5_FOUND)
-    find_package(Qt6 REQUIRED COMPONENTS UiTools Widgets)
-  endif()
-endif()
-
 add_executable(qmluic-uiviewer
   main.cpp
   pipeserver.cpp

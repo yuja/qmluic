@@ -73,8 +73,8 @@ endif()
 ### Code Completion
 
 You can leverage the excellent Qt Creator's QML editor. You just need to add
-[`contrib/imports`](contrib/imports) to the `QML_IMPORT_PATH` so the creator
-can find our type stubs.
+`share/qmluic/imports` to the `QML_IMPORT_PATH` so the creator can find our
+type stubs.
 
 See the following examples:
 
