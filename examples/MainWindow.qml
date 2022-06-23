@@ -23,7 +23,7 @@ QMainWindow {
 
         QVBoxLayout {
             QFormLayout {
-                QLabel { text: qsTr("Source") }
+                QLabel { text: qsTr("&Source"); buddy: fileNameEdit }
                 QComboBox {
                     id: fileNameEdit
                     model: [

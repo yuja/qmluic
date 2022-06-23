@@ -22,8 +22,11 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
      <layout class="QFormLayout">
       <item column="0" row="0">
        <widget class="QLabel">
+        <property name="buddy">
+         <cstring>fileNameEdit</cstring>
+        </property>
         <property name="text">
-         <string>Source</string>
+         <string>&amp;Source</string>
         </property>
        </widget>
       </item>
