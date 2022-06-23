@@ -15,3 +15,11 @@ fn test_reserved_word_workaround() {
     </ui>
     "###);
 }
+
+#[test]
+fn test_width_is_readonly() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QWidget { width: 100 }
+    "###).unwrap_err(), @"<unknown>:2:11: error: not a writable property");
+}

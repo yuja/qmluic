@@ -237,6 +237,26 @@ where
         .collect()
 }
 
+/// Makes sure all properties are writable, removes if not.
+///
+/// This should be called at the very last but before `make_serializable_properties()`
+/// where all pseudo properties would have been transformed.
+pub(super) fn reject_unwritable_properties(
+    properties_map: &mut PropertiesMap,
+    diagnostics: &mut Diagnostics,
+) {
+    properties_map.retain(|_, v| {
+        let writable = v.data().desc.is_writable();
+        if !writable {
+            diagnostics.push(Diagnostic::error(
+                v.binding_node().byte_range(),
+                "not a writable property",
+            ));
+        }
+        writable
+    });
+}
+
 pub(super) fn make_gadget_properties(
     properties_map: PropertiesMap,
     diagnostics: &mut Diagnostics,

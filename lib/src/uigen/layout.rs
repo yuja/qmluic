@@ -74,10 +74,11 @@ impl Layout {
         class: &Class,
         name: Option<String>,
         attributes: LayoutAttributes,
-        properties_map: PropertiesMap,
+        mut properties_map: PropertiesMap,
         children: Vec<LayoutItem>,
         diagnostics: &mut Diagnostics,
     ) -> Self {
+        property::reject_unwritable_properties(&mut properties_map, diagnostics);
         let mut properties = property::make_serializable_properties(properties_map, diagnostics);
         // TODO: if metatypes were broken, contentsMargins could be of different type
         if let Some((Value::Gadget(m), s)) = properties.remove("contentsMargins") {
@@ -337,6 +338,7 @@ impl SpacerItem {
         properties_map: PropertiesMap,
         diagnostics: &mut Diagnostics,
     ) -> Self {
+        // no check for writable as all spacer properties are translated by uic
         let properties = property::make_serializable_properties(properties_map, diagnostics);
         SpacerItem { name, properties }
     }

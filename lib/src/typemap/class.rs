@@ -215,6 +215,11 @@ impl<'a> Property<'a> {
         &self.data.as_ref().type_name
     }
 
+    /// Whether or not this property can be set.
+    pub fn is_writable(&self) -> bool {
+        self.data.as_ref().write_func_name.is_some()
+    }
+
     /// Whether or not this property provides the standard setter function.
     ///
     /// See `PropertyDef::stdCppSet()` in `qtbase/src/tools/moc/moc.h` for details.

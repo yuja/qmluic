@@ -95,9 +95,10 @@ pub struct Action {
 impl Action {
     pub(super) fn new(
         name: Option<String>,
-        properties_map: PropertiesMap,
+        mut properties_map: PropertiesMap,
         diagnostics: &mut Diagnostics,
     ) -> Self {
+        property::reject_unwritable_properties(&mut properties_map, diagnostics);
         let properties = property::make_serializable_properties(properties_map, diagnostics);
         Action { name, properties }
     }
@@ -249,6 +250,8 @@ impl Widget {
                 diagnostics,
             );
         }
+
+        property::reject_unwritable_properties(&mut properties_map, diagnostics);
         let mut properties = property::make_serializable_properties(properties_map, diagnostics);
         if class.is_derived_from(&ctx.classes.push_button) {
             // see metatype_tweak.rs, "default" is a reserved word
