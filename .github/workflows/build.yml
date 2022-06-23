@@ -49,7 +49,9 @@ jobs:
           toolchain: stable
           override: true
       - name: Install build dependencies
-        run: sudo apt install build-essential cmake ninja-build libegl-dev
+        run: |
+          sudo apt update
+          sudo apt install build-essential cmake ninja-build libegl-dev
       - if: ${{ matrix.qt_version == 5 }}
         name: Install Qt 5
         run: sudo apt install qtbase5-dev qttools5-dev
@@ -101,6 +103,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Install clang-format
-        run: sudo apt install clang-format
+        run: |
+          sudo apt update
+          sudo apt install clang-format
       - name: Check format
         run: find \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format -n -Werror --
