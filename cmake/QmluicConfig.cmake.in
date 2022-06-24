@@ -1,2 +1,3 @@
 include("${CMAKE_CURRENT_LIST_DIR}/QmluicMacros.cmake")
 set(QMLUIC_COMMAND "@CMAKE_INSTALL_FULL_BINDIR@/qmluic")
+set(QMLUIC_QML_IMPORT_PATH "@CMAKE_INSTALL_FULL_DATADIR@/qmluic/imports")

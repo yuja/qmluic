@@ -12,9 +12,6 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Help Qt Creator find our type stub
-set(QML_IMPORT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../contrib/imports CACHE STRING "" FORCE)
-
 option(USE_QT6 "Use Qt6 even if Qt5 found")
 if(USE_QT6)
   find_package(Qt6 REQUIRED COMPONENTS Widgets)
@@ -28,6 +25,9 @@ endif()
 # Look up the installed qmluic. Set PATH, CMAKE_PREFIX_PATH, or CMAKE_MODULE_PATH
 # if you've installed qmluic to non-standard location.
 find_package(Qmluic REQUIRED)
+
+# Help Qt Creator find our type stub
+set(QML_IMPORT_PATH ${QMLUIC_QML_IMPORT_PATH} CACHE STRING "" FORCE)
 
 add_subdirectory(customwidget)
 

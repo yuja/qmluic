@@ -14,5 +14,5 @@ Project {
         directory: "."
     }
     /* List of plugin directories passed to QML runtime */
-    importPaths: [ "../contrib/imports" ]
+    importPaths: [ "../target/local/share/qmluic/imports" ]
 }
