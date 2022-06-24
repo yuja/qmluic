@@ -50,27 +50,25 @@ See [examples/CMakeLists.txt](examples/CMakeLists.txt) for details.
 
 #### Optional CMake
 
-If you want to optionally enable the qmluic integration, try this:
+If you want to optionally enable the qmluic integration, copy
+[cmake/QmluicShim.cmake](cmake/QmluicShim.cmake) to your project tree and
+load it if qmluic not found:
 
 ```cmake
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
 find_package(Qmluic QUIET)
-
 if(Qmluic_FOUND)
-  qmluic_target_qml_sources(myapp
-    MyDialog.qml
-    ...
-    # Put the generated .ui in the source directory so they will be committed.
-    OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  )
+  set(QML_IMPORT_PATH ${QMLUIC_QML_IMPORT_PATH} CACHE STRING "" FORCE)
 else()
-  set(CMAKE_AUTOUIC ON)
-  target_sources(myapp PRIVATE
-    MyDialog.qml
-    mydialog.ui
-    ...
-  )
+  include("${CMAKE_SOURCE_DIR}/cmake/QmluicShim.cmake")
 endif()
+
+qmluic_target_qml_sources(myapp
+  MyDialog.qml
+  ...
+  # Put the generated .ui in the source directory so they will be committed.
+  OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 ```
 
 ### Code Completion
