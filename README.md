@@ -26,7 +26,7 @@ $ qmluic generate-ui HelloDialog.qml
 $ uic hellodialog.ui -o ui_hellodialog.h
 ```
 
-See [examples/*.qml](examples) directory for details.
+See [examples/](examples/) directory for details.
 
 Usage
 -----
@@ -107,7 +107,7 @@ window to reflect the source QML file changes. It does not support multi-file
 QML sources yet.
 
 ```
-$ qmluic preview SettingsDialog.qml
+$ qmluic preview HelloDialog.qml
 ```
 
 The previewer might not work on Windows because of the stdio use. Patches are
