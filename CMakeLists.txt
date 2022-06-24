@@ -54,6 +54,10 @@ install(FILES
   "${CMAKE_CURRENT_BINARY_DIR}/QmluicConfig.cmake"
   DESTINATION "${CMAKE_INSTALL_DATADIR}/cmake/Qmluic"
 )
+install(FILES
+  "cmake/QmluicShim.cmake"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/qmluic"
+)
 install(DIRECTORY
   "${CMAKE_CURRENT_BINARY_DIR}/imports"
   DESTINATION "${CMAKE_INSTALL_DATADIR}/qmluic"
