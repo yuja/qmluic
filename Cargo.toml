@@ -2,6 +2,7 @@
 name = "qmluic-cli"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.58"  # should be sync with build.yml
 license = "MIT"
 
 [dependencies]
