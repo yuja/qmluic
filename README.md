@@ -32,6 +32,9 @@ find_package(Qmluic REQUIRED)
 
 # DO NOT ENABLE: set(CMAKE_AUTOUIC ON)
 
+# Help Qt Creator find qmluic type stub
+set(QML_IMPORT_PATH ${QMLUIC_QML_IMPORT_PATH} CACHE STRING "" FORCE)
+
 add_executable(myapp
   main.cpp
   ...
