@@ -92,11 +92,6 @@ QML sources yet.
 $ qmluic preview SettingsDialog.qml
 ```
 
-The preview window is a separate Qt C++ application, which needs to be built
-in addition to the standard `cargo build --workspace` command. Use the
-top-level [CMakeLists.txt](CMakeLists.txt) to build and install the binaries
-(or run `make local` on Linux for in-place usage.)
-
 The previewer might not work on Windows because of the stdio use. Patches are
 welcome.
 
@@ -140,6 +135,28 @@ QWidget {
     QLabel { text: qsTr("The quick fox jumps over ") + qsTr("the lazy dog.") }
 }
 ```
+
+Building
+--------
+
+Requirements:
+
+- Rust
+- Cargo
+
+Optional requirements for previewer and type stubs:
+
+- CMake
+- Qt 5.15 or 6.2+
+
+If you have all requirements installed, use CMake (or GNU Make) to build
+and install everything.
+
+If you just need to build the `qmluic` frontend, simply run
+`cargo build --release --workspace`.
+
+See [Makefile](Makefile), [CMakeLists.txt](CMakeLists.txt), and
+[build.yml](.github/workflows/build.yml) for more details.
 
 Debugging
 ---------
