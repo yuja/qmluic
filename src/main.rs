@@ -12,7 +12,7 @@ use qmluic::qmldir;
 use qmluic::qmldoc::UiDocumentsCache;
 use qmluic::typemap::{ModuleData, ModuleId, TypeMap};
 use qmluic::uigen::{self, BuildContext, FileNameRules, XmlWriter};
-use qmluic_cli::{reporting, QtPaths, UiViewer};
+use qmluic_cli::{reporting, QtPaths, QtVersion, UiViewer};
 use std::fs;
 use std::io::{self, BufWriter, Write as _};
 use std::path::Path;
@@ -196,10 +196,19 @@ fn generate_qmltypes(
     output_qmltypes: &Utf8Path,
     source_metatypes: &Utf8Path,
 ) -> Result<(), CommandError> {
-    let bin_path = qt_paths
-        .install_bins
-        .as_ref()
-        .ok_or_else(|| anyhow!("qmltyperegistrar path cannot be detected"))?;
+    let bin_path = match qt_paths {
+        QtPaths {
+            version: Some(QtVersion { major: 6, .. }),
+            install_libexecs: Some(p),
+            ..
+        } => p,
+        QtPaths {
+            version: Some(QtVersion { major: 5, .. }),
+            install_bins: Some(p),
+            ..
+        } => p,
+        _ => return Err(anyhow!("qmltyperegistrar path cannot be detected").into()),
+    };
     let metatypes_path = qt_paths
         .install_libs
         .as_ref()
