@@ -1,0 +1,19 @@
+Source: qmluic
+Section: unknown
+Priority: optional
+Maintainer: Yuya Nishihara <yuya@tcha.org>
+Rules-Requires-Root: no
+Build-Depends:
+ debhelper-compat (= 13),
+Standards-Version: 4.6.1
+Homepage: <insert the upstream URL, if relevant>
+#Vcs-Browser: https://salsa.debian.org/debian/qmluic
+#Vcs-Git: https://salsa.debian.org/debian/qmluic.git
+
+Package: qmluic
+Architecture: any
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+Description: <insert up to 60 chars description>
+ <Insert long description, indented with spaces.>
