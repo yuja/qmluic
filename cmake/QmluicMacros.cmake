@@ -26,6 +26,7 @@ function(qmluic_target_qml_sources target)
                                     --qmake "${QMAKE_EXECUTABLE}"
                                     -- ${qml_files}
     DEPENDS ${abs_qml_files}
+    # TODO: DEPENDS qmluic while building qmluic itself
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     COMMENT "Generating UI from QML"
   )
@@ -85,7 +86,8 @@ function(qmluic_add_qmldir module_name lib)
                                        --output-qmltypes "${output_qmltypes}"
                                        "${input_metatypes_file}"
     MAIN_DEPENDENCY "${input_metatypes_file}"
-    DEPENDS Qt::qmake qmluic
+    DEPENDS Qt::qmake
+    # TODO: DEPENDS qmluic while building qmluic itself
   )
 
   add_custom_target(module_name ALL DEPENDS "${output_qmldir}" "${output_qmltypes}")
