@@ -13,7 +13,7 @@ find_program(CARGO_COMMAND cargo DOC "cargo command" REQUIRED)
 set(CARGO_BUILD_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/target" CACHE PATH "cargo build directory")
 
 # Use the up-to-date version of the qmluic command.
-set(QMLUIC_COMMAND ${CARGO_COMMAND} run --)
+set(QMLUIC_COMMAND ${CARGO_COMMAND} run $<$<CONFIG:Release>:--release> --)
 
 # Help Qt Creator find our type stub
 set(QML_IMPORT_PATH "${CMAKE_CURRENT_BINARY_DIR}/imports" CACHE STRING "" FORCE)
