@@ -9,11 +9,9 @@ include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 include(QmluicMacros)
 
-find_program(CARGO_COMMAND cargo DOC "cargo command" REQUIRED)
-set(CARGO_BUILD_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/target" CACHE PATH "cargo build directory")
+set(CARGO_BUILD_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/target")
 
-# Use the up-to-date version of the qmluic command.
-set(QMLUIC_COMMAND ${CARGO_COMMAND} run $<$<CONFIG:Release>:--release> --)
+set(QMLUIC_COMMAND "${CARGO_BUILD_TARGET_DIR}/$<IF:$<CONFIG:Release>,release,debug>/qmluic")
 
 # Help Qt Creator find our type stub
 set(QML_IMPORT_PATH "${CMAKE_CURRENT_BINARY_DIR}/imports" CACHE STRING "" FORCE)
@@ -33,14 +31,6 @@ else()
 endif()
 
 add_subdirectory(uiviewer)
-
-add_custom_target(qmluic ALL
-  COMMAND
-    ${CARGO_COMMAND} build --workspace $<$<CONFIG:Release>:--release>
-                           --target-dir "${CARGO_BUILD_TARGET_DIR}"
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  USES_TERMINAL
-)
 
 qmluic_add_qmldir(qmluic.QtWidgets Qt${QT_VERSION_MAJOR}::Widgets)
 
