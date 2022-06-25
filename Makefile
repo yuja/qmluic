@@ -1,6 +1,9 @@
 CARGO = cargo
 CLANG_FORMAT = clang-format
 CMAKE = cmake
+DEBCHANGE = debchange
+DEBUILD = debuild
+GIT = git
 NINJA = ninja
 QMAKE = qmake
 
@@ -8,6 +11,7 @@ BUILD_DIR = target/build
 BUILD_TYPE = Debug
 PREFIX = /usr/local
 
+DEB_VERSION = 0.1~$(shell date +"%Y%m%d").git$(shell git rev-parse --short HEAD)
 QT_VERSION_MAJOR = $(word 1,$(subst ., ,$(shell $(QMAKE) -query QT_VERSION)))
 
 ifneq ($(shell command -v $(NINJA) 2>/dev/null),)
@@ -24,6 +28,7 @@ help:
 	@echo '  local      - build and install for in-place usage'
 	@echo '  release    - build release binaries'
 	@echo '  install    - install binaries'
+	@echo '  deb        - build debian package'
 	@echo '  format     - run code formatter'
 	@echo '  tests      - run linter and automated tests'
 	@echo '  build-examples - generate .ui from example .qml files and build them'
@@ -50,6 +55,13 @@ build:
 .PHONY: install
 install:
 	$(CMAKE) --install $(BUILD_DIR)
+
+.PHONY: deb
+deb:
+	$(RM) -R debian
+	cp -pR contrib/debian debian
+	$(DEBCHANGE) --create --package qmluic -v "$(DEB_VERSION)" "New snapshot build."
+	$(DEBUILD) -uc -us --build=binary
 
 .PHONY: format
 format:
