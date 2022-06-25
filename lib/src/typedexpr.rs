@@ -189,9 +189,7 @@ where
     P: TypeSpace<'a>,
 {
     match diagnostics.consume_err(Expression::from_node(node, source))? {
-        Expression::Identifier(n) => {
-            resolve_type_by_identifier(parent_space, n, source, diagnostics)
-        }
+        Expression::Identifier(n) => get_type_by_identifier(parent_space, n, source, diagnostics),
         Expression::MemberExpression(x) => {
             let mid_space = parse_type(parent_space, x.object, source, diagnostics)?;
             get_type_by_identifier(&mid_space, x.property, source, diagnostics)
@@ -222,32 +220,7 @@ where
         diagnostics.push(Diagnostic::error(
             ident.node().byte_range(),
             format!(
-                "type not found as direct child of '{}': {}",
-                parent_space.qualified_cxx_name(),
-                name
-            ),
-        ));
-        None
-    }
-}
-
-fn resolve_type_by_identifier<'a, P>(
-    parent_space: &P,
-    ident: Identifier,
-    source: &str,
-    diagnostics: &mut Diagnostics,
-) -> Option<NamedType<'a>>
-where
-    P: TypeSpace<'a>,
-{
-    let name = ident.to_str(source);
-    if let Some(ty) = parent_space.resolve_type(name) {
-        Some(ty)
-    } else {
-        diagnostics.push(Diagnostic::error(
-            ident.node().byte_range(),
-            format!(
-                "type not resolved from '{}': {}",
+                "type not found in '{}': {}",
                 parent_space.qualified_cxx_name(),
                 name
             ),
