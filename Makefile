@@ -9,6 +9,7 @@ QMAKE = qmake
 
 BUILD_DIR = target/build
 BUILD_TYPE = Debug
+DESTDIR =
 PREFIX = /usr/local
 
 DEB_VERSION = 0.1~$(shell date +"%Y%m%d").git$(shell git rev-parse --short HEAD)
@@ -67,7 +68,6 @@ deb:
 .PHONY: clean
 clean:
 	$(CARGO) clean
-	$(RM) -R debian obj-*
 
 .PHONY: format
 format:
