@@ -69,6 +69,26 @@ jobs:
       - name: Build examples
         run: make build-examples
 
+  build-deb:
+    # ubuntu-latest is not the latest
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          path: qmluic
+      - name: Install build dependencies
+        run: |
+          sudo apt update
+          sudo apt install devscripts equivs
+          sudo mk-build-deps -i qmluic/contrib/debian/control
+      - name: Build deb
+        run: make -C qmluic deb
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ubuntu-22.04-deb
+          path: qmluic_*.deb
+          retention-days: 5
+
   clippy:
     runs-on: ubuntu-latest
     steps:
