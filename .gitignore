@@ -3,6 +3,10 @@
 *.pending-snap
 /target
 
+# Debian packaging
+/debian/
+/obj-*/
+
 # Emacs, etc.
 *~
 .#*
