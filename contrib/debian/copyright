@@ -1,14 +1,13 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Source: <url://example.com>
+Source: https://github.com/yuja/qmluic/
 Upstream-Name: qmluic
-Upstream-Contact: <preferred name and address to reach the upstream project>
+Upstream-Contact: https://github.com/yuja/qmluic/
 
 Files:
  *
 Copyright:
- <years> <put author's name and email here>
- <years> <likewise for another author>
-License: BSD-3-clause
+ 2022 Yuya Nishihara <yuya@tcha.org>
+License: Expat
 
 Files:
  debian/*
