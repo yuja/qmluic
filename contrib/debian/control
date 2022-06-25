@@ -1,19 +1,28 @@
 Source: qmluic
-Section: unknown
+Section: devel
 Priority: optional
 Maintainer: Yuya Nishihara <yuya@tcha.org>
 Rules-Requires-Root: no
 Build-Depends:
  debhelper-compat (= 13),
+ cargo,
+ cmake,
+ ninja-build,
+ qtbase5-dev (>= 5.15),
+ qtdeclarative5-dev-tools,
+ qttools5-dev,
+ rustc (>= 1.58),
 Standards-Version: 4.6.1
-Homepage: <insert the upstream URL, if relevant>
-#Vcs-Browser: https://salsa.debian.org/debian/qmluic
-#Vcs-Git: https://salsa.debian.org/debian/qmluic.git
+Vcs-Browser: https://github.com/yuja/qmluic/
+Vcs-Git: https://github.com/yuja/qmluic.git
 
 Package: qmluic
 Architecture: any
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
-Description: <insert up to 60 chars description>
- <Insert long description, indented with spaces.>
+Recommends:
+ qt5-qmake | qmake6,
+Description: QML to UI transpiler
+ 'qmluic generate-ui' command translates .qml file to .ui XML file, which
+ can then be processed by Qt User Interface Compiler 'uic' command.
