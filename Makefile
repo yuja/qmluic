@@ -29,6 +29,7 @@ help:
 	@echo '  release    - build release binaries'
 	@echo '  install    - install binaries'
 	@echo '  deb        - build debian package'
+	@echo '  clean      - remove build directory'
 	@echo '  format     - run code formatter'
 	@echo '  tests      - run linter and automated tests'
 	@echo '  build-examples - generate .ui from example .qml files and build them'
@@ -62,6 +63,11 @@ deb:
 	cp -pR contrib/debian debian
 	$(DEBCHANGE) --create --package qmluic -v "$(DEB_VERSION)" "New snapshot build."
 	$(DEBUILD) -uc -us --build=binary
+
+.PHONY: clean
+clean:
+	$(CARGO) clean
+	$(RM) -R debian obj-*
 
 .PHONY: format
 format:
