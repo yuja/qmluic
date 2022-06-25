@@ -65,6 +65,10 @@ function(qmluic_add_qmldir module_name lib)
   set(output_qmldir "${output_directory}/qmldir")
   set(output_qmltypes "${output_directory}/plugins.qmltypes")
 
+  if(NOT QMLUIC_COMMAND)
+    message(FATAL_ERROR "QMLUIC_COMMAND must be set")
+  endif()
+
   add_custom_command(
     OUTPUT "${output_qmldir}"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${output_directory}"
@@ -77,9 +81,9 @@ function(qmluic_add_qmldir module_name lib)
   add_custom_command(
     OUTPUT "${output_qmltypes}"
     COMMAND
-      ${CARGO_COMMAND} run -- dump-metatypes --qmake "${QMAKE_EXECUTABLE}"
-                                             --output-qmltypes "${output_qmltypes}"
-                                             "${input_metatypes_file}"
+      ${QMLUIC_COMMAND} dump-metatypes --qmake "${QMAKE_EXECUTABLE}"
+                                       --output-qmltypes "${output_qmltypes}"
+                                       "${input_metatypes_file}"
     MAIN_DEPENDENCY "${input_metatypes_file}"
     DEPENDS Qt::qmake qmluic
   )
