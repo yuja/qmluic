@@ -126,8 +126,12 @@ Optional requirements for previewer and type stubs:
 - CMake
 - Qt 5.15 or 6.2+
 
-If you have all requirements installed, use CMake (or GNU Make) to build
-and install everything.
+If you have all requirements installed, use Cargo and CMake to build/install
+the binaries and data. There's a GNU Make wrapper to automate the build steps.
+
+```
+$ make release install
+```
 
 If you just need to build the `qmluic` frontend, simply run
 `cargo build --release --workspace`.

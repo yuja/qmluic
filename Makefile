@@ -12,8 +12,15 @@ BUILD_TYPE = Debug
 DESTDIR =
 PREFIX = /usr/local
 
+CARGO_BUILD_FLAGS =
+CMAKE_FLAGS =
+
 DEB_VERSION = 0.1~$(shell date +"%Y%m%d").git$(shell git rev-parse --short HEAD)
 QT_VERSION_MAJOR = $(word 1,$(subst ., ,$(shell $(QMAKE) -query QT_VERSION)))
+
+ifeq ($(BUILD_TYPE),Release)
+override CARGO_BUILD_FLAGS += --release
+endif
 
 ifneq ($(shell command -v $(NINJA) 2>/dev/null),)
 CMAKE_FLAGS += -GNinja
@@ -36,6 +43,8 @@ help:
 	@echo '  build-examples - generate .ui from example .qml files and build them'
 	@echo
 	@echo 'Make variables:'
+	@echo '  BUILD_TYPE=$(BUILD_TYPE)'
+	@echo '  CARGO_BUILD_FLAGS=$(CARGO_BUILD_FLAGS)'
 	@echo '  CMAKE_FLAGS=$(CMAKE_FLAGS)'
 	@echo '  QT_VERSION_MAJOR=$(QT_VERSION_MAJOR)'
 
@@ -50,6 +59,7 @@ release:
 .PHONY: build
 build:
 	mkdir -p $(BUILD_DIR)
+	$(CARGO) build $(CARGO_BUILD_FLAGS) --workspace
 	cd $(BUILD_DIR) && $(CMAKE) -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
 		-DCMAKE_INSTALL_PREFIX=$(PREFIX) $(CMAKE_FLAGS) $(CURDIR)
 	$(CMAKE) --build $(BUILD_DIR) --config $(BUILD_TYPE)
@@ -78,7 +88,7 @@ format:
 .PHONY: tests
 tests:
 	$(CARGO) clippy
-	$(CARGO) test --workspace
+	$(CARGO) test $(CARGO_BUILD_FLAGS) --workspace
 
 .PHONY: build-examples
 build-examples: BUILD_DIR = target/build-examples
