@@ -13,20 +13,15 @@ function(qmluic_target_qml_sources target)
   list(TRANSFORM ui_files REPLACE "\.qml$" ".ui")
   list(TRANSFORM ui_files PREPEND "${output_directory}/" OUTPUT_VARIABLE abs_ui_files)
 
-  if(NOT QMLUIC_COMMAND)
-    message(FATAL_ERROR "QMLUIC_COMMAND must be set")
-  endif()
-  get_target_property(QMAKE_EXECUTABLE Qt::qmake LOCATION)
-
   target_sources(${target} PRIVATE ${qml_files})
+  get_target_property(QMAKE_EXECUTABLE Qt::qmake LOCATION)
   add_custom_command(
     OUTPUT ${abs_ui_files}
     COMMAND
-      ${QMLUIC_COMMAND} generate-ui -O "${output_directory}"
-                                    --qmake "${QMAKE_EXECUTABLE}"
-                                    -- ${qml_files}
-    DEPENDS ${abs_qml_files}
-    # TODO: DEPENDS qmluic while building qmluic itself
+      Qmluic::qmluic generate-ui -O "${output_directory}"
+                                 --qmake "${QMAKE_EXECUTABLE}"
+                                 -- ${qml_files}
+    DEPENDS ${abs_qml_files} Qmluic::qmluic Qt::qmake
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     COMMENT "Generating UI from QML"
   )
@@ -66,10 +61,6 @@ function(qmluic_add_qmldir module_name lib)
   set(output_qmldir "${output_directory}/qmldir")
   set(output_qmltypes "${output_directory}/plugins.qmltypes")
 
-  if(NOT QMLUIC_COMMAND)
-    message(FATAL_ERROR "QMLUIC_COMMAND must be set")
-  endif()
-
   add_custom_command(
     OUTPUT "${output_qmldir}"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${output_directory}"
@@ -82,12 +73,11 @@ function(qmluic_add_qmldir module_name lib)
   add_custom_command(
     OUTPUT "${output_qmltypes}"
     COMMAND
-      ${QMLUIC_COMMAND} dump-metatypes --qmake "${QMAKE_EXECUTABLE}"
-                                       --output-qmltypes "${output_qmltypes}"
-                                       "${input_metatypes_file}"
+      Qmluic::qmluic dump-metatypes --qmake "${QMAKE_EXECUTABLE}"
+                                    --output-qmltypes "${output_qmltypes}"
+                                    "${input_metatypes_file}"
     MAIN_DEPENDENCY "${input_metatypes_file}"
-    DEPENDS Qt::qmake
-    # TODO: DEPENDS qmluic while building qmluic itself
+    DEPENDS Qmluic::qmluic Qt::qmake
   )
 
   add_custom_target(module_name ALL DEPENDS "${output_qmldir}" "${output_qmltypes}")

@@ -9,10 +9,6 @@ include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 include(QmluicMacros)
 
-set(CARGO_BUILD_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/target")
-
-set(QMLUIC_COMMAND "${CARGO_BUILD_TARGET_DIR}/$<IF:$<CONFIG:Release>,release,debug>/qmluic")
-
 # Help Qt Creator find our type stub
 set(QML_IMPORT_PATH "${CMAKE_CURRENT_BINARY_DIR}/imports" CACHE STRING "" FORCE)
 
@@ -30,6 +26,14 @@ else()
   endif()
 endif()
 
+# Should be built by 'cargo build --workspace' prior to calling cmake.
+add_executable(Qmluic::qmluic IMPORTED)
+set_target_properties(Qmluic::qmluic PROPERTIES
+  IMPORTED_LOCATION_DEBUG "${CMAKE_CURRENT_SOURCE_DIR}/target/debug/qmluic"
+  IMPORTED_LOCATION_RELEASE "${CMAKE_CURRENT_SOURCE_DIR}/target/release/qmluic")
+set(LOCAL_QMLUIC_EXECUTABLE
+  "${CMAKE_CURRENT_SOURCE_DIR}/target/$<IF:$<CONFIG:Release>,release,debug>/qmluic")
+
 add_subdirectory(uiviewer)
 
 qmluic_add_qmldir(qmluic.QtWidgets Qt${QT_VERSION_MAJOR}::Widgets)
@@ -38,10 +42,7 @@ configure_package_config_file(cmake/QmluicConfig.cmake.in
   "${CMAKE_CURRENT_BINARY_DIR}/QmluicConfig.cmake"
   INSTALL_DESTINATION "${CMAKE_INSTALL_DATADIR}/cmake/Qmluic"
 )
-install(PROGRAMS
-  "${CARGO_BUILD_TARGET_DIR}/$<IF:$<CONFIG:Release>,release,debug>/qmluic${CMAKE_EXECUTABLE_SUFFIX}"
-  TYPE BIN
-)
+install(PROGRAMS "${LOCAL_QMLUIC_EXECUTABLE}" TYPE BIN)
 install(FILES
   "cmake/QmluicMacros.cmake"
   "${CMAKE_CURRENT_BINARY_DIR}/QmluicConfig.cmake"
