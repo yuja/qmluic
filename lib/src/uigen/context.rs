@@ -22,6 +22,16 @@ pub(super) struct BuildDocContext<'a, 't, 's> {
     object_id_generator: RefCell<ObjectIdGenerator>,
 }
 
+/// Context where expression is supposed to be evaluated.
+#[derive(Clone, Debug)]
+pub(super) struct ObjectContext<'a, 't, 's> {
+    pub source: &'s str,
+    pub classes: &'s KnownClasses<'a>,
+    pub type_space: &'s ImportedModuleSpace<'a>,
+    pub object_tree: &'s ObjectTree<'a, 't>,
+    // TODO: Class<'a> to resolve property/method of the surrounding object?
+}
+
 /// Classes to be used to switch uigen paths.
 #[derive(Clone, Debug)]
 pub(super) struct KnownClasses<'a> {
@@ -138,6 +148,15 @@ impl<'a, 't, 's> BuildDocContext<'a, 't, 's> {
         self.object_id_generator
             .borrow_mut()
             .generate(prefix, &self.object_tree)
+    }
+
+    pub fn make_object_context(&self) -> ObjectContext<'a, 't, '_> {
+        ObjectContext {
+            source: self.source,
+            classes: self.classes,
+            type_space: &self.type_space,
+            object_tree: &self.object_tree,
+        }
     }
 }
 

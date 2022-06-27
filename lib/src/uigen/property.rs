@@ -1,4 +1,4 @@
-use super::context::BuildDocContext;
+use super::context::ObjectContext;
 use super::expr::{PropertyValue, SimpleValue, Value};
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
@@ -176,7 +176,7 @@ pub(super) type PropertiesMap<'a, 't> = HashMap<String, WithNode<'t, PropertyDes
 ///
 /// Use `collect_properties_with_node()` if you need to inspect resulting values further.
 pub(super) fn collect_properties(
-    ctx: &BuildDocContext,
+    ctx: &ObjectContext,
     cls: &Class,
     binding_map: &UiBindingMap,
     diagnostics: &mut Diagnostics,
@@ -187,7 +187,7 @@ pub(super) fn collect_properties(
 }
 
 pub(super) fn collect_properties_with_node<'a, 't>(
-    ctx: &BuildDocContext,
+    ctx: &ObjectContext,
     cls: &Class<'a>,
     binding_map: &UiBindingMap<'t, '_>,
     diagnostics: &mut Diagnostics,
@@ -196,7 +196,7 @@ pub(super) fn collect_properties_with_node<'a, 't>(
 }
 
 fn resolve_properties<'a, 't, 's, B, F>(
-    ctx: &BuildDocContext,
+    ctx: &ObjectContext,
     cls: &Class<'a>,
     binding_map: &UiBindingMap<'t, 's>,
     diagnostics: &mut Diagnostics,

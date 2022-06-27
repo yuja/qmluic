@@ -1,4 +1,4 @@
-use super::context::BuildDocContext;
+use super::context::ObjectContext;
 use super::gadget::{Gadget, GadgetKind, ModelItem, PaletteColorGroup};
 use super::property::{self, PropertiesMap};
 use super::xmlutil;
@@ -29,7 +29,7 @@ pub(super) enum PropertyValue<'a, 't> {
 impl<'a, 't> PropertyValue<'a, 't> {
     /// Generates constant expression of `ty` type from the given `binding_value`.
     pub(super) fn from_binding_value(
-        ctx: &BuildDocContext,
+        ctx: &ObjectContext,
         ty: &TypeKind<'a>,
         binding_value: &UiBindingValue<'t, '_>,
         diagnostics: &mut Diagnostics,
@@ -275,7 +275,7 @@ where
 }
 
 fn parse_as_value_type(
-    ctx: &BuildDocContext,
+    ctx: &ObjectContext,
     ty: &NamedType,
     node: Node,
     diagnostics: &mut Diagnostics,
@@ -463,13 +463,13 @@ fn parse_as_value_type(
 }
 
 fn evaluate_expression(
-    ctx: &BuildDocContext,
+    ctx: &ObjectContext,
     node: Node,
     diagnostics: &mut Diagnostics,
 ) -> Option<EvaluatedValue> {
     typedexpr::walk(
-        &ctx.type_space,
-        &ctx.object_tree,
+        ctx.type_space,
+        ctx.object_tree,
         node,
         ctx.source,
         &ExpressionEvaluator,
@@ -478,13 +478,13 @@ fn evaluate_expression(
 }
 
 fn format_expression<'a>(
-    ctx: &BuildDocContext<'a, '_, '_>,
+    ctx: &ObjectContext<'a, '_, '_>,
     node: Node,
     diagnostics: &mut Diagnostics,
 ) -> Option<(TypeDesc<'a>, String)> {
     typedexpr::walk(
-        &ctx.type_space,
-        &ctx.object_tree,
+        ctx.type_space,
+        ctx.object_tree,
         node,
         ctx.source,
         &ExpressionFormatter,
@@ -494,7 +494,7 @@ fn format_expression<'a>(
 }
 
 fn parse_color_value(
-    ctx: &BuildDocContext,
+    ctx: &ObjectContext,
     node: Node,
     diagnostics: &mut Diagnostics,
 ) -> Option<Gadget> {
@@ -523,7 +523,7 @@ fn parse_color_value(
 
 /// Parses string list as a static item model.
 fn parse_item_model(
-    ctx: &BuildDocContext,
+    ctx: &ObjectContext,
     node: Node,
     diagnostics: &mut Diagnostics,
 ) -> Option<Vec<ModelItem>> {
@@ -551,14 +551,14 @@ fn parse_item_model(
 }
 
 fn parse_object_reference(
-    ctx: &BuildDocContext,
+    ctx: &ObjectContext,
     expected_cls: &Class,
     node: Node,
     diagnostics: &mut Diagnostics,
 ) -> Option<SimpleValue> {
     let obj_ref = typedexpr::walk(
-        &ctx.type_space,
-        &ctx.object_tree,
+        ctx.type_space,
+        ctx.object_tree,
         node,
         ctx.source,
         &ObjectRefCollector,
@@ -593,14 +593,14 @@ fn parse_object_reference(
 }
 
 fn parse_object_reference_list(
-    ctx: &BuildDocContext,
+    ctx: &ObjectContext,
     expected_cls: &Class,
     node: Node,
     diagnostics: &mut Diagnostics,
 ) -> Option<Vec<String>> {
     let obj_ref = typedexpr::walk(
-        &ctx.type_space,
-        &ctx.object_tree,
+        ctx.type_space,
+        ctx.object_tree,
         node,
         ctx.source,
         &ObjectRefCollector,
