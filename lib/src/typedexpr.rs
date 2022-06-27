@@ -44,6 +44,8 @@ pub trait DescribeType<'a> {
 pub enum RefKind<'a> {
     /// Type reference.
     Type(NamedType<'a>),
+    /// Enum variant of the type.
+    EnumVariant(Enum<'a>),
     /// Object reference of the type.
     Object(Class<'a>),
     // TODO: Function, Property, etc.?
@@ -57,7 +59,14 @@ pub trait RefSpace<'a> {
 
 impl<'a, T: TypeSpace<'a>> RefSpace<'a> for T {
     fn get_ref(&self, name: &str) -> Option<RefKind<'a>> {
-        self.get_type(name).map(RefKind::Type)
+        #[allow(clippy::manual_map)]
+        if let Some(ty) = self.get_type(name) {
+            Some(RefKind::Type(ty))
+        } else if let Some(en) = self.get_enum_by_variant(name) {
+            Some(RefKind::EnumVariant(en))
+        } else {
+            None
+        }
     }
 }
 
@@ -93,6 +102,12 @@ pub trait ExpressionVisitor<'a> {
     ) -> Result<Self::Item, Self::Error>;
 }
 
+#[derive(Debug)]
+enum Intermediate<'a, T> {
+    Item(T),
+    Type(NamedType<'a>),
+}
+
 /// Walks expression nodes recursively from the specified `node`.
 ///
 /// `parent_space` is the context where an identifier expression is resolved.
@@ -107,52 +122,58 @@ where
     C: RefSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
-    match diagnostics.consume_err(Expression::from_node(node, source))? {
-        Expression::Identifier(x) => {
-            let name = x.to_str(source);
-            match ctx.get_ref(name) {
-                Some(RefKind::Object(cls)) => {
-                    diagnostics.consume_node_err(node, visitor.visit_object_ref(cls, name))
-                }
-                Some(RefKind::Type(_)) => {
-                    diagnostics.push(Diagnostic::error(
-                        node.byte_range(),
-                        "type name cannot be specified",
-                    ));
-                    None
-                }
-                None => {
-                    diagnostics.push(Diagnostic::error(node.byte_range(), "undefined reference"));
-                    None
-                }
-            }
+    match walk_inner(ctx, node, source, visitor, diagnostics)? {
+        Intermediate::Item(x) => Some(x),
+        Intermediate::Type(_) => {
+            diagnostics.push(Diagnostic::error(node.byte_range(), "bare type reference"));
+            None
         }
-        Expression::Number(v) => diagnostics.consume_node_err(node, visitor.visit_number(v)),
-        Expression::String(v) => diagnostics.consume_node_err(node, visitor.visit_string(v)),
-        Expression::Bool(v) => diagnostics.consume_node_err(node, visitor.visit_bool(v)),
+    }
+}
+
+fn walk_inner<'a, C, V>(
+    ctx: &C,
+    node: Node,
+    source: &str,
+    visitor: &V,
+    diagnostics: &mut Diagnostics,
+) -> Option<Intermediate<'a, V::Item>>
+where
+    C: RefSpace<'a>,
+    V: ExpressionVisitor<'a>,
+{
+    match diagnostics.consume_err(Expression::from_node(node, source))? {
+        Expression::Identifier(x) => process_identifier(ctx, x, source, visitor, diagnostics),
+        Expression::Number(v) => diagnostics
+            .consume_node_err(node, visitor.visit_number(v))
+            .map(Intermediate::Item),
+        Expression::String(v) => diagnostics
+            .consume_node_err(node, visitor.visit_string(v))
+            .map(Intermediate::Item),
+        Expression::Bool(v) => diagnostics
+            .consume_node_err(node, visitor.visit_bool(v))
+            .map(Intermediate::Item),
         Expression::Array(ns) => {
             let elements = ns
                 .iter()
                 .map(|&n| walk(ctx, n, source, visitor, diagnostics))
                 .collect::<Option<Vec<_>>>()?;
-            diagnostics.consume_node_err(node, visitor.visit_array(elements))
+            diagnostics
+                .consume_node_err(node, visitor.visit_array(elements))
+                .map(Intermediate::Item)
         }
         Expression::MemberExpression(x) => {
-            // TODO: resolve object reference
-            let mid_ty = parse_type(ctx, x.object, source, diagnostics)?;
-            let name = x.property.to_str(source);
-            if let Some(en) = mid_ty.get_enum_by_variant(name) {
-                diagnostics.consume_node_err(node, visitor.visit_enum(en, name))
-            } else {
-                diagnostics.push(Diagnostic::error(
-                    node.byte_range(),
-                    format!(
-                        "enum variant not found in '{}': {}",
-                        mid_ty.qualified_cxx_name(),
-                        name
-                    ),
-                ));
-                None
+            match walk_inner(ctx, x.object, source, visitor, diagnostics)? {
+                Intermediate::Item(_) => {
+                    diagnostics.push(Diagnostic::error(
+                        node.byte_range(),
+                        "no support for property/method resolution",
+                    ));
+                    None
+                }
+                Intermediate::Type(ty) => {
+                    process_identifier(&ty, x.property, source, visitor, diagnostics)
+                }
             }
         }
         Expression::CallExpression(x) => {
@@ -165,69 +186,58 @@ where
                 .map(|&n| walk(ctx, n, source, visitor, diagnostics))
                 .collect::<Option<Vec<_>>>()?;
             // TODO: confine type error?
-            diagnostics.consume_node_err(node, visitor.visit_call_expression(function, arguments))
+            diagnostics
+                .consume_node_err(node, visitor.visit_call_expression(function, arguments))
+                .map(Intermediate::Item)
         }
         Expression::UnaryExpression(x) => {
             let argument = walk(ctx, x.argument, source, visitor, diagnostics)?;
             // TODO: confine type error?
-            diagnostics.consume_node_err(node, visitor.visit_unary_expression(x.operator, argument))
+            diagnostics
+                .consume_node_err(node, visitor.visit_unary_expression(x.operator, argument))
+                .map(Intermediate::Item)
         }
         Expression::BinaryExpression(x) => {
             let left = walk(ctx, x.left, source, visitor, diagnostics)?;
             let right = walk(ctx, x.right, source, visitor, diagnostics)?;
             // TODO: confine type error?
-            diagnostics.consume_node_err(
-                node,
-                visitor.visit_binary_expression(x.operator, left, right),
-            )
+            diagnostics
+                .consume_node_err(
+                    node,
+                    visitor.visit_binary_expression(x.operator, left, right),
+                )
+                .map(Intermediate::Item)
         }
     }
 }
 
-/// Parses the given `node` as type expression.
-fn parse_type<'a, C>(
+fn process_identifier<'a, C, V>(
     ctx: &C,
-    node: Node,
+    id: Identifier,
     source: &str,
+    visitor: &V,
     diagnostics: &mut Diagnostics,
-) -> Option<NamedType<'a>>
+) -> Option<Intermediate<'a, V::Item>>
 where
     C: RefSpace<'a>,
+    V: ExpressionVisitor<'a>,
 {
-    match diagnostics.consume_err(Expression::from_node(node, source))? {
-        Expression::Identifier(n) => get_type_by_identifier(ctx, n, source, diagnostics),
-        Expression::MemberExpression(x) => {
-            let mid_space = parse_type(ctx, x.object, source, diagnostics)?;
-            get_type_by_identifier(&mid_space, x.property, source, diagnostics)
-        }
-        _ => {
+    let name = id.to_str(source);
+    match ctx.get_ref(name) {
+        Some(RefKind::Type(ty)) => Some(Intermediate::Type(ty)),
+        Some(RefKind::EnumVariant(en)) => diagnostics
+            .consume_node_err(id.node(), visitor.visit_enum(en, name))
+            .map(Intermediate::Item),
+        Some(RefKind::Object(cls)) => diagnostics
+            .consume_node_err(id.node(), visitor.visit_object_ref(cls, name))
+            .map(Intermediate::Item),
+        None => {
             diagnostics.push(Diagnostic::error(
-                node.byte_range(),
-                "not a type identifier",
+                id.node().byte_range(),
+                "undefined reference",
             ));
             None
         }
-    }
-}
-
-fn get_type_by_identifier<'a, C>(
-    ctx: &C,
-    ident: Identifier,
-    source: &str,
-    diagnostics: &mut Diagnostics,
-) -> Option<NamedType<'a>>
-where
-    C: RefSpace<'a>,
-{
-    let name = ident.to_str(source);
-    if let Some(RefKind::Type(ty)) = ctx.get_ref(name) {
-        Some(ty)
-    } else {
-        diagnostics.push(Diagnostic::error(
-            ident.node().byte_range(),
-            format!("type not found: {}", name),
-        ));
-        None
     }
 }
 
