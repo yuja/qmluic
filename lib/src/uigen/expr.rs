@@ -6,7 +6,7 @@ use super::{XmlResult, XmlWriter};
 use crate::color::Color;
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{BinaryOperator, Node, UiBindingValue, UnaryOperator};
-use crate::typedexpr::{self, DescribeType, ExpressionVisitor, TypeDesc};
+use crate::typedexpr::{self, BuiltinFunctionKind, DescribeType, ExpressionVisitor, TypeDesc};
 use crate::typemap::{Class, Enum, NamedType, PrimitiveType, TypeKind, TypeSpace};
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::collections::HashMap;
@@ -692,19 +692,19 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
         Err(ExpressionError::UnsupportedReference)
     }
 
-    fn visit_call_expression(
+    fn visit_builtin_call(
         &self,
-        function: &str,
+        function: BuiltinFunctionKind,
         mut arguments: Vec<Self::Item>,
     ) -> Result<Self::Item, Self::Error> {
         match function {
-            "qsTr" if arguments.len() == 1 => match arguments.pop() {
+            BuiltinFunctionKind::Tr if arguments.len() == 1 => match arguments.pop() {
                 Some(EvaluatedValue::String(a, StringKind::NoTr)) => {
                     Ok(EvaluatedValue::String(a, StringKind::Tr))
                 }
                 _ => Err(ExpressionError::UnsupportedFunctionCall),
             },
-            _ => Err(ExpressionError::UnsupportedFunctionCall),
+            BuiltinFunctionKind::Tr => Err(ExpressionError::UnsupportedFunctionCall),
         }
     }
 
@@ -893,20 +893,20 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
         Ok((TypeDesc::ObjectRef(cls), name.to_owned(), PREC_TERM))
     }
 
-    fn visit_call_expression(
+    fn visit_builtin_call(
         &self,
-        function: &str,
+        function: BuiltinFunctionKind,
         arguments: Vec<Self::Item>,
     ) -> Result<Self::Item, Self::Error> {
         match function {
-            "qsTr" if arguments.len() == 1 => {
+            BuiltinFunctionKind::Tr if arguments.len() == 1 => {
                 if let (TypeDesc::String, expr, _prec) = &arguments[0] {
                     Ok((TypeDesc::String, format!("qsTr({})", expr), PREC_CALL))
                 } else {
                     Err(ExpressionError::UnsupportedFunctionCall)
                 }
             }
-            _ => Err(ExpressionError::UnsupportedFunctionCall),
+            BuiltinFunctionKind::Tr => Err(ExpressionError::UnsupportedFunctionCall),
         }
     }
 
@@ -1239,9 +1239,9 @@ impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
         Ok(ObjectRef::Just(cls, name.to_owned()))
     }
 
-    fn visit_call_expression(
+    fn visit_builtin_call(
         &self,
-        _function: &str,
+        _function: BuiltinFunctionKind,
         _arguments: Vec<Self::Item>,
     ) -> Result<Self::Item, Self::Error> {
         Err(ExpressionError::UnsupportedFunctionCall)

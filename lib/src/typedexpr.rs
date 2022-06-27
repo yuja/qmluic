@@ -39,9 +39,18 @@ pub trait DescribeType<'a> {
     fn type_desc(&self) -> TypeDesc<'a>;
 }
 
+/// Builtin functions.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum BuiltinFunctionKind {
+    /// `qsTr()`
+    Tr,
+}
+
 /// Resolved type/object reference.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RefKind<'a> {
+    /// Builtin function.
+    BuiltinFunction(BuiltinFunctionKind),
     /// Type reference.
     Type(NamedType<'a>),
     /// Enum variant of the type.
@@ -84,9 +93,9 @@ pub trait ExpressionVisitor<'a> {
 
     fn visit_object_ref(&self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error>;
 
-    fn visit_call_expression(
+    fn visit_builtin_call(
         &self,
-        function: &str,
+        function: BuiltinFunctionKind,
         arguments: Vec<Self::Item>,
     ) -> Result<Self::Item, Self::Error>;
     fn visit_unary_expression(
@@ -105,6 +114,7 @@ pub trait ExpressionVisitor<'a> {
 #[derive(Debug)]
 enum Intermediate<'a, T> {
     Item(T),
+    BuiltinFunction(BuiltinFunctionKind),
     Type(NamedType<'a>),
 }
 
@@ -124,6 +134,13 @@ where
 {
     match walk_inner(ctx, node, source, visitor, diagnostics)? {
         Intermediate::Item(x) => Some(x),
+        Intermediate::BuiltinFunction(_) => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                "bare function reference",
+            ));
+            None
+        }
         Intermediate::Type(_) => {
             diagnostics.push(Diagnostic::error(node.byte_range(), "bare type reference"));
             None
@@ -171,24 +188,36 @@ where
                     ));
                     None
                 }
+                Intermediate::BuiltinFunction(_) => {
+                    diagnostics.push(Diagnostic::error(
+                        node.byte_range(),
+                        "function has no property/method",
+                    ));
+                    None
+                }
                 Intermediate::Type(ty) => {
                     process_identifier(&ty, x.property, source, visitor, diagnostics)
                 }
             }
         }
         Expression::CallExpression(x) => {
-            // TODO: resolve function for the current context
-            let function =
-                expect_identifier(x.function, source, diagnostics).map(|n| n.to_str(source))?;
             let arguments = x
                 .arguments
                 .iter()
                 .map(|&n| walk(ctx, n, source, visitor, diagnostics))
                 .collect::<Option<Vec<_>>>()?;
-            // TODO: confine type error?
-            diagnostics
-                .consume_node_err(node, visitor.visit_call_expression(function, arguments))
-                .map(Intermediate::Item)
+            match walk_inner(ctx, x.function, source, visitor, diagnostics)? {
+                Intermediate::BuiltinFunction(f) => {
+                    // TODO: confine type error?
+                    diagnostics
+                        .consume_node_err(node, visitor.visit_builtin_call(f, arguments))
+                        .map(Intermediate::Item)
+                }
+                Intermediate::Item(_) | Intermediate::Type(_) => {
+                    diagnostics.push(Diagnostic::error(x.function.byte_range(), "not callable"));
+                    None
+                }
+            }
         }
         Expression::UnaryExpression(x) => {
             let argument = walk(ctx, x.argument, source, visitor, diagnostics)?;
@@ -224,6 +253,7 @@ where
 {
     let name = id.to_str(source);
     match ctx.get_ref(name) {
+        Some(RefKind::BuiltinFunction(f)) => Some(Intermediate::BuiltinFunction(f)),
         Some(RefKind::Type(ty)) => Some(Intermediate::Type(ty)),
         Some(RefKind::EnumVariant(en)) => diagnostics
             .consume_node_err(id.node(), visitor.visit_enum(en, name))
@@ -236,20 +266,6 @@ where
                 id.node().byte_range(),
                 "undefined reference",
             ));
-            None
-        }
-    }
-}
-
-fn expect_identifier<'t>(
-    node: Node<'t>,
-    source: &str,
-    diagnostics: &mut Diagnostics,
-) -> Option<Identifier<'t>> {
-    match diagnostics.consume_err(Expression::from_node(node, source))? {
-        Expression::Identifier(n) => Some(n),
-        _ => {
-            diagnostics.push(Diagnostic::error(node.byte_range(), "not an identifier"));
             None
         }
     }
