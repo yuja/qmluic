@@ -235,7 +235,7 @@ impl<'t> LayoutItemAttached<'t> {
             diagnostics.consume_err(obj_node.obj().build_attached_type_map(ctx.source))?;
         let binding_map = attached_type_map.get(["QLayout"].as_ref())?; // TODO: resolve against imported types
         let properties_map = property::collect_properties_with_node(
-            ctx,
+            &ctx.make_object_context(),
             &ctx.classes.layout_attached,
             binding_map,
             diagnostics,
@@ -282,8 +282,12 @@ impl LayoutItemContent {
         let binding_map = diagnostics
             .consume_err(obj_node.obj().build_binding_map(ctx.source))
             .unwrap_or_default();
-        let properties_map =
-            property::collect_properties_with_node(ctx, cls, &binding_map, diagnostics);
+        let properties_map = property::collect_properties_with_node(
+            &ctx.make_object_context(),
+            cls,
+            &binding_map,
+            diagnostics,
+        );
 
         if cls.is_derived_from(&ctx.classes.layout) {
             LayoutItemContent::Layout(Layout::build(ctx, obj_node, properties_map, diagnostics))

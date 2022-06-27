@@ -35,8 +35,12 @@ impl UiObject {
         let binding_map = diagnostics
             .consume_err(obj_node.obj().build_binding_map(ctx.source))
             .unwrap_or_default();
-        let properties_map =
-            property::collect_properties_with_node(ctx, cls, &binding_map, diagnostics);
+        let properties_map = property::collect_properties_with_node(
+            &ctx.make_object_context(),
+            cls,
+            &binding_map,
+            diagnostics,
+        );
 
         if cls.is_derived_from(&ctx.classes.action) {
             confine_children(obj_node, diagnostics);
@@ -324,7 +328,7 @@ fn process_tab_widget_children(
                     if let Some(m) = attached_type_map.get(["QTabWidget"].as_ref()) {
                         w.attributes.extend(
                             property::collect_properties(
-                                ctx,
+                                &ctx.make_object_context(),
                                 &ctx.classes.tab_widget_attached,
                                 m,
                                 diagnostics,
