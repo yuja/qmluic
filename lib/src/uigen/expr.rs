@@ -467,14 +467,7 @@ fn evaluate_expression(
     node: Node,
     diagnostics: &mut Diagnostics,
 ) -> Option<EvaluatedValue> {
-    typedexpr::walk(
-        ctx.type_space,
-        ctx.object_tree,
-        node,
-        ctx.source,
-        &ExpressionEvaluator,
-        diagnostics,
-    )
+    typedexpr::walk(ctx, node, ctx.source, &ExpressionEvaluator, diagnostics)
 }
 
 fn format_expression<'a>(
@@ -482,15 +475,8 @@ fn format_expression<'a>(
     node: Node,
     diagnostics: &mut Diagnostics,
 ) -> Option<(TypeDesc<'a>, String)> {
-    typedexpr::walk(
-        ctx.type_space,
-        ctx.object_tree,
-        node,
-        ctx.source,
-        &ExpressionFormatter,
-        diagnostics,
-    )
-    .map(|(t, expr, _)| (t, expr))
+    typedexpr::walk(ctx, node, ctx.source, &ExpressionFormatter, diagnostics)
+        .map(|(t, expr, _)| (t, expr))
 }
 
 fn parse_color_value(
@@ -556,14 +542,7 @@ fn parse_object_reference(
     node: Node,
     diagnostics: &mut Diagnostics,
 ) -> Option<SimpleValue> {
-    let obj_ref = typedexpr::walk(
-        ctx.type_space,
-        ctx.object_tree,
-        node,
-        ctx.source,
-        &ObjectRefCollector,
-        diagnostics,
-    )?;
+    let obj_ref = typedexpr::walk(ctx, node, ctx.source, &ObjectRefCollector, diagnostics)?;
     match obj_ref {
         ObjectRef::Just(res_cls, name) if res_cls.is_derived_from(expected_cls) => {
             Some(SimpleValue::Cstring(name))
@@ -598,14 +577,7 @@ fn parse_object_reference_list(
     node: Node,
     diagnostics: &mut Diagnostics,
 ) -> Option<Vec<String>> {
-    let obj_ref = typedexpr::walk(
-        ctx.type_space,
-        ctx.object_tree,
-        node,
-        ctx.source,
-        &ObjectRefCollector,
-        diagnostics,
-    )?;
+    let obj_ref = typedexpr::walk(ctx, node, ctx.source, &ObjectRefCollector, diagnostics)?;
     match obj_ref {
         ObjectRef::Just(res_cls, _) => {
             diagnostics.push(Diagnostic::error(
@@ -1305,7 +1277,6 @@ mod tests {
     use super::*;
     use crate::diagnostic::Diagnostics;
     use crate::metatype;
-    use crate::objtree::ObjectTree;
     use crate::qmlast::{UiObjectDefinition, UiProgram};
     use crate::qmldoc::UiDocument;
     use crate::typemap::{ModuleData, ModuleId, TypeMap};
@@ -1336,15 +1307,12 @@ mod tests {
             }
         }
 
-        fn root_expr_nodes(&self) -> (Node, Node) {
+        fn node(&self) -> Node {
             let program = UiProgram::from_node(self.doc.root_node(), self.doc.source()).unwrap();
             let obj = UiObjectDefinition::from_node(program.root_object_node(), self.doc.source())
                 .unwrap();
             let map = obj.build_binding_map(self.doc.source()).unwrap();
-            (
-                program.root_object_node(),
-                map.get("a").unwrap().get_node().unwrap(),
-            )
+            map.get("a").unwrap().get_node().unwrap()
         }
 
         fn format(&self) -> (TypeDesc, String, u32) {
@@ -1353,14 +1321,10 @@ mod tests {
 
         fn try_format(&self) -> Result<(TypeDesc, String, u32), Diagnostics> {
             let mut diagnostics = Diagnostics::new();
-            let type_space = self.type_map.get_module(&self.module_id).unwrap();
-            let (root_node, node) = self.root_expr_nodes();
-            let object_tree =
-                ObjectTree::build(root_node, self.doc.source(), &type_space, &mut diagnostics)
-                    .unwrap();
+            let ctx = self.type_map.get_module(&self.module_id).unwrap();
+            let node = self.node();
             typedexpr::walk(
-                &type_space,
-                &object_tree,
+                &ctx,
                 node,
                 self.doc.source(),
                 &ExpressionFormatter,

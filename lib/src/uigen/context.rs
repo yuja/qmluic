@@ -1,5 +1,6 @@
 use crate::objtree::ObjectTree;
 use crate::qmldoc::UiDocument;
+use crate::typedexpr::{RefKind, RefSpace};
 use crate::typemap::{Class, Enum, ImportedModuleSpace, ModuleId, NamedType, TypeMap, TypeSpace};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -156,6 +157,19 @@ impl<'a, 't, 's> BuildDocContext<'a, 't, 's> {
             classes: self.classes,
             type_space: &self.type_space,
             object_tree: &self.object_tree,
+        }
+    }
+}
+
+impl<'a> RefSpace<'a> for ObjectContext<'a, '_, '_> {
+    fn get_ref(&self, name: &str) -> Option<RefKind<'a>> {
+        #[allow(clippy::manual_map)]
+        if let Some(obj) = self.object_tree.get_by_id(name) {
+            Some(RefKind::Object(obj.class().clone()))
+        } else if let Some(ty) = self.type_space.get_type(name) {
+            Some(RefKind::Type(ty))
+        } else {
+            None
         }
     }
 }
