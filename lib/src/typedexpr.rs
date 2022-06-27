@@ -1,7 +1,6 @@
 //! Expression tree visitor with type information.
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::objtree::ObjectTree;
 use crate::qmlast::{BinaryOperator, Expression, Identifier, Node, UnaryOperator};
 use crate::typemap::{Class, Enum, NamedType, TypeSpace};
 use std::borrow::Cow;
@@ -40,6 +39,28 @@ pub trait DescribeType<'a> {
     fn type_desc(&self) -> TypeDesc<'a>;
 }
 
+/// Resolved type/object reference.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RefKind<'a> {
+    /// Type reference.
+    Type(NamedType<'a>),
+    /// Object reference of the type.
+    Object(Class<'a>),
+    // TODO: Function, Property, etc.?
+}
+
+/// Top-level context or object which supports name lookup.
+pub trait RefSpace<'a> {
+    /// Looks up reference by name.
+    fn get_ref(&self, name: &str) -> Option<RefKind<'a>>;
+}
+
+impl<'a, T: TypeSpace<'a>> RefSpace<'a> for T {
+    fn get_ref(&self, name: &str) -> Option<RefKind<'a>> {
+        self.get_type(name).map(RefKind::Type)
+    }
+}
+
 /// Translates each expression node to [`Self::Item`].
 pub trait ExpressionVisitor<'a> {
     type Item: DescribeType<'a>; // TODO: do we want to check type error by walk()?
@@ -75,29 +96,35 @@ pub trait ExpressionVisitor<'a> {
 /// Walks expression nodes recursively from the specified `node`.
 ///
 /// `parent_space` is the context where an identifier expression is resolved.
-pub fn walk<'a, P, V>(
-    // TODO: maybe extract an abstraction over (parent_space, object_tree):
-    // resolve(name) -> Kind::Type(ty)|ObjRef(ty)|ThisProperty(..)|..
-    parent_space: &P,
-    object_tree: &ObjectTree<'a, '_>,
+pub fn walk<'a, C, V>(
+    ctx: &C,
     node: Node,
     source: &str,
     visitor: &V,
     diagnostics: &mut Diagnostics,
 ) -> Option<V::Item>
 where
-    P: TypeSpace<'a>,
+    C: RefSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
     match diagnostics.consume_err(Expression::from_node(node, source))? {
         Expression::Identifier(x) => {
             let name = x.to_str(source);
-            if let Some(n) = object_tree.get_by_id(name) {
-                diagnostics
-                    .consume_node_err(node, visitor.visit_object_ref(n.class().clone(), name))
-            } else {
-                diagnostics.push(Diagnostic::error(node.byte_range(), "undefined reference"));
-                None
+            match ctx.get_ref(name) {
+                Some(RefKind::Object(cls)) => {
+                    diagnostics.consume_node_err(node, visitor.visit_object_ref(cls, name))
+                }
+                Some(RefKind::Type(_)) => {
+                    diagnostics.push(Diagnostic::error(
+                        node.byte_range(),
+                        "type name cannot be specified",
+                    ));
+                    None
+                }
+                None => {
+                    diagnostics.push(Diagnostic::error(node.byte_range(), "undefined reference"));
+                    None
+                }
             }
         }
         Expression::Number(v) => diagnostics.consume_node_err(node, visitor.visit_number(v)),
@@ -106,13 +133,13 @@ where
         Expression::Array(ns) => {
             let elements = ns
                 .iter()
-                .map(|&n| walk(parent_space, object_tree, n, source, visitor, diagnostics))
+                .map(|&n| walk(ctx, n, source, visitor, diagnostics))
                 .collect::<Option<Vec<_>>>()?;
             diagnostics.consume_node_err(node, visitor.visit_array(elements))
         }
         Expression::MemberExpression(x) => {
             // TODO: resolve object reference
-            let mid_ty = parse_type(parent_space, x.object, source, diagnostics)?;
+            let mid_ty = parse_type(ctx, x.object, source, diagnostics)?;
             let name = x.property.to_str(source);
             if let Some(en) = mid_ty.get_enum_by_variant(name) {
                 diagnostics.consume_node_err(node, visitor.visit_enum(en, name))
@@ -135,40 +162,19 @@ where
             let arguments = x
                 .arguments
                 .iter()
-                .map(|&n| walk(parent_space, object_tree, n, source, visitor, diagnostics))
+                .map(|&n| walk(ctx, n, source, visitor, diagnostics))
                 .collect::<Option<Vec<_>>>()?;
             // TODO: confine type error?
             diagnostics.consume_node_err(node, visitor.visit_call_expression(function, arguments))
         }
         Expression::UnaryExpression(x) => {
-            let argument = walk(
-                parent_space,
-                object_tree,
-                x.argument,
-                source,
-                visitor,
-                diagnostics,
-            )?;
+            let argument = walk(ctx, x.argument, source, visitor, diagnostics)?;
             // TODO: confine type error?
             diagnostics.consume_node_err(node, visitor.visit_unary_expression(x.operator, argument))
         }
         Expression::BinaryExpression(x) => {
-            let left = walk(
-                parent_space,
-                object_tree,
-                x.left,
-                source,
-                visitor,
-                diagnostics,
-            )?;
-            let right = walk(
-                parent_space,
-                object_tree,
-                x.right,
-                source,
-                visitor,
-                diagnostics,
-            )?;
+            let left = walk(ctx, x.left, source, visitor, diagnostics)?;
+            let right = walk(ctx, x.right, source, visitor, diagnostics)?;
             // TODO: confine type error?
             diagnostics.consume_node_err(
                 node,
@@ -179,19 +185,19 @@ where
 }
 
 /// Parses the given `node` as type expression.
-fn parse_type<'a, P>(
-    parent_space: &P,
+fn parse_type<'a, C>(
+    ctx: &C,
     node: Node,
     source: &str,
     diagnostics: &mut Diagnostics,
 ) -> Option<NamedType<'a>>
 where
-    P: TypeSpace<'a>,
+    C: RefSpace<'a>,
 {
     match diagnostics.consume_err(Expression::from_node(node, source))? {
-        Expression::Identifier(n) => get_type_by_identifier(parent_space, n, source, diagnostics),
+        Expression::Identifier(n) => get_type_by_identifier(ctx, n, source, diagnostics),
         Expression::MemberExpression(x) => {
-            let mid_space = parse_type(parent_space, x.object, source, diagnostics)?;
+            let mid_space = parse_type(ctx, x.object, source, diagnostics)?;
             get_type_by_identifier(&mid_space, x.property, source, diagnostics)
         }
         _ => {
@@ -204,26 +210,22 @@ where
     }
 }
 
-fn get_type_by_identifier<'a, P>(
-    parent_space: &P,
+fn get_type_by_identifier<'a, C>(
+    ctx: &C,
     ident: Identifier,
     source: &str,
     diagnostics: &mut Diagnostics,
 ) -> Option<NamedType<'a>>
 where
-    P: TypeSpace<'a>,
+    C: RefSpace<'a>,
 {
     let name = ident.to_str(source);
-    if let Some(ty) = parent_space.get_type(name) {
+    if let Some(RefKind::Type(ty)) = ctx.get_ref(name) {
         Some(ty)
     } else {
         diagnostics.push(Diagnostic::error(
             ident.node().byte_range(),
-            format!(
-                "type not found in '{}': {}",
-                parent_space.qualified_cxx_name(),
-                name
-            ),
+            format!("type not found: {}", name),
         ));
         None
     }
