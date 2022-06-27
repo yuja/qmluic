@@ -23,3 +23,22 @@ fn test_width_is_readonly() {
     QWidget { width: 100 }
     "###).unwrap_err(), @"<unknown>:2:11: error: not a writable property");
 }
+
+#[test]
+fn test_object_property_binding_unsupported() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QWidget {
+         QCheckBox { id: source }
+         QWidget { visible: source.checked }
+    }
+    "###).unwrap_err(), @"<unknown>:4:25: error: unsupported reference");
+}
+
+#[test]
+fn test_self_property_binding_unsupported() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QCheckBox { checked: enabled }
+    "###).unwrap_err(), @"<unknown>:2:22: error: undefined reference");
+}
