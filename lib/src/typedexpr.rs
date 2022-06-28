@@ -2,7 +2,7 @@
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{BinaryOperator, Expression, Identifier, Node, UnaryOperator};
-use crate::typemap::{Class, Enum, NamedType, TypeSpace};
+use crate::typemap::{Class, Enum, NamedType, Property, TypeSpace};
 use std::borrow::Cow;
 use std::fmt::Debug;
 
@@ -92,6 +92,11 @@ pub trait ExpressionVisitor<'a> {
     fn visit_array(&mut self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error>;
 
     fn visit_object_ref(&mut self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error>;
+    fn visit_object_property(
+        &mut self,
+        object: Self::Item,
+        property: Property<'a>,
+    ) -> Result<Self::Item, Self::Error>;
 
     fn visit_builtin_call(
         &mut self,
@@ -181,12 +186,8 @@ where
         }
         Expression::MemberExpression(x) => {
             match walk_inner(ctx, x.object, source, visitor, diagnostics)? {
-                Intermediate::Item(_) => {
-                    diagnostics.push(Diagnostic::error(
-                        node.byte_range(),
-                        "no support for property/method resolution",
-                    ));
-                    None
+                Intermediate::Item(it) => {
+                    process_item_property(it, x.property, source, visitor, diagnostics)
                 }
                 Intermediate::BuiltinFunction(_) => {
                     diagnostics.push(Diagnostic::error(
@@ -266,6 +267,40 @@ where
                 id.node().byte_range(),
                 "undefined reference",
             ));
+            None
+        }
+    }
+}
+
+fn process_item_property<'a, V>(
+    item: V::Item,
+    id: Identifier,
+    source: &str,
+    visitor: &mut V,
+    diagnostics: &mut Diagnostics,
+) -> Option<Intermediate<'a, V::Item>>
+where
+    V: ExpressionVisitor<'a>,
+{
+    let not_found = || Diagnostic::error(id.node().byte_range(), "no property/method found");
+    let name = id.to_str(source);
+    match item.type_desc() {
+        TypeDesc::Bool | TypeDesc::Number | TypeDesc::String | TypeDesc::Enum(_) => {
+            diagnostics.push(not_found());
+            None
+        }
+        TypeDesc::ObjectRef(cls) => {
+            if let Some(p) = cls.get_property(name) {
+                diagnostics
+                    .consume_node_err(id.node(), visitor.visit_object_property(item, p))
+                    .map(Intermediate::Item)
+            } else {
+                diagnostics.push(not_found());
+                None
+            }
+        }
+        TypeDesc::ObjectRefList(_) | TypeDesc::StringList | TypeDesc::EmptyList => {
+            diagnostics.push(not_found());
             None
         }
     }

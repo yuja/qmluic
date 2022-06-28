@@ -7,7 +7,7 @@ use crate::color::Color;
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{BinaryOperator, Node, UiBindingValue, UnaryOperator};
 use crate::typedexpr::{self, BuiltinFunctionKind, DescribeType, ExpressionVisitor, TypeDesc};
-use crate::typemap::{Class, Enum, NamedType, PrimitiveType, TypeKind, TypeSpace};
+use crate::typemap::{Class, Enum, NamedType, PrimitiveType, Property, TypeKind, TypeSpace};
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::collections::HashMap;
 use std::fmt;
@@ -609,6 +609,8 @@ enum ExpressionError {
     UnsupportedLiteral(&'static str),
     #[error("unsupported reference")]
     UnsupportedReference,
+    #[error("unsupported object property resolution")]
+    UnsupportedObjectProperty,
     #[error("unsupported function call")]
     UnsupportedFunctionCall,
     #[error("unsupported unary operation on type: {0} <{1}>")]
@@ -696,6 +698,14 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
         _name: &str,
     ) -> Result<Self::Item, Self::Error> {
         Err(ExpressionError::UnsupportedReference)
+    }
+
+    fn visit_object_property(
+        &mut self,
+        _object: Self::Item,
+        _property: Property<'a>,
+    ) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedObjectProperty)
     }
 
     fn visit_builtin_call(
@@ -958,6 +968,14 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
 
     fn visit_object_ref(&mut self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error> {
         Ok((TypeDesc::ObjectRef(cls), name.to_owned(), PREC_TERM))
+    }
+
+    fn visit_object_property(
+        &mut self,
+        _object: Self::Item,
+        _property: Property<'a>,
+    ) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedObjectProperty) // TODO
     }
 
     fn visit_builtin_call(
@@ -1316,6 +1334,14 @@ impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
 
     fn visit_object_ref(&mut self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error> {
         Ok(ObjectRef::Just(cls, name.to_owned()))
+    }
+
+    fn visit_object_property(
+        &mut self,
+        _object: Self::Item,
+        _property: Property<'a>,
+    ) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedObjectProperty)
     }
 
     fn visit_builtin_call(
