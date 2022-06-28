@@ -280,6 +280,9 @@ fn parse_as_value_type(
     node: Node,
     diagnostics: &mut Diagnostics,
 ) -> Option<Value> {
+    // first, detect type error by ExpressionFormatter.
+    // TODO: maybe collect object/property dependencies to handle dynamic bindings
+    let (res_t, res_expr) = format_expression(ctx, node, diagnostics)?;
     match ty {
         NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.brush) => {
             let color = parse_color_value(ctx, node, diagnostics).map(Value::Gadget)?;
@@ -293,30 +296,25 @@ fn parse_as_value_type(
         NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.color) => {
             parse_color_value(ctx, node, diagnostics).map(Value::Gadget)
         }
-        NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.cursor) => {
-            let (res_t, res_expr) = format_expression(ctx, node, diagnostics)?;
-            match &res_t {
-                TypeDesc::Enum(res_en) if is_compatible_enum(res_en, &ctx.classes.cursor_shape) => {
-                    Some(Value::Simple(SimpleValue::CursorShape(
-                        strip_enum_prefix(&res_expr).to_owned(),
-                    )))
-                }
-                _ => {
-                    diagnostics.push(Diagnostic::error(
-                        node.byte_range(),
-                        format!(
-                            "expression type mismatch (expected: {}, actual: {})",
-                            ctx.classes.cursor_shape.qualified_cxx_name(),
-                            res_t.qualified_name()
-                        ),
-                    ));
-                    None
-                }
+        NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.cursor) => match &res_t {
+            TypeDesc::Enum(res_en) if is_compatible_enum(res_en, &ctx.classes.cursor_shape) => {
+                Some(Value::Simple(SimpleValue::CursorShape(
+                    strip_enum_prefix(&res_expr).to_owned(),
+                )))
             }
-        }
+            _ => {
+                diagnostics.push(Diagnostic::error(
+                    node.byte_range(),
+                    format!(
+                        "expression type mismatch (expected: {}, actual: {})",
+                        ctx.classes.cursor_shape.qualified_cxx_name(),
+                        res_t.qualified_name()
+                    ),
+                ));
+                None
+            }
+        },
         NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.key_sequence) => {
-            // ExpressionFormatter can handle both enum and string literals, so try it first.
-            let (res_t, res_expr) = format_expression(ctx, node, diagnostics)?;
             let standard_key_en = &ctx.classes.key_sequence_standard_key;
             let string_ty = NamedType::Primitive(PrimitiveType::QString);
             match &res_t {
@@ -364,29 +362,26 @@ fn parse_as_value_type(
                 }
             }
         }
-        NamedType::Enum(en) => {
-            let (res_t, res_expr) = format_expression(ctx, node, diagnostics)?;
-            match &res_t {
-                TypeDesc::Enum(res_en) if is_compatible_enum(res_en, en) => {
-                    if en.is_flag() {
-                        Some(Value::Simple(SimpleValue::Set(res_expr)))
-                    } else {
-                        Some(Value::Simple(SimpleValue::Enum(res_expr)))
-                    }
-                }
-                _ => {
-                    diagnostics.push(Diagnostic::error(
-                        node.byte_range(),
-                        format!(
-                            "expression type mismatch (expected: {}, actual: {})",
-                            ty.qualified_cxx_name(),
-                            res_t.qualified_name()
-                        ),
-                    ));
-                    None
+        NamedType::Enum(en) => match &res_t {
+            TypeDesc::Enum(res_en) if is_compatible_enum(res_en, en) => {
+                if en.is_flag() {
+                    Some(Value::Simple(SimpleValue::Set(res_expr)))
+                } else {
+                    Some(Value::Simple(SimpleValue::Enum(res_expr)))
                 }
             }
-        }
+            _ => {
+                diagnostics.push(Diagnostic::error(
+                    node.byte_range(),
+                    format!(
+                        "expression type mismatch (expected: {}, actual: {})",
+                        ty.qualified_cxx_name(),
+                        res_t.qualified_name()
+                    ),
+                ));
+                None
+            }
+        },
         NamedType::Primitive(p) => {
             let res = evaluate_expression(ctx, node, diagnostics)?;
             match (p, res) {

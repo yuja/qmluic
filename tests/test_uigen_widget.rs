@@ -32,7 +32,7 @@ fn test_object_property_binding_unsupported() {
          QCheckBox { id: source }
          QWidget { visible: source.checked }
     }
-    "###).unwrap_err(), @"<unknown>:4:25: error: unsupported reference");
+    "###).unwrap_err(), @"<unknown>:4:25: error: no support for property/method resolution");
 }
 
 #[test]
