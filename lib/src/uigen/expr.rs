@@ -475,8 +475,8 @@ fn format_expression<'a>(
     node: Node,
     diagnostics: &mut Diagnostics,
 ) -> Option<(TypeDesc<'a>, String)> {
-    typedexpr::walk(ctx, node, ctx.source, &ExpressionFormatter, diagnostics)
-        .map(|(t, expr, _)| (t, expr))
+    let formatter = ExpressionFormatter::new(ctx.doc_type_name.unwrap_or_default());
+    typedexpr::walk(ctx, node, ctx.source, &formatter, diagnostics).map(|(t, expr, _)| (t, expr))
 }
 
 fn parse_color_value(
@@ -847,7 +847,18 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
 ///
 /// Here we don't strictly follow the JavaScript language model, but try 1:1 mapping.
 #[derive(Debug)]
-struct ExpressionFormatter;
+struct ExpressionFormatter {
+    /// Context of `QCoreApplication::translate()`, which is typically a class name.
+    tr_context: String,
+}
+
+impl ExpressionFormatter {
+    fn new(tr_context: impl Into<String>) -> Self {
+        ExpressionFormatter {
+            tr_context: tr_context.into(),
+        }
+    }
+}
 
 impl<'a> DescribeType<'a> for (TypeDesc<'a>, String, u32) {
     fn type_desc(&self) -> TypeDesc<'a> {
@@ -951,7 +962,14 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
         match function {
             BuiltinFunctionKind::Tr if arguments.len() == 1 => {
                 if let (TypeDesc::String, expr, _prec) = &arguments[0] {
-                    Ok((TypeDesc::String, format!("qsTr({})", expr), PREC_CALL))
+                    Ok((
+                        TypeDesc::String,
+                        format!(
+                            "QCoreApplication::translate({:?}, {})",
+                            self.tr_context, expr
+                        ),
+                        PREC_CALL,
+                    ))
                 } else {
                     Err(ExpressionError::UnsupportedFunctionCall)
                 }
@@ -1330,7 +1348,8 @@ mod tests {
     use crate::metatype;
     use crate::qmlast::{UiObjectDefinition, UiProgram};
     use crate::qmldoc::UiDocument;
-    use crate::typemap::{ModuleData, ModuleId, TypeMap};
+    use crate::typedexpr::{BuiltinFunctionKind, RefKind, RefSpace};
+    use crate::typemap::{ModuleData, ModuleId, Namespace, TypeMap};
 
     struct Env {
         doc: UiDocument,
@@ -1372,16 +1391,32 @@ mod tests {
 
         fn try_format(&self) -> Result<(TypeDesc, String, u32), Diagnostics> {
             let mut diagnostics = Diagnostics::new();
-            let ctx = self.type_map.get_module(&self.module_id).unwrap();
+            let ctx = Context {
+                type_space: self.type_map.get_module(&self.module_id).unwrap(),
+            };
             let node = self.node();
             typedexpr::walk(
                 &ctx,
                 node,
                 self.doc.source(),
-                &ExpressionFormatter,
+                &ExpressionFormatter::new("MyClass"),
                 &mut diagnostics,
             )
             .ok_or(diagnostics)
+        }
+    }
+
+    struct Context<'a> {
+        type_space: Namespace<'a>,
+    }
+
+    impl<'a> RefSpace<'a> for Context<'a> {
+        fn get_ref(&self, name: &str) -> Option<RefKind<'a>> {
+            if name == "qsTr" {
+                Some(RefKind::BuiltinFunction(BuiltinFunctionKind::Tr))
+            } else {
+                self.type_space.get_ref(name)
+            }
         }
     }
 
@@ -1414,6 +1449,14 @@ mod tests {
         assert_eq!(format_expr("1 === 1"), "1==1");
         assert_eq!(format_expr("1 !== 2"), "1!=2");
         assert_eq!(format_expr("'foo' + 'bar'"), r#"QString("foo")+"bar""#);
+    }
+
+    #[test]
+    fn format_tr() {
+        assert_eq!(
+            format_expr("qsTr('foo')"),
+            r#"QCoreApplication::translate("MyClass", "foo")"#
+        );
     }
 
     #[test]
