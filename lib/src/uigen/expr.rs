@@ -884,9 +884,59 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
         Ok((TypeDesc::Enum(enum_ty), res_expr, PREC_SCOPE))
     }
 
-    fn visit_array(&self, _elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
-        // TODO: handle string/object-ref list
-        Err(ExpressionError::UnsupportedLiteral("array"))
+    fn visit_array(&self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
+        let mut elem_t: Option<TypeDesc> = None;
+        let mut elem_exprs = Vec::with_capacity(elements.len());
+        for (t, expr, prec) in elements {
+            elem_t = match (elem_t, t) {
+                (Some(known), t) if known == t => Some(known),
+                (Some(TypeDesc::Enum(known_en)), TypeDesc::Enum(en))
+                    if is_compatible_enum(&known_en, &en) =>
+                {
+                    Some(TypeDesc::Enum(known_en))
+                }
+                (Some(TypeDesc::ObjectRef(known_cls)), TypeDesc::ObjectRef(cls)) => {
+                    let base_cls = known_cls.common_base_class(&cls).ok_or_else(|| {
+                        ExpressionError::CannotDeduceType(
+                            known_cls.qualified_cxx_name().into(),
+                            cls.qualified_cxx_name().into(),
+                        )
+                    })?;
+                    Some(TypeDesc::ObjectRef(base_cls))
+                }
+                (Some(known), t) => {
+                    return Err(ExpressionError::CannotDeduceType(
+                        known.qualified_name().into(),
+                        t.qualified_name().into(),
+                    ))
+                }
+                (None, t) => Some(t),
+            };
+            // TODO: discriminate QString from char* by type desc?
+            if elem_t == Some(TypeDesc::String) {
+                elem_exprs.push(maybe_paren(
+                    PREC_COMMA,
+                    format!("QString({})", expr),
+                    PREC_CALL,
+                ));
+            } else {
+                elem_exprs.push(maybe_paren(PREC_COMMA, expr, prec));
+            }
+        }
+
+        let array_t = match elem_t {
+            Some(TypeDesc::String) => TypeDesc::StringList,
+            Some(TypeDesc::ObjectRef(cls)) => TypeDesc::ObjectRefList(cls),
+            Some(TypeDesc::Bool | TypeDesc::Number | TypeDesc::Enum(_)) => {
+                return Err(ExpressionError::UnsupportedLiteral("non-string array"))
+            }
+            Some(TypeDesc::ObjectRefList(_) | TypeDesc::StringList | TypeDesc::EmptyList) => {
+                return Err(ExpressionError::UnsupportedLiteral("nested array"))
+            }
+            None => TypeDesc::EmptyList,
+        };
+        // not a term, but would be as strong as a term
+        Ok((array_t, format!("{{{}}}", elem_exprs.join(", ")), PREC_TERM))
     }
 
     fn visit_object_ref(&self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error> {
@@ -1086,6 +1136,7 @@ fn maybe_paren(res_prec: u32, arg_expr: String, arg_prec: u32) -> String {
 const PREC_TERM: u32 = 0;
 const PREC_SCOPE: u32 = 1;
 const PREC_CALL: u32 = 2;
+const PREC_COMMA: u32 = 17;
 
 fn unary_operator_precedence(operator: UnaryOperator) -> u32 {
     use UnaryOperator::*;
@@ -1363,5 +1414,18 @@ mod tests {
         assert_eq!(format_expr("1 === 1"), "1==1");
         assert_eq!(format_expr("1 !== 2"), "1!=2");
         assert_eq!(format_expr("'foo' + 'bar'"), r#"QString("foo")+"bar""#);
+    }
+
+    #[test]
+    fn format_empty_array() {
+        assert_eq!(format_expr("[]"), "{}");
+    }
+
+    #[test]
+    fn format_string_array() {
+        assert_eq!(
+            format_expr("['foo', 'bar']"),
+            r#"{QString("foo"), QString("bar")}"#
+        );
     }
 }
