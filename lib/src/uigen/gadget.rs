@@ -1,10 +1,11 @@
+use super::context::KnownClasses;
 use super::expr::{self, SimpleValue, StringKind, Value};
 use super::property::{self, PropertiesMap};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
 use crate::color::Color;
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::typemap::{Class, TypeSpace};
+use crate::typemap::Class;
 use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
@@ -129,17 +130,17 @@ pub enum GadgetKind {
 }
 
 impl GadgetKind {
-    pub(super) fn from_class(cls: &Class) -> Option<GadgetKind> {
-        match cls.name() {
-            "QBrush" => Some(GadgetKind::Brush),
-            // incompatible property names: "QColor" => Some(GadgetKind::Color),
-            "QFont" => Some(GadgetKind::Font),
-            "QIcon" => Some(GadgetKind::Icon),
-            "QMargins" => Some(GadgetKind::Margins),
-            "QPalette" => Some(GadgetKind::Palette),
-            "QRect" => Some(GadgetKind::Rect),
-            "QSize" => Some(GadgetKind::Size),
-            "QSizePolicy" => Some(GadgetKind::SizePolicy),
+    pub(super) fn from_class(cls: &Class, classes: &KnownClasses) -> Option<GadgetKind> {
+        match cls {
+            _ if cls == &classes.brush => Some(GadgetKind::Brush),
+            // incompatible property names: color => Some(GadgetKind::Color),
+            _ if cls == &classes.font => Some(GadgetKind::Font),
+            _ if cls == &classes.icon => Some(GadgetKind::Icon),
+            _ if cls == &classes.margins => Some(GadgetKind::Margins),
+            _ if cls == &classes.palette => Some(GadgetKind::Palette),
+            _ if cls == &classes.rect => Some(GadgetKind::Rect),
+            _ if cls == &classes.size => Some(GadgetKind::Size),
+            _ if cls == &classes.size_policy => Some(GadgetKind::SizePolicy),
             _ => None,
         }
     }

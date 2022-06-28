@@ -67,7 +67,7 @@ impl<'a, 't> PropertyValue<'a, 't> {
                 TypeKind::Just(NamedType::Class(cls)) => {
                     let properties_map =
                         property::collect_properties_with_node(ctx, cls, m, diagnostics);
-                    if let Some(kind) = GadgetKind::from_class(cls) {
+                    if let Some(kind) = GadgetKind::from_class(cls, ctx.classes) {
                         let v = Gadget::new(kind, properties_map, diagnostics);
                         Some(PropertyValue::Serializable(Value::Gadget(v)))
                     } else if cls.name() == "QPaletteColorGroup" {
