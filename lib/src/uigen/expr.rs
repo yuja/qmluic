@@ -284,7 +284,7 @@ fn parse_as_value_type(
     // TODO: maybe collect object/property dependencies to handle dynamic bindings
     let (res_t, res_expr) = format_expression(ctx, node, diagnostics)?;
     match ty {
-        NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.brush) => {
+        NamedType::Class(cls) if cls == &ctx.classes.brush => {
             let color = parse_color_value(ctx, node, diagnostics).map(Value::Gadget)?;
             let style = SimpleValue::Enum("Qt::SolidPattern".to_owned());
             Some(Value::Gadget(Gadget {
@@ -293,10 +293,10 @@ fn parse_as_value_type(
                 properties: HashMap::from([("color".to_owned(), color)]),
             }))
         }
-        NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.color) => {
+        NamedType::Class(cls) if cls == &ctx.classes.color => {
             parse_color_value(ctx, node, diagnostics).map(Value::Gadget)
         }
-        NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.cursor) => match &res_t {
+        NamedType::Class(cls) if cls == &ctx.classes.cursor => match &res_t {
             TypeDesc::Enum(res_en) if is_compatible_enum(res_en, &ctx.classes.cursor_shape) => {
                 Some(Value::Simple(SimpleValue::CursorShape(
                     strip_enum_prefix(&res_expr).to_owned(),
@@ -314,7 +314,7 @@ fn parse_as_value_type(
                 None
             }
         },
-        NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.key_sequence) => {
+        NamedType::Class(cls) if cls == &ctx.classes.key_sequence => {
             let standard_key_en = &ctx.classes.key_sequence_standard_key;
             match &res_t {
                 TypeDesc::Enum(res_en) if is_compatible_enum(res_en, standard_key_en) => {
@@ -341,7 +341,7 @@ fn parse_as_value_type(
                 }
             }
         }
-        NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.pixmap) => {
+        NamedType::Class(cls) if cls == &ctx.classes.pixmap => {
             let res = evaluate_expression(ctx, node, diagnostics)?;
             match res {
                 EvaluatedValue::String(s, StringKind::NoTr) => {
