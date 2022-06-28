@@ -84,27 +84,27 @@ pub trait ExpressionVisitor<'a> {
     type Item: DescribeType<'a>; // TODO: do we want to check type error by walk()?
     type Error: ToString;
 
-    fn visit_number(&self, value: f64) -> Result<Self::Item, Self::Error>;
-    fn visit_string(&self, value: String) -> Result<Self::Item, Self::Error>;
-    fn visit_bool(&self, value: bool) -> Result<Self::Item, Self::Error>;
-    fn visit_enum(&self, enum_ty: Enum<'a>, variant: &str) -> Result<Self::Item, Self::Error>;
+    fn visit_number(&mut self, value: f64) -> Result<Self::Item, Self::Error>;
+    fn visit_string(&mut self, value: String) -> Result<Self::Item, Self::Error>;
+    fn visit_bool(&mut self, value: bool) -> Result<Self::Item, Self::Error>;
+    fn visit_enum(&mut self, enum_ty: Enum<'a>, variant: &str) -> Result<Self::Item, Self::Error>;
 
-    fn visit_array(&self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error>;
+    fn visit_array(&mut self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error>;
 
-    fn visit_object_ref(&self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error>;
+    fn visit_object_ref(&mut self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error>;
 
     fn visit_builtin_call(
-        &self,
+        &mut self,
         function: BuiltinFunctionKind,
         arguments: Vec<Self::Item>,
     ) -> Result<Self::Item, Self::Error>;
     fn visit_unary_expression(
-        &self,
+        &mut self,
         operator: UnaryOperator,
         argument: Self::Item,
     ) -> Result<Self::Item, Self::Error>;
     fn visit_binary_expression(
-        &self,
+        &mut self,
         operator: BinaryOperator,
         left: Self::Item,
         right: Self::Item,
@@ -125,7 +125,7 @@ pub fn walk<'a, C, V>(
     ctx: &C,
     node: Node,
     source: &str,
-    visitor: &V,
+    visitor: &mut V,
     diagnostics: &mut Diagnostics,
 ) -> Option<V::Item>
 where
@@ -152,7 +152,7 @@ fn walk_inner<'a, C, V>(
     ctx: &C,
     node: Node,
     source: &str,
-    visitor: &V,
+    visitor: &mut V,
     diagnostics: &mut Diagnostics,
 ) -> Option<Intermediate<'a, V::Item>>
 where
@@ -244,7 +244,7 @@ fn process_identifier<'a, C, V>(
     ctx: &C,
     id: Identifier,
     source: &str,
-    visitor: &V,
+    visitor: &mut V,
     diagnostics: &mut Diagnostics,
 ) -> Option<Intermediate<'a, V::Item>>
 where
