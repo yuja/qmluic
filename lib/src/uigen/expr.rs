@@ -316,7 +316,6 @@ fn parse_as_value_type(
         },
         NamedType::Class(cls) if cls.is_derived_from(&ctx.classes.key_sequence) => {
             let standard_key_en = &ctx.classes.key_sequence_standard_key;
-            let string_ty = NamedType::Primitive(PrimitiveType::QString);
             match &res_t {
                 TypeDesc::Enum(res_en) if is_compatible_enum(res_en, standard_key_en) => {
                     if standard_key_en.is_flag() {
@@ -326,8 +325,7 @@ fn parse_as_value_type(
                     }
                 }
                 TypeDesc::String => {
-                    // evaluate as string
-                    parse_as_value_type(ctx, &string_ty, node, diagnostics)
+                    evaluate_as_primitive(ctx, PrimitiveType::QString, node, diagnostics)
                 }
                 _ => {
                     diagnostics.push(Diagnostic::error(
@@ -335,7 +333,7 @@ fn parse_as_value_type(
                         format!(
                             "expression type mismatch (expected: {} | {}, actual: {})",
                             standard_key_en.qualified_cxx_name(),
-                            string_ty.qualified_cxx_name(),
+                            PrimitiveType::QString.name(),
                             res_t.qualified_name()
                         ),
                     ));
@@ -382,58 +380,7 @@ fn parse_as_value_type(
                 None
             }
         },
-        NamedType::Primitive(p) => {
-            let res = evaluate_expression(ctx, node, diagnostics)?;
-            match (p, res) {
-                (PrimitiveType::Bool, EvaluatedValue::Bool(v)) => {
-                    Some(Value::Simple(SimpleValue::Bool(v)))
-                }
-                (
-                    PrimitiveType::Int | PrimitiveType::QReal | PrimitiveType::UInt,
-                    EvaluatedValue::Number(v),
-                ) => Some(Value::Simple(SimpleValue::Number(v))),
-                (PrimitiveType::QString, EvaluatedValue::String(s, k)) => {
-                    Some(Value::Simple(SimpleValue::String(s, k)))
-                }
-                (PrimitiveType::QStringList, EvaluatedValue::StringList(xs)) => {
-                    // unfortunately, notr attribute is list level
-                    let kind = xs.first().map(|(_, k)| *k).unwrap_or(StringKind::NoTr);
-                    if xs.iter().all(|(_, k)| *k == kind) {
-                        let ss = xs.into_iter().map(|(s, _)| s).collect();
-                        Some(Value::StringList(ss, kind))
-                    } else {
-                        diagnostics.push(Diagnostic::error(
-                            node.byte_range(),
-                            "cannot mix bare and translatable strings",
-                        ));
-                        None
-                    }
-                }
-                (PrimitiveType::QStringList, EvaluatedValue::EmptyList) => {
-                    Some(Value::StringList(vec![], StringKind::NoTr))
-                }
-                (
-                    PrimitiveType::Bool
-                    | PrimitiveType::Int
-                    | PrimitiveType::QReal
-                    | PrimitiveType::QString
-                    | PrimitiveType::QStringList
-                    | PrimitiveType::UInt
-                    | PrimitiveType::Void,
-                    res,
-                ) => {
-                    diagnostics.push(Diagnostic::error(
-                        node.byte_range(),
-                        format!(
-                            "evaluated type mismatch (expected: {}, actual: {})",
-                            ty.qualified_cxx_name(),
-                            res.type_desc().qualified_name()
-                        ),
-                    ));
-                    None
-                }
-            }
-        }
+        NamedType::Primitive(p) => evaluate_as_primitive(ctx, *p, node, diagnostics),
         NamedType::Class(_) | NamedType::QmlComponent(_) => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
@@ -450,6 +397,62 @@ fn parse_as_value_type(
                 format!(
                     "unsupported constant value expression: namespace '{}'",
                     ty.qualified_cxx_name(),
+                ),
+            ));
+            None
+        }
+    }
+}
+
+fn evaluate_as_primitive(
+    ctx: &ObjectContext,
+    p: PrimitiveType,
+    node: Node,
+    diagnostics: &mut Diagnostics,
+) -> Option<Value> {
+    let res = evaluate_expression(ctx, node, diagnostics)?;
+    match (p, res) {
+        (PrimitiveType::Bool, EvaluatedValue::Bool(v)) => Some(Value::Simple(SimpleValue::Bool(v))),
+        (
+            PrimitiveType::Int | PrimitiveType::QReal | PrimitiveType::UInt,
+            EvaluatedValue::Number(v),
+        ) => Some(Value::Simple(SimpleValue::Number(v))),
+        (PrimitiveType::QString, EvaluatedValue::String(s, k)) => {
+            Some(Value::Simple(SimpleValue::String(s, k)))
+        }
+        (PrimitiveType::QStringList, EvaluatedValue::StringList(xs)) => {
+            // unfortunately, notr attribute is list level
+            let kind = xs.first().map(|(_, k)| *k).unwrap_or(StringKind::NoTr);
+            if xs.iter().all(|(_, k)| *k == kind) {
+                let ss = xs.into_iter().map(|(s, _)| s).collect();
+                Some(Value::StringList(ss, kind))
+            } else {
+                diagnostics.push(Diagnostic::error(
+                    node.byte_range(),
+                    "cannot mix bare and translatable strings",
+                ));
+                None
+            }
+        }
+        (PrimitiveType::QStringList, EvaluatedValue::EmptyList) => {
+            Some(Value::StringList(vec![], StringKind::NoTr))
+        }
+        (
+            PrimitiveType::Bool
+            | PrimitiveType::Int
+            | PrimitiveType::QReal
+            | PrimitiveType::QString
+            | PrimitiveType::QStringList
+            | PrimitiveType::UInt
+            | PrimitiveType::Void,
+            res,
+        ) => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                format!(
+                    "evaluated type mismatch (expected: {}, actual: {})",
+                    p.name(),
+                    res.type_desc().qualified_name()
                 ),
             ));
             None
