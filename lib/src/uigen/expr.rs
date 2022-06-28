@@ -465,7 +465,7 @@ fn evaluate_expression(
     node: Node,
     diagnostics: &mut Diagnostics,
 ) -> Option<EvaluatedValue> {
-    typedexpr::walk(ctx, node, ctx.source, &ExpressionEvaluator, diagnostics)
+    typedexpr::walk(ctx, node, ctx.source, &mut ExpressionEvaluator, diagnostics)
 }
 
 fn format_expression<'a>(
@@ -473,8 +473,8 @@ fn format_expression<'a>(
     node: Node,
     diagnostics: &mut Diagnostics,
 ) -> Option<(TypeDesc<'a>, String)> {
-    let formatter = ExpressionFormatter::new(ctx.doc_type_name.unwrap_or_default());
-    typedexpr::walk(ctx, node, ctx.source, &formatter, diagnostics).map(|(t, expr, _)| (t, expr))
+    let mut f = ExpressionFormatter::new(ctx.doc_type_name.unwrap_or_default());
+    typedexpr::walk(ctx, node, ctx.source, &mut f, diagnostics).map(|(t, expr, _)| (t, expr))
 }
 
 fn parse_color_value(
@@ -540,7 +540,7 @@ fn parse_object_reference(
     node: Node,
     diagnostics: &mut Diagnostics,
 ) -> Option<SimpleValue> {
-    let obj_ref = typedexpr::walk(ctx, node, ctx.source, &ObjectRefCollector, diagnostics)?;
+    let obj_ref = typedexpr::walk(ctx, node, ctx.source, &mut ObjectRefCollector, diagnostics)?;
     match obj_ref {
         ObjectRef::Just(res_cls, name) if res_cls.is_derived_from(expected_cls) => {
             Some(SimpleValue::Cstring(name))
@@ -575,7 +575,7 @@ fn parse_object_reference_list(
     node: Node,
     diagnostics: &mut Diagnostics,
 ) -> Option<Vec<String>> {
-    let obj_ref = typedexpr::walk(ctx, node, ctx.source, &ObjectRefCollector, diagnostics)?;
+    let obj_ref = typedexpr::walk(ctx, node, ctx.source, &mut ObjectRefCollector, diagnostics)?;
     match obj_ref {
         ObjectRef::Just(res_cls, _) => {
             diagnostics.push(Diagnostic::error(
@@ -652,23 +652,27 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
     type Item = EvaluatedValue;
     type Error = ExpressionError;
 
-    fn visit_number(&self, value: f64) -> Result<Self::Item, Self::Error> {
+    fn visit_number(&mut self, value: f64) -> Result<Self::Item, Self::Error> {
         Ok(EvaluatedValue::Number(value))
     }
 
-    fn visit_string(&self, value: String) -> Result<Self::Item, Self::Error> {
+    fn visit_string(&mut self, value: String) -> Result<Self::Item, Self::Error> {
         Ok(EvaluatedValue::String(value, StringKind::NoTr))
     }
 
-    fn visit_bool(&self, value: bool) -> Result<Self::Item, Self::Error> {
+    fn visit_bool(&mut self, value: bool) -> Result<Self::Item, Self::Error> {
         Ok(EvaluatedValue::Bool(value))
     }
 
-    fn visit_enum(&self, _enum_ty: Enum<'a>, _variant: &str) -> Result<Self::Item, Self::Error> {
+    fn visit_enum(
+        &mut self,
+        _enum_ty: Enum<'a>,
+        _variant: &str,
+    ) -> Result<Self::Item, Self::Error> {
         Err(ExpressionError::UnsupportedLiteral("enum")) // enum value is unknown
     }
 
-    fn visit_array(&self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
+    fn visit_array(&mut self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
         match elements.first() {
             Some(EvaluatedValue::String(..)) => elements
                 .into_iter()
@@ -686,12 +690,16 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
         }
     }
 
-    fn visit_object_ref(&self, _cls: Class<'a>, _name: &str) -> Result<Self::Item, Self::Error> {
+    fn visit_object_ref(
+        &mut self,
+        _cls: Class<'a>,
+        _name: &str,
+    ) -> Result<Self::Item, Self::Error> {
         Err(ExpressionError::UnsupportedReference)
     }
 
     fn visit_builtin_call(
-        &self,
+        &mut self,
         function: BuiltinFunctionKind,
         mut arguments: Vec<Self::Item>,
     ) -> Result<Self::Item, Self::Error> {
@@ -707,7 +715,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
     }
 
     fn visit_unary_expression(
-        &self,
+        &mut self,
         operator: UnaryOperator,
         argument: Self::Item,
     ) -> Result<Self::Item, Self::Error> {
@@ -745,7 +753,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
     }
 
     fn visit_binary_expression(
-        &self,
+        &mut self,
         operator: BinaryOperator,
         left: Self::Item,
         right: Self::Item,
@@ -868,15 +876,15 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
     type Item = (TypeDesc<'a>, String, u32);
     type Error = ExpressionError;
 
-    fn visit_number(&self, value: f64) -> Result<Self::Item, Self::Error> {
+    fn visit_number(&mut self, value: f64) -> Result<Self::Item, Self::Error> {
         Ok((TypeDesc::Number, value.to_string(), PREC_TERM))
     }
 
-    fn visit_string(&self, value: String) -> Result<Self::Item, Self::Error> {
+    fn visit_string(&mut self, value: String) -> Result<Self::Item, Self::Error> {
         Ok((TypeDesc::String, format!("{:?}", value), PREC_TERM)) // TODO: escape per C spec)
     }
 
-    fn visit_bool(&self, value: bool) -> Result<Self::Item, Self::Error> {
+    fn visit_bool(&mut self, value: bool) -> Result<Self::Item, Self::Error> {
         Ok((
             TypeDesc::Bool,
             if value {
@@ -888,12 +896,12 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
         ))
     }
 
-    fn visit_enum(&self, enum_ty: Enum<'a>, variant: &str) -> Result<Self::Item, Self::Error> {
+    fn visit_enum(&mut self, enum_ty: Enum<'a>, variant: &str) -> Result<Self::Item, Self::Error> {
         let res_expr = enum_ty.qualify_cxx_variant_name(variant);
         Ok((TypeDesc::Enum(enum_ty), res_expr, PREC_SCOPE))
     }
 
-    fn visit_array(&self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
+    fn visit_array(&mut self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
         let mut elem_t: Option<TypeDesc> = None;
         let mut elem_exprs = Vec::with_capacity(elements.len());
         for (t, expr, prec) in elements {
@@ -948,12 +956,12 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
         Ok((array_t, format!("{{{}}}", elem_exprs.join(", ")), PREC_TERM))
     }
 
-    fn visit_object_ref(&self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error> {
+    fn visit_object_ref(&mut self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error> {
         Ok((TypeDesc::ObjectRef(cls), name.to_owned(), PREC_TERM))
     }
 
     fn visit_builtin_call(
-        &self,
+        &mut self,
         function: BuiltinFunctionKind,
         arguments: Vec<Self::Item>,
     ) -> Result<Self::Item, Self::Error> {
@@ -977,7 +985,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
     }
 
     fn visit_unary_expression(
-        &self,
+        &mut self,
         operator: UnaryOperator,
         (arg_t, arg_expr, arg_prec): Self::Item,
     ) -> Result<Self::Item, Self::Error> {
@@ -1024,7 +1032,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
     }
 
     fn visit_binary_expression(
-        &self,
+        &mut self,
         operator: BinaryOperator,
         (left_t, left_expr, left_prec): Self::Item,
         (right_t, right_expr, right_prec): Self::Item,
@@ -1253,23 +1261,27 @@ impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
     type Item = ObjectRef<'a>;
     type Error = ExpressionError;
 
-    fn visit_number(&self, _value: f64) -> Result<Self::Item, Self::Error> {
+    fn visit_number(&mut self, _value: f64) -> Result<Self::Item, Self::Error> {
         Err(ExpressionError::UnsupportedLiteral("number"))
     }
 
-    fn visit_string(&self, _value: String) -> Result<Self::Item, Self::Error> {
+    fn visit_string(&mut self, _value: String) -> Result<Self::Item, Self::Error> {
         Err(ExpressionError::UnsupportedLiteral("string"))
     }
 
-    fn visit_bool(&self, _value: bool) -> Result<Self::Item, Self::Error> {
+    fn visit_bool(&mut self, _value: bool) -> Result<Self::Item, Self::Error> {
         Err(ExpressionError::UnsupportedLiteral("bool"))
     }
 
-    fn visit_enum(&self, _enum_ty: Enum<'a>, _variant: &str) -> Result<Self::Item, Self::Error> {
+    fn visit_enum(
+        &mut self,
+        _enum_ty: Enum<'a>,
+        _variant: &str,
+    ) -> Result<Self::Item, Self::Error> {
         Err(ExpressionError::UnsupportedLiteral("enum"))
     }
 
-    fn visit_array(&self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
+    fn visit_array(&mut self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
         let mut base_cls: Option<Class> = None;
         let mut names = Vec::with_capacity(elements.len());
         for r in elements {
@@ -1302,12 +1314,12 @@ impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
         }
     }
 
-    fn visit_object_ref(&self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error> {
+    fn visit_object_ref(&mut self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error> {
         Ok(ObjectRef::Just(cls, name.to_owned()))
     }
 
     fn visit_builtin_call(
-        &self,
+        &mut self,
         _function: BuiltinFunctionKind,
         _arguments: Vec<Self::Item>,
     ) -> Result<Self::Item, Self::Error> {
@@ -1315,7 +1327,7 @@ impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
     }
 
     fn visit_unary_expression(
-        &self,
+        &mut self,
         operator: UnaryOperator,
         argument: Self::Item,
     ) -> Result<Self::Item, Self::Error> {
@@ -1326,7 +1338,7 @@ impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
     }
 
     fn visit_binary_expression(
-        &self,
+        &mut self,
         operator: BinaryOperator,
         left: Self::Item,
         right: Self::Item,
@@ -1397,7 +1409,7 @@ mod tests {
                 &ctx,
                 node,
                 self.doc.source(),
-                &ExpressionFormatter::new("MyClass"),
+                &mut ExpressionFormatter::new("MyClass"),
                 &mut diagnostics,
             )
             .ok_or(diagnostics)
