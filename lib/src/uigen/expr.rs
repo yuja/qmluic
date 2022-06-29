@@ -281,8 +281,17 @@ fn parse_as_value_type(
     diagnostics: &mut Diagnostics,
 ) -> Option<Value> {
     // first, detect type error by ExpressionFormatter.
-    // TODO: maybe collect object/property dependencies to handle dynamic bindings
-    let (res_t, res_expr) = format_expression(ctx, node, diagnostics)?;
+    let mut formatter = ExpressionFormatter::new(ctx.doc_type_name.unwrap_or_default());
+    let (res_t, res_expr, _) = typedexpr::walk(ctx, node, ctx.source, &mut formatter, diagnostics)?;
+    if !formatter.property_deps.is_empty() {
+        // TODO: map to dynamic
+        diagnostics.push(Diagnostic::error(
+            node.byte_range(),
+            "unsupported dynamic binding",
+        ));
+        return None;
+    }
+
     match ty {
         NamedType::Class(cls) if cls == &ctx.classes.brush => {
             let color = parse_color_value(ctx, node, diagnostics).map(Value::Gadget)?;
@@ -468,15 +477,6 @@ fn evaluate_expression(
     typedexpr::walk(ctx, node, ctx.source, &mut ExpressionEvaluator, diagnostics)
 }
 
-fn format_expression<'a>(
-    ctx: &ObjectContext<'a, '_, '_>,
-    node: Node,
-    diagnostics: &mut Diagnostics,
-) -> Option<(TypeDesc<'a>, String)> {
-    let mut f = ExpressionFormatter::new(ctx.doc_type_name.unwrap_or_default());
-    typedexpr::walk(ctx, node, ctx.source, &mut f, diagnostics).map(|(t, expr, _)| (t, expr))
-}
-
 fn parse_color_value(
     ctx: &ObjectContext,
     node: Node,
@@ -611,6 +611,10 @@ enum ExpressionError {
     UnsupportedReference,
     #[error("unsupported object property resolution")]
     UnsupportedObjectProperty,
+    #[error("unsupported property type: {0}")]
+    UnsupportedPropertyType(String),
+    #[error("not a readable property")]
+    UnreadableProperty,
     #[error("unsupported function call")]
     UnsupportedFunctionCall,
     #[error("unsupported unary operation on type: {0} <{1}>")]
@@ -863,15 +867,18 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
 ///
 /// Here we don't strictly follow the JavaScript language model, but try 1:1 mapping.
 #[derive(Debug)]
-struct ExpressionFormatter {
+struct ExpressionFormatter<'a> {
     /// Context of `QCoreApplication::translate()`, which is typically a class name.
     tr_context: String,
+    /// List of `(obj_expr, property)` accessed from this expression.
+    property_deps: Vec<(String, Property<'a>)>,
 }
 
-impl ExpressionFormatter {
+impl ExpressionFormatter<'_> {
     fn new(tr_context: impl Into<String>) -> Self {
         ExpressionFormatter {
             tr_context: tr_context.into(),
+            property_deps: Vec::new(),
         }
     }
 }
@@ -882,7 +889,7 @@ impl<'a> DescribeType<'a> for (TypeDesc<'a>, String, u32) {
     }
 }
 
-impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
+impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
     type Item = (TypeDesc<'a>, String, u32);
     type Error = ExpressionError;
 
@@ -972,10 +979,24 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter {
 
     fn visit_object_property(
         &mut self,
-        _object: Self::Item,
-        _property: Property<'a>,
+        (_obj_t, obj_expr, obj_prec): Self::Item,
+        property: Property<'a>,
     ) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedObjectProperty) // TODO
+        let res_t = property
+            .value_type()
+            .and_then(TypeDesc::from_type_kind)
+            .ok_or_else(|| {
+                ExpressionError::UnsupportedPropertyType(property.value_type_name().to_owned())
+            })?;
+        let res_expr = format!(
+            "{}->{}()",
+            maybe_paren(PREC_MEMBER, obj_expr.clone(), obj_prec),
+            property
+                .read_func_name()
+                .ok_or(ExpressionError::UnreadableProperty)?,
+        );
+        self.property_deps.push((obj_expr, property));
+        Ok((res_t, res_expr, PREC_MEMBER))
     }
 
     fn visit_builtin_call(
@@ -1178,6 +1199,7 @@ fn maybe_paren(res_prec: u32, arg_expr: String, arg_prec: u32) -> String {
 const PREC_TERM: u32 = 0;
 const PREC_SCOPE: u32 = 1;
 const PREC_CALL: u32 = 2;
+const PREC_MEMBER: u32 = 2;
 const PREC_COMMA: u32 = 17;
 
 fn unary_operator_precedence(operator: UnaryOperator) -> u32 {
@@ -1398,10 +1420,21 @@ mod tests {
             let mut type_map = TypeMap::with_primitive_types();
             let module_id = ModuleId::Named("foo".into());
             type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
-            let mut foo_meta = metatype::Class::new("Foo");
-            foo_meta
-                .enums
-                .push(metatype::Enum::with_values("Bar", ["Bar0", "Bar1", "Bar2"]));
+            let foo_meta = metatype::Class {
+                class_name: "Foo".to_owned(),
+                qualified_class_name: "Foo".to_owned(),
+                object: true,
+                enums: vec![metatype::Enum::with_values("Bar", ["Bar0", "Bar1", "Bar2"])],
+                properties: vec![metatype::Property {
+                    name: "checked".to_owned(),
+                    r#type: "bool".to_owned(),
+                    read: Some("isChecked".to_owned()),
+                    write: Some("setChecked".to_owned()),
+                    notify: Some("toggled".to_owned()),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            };
             type_map
                 .get_module_data_mut(&module_id)
                 .unwrap()
@@ -1448,10 +1481,13 @@ mod tests {
 
     impl<'a> RefSpace<'a> for Context<'a> {
         fn get_ref(&self, name: &str) -> Option<RefKind<'a>> {
-            if name == "qsTr" {
-                Some(RefKind::BuiltinFunction(BuiltinFunctionKind::Tr))
-            } else {
-                self.type_space.get_ref(name)
+            match name {
+                "foo" => match self.type_space.get_type("Foo").unwrap() {
+                    NamedType::Class(cls) => Some(RefKind::Object(cls)),
+                    _ => panic!("Foo must be of class type"),
+                },
+                "qsTr" => Some(RefKind::BuiltinFunction(BuiltinFunctionKind::Tr)),
+                _ => self.type_space.get_ref(name),
             }
         }
     }
@@ -1506,5 +1542,10 @@ mod tests {
             format_expr("['foo', 'bar']"),
             r#"{QString("foo"), QString("bar")}"#
         );
+    }
+
+    #[test]
+    fn format_object_property() {
+        assert_eq!(format_expr("!foo.checked"), "!foo->isChecked()",);
     }
 }
