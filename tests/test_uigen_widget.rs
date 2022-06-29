@@ -32,7 +32,7 @@ fn test_object_property_binding_unsupported() {
          QCheckBox { id: source }
          QWidget { visible: source.checked }
     }
-    "###).unwrap_err(), @"<unknown>:4:32: error: unsupported object property resolution");
+    "###).unwrap_err(), @"<unknown>:4:25: error: unsupported dynamic binding");
 }
 
 #[test]
