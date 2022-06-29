@@ -31,6 +31,7 @@ impl<'a, 't> ObjectTree<'a, 't> {
         };
         if let Some(index) = tree.populate_node_rec(root_node, source, type_space, diagnostics) {
             assert!(index + 1 == tree.nodes.len());
+            tree.update_id_map(source, diagnostics);
             Some(tree)
         } else {
             None
@@ -66,21 +67,6 @@ impl<'a, 't> ObjectTree<'a, 't> {
             .collect();
 
         let index = self.nodes.len();
-        if let Some(id) = obj.object_id() {
-            use std::collections::hash_map::Entry;
-            match self.id_map.entry(id.to_str(source).to_owned()) {
-                Entry::Vacant(e) => {
-                    e.insert(index);
-                }
-                Entry::Occupied(_) => {
-                    // TODO: add note pointing to the previous object id
-                    diagnostics.push(Diagnostic::error(
-                        id.node().byte_range(),
-                        "duplicated object id",
-                    ));
-                }
-            }
-        }
         self.nodes.push(ObjectNodeData {
             class,
             is_custom_type,
@@ -89,6 +75,26 @@ impl<'a, 't> ObjectTree<'a, 't> {
         });
 
         Some(index)
+    }
+
+    fn update_id_map(&mut self, source: &str, diagnostics: &mut Diagnostics) {
+        for (index, data) in self.nodes.iter().enumerate() {
+            if let Some(id) = data.obj.object_id() {
+                use std::collections::hash_map::Entry;
+                match self.id_map.entry(id.to_str(source).to_owned()) {
+                    Entry::Vacant(e) => {
+                        e.insert(index);
+                    }
+                    Entry::Occupied(_) => {
+                        // TODO: add note pointing to the previous object id
+                        diagnostics.push(Diagnostic::error(
+                            id.node().byte_range(),
+                            "duplicated object id",
+                        ));
+                    }
+                }
+            }
+        }
     }
 
     /// Reference to the root object.
