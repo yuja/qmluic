@@ -7,7 +7,7 @@ fn test_string_list_as_combo_box_item() {
     QComboBox { model: ["foo", qsTr("bar")] }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QComboBox">
+     <widget class="QComboBox" name="comboBox">
       <item>
        <property name="text">
         <string notr="true">foo</string>
@@ -30,7 +30,7 @@ fn test_empty_list_as_combo_box_item() {
     QComboBox { model: [] }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QComboBox">
+     <widget class="QComboBox" name="comboBox">
      </widget>
     </ui>
     "###);
@@ -43,7 +43,7 @@ fn test_string_list_as_list_widget_item() {
     QListWidget { model: ["foo"] }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QListWidget">
+     <widget class="QListWidget" name="listWidget">
       <item>
        <property name="text">
         <string notr="true">foo</string>

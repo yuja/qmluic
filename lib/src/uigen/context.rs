@@ -3,8 +3,6 @@ use crate::qmldoc::UiDocument;
 use crate::qtname::FileNameRules;
 use crate::typedexpr::{BuiltinFunctionKind, RefKind, RefSpace};
 use crate::typemap::{Class, Enum, ImportedModuleSpace, ModuleId, NamedType, TypeMap, TypeSpace};
-use std::cell::RefCell;
-use std::collections::HashMap;
 use thiserror::Error;
 
 /// Resources passed around the UI object constructors.
@@ -22,7 +20,6 @@ pub(super) struct BuildDocContext<'a, 't, 's> {
     pub classes: &'s KnownClasses<'a>,
     pub type_space: ImportedModuleSpace<'a>,
     pub object_tree: ObjectTree<'a, 't>,
-    object_id_generator: RefCell<ObjectIdGenerator>,
 }
 
 /// Context where expression is supposed to be evaluated.
@@ -155,18 +152,7 @@ impl<'a, 't, 's> BuildDocContext<'a, 't, 's> {
             classes: &base_ctx.classes,
             type_space,
             object_tree,
-            object_id_generator: RefCell::new(ObjectIdGenerator::default()),
         }
-    }
-
-    /// Generates unique object id.
-    ///
-    /// The generated object id is NOT registered to the object tree since any reference
-    /// expression pointing to the generated id should be invalid.
-    pub fn generate_object_id(&self, prefix: impl AsRef<str>) -> String {
-        self.object_id_generator
-            .borrow_mut()
-            .generate(prefix, &self.object_tree)
     }
 
     pub fn make_object_context(&self) -> ObjectContext<'a, 't, '_> {
@@ -201,28 +187,4 @@ pub enum BuildContextError {
     ClassNotFound(&'static str),
     #[error("required module not found: {0}")]
     ModuleNotFound(&'static str),
-}
-
-#[derive(Clone, Debug, Default)]
-struct ObjectIdGenerator {
-    used_prefixes: HashMap<String, usize>, // prefix: next count
-}
-
-impl ObjectIdGenerator {
-    pub fn generate(&mut self, prefix: impl AsRef<str>, object_tree: &ObjectTree) -> String {
-        let prefix = prefix.as_ref();
-        let count = self.used_prefixes.entry(prefix.to_owned()).or_insert(0);
-        let (n, id) = (*count..=*count + object_tree.flat_len())
-            .find_map(|n| {
-                let id = format!("{prefix}_{n}");
-                if object_tree.contains_id(&id) {
-                    None
-                } else {
-                    Some((n, id))
-                }
-            })
-            .expect("unused id must be found within N+1 tries");
-        *count = n + 1;
-        id
-    }
 }

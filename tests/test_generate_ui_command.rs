@@ -22,7 +22,7 @@ fn test_simple_file() {
     insta::assert_snapshot!(env.read_to_string("simple.ui"), @r###"
     <ui version="4.0">
      <class>Simple</class>
-     <widget class="QDialog">
+     <widget class="QDialog" name="dialog">
      </widget>
     </ui>
     "###);

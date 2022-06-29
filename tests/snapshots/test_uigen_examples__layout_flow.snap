@@ -4,54 +4,54 @@ expression: "common::translate_file(\"examples/LayoutFlow.qml\").unwrap()"
 ---
 <ui version="4.0">
  <class>LayoutFlow</class>
- <widget class="QWidget">
-  <layout class="QFormLayout">
+ <widget class="QWidget" name="widget">
+  <layout class="QFormLayout" name="formLayout">
    <item column="0" row="0">
-    <widget class="QLabel">
+    <widget class="QLabel" name="label">
      <property name="text">
       <string notr="true">LeftToRight</string>
      </property>
     </widget>
    </item>
    <item column="1" row="0">
-    <layout class="QGridLayout">
+    <layout class="QGridLayout" name="gridLayout">
      <item column="0" row="0">
-      <widget class="QLabel">
+      <widget class="QLabel" name="label1">
        <property name="text">
         <string notr="true">row: 0, column: 0</string>
        </property>
       </widget>
      </item>
      <item column="1" row="0">
-      <widget class="QLabel">
+      <widget class="QLabel" name="label2">
        <property name="text">
         <string notr="true">row: 0, column: 1</string>
        </property>
       </widget>
      </item>
      <item column="2" row="0">
-      <widget class="QLabel">
+      <widget class="QLabel" name="label3">
        <property name="text">
         <string notr="true">row: 0, column: 2</string>
        </property>
       </widget>
      </item>
      <item column="0" row="1">
-      <widget class="QLabel">
+      <widget class="QLabel" name="label4">
        <property name="text">
         <string notr="true">row: 1, column: 0</string>
        </property>
       </widget>
      </item>
      <item column="1" row="1">
-      <widget class="QLabel">
+      <widget class="QLabel" name="label5">
        <property name="text">
         <string notr="true">row: 1, column: 1</string>
        </property>
       </widget>
      </item>
      <item column="0" row="2">
-      <widget class="QLabel">
+      <widget class="QLabel" name="label6">
        <property name="text">
         <string notr="true">row: 2, column: 0</string>
        </property>
@@ -60,37 +60,37 @@ expression: "common::translate_file(\"examples/LayoutFlow.qml\").unwrap()"
     </layout>
    </item>
    <item column="0" row="1">
-    <widget class="QLabel">
+    <widget class="QLabel" name="label7">
      <property name="text">
       <string notr="true">TopToBottom</string>
      </property>
     </widget>
    </item>
    <item column="1" row="1">
-    <layout class="QGridLayout">
+    <layout class="QGridLayout" name="gridLayout1">
      <item column="0" row="0">
-      <widget class="QLabel">
+      <widget class="QLabel" name="label8">
        <property name="text">
         <string notr="true">row: 0, column: 0</string>
        </property>
       </widget>
      </item>
      <item column="0" row="1">
-      <widget class="QLabel">
+      <widget class="QLabel" name="label9">
        <property name="text">
         <string notr="true">row: 1, column: 0</string>
        </property>
       </widget>
      </item>
      <item column="1" row="0">
-      <widget class="QLabel">
+      <widget class="QLabel" name="label10">
        <property name="text">
         <string notr="true">row: 0, column: 1</string>
        </property>
       </widget>
      </item>
      <item column="1" row="1">
-      <widget class="QLabel">
+      <widget class="QLabel" name="label11">
        <property name="text">
         <string notr="true">row: 1, column: 1</string>
        </property>

@@ -4,17 +4,17 @@ expression: "common::translate_file(\"examples/customwidget/SettingsForm.qml\").
 ---
 <ui version="4.0">
  <class>SettingsForm</class>
- <widget class="QWidget">
-  <layout class="QFormLayout">
+ <widget class="QWidget" name="widget">
+  <layout class="QFormLayout" name="formLayout">
    <item column="0" row="0">
-    <widget class="QLabel">
+    <widget class="QLabel" name="label">
      <property name="text">
       <string>Path</string>
      </property>
     </widget>
    </item>
    <item column="1" row="0">
-    <layout class="QHBoxLayout">
+    <layout class="QHBoxLayout" name="hboxLayout">
      <item>
       <widget class="QLineEdit" name="pathEdit">
       </widget>

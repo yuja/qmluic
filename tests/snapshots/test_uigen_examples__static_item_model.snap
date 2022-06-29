@@ -4,17 +4,17 @@ expression: "common::translate_file(\"examples/StaticItemModel.qml\").unwrap()"
 ---
 <ui version="4.0">
  <class>StaticItemModel</class>
- <widget class="QWidget">
-  <layout class="QFormLayout">
+ <widget class="QWidget" name="widget">
+  <layout class="QFormLayout" name="formLayout">
    <item column="0" row="0">
-    <widget class="QLabel">
+    <widget class="QLabel" name="label">
      <property name="text">
       <string notr="true">QComboBox</string>
      </property>
     </widget>
    </item>
    <item column="1" row="0">
-    <widget class="QComboBox">
+    <widget class="QComboBox" name="comboBox">
      <property name="currentIndex">
       <number>1</number>
      </property>
@@ -36,14 +36,14 @@ expression: "common::translate_file(\"examples/StaticItemModel.qml\").unwrap()"
     </widget>
    </item>
    <item column="0" row="1">
-    <widget class="QLabel">
+    <widget class="QLabel" name="label1">
      <property name="text">
       <string notr="true">QListWidget</string>
      </property>
     </widget>
    </item>
    <item column="1" row="1">
-    <widget class="QListWidget">
+    <widget class="QListWidget" name="listWidget">
      <item>
       <property name="text">
        <string>Foo</string>

@@ -10,7 +10,7 @@ fn test_brush() {
     }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QGraphicsView">
+     <widget class="QGraphicsView" name="graphicsView">
       <property name="backgroundBrush">
        <brush brushstyle="Dense4Pattern">
         <color alpha="255">
@@ -34,7 +34,7 @@ fn test_brush_solid_color() {
     }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QGraphicsView">
+     <widget class="QGraphicsView" name="graphicsView">
       <property name="backgroundBrush">
        <brush brushstyle="SolidPattern">
         <color alpha="128">
@@ -56,7 +56,7 @@ fn test_color() {
     QColorDialog { currentColor: "#123abc" }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QColorDialog">
+     <widget class="QColorDialog" name="colorDialog">
       <property name="currentColor">
        <color alpha="255">
         <blue>188</blue>
@@ -76,7 +76,7 @@ fn test_color_alpha() {
     QColorDialog { currentColor: "#80123abc" }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QColorDialog">
+     <widget class="QColorDialog" name="colorDialog">
       <property name="currentColor">
        <color alpha="128">
         <blue>188</blue>
@@ -104,7 +104,7 @@ fn test_cursor() {
     QWidget { cursor: Qt.IBeamCursor }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QWidget">
+     <widget class="QWidget" name="widget">
       <property name="cursor">
        <cursorShape>IBeamCursor</cursorShape>
       </property>
@@ -129,7 +129,7 @@ fn test_font() {
     }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QLabel">
+     <widget class="QLabel" name="label">
       <property name="font">
        <font>
         <bold>true</bold>
@@ -154,7 +154,7 @@ fn test_icon_themed() {
     QToolButton { icon.name: "edit-copy" }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QToolButton">
+     <widget class="QToolButton" name="toolButton">
       <property name="icon">
        <iconset theme="edit-copy">
        </iconset>
@@ -174,7 +174,7 @@ fn test_icon_state_pixmaps() {
     }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QToolButton">
+     <widget class="QToolButton" name="toolButton">
       <property name="icon">
        <iconset>
         <normaloff>normal-off.png</normaloff>
@@ -195,7 +195,7 @@ fn test_palette_color_group() {
     }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QWidget">
+     <widget class="QWidget" name="widget">
       <property name="palette">
        <palette>
         <active>
@@ -239,7 +239,7 @@ fn test_palette_default_role() {
     }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QWidget">
+     <widget class="QWidget" name="widget">
       <property name="palette">
        <palette>
         <active>
@@ -289,7 +289,7 @@ fn test_pixmap() {
     QLabel { pixmap: ":/a.png" }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QLabel">
+     <widget class="QLabel" name="label">
       <property name="pixmap">
        <pixmap>:/a.png</pixmap>
       </property>
@@ -308,7 +308,7 @@ fn test_size_policy() {
     }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QWidget">
+     <widget class="QWidget" name="widget">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
        </sizepolicy>
@@ -330,7 +330,7 @@ fn test_size_policy_with_stretch() {
     }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QWidget">
+     <widget class="QWidget" name="widget">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
         <horstretch>2</horstretch>
@@ -369,7 +369,7 @@ fn test_string_list_tr() {
     QTextBrowser { searchPaths: [qsTr("a"), qsTr("b")] }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QTextBrowser">
+     <widget class="QTextBrowser" name="textBrowser">
       <property name="searchPaths">
        <stringlist>
         <string>a</string>
@@ -388,7 +388,7 @@ fn test_string_list_notr() {
     QTextBrowser { searchPaths: ["a", "b"] }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QTextBrowser">
+     <widget class="QTextBrowser" name="textBrowser">
       <property name="searchPaths">
        <stringlist notr="true">
         <string>a</string>
@@ -407,7 +407,7 @@ fn test_string_list_empty() {
     QTextBrowser { searchPaths: [] }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QTextBrowser">
+     <widget class="QTextBrowser" name="textBrowser">
       <property name="searchPaths">
        <stringlist notr="true">
        </stringlist>
