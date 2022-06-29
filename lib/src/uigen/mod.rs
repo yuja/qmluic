@@ -6,7 +6,6 @@ use crate::qmlast::{UiImportSource, UiProgram};
 use crate::qmldir;
 use crate::qmldoc::UiDocument;
 use crate::typemap::{ImportedModuleSpace, ModuleId, TypeMap};
-use itertools::Itertools as _;
 
 mod context;
 mod expr;
@@ -43,19 +42,7 @@ pub fn build(
         diagnostics,
     )?;
     let ctx = BuildDocContext::new(doc, type_space, object_tree, base_ctx);
-    let root_object = UiObject::build(&ctx, ctx.object_tree.root(), diagnostics);
-    let custom_widgets = ctx
-        .object_tree
-        .flat_iter()
-        .filter_map(|n| n.is_custom_type().then(|| n.class().clone()))
-        .unique()
-        .filter_map(|cls| CustomWidget::from_class(&cls, &base_ctx.file_name_rules))
-        .collect();
-    Some(UiForm {
-        class: doc.type_name().map(|s| s.to_owned()),
-        root_object,
-        custom_widgets,
-    })
+    Some(UiForm::build(&ctx, ctx.object_tree.root(), diagnostics))
 }
 
 fn make_doc_module_space<'a>(

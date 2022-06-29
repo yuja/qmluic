@@ -17,6 +17,7 @@ pub struct BuildContext<'a> {
 pub(super) struct BuildDocContext<'a, 't, 's> {
     pub type_name: Option<&'s str>,
     pub source: &'s str,
+    pub file_name_rules: &'s FileNameRules,
     pub classes: &'s KnownClasses<'a>,
     pub type_space: ImportedModuleSpace<'a>,
     pub object_tree: ObjectTree<'a, 't>,
@@ -149,6 +150,7 @@ impl<'a, 't, 's> BuildDocContext<'a, 't, 's> {
         BuildDocContext {
             type_name: doc.type_name(),
             source: doc.source(),
+            file_name_rules: &base_ctx.file_name_rules,
             classes: &base_ctx.classes,
             type_space,
             object_tree,

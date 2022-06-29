@@ -1,8 +1,12 @@
+use super::context::BuildDocContext;
 use super::object::UiObject;
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
+use crate::diagnostic::Diagnostics;
+use crate::objtree::ObjectNode;
 use crate::qtname::FileNameRules;
 use crate::typemap::{Class, TypeSpace};
+use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
 use std::io;
 
@@ -15,6 +19,26 @@ pub struct UiForm {
 }
 
 impl UiForm {
+    pub(super) fn build(
+        ctx: &BuildDocContext,
+        obj_node: ObjectNode,
+        diagnostics: &mut Diagnostics,
+    ) -> Self {
+        let root_object = UiObject::build(ctx, obj_node, diagnostics);
+        let custom_widgets = ctx
+            .object_tree
+            .flat_iter()
+            .filter_map(|n| n.is_custom_type().then(|| n.class().clone()))
+            .unique()
+            .filter_map(|cls| CustomWidget::from_class(&cls, ctx.file_name_rules))
+            .collect();
+        UiForm {
+            class: ctx.type_name.map(|s| s.to_owned()),
+            root_object,
+            custom_widgets,
+        }
+    }
+
     /// Serializes this to UI XML.
     pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
     where
