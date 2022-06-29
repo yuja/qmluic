@@ -182,7 +182,9 @@ pub struct Property<'a> {
 #[derive(Clone, Debug)]
 struct PropertyData {
     type_name: String,
+    read_func_name: Option<String>,
     write_func_name: Option<String>,
+    notify_signal_name: Option<String>,
 }
 
 impl<'a> Property<'a> {
@@ -215,9 +217,19 @@ impl<'a> Property<'a> {
         &self.data.as_ref().type_name
     }
 
+    /// Whether or not this property can be get.
+    pub fn is_readable(&self) -> bool {
+        self.data.as_ref().read_func_name.is_some()
+    }
+
     /// Whether or not this property can be set.
     pub fn is_writable(&self) -> bool {
         self.data.as_ref().write_func_name.is_some()
+    }
+
+    /// Whether or not changes on this property can be notified.
+    pub fn is_notifiable(&self) -> bool {
+        self.data.as_ref().notify_signal_name.is_some()
     }
 
     /// Whether or not this property provides the standard setter function.
@@ -236,6 +248,21 @@ impl<'a> Property<'a> {
         }
     }
 
+    /// Function name to get this property.
+    pub fn read_func_name(&self) -> Option<&str> {
+        self.data.as_ref().read_func_name.as_deref()
+    }
+
+    /// Function name to set this property.
+    pub fn write_func_name(&self) -> Option<&str> {
+        self.data.as_ref().write_func_name.as_deref()
+    }
+
+    /// Signal name to notify changes on this property.
+    pub fn notify_signal_name(&self) -> Option<&str> {
+        self.data.as_ref().notify_signal_name.as_deref()
+    }
+
     /// Type of the object which this property is associated with.
     pub fn object_class(&self) -> &Class<'a> {
         &self.object_class
@@ -246,7 +273,9 @@ impl PropertyData {
     fn pair_from_meta(meta: metatype::Property) -> (String, Self) {
         let data = PropertyData {
             type_name: meta.r#type,
+            read_func_name: meta.read,
             write_func_name: meta.write,
+            notify_signal_name: meta.notify,
         };
         (meta.name, data)
     }
