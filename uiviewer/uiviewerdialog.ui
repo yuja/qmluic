@@ -1,7 +1,7 @@
 <ui version="4.0">
  <class>UiViewerDialog</class>
- <widget class="QDialog">
-  <layout class="QVBoxLayout">
+ <widget class="QDialog" name="dialog">
+  <layout class="QVBoxLayout" name="vboxLayout">
    <item>
     <widget class="QCheckBox" name="separateWindowCheck">
      <property name="text">
@@ -10,7 +10,7 @@
     </widget>
    </item>
    <item>
-    <widget class="QFrame">
+    <widget class="QFrame" name="frame">
      <property name="frameShadow">
       <enum>QFrame::Plain</enum>
      </property>

@@ -4,7 +4,7 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
 ---
 <ui version="4.0">
  <class>MainWindow</class>
- <widget class="QMainWindow">
+ <widget class="QMainWindow" name="mainWindow">
   <property name="geometry">
    <rect>
     <height>600</height>
@@ -17,11 +17,11 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QVBoxLayout">
+   <layout class="QVBoxLayout" name="vboxLayout">
     <item>
-     <layout class="QFormLayout">
+     <layout class="QFormLayout" name="formLayout">
       <item column="0" row="0">
-       <widget class="QLabel">
+       <widget class="QLabel" name="label">
         <property name="buddy">
          <cstring>fileNameEdit</cstring>
         </property>
@@ -72,7 +72,7 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
      </layout>
     </item>
     <item>
-     <widget class="QSplitter">
+     <widget class="QSplitter" name="splitter">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
        </sizepolicy>
@@ -94,19 +94,19 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
        </property>
       </widget>
       <widget class="QStackedWidget" name="formStack">
-       <widget class="QWidget">
+       <widget class="QWidget" name="widget">
        </widget>
-       <widget class="HgEmailDialog">
+       <widget class="HgEmailDialog" name="hgEmailDialog">
        </widget>
-       <widget class="ItemViews">
+       <widget class="ItemViews" name="itemViews">
        </widget>
-       <widget class="LayoutFlow">
+       <widget class="LayoutFlow" name="layoutFlow">
        </widget>
-       <widget class="SettingsDialog">
+       <widget class="SettingsDialog" name="settingsDialog">
        </widget>
-       <widget class="StaticItemModel">
+       <widget class="StaticItemModel" name="staticItemModel">
        </widget>
-       <widget class="VariousLayouts">
+       <widget class="VariousLayouts" name="variousLayouts">
        </widget>
       </widget>
      </widget>
@@ -114,10 +114,10 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
    </layout>
   </widget>
   <widget class="QMenuBar" name="menubar">
-   <addaction name="menu_1"/>
-   <addaction name="menu_2"/>
-   <addaction name="menu_3"/>
-   <widget class="QMenu" name="menu_1">
+   <addaction name="menu"/>
+   <addaction name="menu1"/>
+   <addaction name="menu3"/>
+   <widget class="QMenu" name="menu">
     <property name="title">
      <string>&amp;File</string>
     </property>
@@ -125,20 +125,20 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
     <addaction name="separator"/>
     <addaction name="action_Quit"/>
    </widget>
-   <widget class="QMenu" name="menu_2">
+   <widget class="QMenu" name="menu1">
     <property name="title">
      <string>&amp;Edit</string>
     </property>
     <addaction name="action_Undo"/>
     <addaction name="action_Redo"/>
    </widget>
-   <widget class="QMenu" name="menu_3">
+   <widget class="QMenu" name="menu3">
     <property name="title">
      <string>&amp;Help</string>
     </property>
     <addaction name="action_About"/>
     <addaction name="separator"/>
-    <addaction name="menu_0"/>
+    <addaction name="menu2"/>
     <action name="action_About">
      <property name="icon">
       <iconset>
@@ -149,12 +149,12 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
       <string>&amp;About</string>
      </property>
     </action>
-    <widget class="QMenu" name="menu_0">
+    <widget class="QMenu" name="menu2">
      <property name="title">
       <string>&amp;Developer tools</string>
      </property>
-     <addaction name="action_0"/>
-     <action name="action_0">
+     <addaction name="action"/>
+     <action name="action">
       <property name="text">
        <string>&amp;Console</string>
       </property>
@@ -162,7 +162,7 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
     </widget>
    </widget>
   </widget>
-  <widget class="QToolBar">
+  <widget class="QToolBar" name="toolBar">
    <addaction name="action_Open"/>
    <addaction name="separator"/>
    <addaction name="action_Undo"/>

@@ -4,7 +4,7 @@ expression: "common::translate_file(\"examples/VariousLayouts.qml\").unwrap()"
 ---
 <ui version="4.0">
  <class>VariousLayouts</class>
- <widget class="QWidget">
+ <widget class="QWidget" name="widget">
   <property name="geometry">
    <rect>
     <height>300</height>

@@ -15,7 +15,7 @@ use std::io;
 #[derive(Clone, Debug)]
 pub struct Layout {
     pub class: String,
-    pub name: Option<String>,
+    pub name: String,
     attributes: LayoutAttributes,
     pub properties: HashMap<String, (Value, PropertySetter)>,
     pub children: Vec<LayoutItem>,
@@ -59,10 +59,7 @@ impl Layout {
 
         Self::new(
             obj_node.class(),
-            obj_node
-                .obj()
-                .object_id()
-                .map(|n| n.to_str(ctx.source).to_owned()),
+            obj_node.name(),
             attributes,
             properties_map,
             children,
@@ -72,7 +69,7 @@ impl Layout {
 
     pub(super) fn new(
         class: &Class,
-        name: Option<String>,
+        name: impl Into<String>,
         attributes: LayoutAttributes,
         mut properties_map: PropertiesMap,
         children: Vec<LayoutItem>,
@@ -92,7 +89,7 @@ impl Layout {
 
         Layout {
             class: class.qualified_cxx_name().into_owned(),
-            name,
+            name: name.into(),
             attributes,
             properties,
             children,
@@ -106,9 +103,7 @@ impl Layout {
     {
         let mut tag = BytesStart::borrowed_name(b"layout");
         tag.push_attribute(("class", self.class.as_ref()));
-        if let Some(n) = &self.name {
-            tag.push_attribute(("name", n.as_ref()));
-        }
+        tag.push_attribute(("name", self.name.as_ref()));
         if !self.attributes.column_minimum_width.is_empty() {
             tag.push_attribute((
                 "columnminimumwidth",
@@ -294,10 +289,7 @@ impl LayoutItemContent {
         } else if cls.is_derived_from(&ctx.classes.spacer_item) {
             object::confine_children(obj_node, diagnostics);
             LayoutItemContent::SpacerItem(SpacerItem::new(
-                obj_node
-                    .obj()
-                    .object_id()
-                    .map(|n| n.to_str(ctx.source).to_owned()),
+                obj_node.name(),
                 properties_map,
                 diagnostics,
             ))
@@ -332,19 +324,22 @@ impl LayoutItemContent {
 /// Spacer item definition which can be serialized to UI XML.
 #[derive(Clone, Debug)]
 pub struct SpacerItem {
-    pub name: Option<String>,
+    pub name: String,
     pub properties: HashMap<String, (Value, PropertySetter)>,
 }
 
 impl SpacerItem {
     pub(super) fn new(
-        name: Option<String>,
+        name: impl Into<String>,
         properties_map: PropertiesMap,
         diagnostics: &mut Diagnostics,
     ) -> Self {
         // no check for writable as all spacer properties are translated by uic
         let properties = property::make_serializable_properties(properties_map, diagnostics);
-        SpacerItem { name, properties }
+        SpacerItem {
+            name: name.into(),
+            properties,
+        }
     }
 
     /// Serializes this to UI XML.
@@ -352,10 +347,8 @@ impl SpacerItem {
     where
         W: io::Write,
     {
-        let mut tag = BytesStart::borrowed_name(b"spacer");
-        if let Some(n) = &self.name {
-            tag.push_attribute(("name", n.as_ref()));
-        }
+        let tag =
+            BytesStart::borrowed_name(b"spacer").with_attributes([("name", self.name.as_ref())]);
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
         property::serialize_properties_to_xml(writer, "property", &self.properties)?;

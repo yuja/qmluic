@@ -4,8 +4,8 @@ expression: "common::translate_file(\"examples/ItemViews.qml\").unwrap()"
 ---
 <ui version="4.0">
  <class>ItemViews</class>
- <widget class="QWidget">
-  <layout class="QVBoxLayout">
+ <widget class="QWidget" name="widget">
+  <layout class="QVBoxLayout" name="vboxLayout">
    <item>
     <widget class="QTreeView" name="treeView">
      <attribute name="headerMinimumSectionSize">

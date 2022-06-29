@@ -1,10 +1,10 @@
 ---
 source: tests/test_uigen_examples.rs
-expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()"
+expression: "common::translate_file(\"examples/HgEmailDialog.qml\").unwrap()"
 ---
 <ui version="4.0">
  <class>HgEmailDialog</class>
- <widget class="QDialog">
+ <widget class="QDialog" name="dialog">
   <property name="geometry">
    <rect>
     <height>520</height>
@@ -17,7 +17,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
   <property name="windowTitle">
    <string>Email</string>
   </property>
-  <layout class="QVBoxLayout">
+  <layout class="QVBoxLayout" name="vboxLayout4">
    <item>
     <widget class="QTabWidget" name="mainTabs">
      <property name="currentIndex">
@@ -36,15 +36,15 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
       <attribute name="title">
        <string>Edit</string>
       </attribute>
-      <layout class="QGridLayout">
+      <layout class="QGridLayout" name="gridLayout">
        <item column="0" row="0">
         <widget class="QGroupBox" name="envelopeBox">
-         <layout class="QFormLayout">
+         <layout class="QFormLayout" name="formLayout">
           <property name="fieldGrowthPolicy">
            <enum>QFormLayout::ExpandingFieldsGrow</enum>
           </property>
           <item column="0" row="0">
-           <widget class="QLabel">
+           <widget class="QLabel" name="label">
             <property name="buddy">
              <cstring>toEdit</cstring>
             </property>
@@ -68,7 +68,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
            </widget>
           </item>
           <item column="0" row="1">
-           <widget class="QLabel">
+           <widget class="QLabel" name="label1">
             <property name="buddy">
              <cstring>ccEdit</cstring>
             </property>
@@ -92,7 +92,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
            </widget>
           </item>
           <item column="0" row="2">
-           <widget class="QLabel">
+           <widget class="QLabel" name="label2">
             <property name="buddy">
              <cstring>fromEdit</cstring>
             </property>
@@ -116,7 +116,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
            </widget>
           </item>
           <item column="0" row="3">
-           <widget class="QLabel">
+           <widget class="QLabel" name="label3">
             <property name="buddy">
              <cstring>inReplyToEdit</cstring>
             </property>
@@ -133,7 +133,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
            </widget>
           </item>
           <item column="0" row="4">
-           <widget class="QLabel">
+           <widget class="QLabel" name="label4">
             <property name="buddy">
              <cstring>flagEdit</cstring>
             </property>
@@ -165,7 +165,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
           <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
           </sizepolicy>
          </property>
-         <layout class="QVBoxLayout">
+         <layout class="QVBoxLayout" name="vboxLayout1">
           <item>
            <widget class="QFrame" name="patchFrame">
             <property name="frameShadow">
@@ -174,7 +174,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
             <property name="frameShape">
              <enum>QFrame::NoFrame</enum>
             </property>
-            <layout class="QVBoxLayout">
+            <layout class="QVBoxLayout" name="vboxLayout">
              <item>
               <widget class="QRadioButton" name="hgPatchRadio">
                <property name="text">
@@ -226,7 +226,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
             <property name="frameShape">
              <enum>QFrame::NoFrame</enum>
             </property>
-            <layout class="QHBoxLayout">
+            <layout class="QHBoxLayout" name="hboxLayout">
              <item>
               <widget class="QCheckBox" name="bodyCheck">
                <property name="checked">
@@ -271,7 +271,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
               </widget>
              </item>
              <item>
-              <spacer>
+              <spacer name="spacerItem">
                <property name="orientation" stdset="0">
                 <enum>Qt::Horizontal</enum>
                </property>
@@ -294,16 +294,16 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
         </widget>
        </item>
        <item column="0" colspan="2" row="2">
-        <widget class="QSplitter">
+        <widget class="QSplitter" name="splitter">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
          </property>
          <widget class="QGroupBox" name="introBox">
-          <layout class="QVBoxLayout">
+          <layout class="QVBoxLayout" name="vboxLayout2">
            <item>
-            <layout class="QHBoxLayout">
+            <layout class="QHBoxLayout" name="hboxLayout1">
              <item>
-              <widget class="QLabel">
+              <widget class="QLabel" name="label5">
                <property name="text">
                 <string>Subject:</string>
                </property>
@@ -326,7 +326,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
             </layout>
            </item>
            <item>
-            <widget class="QPlainTextEdit">
+            <widget class="QPlainTextEdit" name="plainTextEdit">
              <property name="font">
               <font>
                <family notr="true">Monospace</family>
@@ -340,7 +340,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
           <property name="title">
            <string>Changesets</string>
           </property>
-          <layout class="QVBoxLayout">
+          <layout class="QVBoxLayout" name="vboxLayout3">
            <item>
             <widget class="QTreeView" name="changesetsView">
              <property name="indentation">
@@ -355,7 +355,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
             </widget>
            </item>
            <item>
-            <layout class="QHBoxLayout">
+            <layout class="QHBoxLayout" name="hboxLayout2">
              <item>
               <widget class="QPushButton" name="selectAllButton">
                <property name="text">
@@ -371,7 +371,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
               </widget>
              </item>
              <item>
-              <spacer>
+              <spacer name="spacerItem1">
                <property name="orientation" stdset="0">
                 <enum>Qt::Horizontal</enum>
                </property>
@@ -389,7 +389,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
       <attribute name="title">
        <string>Preview</string>
       </attribute>
-      <layout class="QGridLayout">
+      <layout class="QGridLayout" name="gridLayout1">
        <item column="0" row="0">
         <widget class="QPlainTextEdit" name="previewEdit">
         </widget>
@@ -399,7 +399,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
     </widget>
    </item>
    <item>
-    <layout class="QHBoxLayout">
+    <layout class="QHBoxLayout" name="hboxLayout3">
      <item>
       <widget class="QPushButton" name="settingButton">
        <property name="default">
@@ -414,7 +414,7 @@ expression: "common::translate_file(\"examples/thg/HgEmailDialog.qml\").unwrap()
       </widget>
      </item>
      <item>
-      <spacer>
+      <spacer name="spacerItem2">
        <property name="orientation" stdset="0">
         <enum>Qt::Horizontal</enum>
        </property>

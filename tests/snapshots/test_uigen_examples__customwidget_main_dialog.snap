@@ -4,8 +4,8 @@ expression: "common::translate_file(\"examples/customwidget/MainDialog.qml\").un
 ---
 <ui version="4.0">
  <class>MainDialog</class>
- <widget class="QDialog">
-  <layout class="QVBoxLayout">
+ <widget class="QDialog" name="dialog">
+  <layout class="QVBoxLayout" name="vboxLayout">
    <item>
     <widget class="SettingsForm" name="settingsForm">
     </widget>

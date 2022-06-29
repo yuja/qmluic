@@ -7,7 +7,7 @@ fn test_reserved_word_workaround() {
     QPushButton { default_: true }
     "###).unwrap(), @r###"
     <ui version="4.0">
-     <widget class="QPushButton">
+     <widget class="QPushButton" name="pushButton">
       <property name="default">
        <bool>true</bool>
       </property>

@@ -44,14 +44,7 @@ impl UiObject {
 
         if cls.is_derived_from(&ctx.classes.action) {
             confine_children(obj_node, diagnostics);
-            UiObject::Action(Action::new(
-                obj_node
-                    .obj()
-                    .object_id()
-                    .map(|n| n.to_str(ctx.source).to_owned()),
-                properties_map,
-                diagnostics,
-            ))
+            UiObject::Action(Action::new(obj_node.name(), properties_map, diagnostics))
         } else if cls.is_derived_from(&ctx.classes.action_separator) {
             confine_children(obj_node, diagnostics);
             UiObject::ActionSeparator
@@ -92,19 +85,22 @@ impl UiObject {
 /// Action definition which can be serialized to UI XML.
 #[derive(Clone, Debug)]
 pub struct Action {
-    pub name: Option<String>,
+    pub name: String,
     pub properties: HashMap<String, (Value, PropertySetter)>,
 }
 
 impl Action {
     pub(super) fn new(
-        name: Option<String>,
+        name: impl Into<String>,
         mut properties_map: PropertiesMap,
         diagnostics: &mut Diagnostics,
     ) -> Self {
         property::reject_unwritable_properties(&mut properties_map, diagnostics);
         let properties = property::make_serializable_properties(properties_map, diagnostics);
-        Action { name, properties }
+        Action {
+            name: name.into(),
+            properties,
+        }
     }
 
     /// Serializes this to UI XML.
@@ -112,10 +108,8 @@ impl Action {
     where
         W: io::Write,
     {
-        let mut tag = BytesStart::borrowed_name(b"action");
-        if let Some(n) = &self.name {
-            tag.push_attribute(("name", n.as_ref()));
-        }
+        let tag =
+            BytesStart::borrowed_name(b"action").with_attributes([("name", self.name.as_ref())]);
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
         property::serialize_properties_to_xml(writer, "property", &self.properties)?;
@@ -129,7 +123,7 @@ impl Action {
 #[derive(Clone, Debug)]
 pub struct Widget {
     pub class: String,
-    pub name: Option<String>,
+    pub name: String,
     pub attributes: HashMap<String, (Value, PropertySetter)>,
     pub properties: HashMap<String, (Value, PropertySetter)>,
     pub actions: Vec<String>,
@@ -154,10 +148,7 @@ impl Widget {
         Self::new(
             ctx,
             obj_node.class(),
-            obj_node
-                .obj()
-                .object_id()
-                .map(|n| n.to_str(ctx.source).to_owned()),
+            obj_node.name(),
             properties_map,
             children,
             diagnostics,
@@ -167,9 +158,9 @@ impl Widget {
     pub(super) fn new(
         ctx: &BuildDocContext,
         class: &Class,
-        name: Option<String>,
+        name: impl Into<String>,
         mut properties_map: PropertiesMap,
-        mut children: Vec<UiObject>,
+        children: Vec<UiObject>,
         diagnostics: &mut Diagnostics,
     ) -> Self {
         let actions = match properties_map.remove("actions") {
@@ -203,7 +194,7 @@ impl Widget {
                 ));
                 vec![]
             }
-            None => collect_action_like_children(ctx, &mut children),
+            None => collect_action_like_children(&children),
         };
 
         let items = if class.is_derived_from(&ctx.classes.combo_box)
@@ -267,7 +258,7 @@ impl Widget {
 
         Widget {
             class: class.qualified_cxx_name().into_owned(),
-            name,
+            name: name.into(),
             attributes,
             properties,
             actions,
@@ -281,11 +272,8 @@ impl Widget {
     where
         W: io::Write,
     {
-        let mut tag = BytesStart::borrowed_name(b"widget");
-        tag.push_attribute(("class", self.class.as_ref()));
-        if let Some(n) = &self.name {
-            tag.push_attribute(("name", n.as_ref()));
-        }
+        let tag = BytesStart::borrowed_name(b"widget")
+            .with_attributes([("class", self.class.as_ref()), ("name", self.name.as_ref())]);
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
         property::serialize_properties_to_xml(writer, "attribute", &self.attributes)?;
@@ -357,21 +345,13 @@ fn process_widget_children(
         .collect()
 }
 
-fn collect_action_like_children(ctx: &BuildDocContext, children: &mut [UiObject]) -> Vec<String> {
+fn collect_action_like_children(children: &[UiObject]) -> Vec<String> {
     children
-        .iter_mut()
+        .iter()
         .filter_map(|child| match child {
-            UiObject::Action(a) => Some(
-                a.name
-                    .get_or_insert_with(|| ctx.generate_object_id("action"))
-                    .to_owned(),
-            ),
+            UiObject::Action(a) => Some(a.name.clone()),
             UiObject::ActionSeparator => Some(ACTION_SEPARATOR_NAME.to_owned()),
-            UiObject::Menu(w) => Some(
-                w.name
-                    .get_or_insert_with(|| ctx.generate_object_id("menu"))
-                    .to_owned(),
-            ),
+            UiObject::Menu(w) => Some(w.name.clone()),
             UiObject::Layout(_) | UiObject::Widget(_) => None,
         })
         .collect()
