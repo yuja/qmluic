@@ -2,6 +2,7 @@
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiObjectDefinition};
+use crate::qtname;
 use crate::typemap::{Class, NamedType, TypeSpace};
 use std::collections::HashMap;
 
@@ -32,6 +33,7 @@ impl<'a, 't> ObjectTree<'a, 't> {
         if let Some(index) = tree.populate_node_rec(root_node, source, type_space, diagnostics) {
             assert!(index + 1 == tree.nodes.len());
             tree.update_id_map(source, diagnostics);
+            tree.ensure_object_names();
             Some(tree)
         } else {
             None
@@ -59,6 +61,7 @@ impl<'a, 't> ObjectTree<'a, 't> {
                 return None;
             }
         };
+        let name = obj.object_id().map(|id| id.to_str(source).to_owned());
 
         let child_indices = obj
             .child_object_nodes()
@@ -71,6 +74,7 @@ impl<'a, 't> ObjectTree<'a, 't> {
             class,
             is_custom_type,
             obj,
+            name,
             child_indices,
         });
 
@@ -94,6 +98,14 @@ impl<'a, 't> ObjectTree<'a, 't> {
                     }
                 }
             }
+        }
+    }
+
+    fn ensure_object_names(&mut self) {
+        let mut gen = ObjectIdGenerator::default();
+        for data in self.nodes.iter_mut().filter(|d| d.name.is_none()) {
+            let prefix = qtname::variable_name_for_type(data.class.name());
+            data.name = Some(gen.generate(prefix, &self.id_map));
         }
     }
 
@@ -121,6 +133,9 @@ impl<'a, 't> ObjectTree<'a, 't> {
     }
 
     /// Reference to the object specified by id.
+    ///
+    /// The object is NOT looked up by any generated object name since any reference
+    /// expression pointing to the generated name should be invalid.
     pub fn get_by_id<'b, S>(&'b self, object_id: S) -> Option<ObjectNode<'a, 't, 'b>>
     where
         S: AsRef<str>,
@@ -143,6 +158,7 @@ struct ObjectNodeData<'a, 't> {
     class: Class<'a>,
     is_custom_type: bool,
     obj: UiObjectDefinition<'t>,
+    name: Option<String>,
     child_indices: Vec<usize>,
 }
 
@@ -163,12 +179,43 @@ impl<'a, 't, 'b> ObjectNode<'a, 't, 'b> {
         &self.data.obj
     }
 
+    /// Object id if given, or generated name which uniquely identifies this object.
+    pub fn name(&self) -> &str {
+        self.data
+            .name
+            .as_ref()
+            .expect("unique name should have been generated")
+    }
+
     /// Iterates over the direct child objects.
     pub fn children(&self) -> impl Iterator<Item = ObjectNode<'a, 't, 'b>> {
         self.data
             .child_indices
             .iter()
             .map(|&i| ObjectNode::new(&self.tree.nodes[i], self.tree))
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+struct ObjectIdGenerator {
+    used_prefixes: HashMap<String, usize>, // prefix: next count
+}
+
+impl ObjectIdGenerator {
+    pub fn generate(&mut self, prefix: String, id_map: &HashMap<String, usize>) -> String {
+        let count = self.used_prefixes.entry(prefix.to_owned()).or_insert(0);
+        let (n, id) = (*count..=*count + id_map.len())
+            .find_map(|n| {
+                let id = format!("{prefix}_{n}");
+                if id_map.contains_key(&id) {
+                    None
+                } else {
+                    Some((n, id))
+                }
+            })
+            .expect("unused id must be found within N+1 tries");
+        *count = n + 1;
+        id
     }
 }
 
@@ -255,5 +302,41 @@ mod tests {
             "###,
         );
         assert!(env.try_build_tree().is_err());
+    }
+
+    #[test]
+    fn generated_object_names() {
+        let env = Env::new(
+            r###"
+            Foo {
+                id: root
+                Foo {}
+                Foo {}
+            }
+            "###,
+        );
+        let tree = env.try_build_tree().unwrap();
+        let children: Vec<_> = tree.root().children().collect();
+        assert_eq!(children[0].name(), "foo_0");
+        assert_eq!(children[1].name(), "foo_1");
+        assert!(tree.get_by_id("foo_0").is_none());
+        assert!(tree.get_by_id("foo_1").is_none());
+    }
+
+    #[test]
+    fn object_id_conflicts_with_generated_name() {
+        let env = Env::new(
+            r###"
+            Foo {
+                id: foo_0
+                Foo {}
+            }
+            "###,
+        );
+        let tree = env.try_build_tree().unwrap();
+        let child = tree.root().children().next().unwrap();
+        assert_eq!(child.name(), "foo_1");
+        assert!(tree.get_by_id("foo_0").is_some());
+        assert!(tree.get_by_id("foo_1").is_none());
     }
 }
