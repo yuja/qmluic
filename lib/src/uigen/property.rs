@@ -23,6 +23,16 @@ impl<'a, 't> PropertyDescValue<'a, 't> {
     pub fn new(desc: Property<'a>, value: PropertyValue<'a, 't>) -> Self {
         PropertyDescValue { desc, value }
     }
+
+    fn is_dynamic(&self) -> bool {
+        match self.value {
+            PropertyValue::Serializable(_) => false,
+            PropertyValue::Dynamic(_) => true,
+            PropertyValue::ItemModel(_)
+            | PropertyValue::ObjectRefList(_)
+            | PropertyValue::ObjectProperties(_) => false, // don't care
+        }
+    }
 }
 
 /// Type of the property setter to be used by `uic`.
@@ -187,7 +197,7 @@ pub(super) fn collect_properties(
 }
 
 pub(super) fn collect_properties_with_node<'a, 't>(
-    ctx: &ObjectContext,
+    ctx: &ObjectContext<'a, '_, '_>,
     cls: &Class<'a>,
     binding_map: &UiBindingMap<'t, '_>,
     diagnostics: &mut Diagnostics,
@@ -196,7 +206,7 @@ pub(super) fn collect_properties_with_node<'a, 't>(
 }
 
 fn resolve_properties<'a, 't, 's, B, F>(
-    ctx: &ObjectContext,
+    ctx: &ObjectContext<'a, '_, '_>,
     cls: &Class<'a>,
     binding_map: &UiBindingMap<'t, 's>,
     diagnostics: &mut Diagnostics,
@@ -278,9 +288,18 @@ pub(super) fn make_serializable_properties(
     properties_map
         .into_iter()
         .filter_map(|(k, v)| {
-            diagnostics
-                .consume_err(v.into_serializable_setter())
-                .map(|x| (k, x))
+            if v.data().is_dynamic() {
+                // TODO
+                diagnostics.push(Diagnostic::error(
+                    v.node().byte_range(),
+                    "unsupported dynamic binding",
+                ));
+                None
+            } else {
+                diagnostics
+                    .consume_err(v.into_serializable_setter())
+                    .map(|x| (k, x))
+            }
         })
         .collect()
 }
