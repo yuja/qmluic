@@ -4,6 +4,7 @@ use super::namespace::NamespaceData;
 use super::util::{self, TypeDataRef, TypeMapRef};
 use super::{NamedType, ParentSpace, TypeKind};
 use crate::metatype;
+use crate::qtname;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FusedIterator;
 use std::slice;
@@ -237,15 +238,7 @@ impl<'a> Property<'a> {
     /// See `PropertyDef::stdCppSet()` in `qtbase/src/tools/moc/moc.h` for details.
     pub fn is_std_set(&self) -> bool {
         let d = self.data.as_ref();
-        let n = self.name.as_ref();
-        if let (Some(f), Some(h)) = (d.write_func_name.as_ref(), n.chars().next()) {
-            // f == set<Name>
-            f.starts_with("set")
-                && f[3..].starts_with(h.to_ascii_uppercase())
-                && f[(3 + h.len_utf8())..] == n[h.len_utf8()..]
-        } else {
-            false
-        }
+        qtname::is_std_set_property(self.name.as_ref(), d.write_func_name.as_deref())
     }
 
     /// Function name to get this property.
