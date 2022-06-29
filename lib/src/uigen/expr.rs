@@ -18,6 +18,8 @@ use thiserror::Error;
 #[derive(Clone, Debug)]
 pub(super) enum PropertyValue<'a, 't> {
     Serializable(Value),
+    /// Value expression to be evaluated at run time.
+    Dynamic(DynamicExpression<'a>),
     /// List of static QComboBox/QAbstractItemView items.
     ItemModel(Vec<ModelItem>),
     /// List of identifiers referencing the objects.
@@ -29,7 +31,7 @@ pub(super) enum PropertyValue<'a, 't> {
 impl<'a, 't> PropertyValue<'a, 't> {
     /// Generates constant expression of `ty` type from the given `binding_value`.
     pub(super) fn from_binding_value(
-        ctx: &ObjectContext,
+        ctx: &ObjectContext<'a, '_, '_>,
         ty: &TypeKind<'a>,
         binding_value: &UiBindingValue<'t, '_>,
         diagnostics: &mut Diagnostics,
@@ -37,7 +39,36 @@ impl<'a, 't> PropertyValue<'a, 't> {
         match binding_value {
             UiBindingValue::Node(n) => match ty {
                 TypeKind::Just(t) => {
-                    parse_as_value_type(ctx, t, *n, diagnostics).map(PropertyValue::Serializable)
+                    // detect type error and dynamic expression first
+                    let mut formatter =
+                        ExpressionFormatter::new(ctx.doc_type_name.unwrap_or_default());
+                    let (res_t, res_expr, _) =
+                        typedexpr::walk(ctx, *n, ctx.source, &mut formatter, diagnostics)?;
+                    if formatter.property_deps.is_empty() {
+                        // constant expression can be mapped to .ui value type
+                        parse_as_value_type(ctx, t, *n, res_t, res_expr, diagnostics)
+                            .map(PropertyValue::Serializable)
+                    } else if TypeDesc::from_type_kind(ty.clone())
+                        .map(|t| t == res_t)
+                        .unwrap_or(false)
+                    {
+                        // TODO: refactor type comparison, handle compatible enum, etc.
+                        let dyn_expr = DynamicExpression {
+                            _expr: res_expr,
+                            _property_deps: formatter.property_deps,
+                        };
+                        Some(PropertyValue::Dynamic(dyn_expr))
+                    } else {
+                        diagnostics.push(Diagnostic::error(
+                            n.byte_range(),
+                            format!(
+                                "expression type mismatch (expected: {}, actual: {})",
+                                ty.qualified_cxx_name(),
+                                res_t.qualified_name()
+                            ),
+                        ));
+                        None
+                    }
                 }
                 TypeKind::Pointer(NamedType::Class(cls))
                     if cls.is_derived_from(&ctx.classes.abstract_item_model) =>
@@ -278,20 +309,10 @@ fn parse_as_value_type(
     ctx: &ObjectContext,
     ty: &NamedType,
     node: Node,
+    res_t: TypeDesc,
+    res_expr: String,
     diagnostics: &mut Diagnostics,
 ) -> Option<Value> {
-    // first, detect type error by ExpressionFormatter.
-    let mut formatter = ExpressionFormatter::new(ctx.doc_type_name.unwrap_or_default());
-    let (res_t, res_expr, _) = typedexpr::walk(ctx, node, ctx.source, &mut formatter, diagnostics)?;
-    if !formatter.property_deps.is_empty() {
-        // TODO: map to dynamic
-        diagnostics.push(Diagnostic::error(
-            node.byte_range(),
-            "unsupported dynamic binding",
-        ));
-        return None;
-    }
-
     match ty {
         NamedType::Class(cls) if cls == &ctx.classes.brush => {
             let color = parse_color_value(ctx, node, diagnostics).map(Value::Gadget)?;
@@ -861,6 +882,15 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
             _ => Err(type_error()),
         }
     }
+}
+
+/// Property value expression to be evaluated at run time.
+#[derive(Clone, Debug)]
+pub(super) struct DynamicExpression<'a> {
+    /// Formatted expression.
+    pub _expr: String,
+    /// List of `(obj_expr, property)` accessed from this expression.
+    pub _property_deps: Vec<(String, Property<'a>)>,
 }
 
 /// Formats expression tree as arbitrary constant value expression.

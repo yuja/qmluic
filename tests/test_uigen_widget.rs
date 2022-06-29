@@ -42,3 +42,14 @@ fn test_self_property_binding_unsupported() {
     QCheckBox { checked: enabled }
     "###).unwrap_err(), @"<unknown>:2:22: error: undefined reference");
 }
+
+#[test]
+fn test_dynamic_binding_type_mismatch() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QWidget {
+         windowTitle: source.checked
+         QCheckBox { id: source }
+    }
+    "###).unwrap_err(), @"<unknown>:3:19: error: expression type mismatch (expected: QString, actual: bool)");
+}
