@@ -202,11 +202,18 @@ struct ObjectIdGenerator {
 }
 
 impl ObjectIdGenerator {
+    /// Generates unique name starting with the given `prefix`.
+    ///
+    /// The naming rule follows `Driver::unique()` defined in `qtbase/src/tools/uic/driver.cpp`.
     pub fn generate(&mut self, prefix: String, id_map: &HashMap<String, usize>) -> String {
         let count = self.used_prefixes.entry(prefix.to_owned()).or_insert(0);
         let (n, id) = (*count..=*count + id_map.len())
             .find_map(|n| {
-                let id = format!("{prefix}_{n}");
+                let id = if n == 0 {
+                    prefix.clone()
+                } else {
+                    format!("{prefix}{n}")
+                };
                 if id_map.contains_key(&id) {
                     None
                 } else {
@@ -317,10 +324,10 @@ mod tests {
         );
         let tree = env.try_build_tree().unwrap();
         let children: Vec<_> = tree.root().children().collect();
-        assert_eq!(children[0].name(), "foo_0");
-        assert_eq!(children[1].name(), "foo_1");
-        assert!(tree.get_by_id("foo_0").is_none());
-        assert!(tree.get_by_id("foo_1").is_none());
+        assert_eq!(children[0].name(), "foo");
+        assert_eq!(children[1].name(), "foo1");
+        assert!(tree.get_by_id("foo").is_none());
+        assert!(tree.get_by_id("foo1").is_none());
     }
 
     #[test]
@@ -328,15 +335,15 @@ mod tests {
         let env = Env::new(
             r###"
             Foo {
-                id: foo_0
+                id: foo
                 Foo {}
             }
             "###,
         );
         let tree = env.try_build_tree().unwrap();
         let child = tree.root().children().next().unwrap();
-        assert_eq!(child.name(), "foo_1");
-        assert!(tree.get_by_id("foo_0").is_some());
-        assert!(tree.get_by_id("foo_1").is_none());
+        assert_eq!(child.name(), "foo1");
+        assert!(tree.get_by_id("foo").is_some());
+        assert!(tree.get_by_id("foo1").is_none());
     }
 }
