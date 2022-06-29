@@ -8,6 +8,7 @@ pub mod objtree;
 pub mod qmlast;
 pub mod qmldir;
 pub mod qmldoc;
+pub mod qtname;
 pub mod typedexpr;
 pub mod typemap;
 pub mod uigen;
