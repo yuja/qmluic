@@ -1,6 +1,7 @@
 use super::object::UiObject;
 use super::xmlutil;
-use super::{FileNameRules, XmlResult, XmlWriter};
+use super::{XmlResult, XmlWriter};
+use crate::qtname::FileNameRules;
 use crate::typemap::{Class, TypeSpace};
 use quick_xml::events::{BytesStart, Event};
 use std::io;
