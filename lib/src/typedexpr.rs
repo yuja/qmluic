@@ -2,7 +2,7 @@
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{BinaryOperator, Expression, Identifier, Node, UnaryOperator};
-use crate::typemap::{Class, Enum, NamedType, Property, TypeSpace};
+use crate::typemap::{Class, Enum, NamedType, PrimitiveType, Property, TypeKind, TypeSpace};
 use std::borrow::Cow;
 use std::fmt::Debug;
 
@@ -19,7 +19,44 @@ pub enum TypeDesc<'a> {
     EmptyList,
 }
 
-impl TypeDesc<'_> {
+impl<'a> TypeDesc<'a> {
+    // TODO: refactor type handling to eliminate this kind of repacking?
+    pub fn from_type_kind(type_kind: TypeKind<'a>) -> Option<Self> {
+        match type_kind {
+            TypeKind::Just(NamedType::Enum(en)) => Some(TypeDesc::Enum(en)),
+            TypeKind::Just(NamedType::Primitive(p)) => Self::from_primitive_type(p),
+            TypeKind::Just(
+                NamedType::Class(_) | NamedType::Namespace(_) | NamedType::QmlComponent(_),
+            ) => None,
+            TypeKind::Pointer(NamedType::Class(cls)) => Some(TypeDesc::ObjectRef(cls)),
+            TypeKind::Pointer(
+                NamedType::Enum(_)
+                | NamedType::Namespace(_)
+                | NamedType::Primitive(_)
+                | NamedType::QmlComponent(_),
+            ) => None,
+            TypeKind::PointerList(NamedType::Class(cls)) => Some(TypeDesc::ObjectRefList(cls)),
+            TypeKind::PointerList(
+                NamedType::Enum(_)
+                | NamedType::Namespace(_)
+                | NamedType::Primitive(_)
+                | NamedType::QmlComponent(_),
+            ) => None,
+        }
+    }
+
+    fn from_primitive_type(p: PrimitiveType) -> Option<Self> {
+        match p {
+            PrimitiveType::Bool => Some(TypeDesc::Bool),
+            PrimitiveType::Int | PrimitiveType::QReal | PrimitiveType::UInt => {
+                Some(TypeDesc::Number)
+            }
+            PrimitiveType::QString => Some(TypeDesc::String),
+            PrimitiveType::QStringList => Some(TypeDesc::StringList),
+            PrimitiveType::Void => None,
+        }
+    }
+
     pub fn qualified_name(&self) -> Cow<'_, str> {
         match self {
             TypeDesc::Bool => "bool".into(),
