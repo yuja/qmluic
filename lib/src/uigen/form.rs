@@ -1,8 +1,9 @@
 use super::context::BuildDocContext;
-use super::object::UiObject;
+use super::object::Widget;
+use super::property;
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
-use crate::diagnostic::Diagnostics;
+use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectNode;
 use crate::qtname::FileNameRules;
 use crate::typemap::{Class, TypeSpace};
@@ -14,7 +15,7 @@ use std::io;
 #[derive(Clone, Debug)]
 pub struct UiForm {
     pub class: Option<String>,
-    pub root_object: UiObject,
+    pub root_widget: Widget,
     pub custom_widgets: Vec<CustomWidget>,
 }
 
@@ -24,7 +25,26 @@ impl UiForm {
         obj_node: ObjectNode,
         diagnostics: &mut Diagnostics,
     ) -> Self {
-        let root_object = UiObject::build(ctx, obj_node, diagnostics);
+        let cls = obj_node.class();
+        if !cls.is_derived_from(&ctx.classes.widget) {
+            diagnostics.push(Diagnostic::error(
+                obj_node.obj().node().byte_range(),
+                format!("class '{}' is not a QWidget", cls.qualified_cxx_name()),
+            ));
+            // but continue anyway to report as many errors as possible
+        }
+
+        let binding_map = diagnostics
+            .consume_err(obj_node.obj().build_binding_map(ctx.source))
+            .unwrap_or_default();
+        let properties_map = property::collect_properties_with_node(
+            &ctx.make_object_context(),
+            cls,
+            &binding_map,
+            diagnostics,
+        );
+
+        let root_widget = Widget::build(ctx, obj_node, properties_map, diagnostics);
         let custom_widgets = ctx
             .object_tree
             .flat_iter()
@@ -34,7 +54,7 @@ impl UiForm {
             .collect();
         UiForm {
             class: ctx.type_name.map(|s| s.to_owned()),
-            root_object,
+            root_widget,
             custom_widgets,
         }
     }
@@ -49,7 +69,7 @@ impl UiForm {
         if let Some(name) = &self.class {
             xmlutil::write_tagged_str(writer, "class", name)?;
         }
-        self.root_object.serialize_to_xml(writer)?;
+        self.root_widget.serialize_to_xml(writer)?;
         if !self.custom_widgets.is_empty() {
             let tag = BytesStart::borrowed_name(b"customwidgets");
             writer.write_event(Event::Start(tag.to_borrowed()))?;

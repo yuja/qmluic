@@ -1,6 +1,14 @@
 pub mod common;
 
 #[test]
+fn test_root_must_be_widget() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QVBoxLayout {}
+    "###).unwrap_err(), @"<unknown>:2:1: error: class 'QVBoxLayout' is not a QWidget");
+}
+
+#[test]
 fn test_reserved_word_workaround() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
