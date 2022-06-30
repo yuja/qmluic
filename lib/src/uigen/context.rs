@@ -20,8 +20,8 @@ pub(super) struct BuildDocContext<'a, 't, 's> {
     pub source: &'s str,
     pub file_name_rules: &'s FileNameRules,
     pub classes: &'s KnownClasses<'a>,
-    pub type_space: ImportedModuleSpace<'a>,
-    pub object_tree: ObjectTree<'a, 't>,
+    pub type_space: &'s ImportedModuleSpace<'a>,
+    pub object_tree: &'s ObjectTree<'a, 't>,
     object_properties: &'s [PropertiesMap<'a, 't>],
 }
 
@@ -145,8 +145,8 @@ impl<'a> BuildContext<'a> {
 impl<'a, 't, 's> BuildDocContext<'a, 't, 's> {
     pub fn new(
         doc: &'s UiDocument,
-        type_space: ImportedModuleSpace<'a>,
-        object_tree: ObjectTree<'a, 't>,
+        type_space: &'s ImportedModuleSpace<'a>,
+        object_tree: &'s ObjectTree<'a, 't>,
         object_properties: &'s [PropertiesMap<'a, 't>],
         base_ctx: &'s BuildContext<'a>,
     ) -> Self {
@@ -170,8 +170,8 @@ impl<'a, 't, 's> BuildDocContext<'a, 't, 's> {
             doc_type_name: self.type_name,
             source: self.source,
             classes: self.classes,
-            type_space: &self.type_space,
-            object_tree: &self.object_tree,
+            type_space: self.type_space,
+            object_tree: self.object_tree,
         }
     }
 }
