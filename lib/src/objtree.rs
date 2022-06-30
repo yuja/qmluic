@@ -5,6 +5,7 @@ use crate::qmlast::{Node, UiObjectDefinition};
 use crate::qtname;
 use crate::typemap::{Class, NamedType, TypeSpace};
 use std::collections::HashMap;
+use std::mem;
 
 /// Tree of object definitions and the corresponding types.
 ///
@@ -187,6 +188,16 @@ impl<'a, 't, 'b> ObjectNode<'a, 't, 'b> {
             .expect("unique name should have been generated")
     }
 
+    /// Index of this object node in the flat vec.
+    ///
+    /// Typical use case is to build and store per-object data in separate vec.
+    pub fn flat_index(&self) -> usize {
+        let p: *const ObjectNodeData = self.data;
+        let q: *const ObjectNodeData = self.tree.nodes.as_ptr();
+        assert!(p >= q);
+        (p as usize - q as usize) / mem::size_of_val(self.data)
+    }
+
     /// Iterates over the direct child objects.
     pub fn children(&self) -> impl Iterator<Item = ObjectNode<'a, 't, 'b>> {
         self.data
@@ -345,5 +356,22 @@ mod tests {
         assert_eq!(child.name(), "foo1");
         assert!(tree.get_by_id("foo").is_some());
         assert!(tree.get_by_id("foo1").is_none());
+    }
+
+    #[test]
+    fn flat_index() {
+        let env = Env::new(
+            r###"
+            Foo {
+                Foo {}
+                Foo {}
+            }
+            "###,
+        );
+        let tree = env.try_build_tree().unwrap();
+        let nodes: Vec<_> = tree.flat_iter().collect();
+        assert_eq!(nodes[0].flat_index(), 0);
+        assert_eq!(nodes[1].flat_index(), 1);
+        assert_eq!(nodes[2].flat_index(), 2);
     }
 }
