@@ -27,8 +27,8 @@ impl<'a, 't> PropertyDescValue<'a, 't> {
     fn to_dynamic(&self) -> Option<PropertyDescDynamicExpression<'a>> {
         match &self.value {
             PropertyValue::Dynamic(x) => Some(PropertyDescDynamicExpression {
-                _desc: self.desc.clone(),
-                _value: x.clone(),
+                desc: self.desc.clone(),
+                value: x.clone(),
             }),
             _ => None,
         }
@@ -38,8 +38,8 @@ impl<'a, 't> PropertyDescValue<'a, 't> {
 /// Dynamic property value with its description.
 #[derive(Clone, Debug)]
 pub(super) struct PropertyDescDynamicExpression<'a> {
-    pub _desc: Property<'a>,
-    pub _value: DynamicExpression<'a>,
+    pub desc: Property<'a>,
+    pub value: DynamicExpression<'a>,
 }
 
 /// Type of the property setter to be used by `uic`.

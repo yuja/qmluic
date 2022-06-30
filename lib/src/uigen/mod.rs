@@ -8,6 +8,7 @@ use crate::qmldir;
 use crate::qmldoc::UiDocument;
 use crate::typemap::{ImportedModuleSpace, ModuleId, TypeMap};
 
+mod binding;
 mod context;
 mod expr;
 mod form;
@@ -17,6 +18,7 @@ mod object;
 mod property;
 mod xmlutil;
 
+pub use self::binding::*; // re-export
 pub use self::context::*; // re-export
 pub use self::expr::*; // re-export
 pub use self::form::*; // re-export
