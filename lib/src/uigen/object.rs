@@ -32,16 +32,7 @@ impl UiObject {
         diagnostics: &mut Diagnostics,
     ) -> Self {
         let cls = obj_node.class();
-        let binding_map = diagnostics
-            .consume_err(obj_node.obj().build_binding_map(ctx.source))
-            .unwrap_or_default();
-        let properties_map = property::collect_properties_with_node(
-            &ctx.make_object_context(),
-            cls,
-            &binding_map,
-            diagnostics,
-        );
-
+        let properties_map = ctx.properties_for_object(obj_node).clone();
         if cls.is_derived_from(&ctx.classes.action) {
             confine_children(obj_node, diagnostics);
             UiObject::Action(Action::new(obj_node.name(), properties_map, diagnostics))
