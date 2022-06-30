@@ -1,4 +1,5 @@
-use crate::objtree::ObjectTree;
+use super::property::PropertiesMap;
+use crate::objtree::{ObjectNode, ObjectTree};
 use crate::qmldoc::UiDocument;
 use crate::qtname::FileNameRules;
 use crate::typedexpr::{BuiltinFunctionKind, RefKind, RefSpace};
@@ -21,6 +22,7 @@ pub(super) struct BuildDocContext<'a, 't, 's> {
     pub classes: &'s KnownClasses<'a>,
     pub type_space: ImportedModuleSpace<'a>,
     pub object_tree: ObjectTree<'a, 't>,
+    object_properties: &'s [PropertiesMap<'a, 't>],
 }
 
 /// Context where expression is supposed to be evaluated.
@@ -145,6 +147,7 @@ impl<'a, 't, 's> BuildDocContext<'a, 't, 's> {
         doc: &'s UiDocument,
         type_space: ImportedModuleSpace<'a>,
         object_tree: ObjectTree<'a, 't>,
+        object_properties: &'s [PropertiesMap<'a, 't>],
         base_ctx: &'s BuildContext<'a>,
     ) -> Self {
         BuildDocContext {
@@ -154,7 +157,12 @@ impl<'a, 't, 's> BuildDocContext<'a, 't, 's> {
             classes: &base_ctx.classes,
             type_space,
             object_tree,
+            object_properties,
         }
+    }
+
+    pub fn properties_for_object(&self, obj_node: ObjectNode) -> &PropertiesMap {
+        &self.object_properties[obj_node.flat_index()]
     }
 
     pub fn make_object_context(&self) -> ObjectContext<'a, 't, '_> {
@@ -164,6 +172,23 @@ impl<'a, 't, 's> BuildDocContext<'a, 't, 's> {
             classes: self.classes,
             type_space: &self.type_space,
             object_tree: &self.object_tree,
+        }
+    }
+}
+
+impl<'a, 't, 's> ObjectContext<'a, 't, 's> {
+    pub fn new(
+        doc: &'s UiDocument,
+        type_space: &'s ImportedModuleSpace<'a>,
+        object_tree: &'s ObjectTree<'a, 't>,
+        base_ctx: &'s BuildContext<'a>,
+    ) -> Self {
+        ObjectContext {
+            doc_type_name: doc.type_name(),
+            source: doc.source(),
+            classes: &base_ctx.classes,
+            type_space,
+            object_tree,
         }
     }
 }
