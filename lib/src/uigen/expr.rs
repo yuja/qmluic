@@ -54,8 +54,8 @@ impl<'a, 't> PropertyValue<'a, 't> {
                     {
                         // TODO: refactor type comparison, handle compatible enum, etc.
                         let dyn_expr = DynamicExpression {
-                            _expr: res_expr,
-                            _property_deps: formatter.property_deps,
+                            expr: res_expr,
+                            property_deps: formatter.property_deps,
                         };
                         Some(PropertyValue::Dynamic(dyn_expr))
                     } else {
@@ -888,9 +888,9 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
 #[derive(Clone, Debug)]
 pub(super) struct DynamicExpression<'a> {
     /// Formatted expression.
-    pub _expr: String,
+    pub expr: String,
     /// List of `(obj_expr, property)` accessed from this expression.
-    pub _property_deps: Vec<(String, Property<'a>)>,
+    pub property_deps: Vec<(String, Property<'a>)>,
 }
 
 /// Formats expression tree as arbitrary constant value expression.
