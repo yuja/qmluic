@@ -44,8 +44,8 @@ pub fn build(
     )?;
     let object_properties =
         build_object_properties(doc, &type_space, &object_tree, base_ctx, diagnostics);
-    let ctx = BuildDocContext::new(doc, type_space, object_tree, &object_properties, base_ctx);
-    Some(UiForm::build(&ctx, ctx.object_tree.root(), diagnostics))
+    let ctx = BuildDocContext::new(doc, &type_space, &object_tree, &object_properties, base_ctx);
+    Some(UiForm::build(&ctx, object_tree.root(), diagnostics))
 }
 
 fn make_doc_module_space<'a>(
