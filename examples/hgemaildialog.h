@@ -7,6 +7,10 @@ namespace Ui {
 class HgEmailDialog;
 }
 
+namespace UiSupport {
+class HgEmailDialog;
+}
+
 class HgEmailDialog : public QDialog
 {
     Q_OBJECT
@@ -17,4 +21,5 @@ public:
 
 private:
     std::unique_ptr<Ui::HgEmailDialog> ui_;
+    std::unique_ptr<UiSupport::HgEmailDialog> uiSupport_;
 };
