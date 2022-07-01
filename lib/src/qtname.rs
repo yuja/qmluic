@@ -37,6 +37,17 @@ impl FileNameRules {
         ))
     }
 
+    pub fn type_name_to_ui_support_cxx_header_name<S>(&self, type_name: S) -> String
+    where
+        S: AsRef<str>,
+    {
+        self.apply_case_change(format!(
+            "uisupport_{}.{}",
+            type_name.as_ref(),
+            &self.cxx_header_suffix
+        ))
+    }
+
     fn apply_case_change(&self, mut file_name: String) -> String {
         if self.lowercase {
             file_name.make_ascii_lowercase();

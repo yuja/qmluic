@@ -26,6 +26,7 @@ fn test_simple_file() {
      </widget>
     </ui>
     "###);
+    assert!(!env.join("uisupport_simple.h").exists());
 }
 
 #[test]
@@ -34,11 +35,19 @@ fn test_output_directory() {
     env.write_dedent("Base.qml", "import qmluic.QtWidgets; QWidget {}");
     env.write_dedent("dir/Nested.qml", "import qmluic.QtWidgets; QWidget {}");
 
-    env.generate_ui_cmd(["-O", "out/put", "Base.qml", "dir/Nested.qml"])
-        .assert()
-        .success();
+    env.generate_ui_cmd([
+        "-O",
+        "out/put",
+        "--dynamic-binding",
+        "Base.qml",
+        "dir/Nested.qml",
+    ])
+    .assert()
+    .success();
     assert!(env.join("out/put/base.ui").exists());
+    assert!(env.join("out/put/uisupport_base.h").exists());
     assert!(env.join("out/put/dir/nested.ui").exists());
+    assert!(env.join("out/put/dir/uisupport_nested.h").exists());
 }
 
 #[test]
