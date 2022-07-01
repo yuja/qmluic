@@ -167,7 +167,12 @@ fn format_diagnostics(doc: &UiDocument, diagnostics: &Diagnostics) -> String {
         display_style: term::DisplayStyle::Short,
         ..Default::default()
     };
-    let files = SimpleFile::new(doc.type_name().unwrap_or("<unknown>"), doc.source());
+    let files = SimpleFile::new(
+        doc.path()
+            .and_then(|p| p.file_name())
+            .unwrap_or("<unknown>"),
+        doc.source(),
+    );
 
     for diag in diagnostics {
         let severity = match diag.kind() {
