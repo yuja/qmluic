@@ -1,0 +1,41 @@
+---
+source: tests/test_uigen_widget.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_mytype.h"
+
+namespace UiSupport {
+class MyType
+{
+public:
+    MyType(QWidget *root, Ui::MyType *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+        this->setup_widget_visible();
+        this->update_widget_visible();
+    }
+
+private:
+    void setup_widget_visible()
+    {
+        auto *const source = this->ui_->source;
+
+        QObject::connect(source, &QAbstractButton::toggled, root_, [this]() { this->update_widget_visible(); });
+    }
+
+    void update_widget_visible()
+    {
+        auto *const widget = this->ui_->widget;
+        auto *const source = this->ui_->source;
+
+        widget->setVisible(source->isChecked());
+    }
+
+    QWidget *const root_;
+    Ui::MyType *const ui_;
+
+};
+} // namespace UiSupport
+

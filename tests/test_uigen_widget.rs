@@ -36,6 +36,56 @@ fn test_width_is_readonly() {
 }
 
 #[test]
+fn test_dynamic_width_is_readonly() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QWidget {
+            width: spinBox.value
+            QSpinBox { id: spinBox }
+        }
+        "###,
+    );
+    insta::assert_snapshot!(
+        common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap_err(),
+        @"<unknown>:3:5: error: not a writable property");
+}
+
+#[test]
+fn test_object_property_binding() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QWidget {
+             QCheckBox { id: source }
+             QWidget { visible: source.checked }
+        }
+        "###,
+    );
+    let (ui_xml, ui_support_h) =
+        common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_xml);
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
+fn test_object_property_binding_to_root() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QDialog {
+             windowTitle: edit.text
+             QLineEdit { id: edit }
+        }
+        "###,
+    );
+    let (ui_xml, ui_support_h) =
+        common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_xml);
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
 fn test_object_property_binding_unsupported() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
