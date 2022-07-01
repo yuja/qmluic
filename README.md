@@ -118,8 +118,8 @@ welcome.
 *THIS IS STILL EXPERIMENTAL.*
 
 `qmluic generate-ui --dynamic-binding` (or `DYNAMIC_BINDING` option in CMake)
-generates a `uisupport_*.h` file, which sets up signal/slot connections for
-the dynamic binding expressions.
+generates a `uisupport_*.h` file in addition to `*.ui`, which sets up
+signal/slot connections for the dynamic binding expressions.
 
 ```qml
 import qmluic.QtWidgets
@@ -133,7 +133,7 @@ QDialog {
 }
 ```
 
-For example, `visible: checkBox.checked` is basically translated to the
+In this example, `visible: checkBox.checked` is basically translated to the
 following code:
 
 ```c++
@@ -143,7 +143,7 @@ void UiSupport::MainWindow::setup() {
 }
 ```
 
-Syntax of the supported binding expressions is quite limited right now. See
+Syntax of supported binding expressions is quite limited right now. See
 the "Major TODOs" section for details.
 
 Building
@@ -192,7 +192,7 @@ Major TODOs
 - [ ] Live preview for multi-document file
 - [ ] Better support for static `QComboBox`/`QListWidget` items
 - [ ] Support signal-slot connections (`on<Signal>` syntax)
-- [ ] Improve support dynamic property bindings
+- [ ] Improve support for dynamic property bindings
   - [ ] ternary operator
   - [ ] `.toString()`
   - [ ] `QString::arg()`
