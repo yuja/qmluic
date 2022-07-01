@@ -67,8 +67,8 @@ impl UiDocument {
     /// Type (or component) name of this QML document.
     ///
     /// It's typically the file name without ".qml" suffix.
-    pub fn type_name(&self) -> Option<&str> {
-        Some(self.type_name.as_ref()) // TODO
+    pub fn type_name(&self) -> &str {
+        &self.type_name
     }
 
     pub fn has_syntax_error(&self) -> bool {

@@ -57,16 +57,16 @@ pub fn build(
     let ctx = BuildDocContext::new(doc, &type_space, &object_tree, &object_properties, base_ctx);
     let form = UiForm::build(&ctx, object_tree.root(), diagnostics);
 
-    let ui_support = match (base_ctx.dynamic_binding_handling, doc.type_name()) {
-        (DynamicBindingHandling::Omit, _) => None,
-        (DynamicBindingHandling::Generate, Some(type_name)) => Some(UiSupportCode::build(
-            type_name,
+    let ui_support = match base_ctx.dynamic_binding_handling {
+        DynamicBindingHandling::Omit => None,
+        DynamicBindingHandling::Generate => Some(UiSupportCode::build(
+            doc.type_name(),
             &base_ctx.file_name_rules,
             &object_tree,
             &dynamic_object_properties,
             diagnostics,
         )),
-        (DynamicBindingHandling::Generate, None) | (DynamicBindingHandling::Reject, _) => {
+        DynamicBindingHandling::Reject => {
             for v in dynamic_object_properties.iter().flat_map(|m| m.values()) {
                 diagnostics.push(Diagnostic::error(
                     v.node().byte_range(),

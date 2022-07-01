@@ -28,7 +28,7 @@ pub struct BuildContext<'a> {
 
 #[derive(Clone, Debug)]
 pub(super) struct BuildDocContext<'a, 't, 's> {
-    pub type_name: Option<&'s str>,
+    pub type_name: &'s str,
     pub source: &'s str,
     pub file_name_rules: &'s FileNameRules,
     pub classes: &'s KnownClasses<'a>,
@@ -40,7 +40,7 @@ pub(super) struct BuildDocContext<'a, 't, 's> {
 /// Context where expression is supposed to be evaluated.
 #[derive(Clone, Debug)]
 pub(super) struct ObjectContext<'a, 't, 's> {
-    pub doc_type_name: Option<&'s str>,
+    pub doc_type_name: &'s str,
     pub source: &'s str,
     pub classes: &'s KnownClasses<'a>,
     pub type_space: &'s ImportedModuleSpace<'a>,

@@ -13,7 +13,7 @@ use std::io;
 /// Top-level object wrapper to be serialized to UI XML.
 #[derive(Clone, Debug)]
 pub struct UiForm {
-    pub class: Option<String>,
+    pub class: String,
     pub root_widget: Widget,
     pub custom_widgets: Vec<CustomWidget>,
 }
@@ -43,7 +43,7 @@ impl UiForm {
             .filter_map(|cls| CustomWidget::from_class(&cls, ctx.file_name_rules))
             .collect();
         UiForm {
-            class: ctx.type_name.map(|s| s.to_owned()),
+            class: ctx.type_name.to_owned(),
             root_widget,
             custom_widgets,
         }
@@ -56,9 +56,7 @@ impl UiForm {
     {
         let tag = BytesStart::borrowed_name(b"ui").with_attributes([("version", "4.0")]);
         writer.write_event(Event::Start(tag.to_borrowed()))?;
-        if let Some(name) = &self.class {
-            xmlutil::write_tagged_str(writer, "class", name)?;
-        }
+        xmlutil::write_tagged_str(writer, "class", &self.class)?;
         self.root_widget.serialize_to_xml(writer)?;
         if !self.custom_widgets.is_empty() {
             let tag = BytesStart::borrowed_name(b"customwidgets");
