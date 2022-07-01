@@ -6,11 +6,21 @@ use crate::typedexpr::{BuiltinFunctionKind, RefKind, RefSpace};
 use crate::typemap::{Class, Enum, ImportedModuleSpace, ModuleId, NamedType, TypeMap, TypeSpace};
 use thiserror::Error;
 
+/// How to process dynamic bindings.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DynamicBindingHandling {
+    /// Silently drops dynamic bindings.
+    Omit,
+    /// Generates errors for dynamic bindings.
+    Reject,
+}
+
 /// Resources passed around the UI object constructors.
 #[derive(Clone, Debug)]
 pub struct BuildContext<'a> {
     pub(super) type_map: &'a TypeMap,
     pub file_name_rules: FileNameRules,
+    pub dynamic_binding_handling: DynamicBindingHandling,
     pub(super) classes: KnownClasses<'a>,
 }
 
@@ -79,6 +89,7 @@ impl<'a> BuildContext<'a> {
     pub fn prepare(
         type_map: &'a TypeMap,
         file_name_rules: FileNameRules,
+        dynamic_binding_handling: DynamicBindingHandling,
     ) -> Result<Self, BuildContextError> {
         const MODULE_NAME: &str = "qmluic.QtWidgets";
         let module = type_map
@@ -137,6 +148,7 @@ impl<'a> BuildContext<'a> {
         Ok(BuildContext {
             type_map,
             file_name_rules,
+            dynamic_binding_handling,
             classes,
         })
     }

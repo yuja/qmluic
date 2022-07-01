@@ -12,7 +12,7 @@ use qmluic::qmldir;
 use qmluic::qmldoc::UiDocumentsCache;
 use qmluic::qtname::FileNameRules;
 use qmluic::typemap::{ModuleData, ModuleId, TypeMap};
-use qmluic::uigen::{self, BuildContext, XmlWriter};
+use qmluic::uigen::{self, BuildContext, DynamicBindingHandling, XmlWriter};
 use qmluic_cli::{reporting, QtPaths, QtVersion, UiViewer};
 use std::fs;
 use std::io::{self, BufWriter, Write as _};
@@ -299,7 +299,8 @@ fn generate_ui(helper: &CommandHelper, args: &GenerateUiArgs) -> Result<(), Comm
         lowercase: !args.no_lowercase_file_name,
         ..Default::default()
     };
-    let ctx = BuildContext::prepare(&type_map, file_name_rules).map_err(anyhow::Error::from)?;
+    let ctx = BuildContext::prepare(&type_map, file_name_rules, DynamicBindingHandling::Reject)
+        .map_err(anyhow::Error::from)?;
     for p in &args.sources {
         generate_ui_file(&ctx, &docs_cache, p, args.output_directory.as_deref())?;
     }
@@ -397,7 +398,8 @@ fn preview(helper: &CommandHelper, args: &PreviewArgs) -> Result<(), CommandErro
 
     let mut viewer = UiViewer::spawn()?;
     let file_name_rules = FileNameRules::default();
-    let ctx = BuildContext::prepare(&type_map, file_name_rules).map_err(anyhow::Error::from)?;
+    let ctx = BuildContext::prepare(&type_map, file_name_rules, DynamicBindingHandling::Omit)
+        .map_err(anyhow::Error::from)?;
     preview_file(&mut viewer, &ctx, &mut docs_cache, &args.source)?;
 
     let (tx, rx) = mpsc::channel();

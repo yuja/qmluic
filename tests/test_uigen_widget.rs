@@ -1,3 +1,5 @@
+use qmluic::uigen::DynamicBindingHandling;
+
 pub mod common;
 
 #[test]
@@ -60,4 +62,27 @@ fn test_dynamic_binding_type_mismatch() {
          QCheckBox { id: source }
     }
     "###).unwrap_err(), @"<unknown>:3:19: error: expression type mismatch (expected: QString, actual: bool)");
+}
+
+#[test]
+fn test_omit_dynamic_binding() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QWidget {
+             QCheckBox { id: source }
+             QWidget { visible: source.checked }
+        }
+        "###,
+    );
+    insta::assert_snapshot!(common::translate_doc(&doc, DynamicBindingHandling::Omit).unwrap(), @r###"
+    <ui version="4.0">
+     <widget class="QWidget" name="widget1">
+      <widget class="QCheckBox" name="source">
+      </widget>
+      <widget class="QWidget" name="widget">
+      </widget>
+     </widget>
+    </ui>
+    "###);
 }
