@@ -1,7 +1,7 @@
 qmluic - Write QtWidgets UI in QML
 ==================================
 
-*A .qml-to-.ui transpiler. No dynamic binding support at the moment.*
+*A .qml-to-.ui transpiler.*
 
 Write static UI in QML:
 ```qml
@@ -113,6 +113,39 @@ $ qmluic preview HelloDialog.qml
 The previewer might not work on Windows because of the stdio use. Patches are
 welcome.
 
+### Dynamic Binding
+
+*THIS IS STILL EXPERIMENTAL.*
+
+`qmluic generate-ui --dynamic-binding` (or `DYNAMIC_BINDING` option in CMake)
+generates a `uisupport_*.h` file, which sets up signal/slot connections for
+the dynamic binding expressions.
+
+```qml
+import qmluic.QtWidgets
+
+QDialog {
+    id: root
+    QVBoxLayout {
+        QCheckBox { id: checkBox; checked: true }
+        QLabel { id: label; visible: checkBox.checked; text: qsTr("Checked") }
+    }
+}
+```
+
+For example, `visible: checkBox.checked` is basically translated to the
+following code:
+
+```c++
+void UiSupport::MainWindow::setup() {
+    connect(checkBox, &QAbstractButton::toggled, root,
+            [this]() { label->setVisible(checkBox->isChecked()); });
+}
+```
+
+Syntax of the supported binding expressions is quite limited right now. See
+the "Major TODOs" section for details.
+
 Building
 --------
 
@@ -159,7 +192,18 @@ Major TODOs
 - [ ] Live preview for multi-document file
 - [ ] Better support for static `QComboBox`/`QListWidget` items
 - [ ] Support signal-slot connections (`on<Signal>` syntax)
-- [ ] Support dynamic property bindings
+- [ ] Improve support dynamic property bindings
+  - [ ] ternary operator
+  - [ ] `.toString()`
+  - [ ] `QString::arg()`
+  - [ ] integer/string as bool
+  - [ ] integer/floating point mess
+  - [ ] implicit/explicit `this` property
+  - [ ] gadget types
+  - [ ] cycle detection
+  - [ ] `if` statement
+  - [ ] `switch` statement
+  - [ ] multiple statements
 
 Comparison to DeclarativeWidgets
 --------------------------------
@@ -171,5 +215,4 @@ bindings, etc. The downside is the runtime dependency. And I guess it would
 be a bit tedious to "control" a widget from C++ side.
 
 `qmluic` is merely a .ui file generator. You can't write expressive property
-bindings (though I'm thinking of adding a C++ codegen pass for trivial
-expressions.) You can (and need to) implement C++ counterpart for each QML UI.
+bindings. You can (and need to) implement C++ counterpart for each QML UI.
