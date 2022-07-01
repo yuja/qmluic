@@ -83,7 +83,7 @@ pub fn dedent(data: impl AsRef<str>) -> String {
 }
 
 pub fn parse_doc(source: impl AsRef<str>) -> UiDocument {
-    UiDocument::parse(dedent(source), None)
+    UiDocument::parse(dedent(source), "MyType", None)
 }
 
 pub fn translate_file(path: impl AsRef<Utf8Path>) -> Result<(String, String), String> {
@@ -92,7 +92,7 @@ pub fn translate_file(path: impl AsRef<Utf8Path>) -> Result<(String, String), St
 }
 
 pub fn translate_str(source: impl AsRef<str>) -> Result<String, String> {
-    let doc = UiDocument::parse(dedent(source), None);
+    let doc = UiDocument::parse(dedent(source), "MyType", None);
     let (ui_xml, _) = translate_doc(&doc, DynamicBindingHandling::Reject)?;
     Ok(ui_xml)
 }

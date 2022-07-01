@@ -17,6 +17,7 @@ fn test_reserved_word_workaround() {
     QPushButton { default_: true }
     "###).unwrap(), @r###"
     <ui version="4.0">
+     <class>MyType</class>
      <widget class="QPushButton" name="pushButton">
       <property name="default">
        <bool>true</bool>
@@ -78,6 +79,7 @@ fn test_omit_dynamic_binding() {
     let (ui_xml, _) = common::translate_doc(&doc, DynamicBindingHandling::Omit).unwrap();
     insta::assert_snapshot!(ui_xml, @r###"
     <ui version="4.0">
+     <class>MyType</class>
      <widget class="QWidget" name="widget1">
       <widget class="QCheckBox" name="source">
       </widget>

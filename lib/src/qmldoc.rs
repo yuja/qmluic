@@ -14,6 +14,7 @@ use tree_sitter::{Node, Parser, Tree};
 pub struct UiDocument {
     source: String,
     tree: Tree,
+    type_name: String,
     path: Option<Utf8PathBuf>,
 }
 
@@ -22,16 +23,23 @@ impl UiDocument {
     ///
     /// The parsing doesn't fail even if the QML source has a syntax error. Instead, a node
     /// representing the error is inserted.
-    pub fn parse<S>(source: S, path: Option<Utf8PathBuf>) -> Self
+    pub fn parse<S, T>(source: S, type_name: T, path: Option<Utf8PathBuf>) -> Self
     where
         S: Into<String>,
+        T: Into<String>,
     {
         let source = source.into();
         let mut parser = new_parser();
         let tree = parser
             .parse(source.as_bytes(), None)
             .expect("no timeout nor cancellation should have been made");
-        UiDocument { source, tree, path }
+        let type_name = type_name.into();
+        UiDocument {
+            source,
+            tree,
+            type_name,
+            path,
+        }
     }
 
     /// Creates parsed tree from the given QML file.
@@ -43,9 +51,12 @@ impl UiDocument {
         P: AsRef<Utf8Path>, // TODO: or Into<Utf8PathBuf>, but read(&path) makes more sense?
     {
         let path = path.as_ref();
+        let type_name = path.file_stem().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::Other, "no type name part in file name")
+        })?;
         log::debug!("reading file {path:?}");
         let source = fs::read_to_string(path)?;
-        Ok(Self::parse(source, Some(path.to_owned())))
+        Ok(Self::parse(source, type_name, Some(path.to_owned())))
     }
 
     /// File path to this QML document.
@@ -57,7 +68,7 @@ impl UiDocument {
     ///
     /// It's typically the file name without ".qml" suffix.
     pub fn type_name(&self) -> Option<&str> {
-        self.path.as_ref().and_then(|p| p.file_stem())
+        Some(self.type_name.as_ref()) // TODO
     }
 
     pub fn has_syntax_error(&self) -> bool {
@@ -221,7 +232,7 @@ mod tests {
     use super::*;
 
     fn parse(source: &str) -> UiDocument {
-        UiDocument::parse(source, None)
+        UiDocument::parse(source, "MyType", None)
     }
 
     #[test]

@@ -1470,7 +1470,7 @@ mod tests {
                 .unwrap()
                 .extend([foo_meta, metatype::Class::new("A")]);
             Env {
-                doc: UiDocument::parse(format!("A {{ a: {expr_source}}}"), None),
+                doc: UiDocument::parse(format!("A {{ a: {expr_source}}}"), "MyType", None),
                 type_map,
                 module_id,
             }
