@@ -158,7 +158,7 @@ mod tests {
     use crate::qmldoc::UiDocument;
 
     fn parse(source: &str) -> UiDocument {
-        UiDocument::parse(source, None)
+        UiDocument::parse(source, "MyType", None)
     }
 
     fn extract_type_id(doc: &UiDocument) -> Result<NestedIdentifier, ParseError> {

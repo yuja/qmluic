@@ -261,7 +261,7 @@ mod tests {
             module_data.extend([metatype::Class::new("Foo")]);
             type_map.insert_module(module_id.clone(), module_data);
             Env {
-                doc: UiDocument::parse(source, None),
+                doc: UiDocument::parse(source, "MyType", None),
                 type_map,
                 module_id,
             }
