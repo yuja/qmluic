@@ -275,6 +275,13 @@ where
                 )
                 .map(Intermediate::Item)
         }
+        Expression::TernaryExpression(x) => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                "unsupported expression",
+            ));
+            None
+        }
     }
 }
 
