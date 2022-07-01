@@ -1,0 +1,24 @@
+---
+source: tests/test_uigen_examples.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_layoutflow.h"
+
+namespace UiSupport {
+class LayoutFlow
+{
+public:
+    LayoutFlow(QWidget *root, Ui::LayoutFlow *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+    }
+
+private:
+    QWidget *const root_;
+    Ui::LayoutFlow *const ui_;
+
+};
+} // namespace UiSupport
+

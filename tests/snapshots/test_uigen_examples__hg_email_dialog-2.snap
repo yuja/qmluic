@@ -1,0 +1,24 @@
+---
+source: tests/test_uigen_examples.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_hgemaildialog.h"
+
+namespace UiSupport {
+class HgEmailDialog
+{
+public:
+    HgEmailDialog(QDialog *root, Ui::HgEmailDialog *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+    }
+
+private:
+    QDialog *const root_;
+    Ui::HgEmailDialog *const ui_;
+
+};
+} // namespace UiSupport
+

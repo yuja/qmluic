@@ -1,0 +1,24 @@
+---
+source: tests/test_uigen_examples.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_staticitemmodel.h"
+
+namespace UiSupport {
+class StaticItemModel
+{
+public:
+    StaticItemModel(QWidget *root, Ui::StaticItemModel *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+    }
+
+private:
+    QWidget *const root_;
+    Ui::StaticItemModel *const ui_;
+
+};
+} // namespace UiSupport
+

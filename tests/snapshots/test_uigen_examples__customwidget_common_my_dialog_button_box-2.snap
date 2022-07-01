@@ -1,0 +1,24 @@
+---
+source: tests/test_uigen_examples.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_mydialogbuttonbox.h"
+
+namespace UiSupport {
+class MyDialogButtonBox
+{
+public:
+    MyDialogButtonBox(QDialogButtonBox *root, Ui::MyDialogButtonBox *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+    }
+
+private:
+    QDialogButtonBox *const root_;
+    Ui::MyDialogButtonBox *const ui_;
+
+};
+} // namespace UiSupport
+

@@ -86,20 +86,21 @@ pub fn parse_doc(source: impl AsRef<str>) -> UiDocument {
     UiDocument::parse(dedent(source), None)
 }
 
-pub fn translate_file(path: impl AsRef<Utf8Path>) -> Result<String, String> {
+pub fn translate_file(path: impl AsRef<Utf8Path>) -> Result<(String, String), String> {
     let doc = UiDocument::read(path).unwrap();
-    translate_doc(&doc, DynamicBindingHandling::Reject)
+    translate_doc(&doc, DynamicBindingHandling::Generate)
 }
 
 pub fn translate_str(source: impl AsRef<str>) -> Result<String, String> {
     let doc = UiDocument::parse(dedent(source), None);
-    translate_doc(&doc, DynamicBindingHandling::Reject)
+    let (ui_xml, _) = translate_doc(&doc, DynamicBindingHandling::Reject)?;
+    Ok(ui_xml)
 }
 
 pub fn translate_doc(
     doc: &UiDocument,
     dynamic_binding_handling: DynamicBindingHandling,
-) -> Result<String, String> {
+) -> Result<(String, String), String> {
     assert!(!doc.has_syntax_error());
     let mut type_map = TypeMap::with_primitive_types();
     let mut classes = load_metatypes();
@@ -127,14 +128,21 @@ pub fn translate_doc(
     )
     .unwrap();
     let mut diagnostics = Diagnostics::new();
-    let form = match uigen::build(&ctx, doc, &mut diagnostics) {
-        Some(form) if diagnostics.is_empty() => form,
+    let (form, ui_support_opt) = match uigen::build(&ctx, doc, &mut diagnostics) {
+        Some(x) if diagnostics.is_empty() => x,
         _ => return Err(format_diagnostics(doc, &diagnostics)),
     };
-    let mut buf = Vec::new();
-    form.serialize_to_xml(&mut XmlWriter::new_with_indent(&mut buf, b' ', 1))
+    let mut form_buf = Vec::new();
+    form.serialize_to_xml(&mut XmlWriter::new_with_indent(&mut form_buf, b' ', 1))
         .unwrap();
-    Ok(String::from_utf8(buf).unwrap())
+    let mut ui_support_buf = Vec::new();
+    if let Some(ui_support) = ui_support_opt {
+        ui_support.write_header(&mut ui_support_buf).unwrap();
+    }
+    Ok((
+        String::from_utf8(form_buf).unwrap(),
+        String::from_utf8(ui_support_buf).unwrap(),
+    ))
 }
 
 fn load_metatypes() -> Vec<metatype::Class> {

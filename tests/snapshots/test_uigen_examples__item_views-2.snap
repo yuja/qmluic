@@ -1,0 +1,24 @@
+---
+source: tests/test_uigen_examples.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_itemviews.h"
+
+namespace UiSupport {
+class ItemViews
+{
+public:
+    ItemViews(QWidget *root, Ui::ItemViews *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+    }
+
+private:
+    QWidget *const root_;
+    Ui::ItemViews *const ui_;
+
+};
+} // namespace UiSupport
+
