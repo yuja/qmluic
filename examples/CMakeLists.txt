@@ -57,6 +57,7 @@ qmluic_target_qml_sources(qmluic-examples
   SettingsDialog.qml
   StaticItemModel.qml
   VariousLayouts.qml
+  DYNAMIC_BINDING
 )
 
 target_compile_definitions(qmluic-examples
