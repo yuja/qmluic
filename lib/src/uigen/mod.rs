@@ -42,10 +42,24 @@ pub fn build(
         &type_space,
         diagnostics,
     )?;
-    let object_properties =
+    let mut object_properties =
         build_object_properties(doc, &type_space, &object_tree, base_ctx, diagnostics);
+    let dynamic_object_properties: Vec<_> = object_properties
+        .iter_mut()
+        .map(property::extract_dynamic_properties)
+        .collect();
+
     let ctx = BuildDocContext::new(doc, &type_space, &object_tree, &object_properties, base_ctx);
-    Some(UiForm::build(&ctx, object_tree.root(), diagnostics))
+    let form = UiForm::build(&ctx, object_tree.root(), diagnostics);
+
+    for v in dynamic_object_properties.iter().flat_map(|m| m.values()) {
+        diagnostics.push(Diagnostic::error(
+            v.node().byte_range(),
+            "unsupported dynamic binding",
+        ));
+    }
+
+    Some(form)
 }
 
 fn make_doc_module_space<'a>(
