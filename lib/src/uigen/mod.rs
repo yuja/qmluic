@@ -52,11 +52,16 @@ pub fn build(
     let ctx = BuildDocContext::new(doc, &type_space, &object_tree, &object_properties, base_ctx);
     let form = UiForm::build(&ctx, object_tree.root(), diagnostics);
 
-    for v in dynamic_object_properties.iter().flat_map(|m| m.values()) {
-        diagnostics.push(Diagnostic::error(
-            v.node().byte_range(),
-            "unsupported dynamic binding",
-        ));
+    match base_ctx.dynamic_binding_handling {
+        DynamicBindingHandling::Omit => {}
+        DynamicBindingHandling::Reject => {
+            for v in dynamic_object_properties.iter().flat_map(|m| m.values()) {
+                diagnostics.push(Diagnostic::error(
+                    v.node().byte_range(),
+                    "unsupported dynamic binding",
+                ));
+            }
+        }
     }
 
     Some(form)

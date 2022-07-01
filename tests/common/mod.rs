@@ -10,7 +10,7 @@ use qmluic::qmldir;
 use qmluic::qmldoc::{UiDocument, UiDocumentsCache};
 use qmluic::qtname::FileNameRules;
 use qmluic::typemap::{ModuleData, ModuleId, TypeMap};
-use qmluic::uigen::{self, BuildContext, XmlWriter};
+use qmluic::uigen::{self, BuildContext, DynamicBindingHandling, XmlWriter};
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -82,17 +82,24 @@ pub fn dedent(data: impl AsRef<str>) -> String {
     data.replace(&leader, "\n")
 }
 
+pub fn parse_doc(source: impl AsRef<str>) -> UiDocument {
+    UiDocument::parse(dedent(source), None)
+}
+
 pub fn translate_file(path: impl AsRef<Utf8Path>) -> Result<String, String> {
     let doc = UiDocument::read(path).unwrap();
-    translate_doc(&doc)
+    translate_doc(&doc, DynamicBindingHandling::Reject)
 }
 
 pub fn translate_str(source: impl AsRef<str>) -> Result<String, String> {
     let doc = UiDocument::parse(dedent(source), None);
-    translate_doc(&doc)
+    translate_doc(&doc, DynamicBindingHandling::Reject)
 }
 
-fn translate_doc(doc: &UiDocument) -> Result<String, String> {
+pub fn translate_doc(
+    doc: &UiDocument,
+    dynamic_binding_handling: DynamicBindingHandling,
+) -> Result<String, String> {
     assert!(!doc.has_syntax_error());
     let mut type_map = TypeMap::with_primitive_types();
     let mut classes = load_metatypes();
@@ -113,7 +120,12 @@ fn translate_doc(doc: &UiDocument) -> Result<String, String> {
         .unwrap();
     }
 
-    let ctx = BuildContext::prepare(&type_map, FileNameRules::default()).unwrap();
+    let ctx = BuildContext::prepare(
+        &type_map,
+        FileNameRules::default(),
+        dynamic_binding_handling,
+    )
+    .unwrap();
     let mut diagnostics = Diagnostics::new();
     let form = match uigen::build(&ctx, doc, &mut diagnostics) {
         Some(form) if diagnostics.is_empty() => form,
