@@ -264,6 +264,9 @@ struct GenerateUiArgs {
     /// By default, qt${major}core/gui/widgets_*.json will be loaded from the
     /// QT_INSTALL_LIBS/metatypes directory.
     foreign_types: Vec<Utf8PathBuf>,
+    /// Generate C++ code to set up dynamic bindings
+    #[clap(long, action)]
+    dynamic_binding: bool,
     /// Do not convert output file names to lowercase
     #[clap(long, action)]
     no_lowercase_file_name: bool,
@@ -299,7 +302,12 @@ fn generate_ui(helper: &CommandHelper, args: &GenerateUiArgs) -> Result<(), Comm
         lowercase: !args.no_lowercase_file_name,
         ..Default::default()
     };
-    let ctx = BuildContext::prepare(&type_map, file_name_rules, DynamicBindingHandling::Reject)
+    let dynamic_binding_handling = if args.dynamic_binding {
+        DynamicBindingHandling::Generate
+    } else {
+        DynamicBindingHandling::Reject
+    };
+    let ctx = BuildContext::prepare(&type_map, file_name_rules, dynamic_binding_handling)
         .map_err(anyhow::Error::from)?;
     for p in &args.sources {
         generate_ui_file(&ctx, &docs_cache, p, args.output_directory.as_deref())?;
@@ -336,32 +344,53 @@ fn generate_ui_file(
         }
     };
 
-    let out_path = {
+    let (ui_out_path, ui_support_h_out_path) = {
         let type_name = doc
             .type_name()
             .expect("valid source path should point to file");
-        let name = ctx.file_name_rules.type_name_to_ui_name(type_name);
-        let path = source.with_file_name(name);
+        let ui_path = source.with_file_name(ctx.file_name_rules.type_name_to_ui_name(type_name));
+        let ui_support_h_path = source.with_file_name(
+            ctx.file_name_rules
+                .type_name_to_ui_support_cxx_header_name(type_name),
+        );
         if let Some(dir) = output_directory {
-            dir.join(path)
+            (dir.join(ui_path), dir.join(ui_support_h_path))
         } else {
-            path
+            (ui_path, ui_support_h_path)
         }
     };
-    let mut serialized = Vec::new();
-    form.serialize_to_xml(&mut XmlWriter::new_with_indent(&mut serialized, b' ', 1))
+    let perm = fs::metadata(source)
+        .context("failed to get source file permission")?
+        .permissions(); // assume this is the default file permissions
+
+    let mut ui_serialized = Vec::new();
+    form.serialize_to_xml(&mut XmlWriter::new_with_indent(&mut ui_serialized, b' ', 1))
         .context("failed to serializee UI XML")?;
     // do not touch the output file if unchanged so the subsequent build steps wouldn't run
-    if !fs::read(&out_path)
-        .map(|d| d == serialized)
+    if !fs::read(&ui_out_path)
+        .map(|d| d == ui_serialized)
         .unwrap_or(false)
     {
-        let perm = fs::metadata(source)
-            .context("failed to get source file permission")?
-            .permissions(); // assume this is the default file permissions
-        with_output_file(&out_path, perm, |out| out.write_all(&serialized))
-            .context("failed to write UI XML")?;
+        with_output_file(&ui_out_path, perm.clone(), |out| {
+            out.write_all(&ui_serialized)
+        })
+        .context("failed to write UI XML")?;
     }
+
+    if let Some(ui_support) = ui_support_opt {
+        let mut h_data = Vec::new();
+        ui_support
+            .write_header(&mut h_data)
+            .context("failed to generate UI support header")?;
+        if !fs::read(&ui_support_h_out_path)
+            .map(|d| d == h_data)
+            .unwrap_or(false)
+        {
+            with_output_file(&ui_support_h_out_path, perm, |out| out.write_all(&h_data))
+                .context("failed to write UI support header")?;
+        }
+    }
+
     Ok(())
 }
 
