@@ -1,5 +1,5 @@
 use super::context::ObjectContext;
-use super::expr::{PropertyValue, SimpleValue, Value};
+use super::expr::{DynamicExpression, PropertyValue, SimpleValue, Value};
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
@@ -24,15 +24,22 @@ impl<'a, 't> PropertyDescValue<'a, 't> {
         PropertyDescValue { desc, value }
     }
 
-    fn is_dynamic(&self) -> bool {
-        match self.value {
-            PropertyValue::Serializable(_) => false,
-            PropertyValue::Dynamic(_) => true,
-            PropertyValue::ItemModel(_)
-            | PropertyValue::ObjectRefList(_)
-            | PropertyValue::ObjectProperties(_) => false, // don't care
+    fn to_dynamic(&self) -> Option<PropertyDescDynamicExpression<'a>> {
+        match &self.value {
+            PropertyValue::Dynamic(x) => Some(PropertyDescDynamicExpression {
+                _desc: self.desc.clone(),
+                _value: x.clone(),
+            }),
+            _ => None,
         }
     }
+}
+
+/// Dynamic property value with its description.
+#[derive(Clone, Debug)]
+pub(super) struct PropertyDescDynamicExpression<'a> {
+    pub _desc: Property<'a>,
+    pub _value: DynamicExpression<'a>,
 }
 
 /// Type of the property setter to be used by `uic`.
@@ -177,7 +184,12 @@ impl From<ValueTypeError<'_>> for Diagnostic {
     }
 }
 
+/// Hash map of property values that may or may not be serialized to UI XML.
 pub(super) type PropertiesMap<'a, 't> = HashMap<String, WithNode<'t, PropertyDescValue<'a, 't>>>;
+
+/// Hash map of dynamic property value expressions.
+pub(super) type DynamicPropertiesMap<'a, 't> =
+    HashMap<String, WithNode<'t, PropertyDescDynamicExpression<'a>>>;
 
 /// Parses the given `binding_map` into a map of constant expressions.
 ///
@@ -267,6 +279,22 @@ pub(super) fn reject_unwritable_properties(
     });
 }
 
+/// Extracts dynamic properties from the properties map.
+pub(super) fn extract_dynamic_properties<'a, 't>(
+    properties_map: &mut PropertiesMap<'a, 't>,
+) -> DynamicPropertiesMap<'a, 't> {
+    let mut dyn_properties_map = HashMap::new();
+    properties_map.retain(|k, v| {
+        if let Some(d) = v.data.to_dynamic() {
+            dyn_properties_map.insert(k.to_owned(), v.rewrap(d));
+            false
+        } else {
+            true
+        }
+    });
+    dyn_properties_map
+}
+
 pub(super) fn make_gadget_properties(
     properties_map: PropertiesMap,
     diagnostics: &mut Diagnostics,
@@ -288,18 +316,9 @@ pub(super) fn make_serializable_properties(
     properties_map
         .into_iter()
         .filter_map(|(k, v)| {
-            if v.data().is_dynamic() {
-                // TODO
-                diagnostics.push(Diagnostic::error(
-                    v.node().byte_range(),
-                    "unsupported dynamic binding",
-                ));
-                None
-            } else {
-                diagnostics
-                    .consume_err(v.into_serializable_setter())
-                    .map(|x| (k, x))
-            }
+            diagnostics
+                .consume_err(v.into_serializable_setter())
+                .map(|x| (k, x))
         })
         .collect()
 }
