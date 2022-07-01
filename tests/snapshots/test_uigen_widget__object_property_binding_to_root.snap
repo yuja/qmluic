@@ -1,0 +1,12 @@
+---
+source: tests/test_uigen_widget.rs
+expression: ui_xml
+---
+<ui version="4.0">
+ <class>MyType</class>
+ <widget class="QDialog" name="dialog">
+  <widget class="QLineEdit" name="edit">
+  </widget>
+ </widget>
+</ui>
+

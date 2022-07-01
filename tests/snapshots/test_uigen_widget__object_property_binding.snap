@@ -1,0 +1,14 @@
+---
+source: tests/test_uigen_widget.rs
+expression: ui_xml
+---
+<ui version="4.0">
+ <class>MyType</class>
+ <widget class="QWidget" name="widget1">
+  <widget class="QCheckBox" name="source">
+  </widget>
+  <widget class="QWidget" name="widget">
+  </widget>
+ </widget>
+</ui>
+
