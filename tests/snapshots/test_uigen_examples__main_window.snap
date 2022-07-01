@@ -1,6 +1,6 @@
 ---
 source: tests/test_uigen_examples.rs
-expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
+expression: ui_xml
 ---
 <ui version="4.0">
  <class>MainWindow</class>
@@ -12,9 +12,6 @@ expression: "common::translate_file(\"examples/MainWindow.qml\").unwrap()"
     <x>0</x>
     <y>0</y>
    </rect>
-  </property>
-  <property name="windowTitle">
-   <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="vboxLayout">

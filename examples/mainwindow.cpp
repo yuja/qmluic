@@ -5,23 +5,26 @@
 #include <QtDebug>
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "uisupport_mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui_(std::make_unique<Ui::MainWindow>())
+    : QMainWindow(parent),
+      ui_(std::make_unique<Ui::MainWindow>()),
+      uiSupport_(std::make_unique<UiSupport::MainWindow>(this, ui_.get()))
 {
     ui_->setupUi(this);
-    connect(ui_->fileNameEdit, &QComboBox::currentIndexChanged, this, &MainWindow::updateView);
+    uiSupport_->setup();
+    connect(ui_->fileNameEdit, &QComboBox::currentIndexChanged, this,
+            &MainWindow::updateSourceEdit);
     connect(ui_->action_Quit, &QAction::triggered, QCoreApplication::instance(),
             &QCoreApplication::quit, Qt::QueuedConnection);
-    updateView();
+    updateSourceEdit();
 }
 
 MainWindow::~MainWindow() = default;
 
-void MainWindow::updateView()
+void MainWindow::updateSourceEdit()
 {
-    ui_->formStack->setCurrentIndex(ui_->fileNameEdit->currentIndex());
-
     QDir baseDir(QFileInfo(__FILE__).dir());
     QFile file(baseDir.filePath(ui_->fileNameEdit->currentText()));
     if (file.open(QIODevice::ReadOnly)) {

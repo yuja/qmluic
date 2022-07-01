@@ -10,7 +10,7 @@ QMainWindow {
     // code for geometry. You can omit 'x: 0; y: 0;' part.
     geometry { x: 0; y: 0; width: 800; height: 600 }
 
-    windowTitle: qsTr("MainWindow")
+    windowTitle: qsTr("Qmluic example: ") + fileNameEdit.currentText
 
     // QAction and QMenu instances will be added automatically unless 'actions'
     // is explicitly set.
@@ -53,9 +53,12 @@ QMainWindow {
                 QStackedWidget {
                     id: formStack
 
-                    // It would be nice if we could bind the currentIndex, but you have to
-                    // do that in .cpp right now.
-                    // TODO: currentIndex: fileNameEdit.currentIndex
+                    // Dynamic binding is handled by the generated UiSupport code.
+                    // Basically, this binding will be mapped to the following connection:
+                    //
+                    // connect(fileNameEdit, &QComboBox::currentIndexChanged,
+                    //         []() { formStack->setCurrentIndex(fileNameEdit->currentIndex()); });
+                    currentIndex: fileNameEdit.currentIndex
 
                     QWidget {}  // placeholder for "MainWindow.qml"
                     HgEmailDialog {}

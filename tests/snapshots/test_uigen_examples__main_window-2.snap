@@ -13,9 +13,43 @@ public:
 
     void setup()
     {
+        this->setup_formStack_currentIndex();
+        this->setup_mainWindow_windowTitle();
+        this->update_formStack_currentIndex();
+        this->update_mainWindow_windowTitle();
     }
 
 private:
+    void setup_formStack_currentIndex()
+    {
+        auto *const fileNameEdit = this->ui_->fileNameEdit;
+
+        QObject::connect(fileNameEdit, &QComboBox::currentIndexChanged, root_, [this]() { this->update_formStack_currentIndex(); });
+    }
+
+    void update_formStack_currentIndex()
+    {
+        auto *const formStack = this->ui_->formStack;
+        auto *const fileNameEdit = this->ui_->fileNameEdit;
+
+        formStack->setCurrentIndex(fileNameEdit->currentIndex());
+    }
+
+    void setup_mainWindow_windowTitle()
+    {
+        auto *const fileNameEdit = this->ui_->fileNameEdit;
+
+        QObject::connect(fileNameEdit, &QComboBox::currentTextChanged, root_, [this]() { this->update_mainWindow_windowTitle(); });
+    }
+
+    void update_mainWindow_windowTitle()
+    {
+        auto *const mainWindow = this->root_;
+        auto *const fileNameEdit = this->ui_->fileNameEdit;
+
+        mainWindow->setWindowTitle(QString(QCoreApplication::translate("MainWindow", "Qmluic example: "))+fileNameEdit->currentText());
+    }
+
     QMainWindow *const root_;
     Ui::MainWindow *const ui_;
 
