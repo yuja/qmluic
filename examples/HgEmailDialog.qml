@@ -175,6 +175,7 @@ QDialog {
                         id: writeIntroCheck
                         QLayout.row: 1
                         QLayout.columnSpan: 2
+                        enabled: !bundleRadio.checked
                         text: qsTr("Write patch series (bundle) description")
                         whatsThis: qsTr(
                             "Patch series description is sent in initial summary email with " +
@@ -191,6 +192,7 @@ QDialog {
 
                         QGroupBox {
                             id: introBox
+                            visible: writeIntroCheck.checked || bundleRadio.checked
                             //title: ""
 
                             QVBoxLayout {

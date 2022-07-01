@@ -13,9 +13,46 @@ public:
 
     void setup()
     {
+        this->setup_writeIntroCheck_enabled();
+        this->setup_introBox_visible();
+        this->update_writeIntroCheck_enabled();
+        this->update_introBox_visible();
     }
 
 private:
+    void setup_writeIntroCheck_enabled()
+    {
+        auto *const bundleRadio = this->ui_->bundleRadio;
+
+        QObject::connect(bundleRadio, &QAbstractButton::toggled, root_, [this]() { this->update_writeIntroCheck_enabled(); });
+    }
+
+    void update_writeIntroCheck_enabled()
+    {
+        auto *const writeIntroCheck = this->ui_->writeIntroCheck;
+        auto *const bundleRadio = this->ui_->bundleRadio;
+
+        writeIntroCheck->setEnabled(!bundleRadio->isChecked());
+    }
+
+    void setup_introBox_visible()
+    {
+        auto *const writeIntroCheck = this->ui_->writeIntroCheck;
+        auto *const bundleRadio = this->ui_->bundleRadio;
+
+        QObject::connect(writeIntroCheck, &QAbstractButton::toggled, root_, [this]() { this->update_introBox_visible(); });
+        QObject::connect(bundleRadio, &QAbstractButton::toggled, root_, [this]() { this->update_introBox_visible(); });
+    }
+
+    void update_introBox_visible()
+    {
+        auto *const introBox = this->ui_->introBox;
+        auto *const writeIntroCheck = this->ui_->writeIntroCheck;
+        auto *const bundleRadio = this->ui_->bundleRadio;
+
+        introBox->setVisible(writeIntroCheck->isChecked()||bundleRadio->isChecked());
+    }
+
     QDialog *const root_;
     Ui::HgEmailDialog *const ui_;
 
