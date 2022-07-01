@@ -40,8 +40,7 @@ impl<'a, 't> PropertyValue<'a, 't> {
             UiBindingValue::Node(n) => match ty {
                 TypeKind::Just(t) => {
                     // detect type error and dynamic expression first
-                    let mut formatter =
-                        ExpressionFormatter::new(ctx.doc_type_name.unwrap_or_default());
+                    let mut formatter = ExpressionFormatter::new(ctx.doc_type_name);
                     let (res_t, res_expr, _) =
                         typedexpr::walk(ctx, *n, ctx.source, &mut formatter, diagnostics)?;
                     if formatter.property_deps.is_empty() {

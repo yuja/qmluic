@@ -89,10 +89,8 @@ fn make_doc_component_data(
         doc.source(),
     ))?;
 
-    let mut data = QmlComponentData::with_super(
-        doc.type_name().expect("doc must be read from file"),
-        obj.type_name().to_string(doc.source()),
-    );
+    let mut data =
+        QmlComponentData::with_super(doc.type_name(), obj.type_name().to_string(doc.source()));
 
     // QML files in the base directory should be available by default
     data.import_module(ModuleId::Directory(doc_base_dir.to_owned().into()));

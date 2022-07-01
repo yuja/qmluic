@@ -345,13 +345,11 @@ fn generate_ui_file(
     };
 
     let (ui_out_path, ui_support_h_out_path) = {
-        let type_name = doc
-            .type_name()
-            .expect("valid source path should point to file");
-        let ui_path = source.with_file_name(ctx.file_name_rules.type_name_to_ui_name(type_name));
+        let ui_path =
+            source.with_file_name(ctx.file_name_rules.type_name_to_ui_name(doc.type_name()));
         let ui_support_h_path = source.with_file_name(
             ctx.file_name_rules
-                .type_name_to_ui_support_cxx_header_name(type_name),
+                .type_name_to_ui_support_cxx_header_name(doc.type_name()),
         );
         if let Some(dir) = output_directory {
             (dir.join(ui_path), dir.join(ui_support_h_path))
