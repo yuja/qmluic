@@ -1,0 +1,24 @@
+---
+source: tests/test_uigen_examples.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_settingsform.h"
+
+namespace UiSupport {
+class SettingsForm
+{
+public:
+    SettingsForm(QWidget *root, Ui::SettingsForm *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+    }
+
+private:
+    QWidget *const root_;
+    Ui::SettingsForm *const ui_;
+
+};
+} // namespace UiSupport
+

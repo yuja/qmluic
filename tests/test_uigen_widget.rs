@@ -75,7 +75,8 @@ fn test_omit_dynamic_binding() {
         }
         "###,
     );
-    insta::assert_snapshot!(common::translate_doc(&doc, DynamicBindingHandling::Omit).unwrap(), @r###"
+    let (ui_xml, _) = common::translate_doc(&doc, DynamicBindingHandling::Omit).unwrap();
+    insta::assert_snapshot!(ui_xml, @r###"
     <ui version="4.0">
      <widget class="QWidget" name="widget1">
       <widget class="QCheckBox" name="source">

@@ -1,0 +1,24 @@
+---
+source: tests/test_uigen_examples.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_mainwindow.h"
+
+namespace UiSupport {
+class MainWindow
+{
+public:
+    MainWindow(QMainWindow *root, Ui::MainWindow *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+    }
+
+private:
+    QMainWindow *const root_;
+    Ui::MainWindow *const ui_;
+
+};
+} // namespace UiSupport
+

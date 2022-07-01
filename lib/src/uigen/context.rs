@@ -11,6 +11,8 @@ use thiserror::Error;
 pub enum DynamicBindingHandling {
     /// Silently drops dynamic bindings.
     Omit,
+    /// Generates C++ code to set up dynamic bindings.
+    Generate,
     /// Generates errors for dynamic bindings.
     Reject,
 }

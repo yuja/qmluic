@@ -30,12 +30,15 @@ pub type XmlError = quick_xml::Error;
 pub type XmlResult<T> = quick_xml::Result<T>;
 pub type XmlWriter<W> = quick_xml::Writer<W>;
 
-/// Builds `UiForm` from the given `doc`.
+/// Builds `UiForm` (and `UiSupportCode`) from the given `doc`.
+///
+/// If `DynamicBindingHandling::Generate`, `UiSupportCode` is returned no matter if
+/// the given document contains dynamic bindings or not.
 pub fn build(
     base_ctx: &BuildContext,
     doc: &UiDocument,
     diagnostics: &mut Diagnostics,
-) -> Option<UiForm> {
+) -> Option<(UiForm, Option<UiSupportCode>)> {
     let program = diagnostics.consume_err(UiProgram::from_node(doc.root_node(), doc.source()))?;
     let type_space = make_doc_module_space(doc, &program, base_ctx.type_map, diagnostics);
     let object_tree = ObjectTree::build(
@@ -54,19 +57,27 @@ pub fn build(
     let ctx = BuildDocContext::new(doc, &type_space, &object_tree, &object_properties, base_ctx);
     let form = UiForm::build(&ctx, object_tree.root(), diagnostics);
 
-    match base_ctx.dynamic_binding_handling {
-        DynamicBindingHandling::Omit => {}
-        DynamicBindingHandling::Reject => {
+    let ui_support = match (base_ctx.dynamic_binding_handling, doc.type_name()) {
+        (DynamicBindingHandling::Omit, _) => None,
+        (DynamicBindingHandling::Generate, Some(type_name)) => Some(UiSupportCode::build(
+            type_name,
+            &base_ctx.file_name_rules,
+            &object_tree,
+            &dynamic_object_properties,
+            diagnostics,
+        )),
+        (DynamicBindingHandling::Generate, None) | (DynamicBindingHandling::Reject, _) => {
             for v in dynamic_object_properties.iter().flat_map(|m| m.values()) {
                 diagnostics.push(Diagnostic::error(
                     v.node().byte_range(),
                     "unsupported dynamic binding",
                 ));
             }
+            None
         }
-    }
+    };
 
-    Some(form)
+    Some((form, ui_support))
 }
 
 fn make_doc_module_space<'a>(

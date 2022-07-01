@@ -328,8 +328,8 @@ fn generate_ui_file(
 
     log::debug!("building ui for {source:?}");
     let mut diagnostics = Diagnostics::new();
-    let form = match uigen::build(ctx, doc, &mut diagnostics) {
-        Some(form) if diagnostics.is_empty() => form,
+    let (form, ui_support_opt) = match uigen::build(ctx, doc, &mut diagnostics) {
+        Some(x) if diagnostics.is_empty() => x,
         _ => {
             reporting::print_diagnostics(doc, &diagnostics)?;
             return Err(CommandError::DiagnosticGenerated);
@@ -465,7 +465,7 @@ fn preview_file(
     let mut diagnostics = Diagnostics::new();
     let maybe_form = uigen::build(ctx, doc, &mut diagnostics);
     reporting::print_diagnostics(doc, &diagnostics)?;
-    if let Some(form) = maybe_form {
+    if let Some((form, None)) = maybe_form {
         let mut data = Vec::new();
         form.serialize_to_xml(&mut XmlWriter::new(&mut data))
             .context("failed to serialize UI to XML")?;

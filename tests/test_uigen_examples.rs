@@ -2,57 +2,73 @@ pub mod common;
 
 #[test]
 fn test_hg_email_dialog() {
-    insta::assert_snapshot!(common::translate_file("examples/HgEmailDialog.qml").unwrap());
+    let (ui_xml, ui_support_h) = common::translate_file("examples/HgEmailDialog.qml").unwrap();
+    insta::assert_snapshot!(ui_xml);
+    insta::assert_snapshot!(ui_support_h);
 }
 
 #[test]
 fn test_item_views() {
-    insta::assert_snapshot!(common::translate_file("examples/ItemViews.qml").unwrap());
+    let (ui_xml, ui_support_h) = common::translate_file("examples/ItemViews.qml").unwrap();
+    insta::assert_snapshot!(ui_xml);
+    insta::assert_snapshot!(ui_support_h);
 }
 
 #[test]
 fn test_layout_flow() {
-    insta::assert_snapshot!(common::translate_file("examples/LayoutFlow.qml").unwrap());
+    let (ui_xml, ui_support_h) = common::translate_file("examples/LayoutFlow.qml").unwrap();
+    insta::assert_snapshot!(ui_xml);
+    insta::assert_snapshot!(ui_support_h);
 }
 
 #[test]
 fn test_main_window() {
-    insta::assert_snapshot!(common::translate_file("examples/MainWindow.qml").unwrap());
+    let (ui_xml, ui_support_h) = common::translate_file("examples/MainWindow.qml").unwrap();
+    insta::assert_snapshot!(ui_xml);
+    insta::assert_snapshot!(ui_support_h);
 }
 
 #[test]
 fn test_settings_dialog() {
-    insta::assert_snapshot!(common::translate_file("examples/SettingsDialog.qml").unwrap());
+    let (ui_xml, ui_support_h) = common::translate_file("examples/SettingsDialog.qml").unwrap();
+    insta::assert_snapshot!(ui_xml);
+    insta::assert_snapshot!(ui_support_h);
 }
 
 #[test]
 fn test_static_item_model() {
-    insta::assert_snapshot!(common::translate_file("examples/StaticItemModel.qml").unwrap());
+    let (ui_xml, ui_support_h) = common::translate_file("examples/StaticItemModel.qml").unwrap();
+    insta::assert_snapshot!(ui_xml);
+    insta::assert_snapshot!(ui_support_h);
 }
 
 #[test]
 fn test_various_layouts() {
-    insta::assert_snapshot!(common::translate_file("examples/VariousLayouts.qml").unwrap());
+    let (ui_xml, ui_support_h) = common::translate_file("examples/VariousLayouts.qml").unwrap();
+    insta::assert_snapshot!(ui_xml);
+    insta::assert_snapshot!(ui_support_h);
 }
 
 #[test]
 fn test_customwidget_common_my_dialog_button_box() {
-    insta::assert_snapshot!(common::translate_file(
-        "examples/customwidget/common/MyDialogButtonBox.qml"
-    )
-    .unwrap());
+    let (ui_xml, ui_support_h) =
+        common::translate_file("examples/customwidget/common/MyDialogButtonBox.qml").unwrap();
+    insta::assert_snapshot!(ui_xml);
+    insta::assert_snapshot!(ui_support_h);
 }
 
 #[test]
 fn test_customwidget_main_dialog() {
-    insta::assert_snapshot!(
-        common::translate_file("examples/customwidget/MainDialog.qml").unwrap()
-    );
+    let (ui_xml, ui_support_h) =
+        common::translate_file("examples/customwidget/MainDialog.qml").unwrap();
+    insta::assert_snapshot!(ui_xml);
+    insta::assert_snapshot!(ui_support_h);
 }
 
 #[test]
 fn test_customwidget_settings_form() {
-    insta::assert_snapshot!(
-        common::translate_file("examples/customwidget/SettingsForm.qml").unwrap()
-    );
+    let (ui_xml, ui_support_h) =
+        common::translate_file("examples/customwidget/SettingsForm.qml").unwrap();
+    insta::assert_snapshot!(ui_xml);
+    insta::assert_snapshot!(ui_support_h);
 }

@@ -1,0 +1,24 @@
+---
+source: tests/test_uigen_examples.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_variouslayouts.h"
+
+namespace UiSupport {
+class VariousLayouts
+{
+public:
+    VariousLayouts(QWidget *root, Ui::VariousLayouts *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+    }
+
+private:
+    QWidget *const root_;
+    Ui::VariousLayouts *const ui_;
+
+};
+} // namespace UiSupport
+
