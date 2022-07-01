@@ -16,6 +16,7 @@ pub enum Expression<'tree> {
     CallExpression(CallExpression<'tree>),
     UnaryExpression(UnaryExpression<'tree>),
     BinaryExpression(BinaryExpression<'tree>),
+    TernaryExpression(TernaryExpression<'tree>),
     // TODO: ...
 }
 
@@ -97,6 +98,16 @@ impl<'tree> Expression<'tree> {
                     operator,
                     left,
                     right,
+                })
+            }
+            "ternary_expression" => {
+                let condition = astutil::get_child_by_field_name(node, "condition")?;
+                let consequence = astutil::get_child_by_field_name(node, "consequence")?;
+                let alternative = astutil::get_child_by_field_name(node, "alternative")?;
+                Expression::TernaryExpression(TernaryExpression {
+                    condition,
+                    consequence,
+                    alternative,
                 })
             }
             // TODO: ...
@@ -319,6 +330,14 @@ impl fmt::Display for BinaryOperator {
     }
 }
 
+/// Represents a ternary (or conditional) expression.
+#[derive(Clone, Debug)]
+pub struct TernaryExpression<'tree> {
+    pub condition: Node<'tree>,
+    pub consequence: Node<'tree>,
+    pub alternative: Node<'tree>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -501,6 +520,24 @@ mod tests {
             Expression::BinaryExpression(x) => {
                 assert_eq!(x.operator, BinaryOperator::Add);
                 assert_ne!(x.left, x.right);
+            }
+            expr => panic!("unexpected expression: {expr:?}"),
+        }
+    }
+
+    #[test]
+    fn ternary_expression() {
+        let doc = parse(
+            r###"
+            Foo {
+                ternary: true ? "true" : "false"
+            }
+            "###,
+        );
+        match unwrap_expr(&doc, "ternary") {
+            Expression::TernaryExpression(x) => {
+                assert_ne!(x.condition, x.consequence);
+                assert_ne!(x.consequence, x.alternative);
             }
             expr => panic!("unexpected expression: {expr:?}"),
         }
