@@ -17,6 +17,8 @@ pub enum TypeDesc<'a> {
     ObjectRefList(Class<'a>),
     StringList,
     EmptyList,
+    /// Type that has been determined.
+    Concrete(TypeKind<'a>),
 }
 
 impl<'a> TypeDesc<'a> {
@@ -67,6 +69,7 @@ impl<'a> TypeDesc<'a> {
             TypeDesc::ObjectRefList(cls) => format!("list<{}>", cls.qualified_cxx_name()).into(),
             TypeDesc::StringList => "list<string>".into(),
             TypeDesc::EmptyList => "list".into(),
+            TypeDesc::Concrete(k) => k.qualified_cxx_name(),
         }
     }
 }
@@ -339,11 +342,29 @@ where
     let not_found = || Diagnostic::error(id.node().byte_range(), "no property/method found");
     let name = id.to_str(source);
     match item.type_desc() {
-        TypeDesc::Bool | TypeDesc::Number | TypeDesc::String | TypeDesc::Enum(_) => {
+        // simple value types
+        TypeDesc::Bool
+        | TypeDesc::Number
+        | TypeDesc::String
+        | TypeDesc::Enum(_)
+        | TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(
+            PrimitiveType::Bool
+            | PrimitiveType::Int
+            | PrimitiveType::QReal
+            | PrimitiveType::QString
+            | PrimitiveType::UInt,
+        )))
+        | TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(_))) => {
             diagnostics.push(not_found());
             None
         }
-        TypeDesc::ObjectRef(cls) => {
+        // gadget types
+        TypeDesc::Concrete(TypeKind::Just(NamedType::Class(_))) => {
+            diagnostics.push(not_found());
+            None
+        }
+        // object types
+        TypeDesc::ObjectRef(cls) | TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(cls))) => {
             if let Some(p) = cls.get_property(name) {
                 diagnostics
                     .consume_node_err(id.node(), visitor.visit_object_property(item, p))
@@ -353,7 +374,27 @@ where
                 None
             }
         }
-        TypeDesc::ObjectRefList(_) | TypeDesc::StringList | TypeDesc::EmptyList => {
+        // list types
+        TypeDesc::ObjectRefList(_)
+        | TypeDesc::StringList
+        | TypeDesc::EmptyList
+        | TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::QStringList)))
+        | TypeDesc::Concrete(TypeKind::PointerList(_)) => {
+            diagnostics.push(not_found());
+            None
+        }
+        // unsupported/invalid types
+        TypeDesc::Concrete(TypeKind::Just(
+            NamedType::Namespace(_)
+            | NamedType::Primitive(PrimitiveType::Void)
+            | NamedType::QmlComponent(_),
+        ))
+        | TypeDesc::Concrete(TypeKind::Pointer(
+            NamedType::Enum(_)
+            | NamedType::Namespace(_)
+            | NamedType::Primitive(_)
+            | NamedType::QmlComponent(_),
+        )) => {
             diagnostics.push(not_found());
             None
         }
