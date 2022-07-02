@@ -643,6 +643,8 @@ enum ExpressionError {
     UnsupportedBinaryOperationOnType(BinaryOperator, String, String),
     #[error("unsupported ternary expression")]
     UnsupportedTernaryExpression,
+    #[error("condition must be of bool type, but got: {0}")]
+    UnsupportedConditionType(String),
     #[error("cannot evaluate as constant")]
     CannotEvaluateAsConstant,
     #[error("cannot deduce type from '{0}' and '{1}'")]
@@ -655,7 +657,7 @@ enum ExpressionError {
 #[derive(Debug)]
 struct ExpressionEvaluator;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum EvaluatedValue {
     Bool(bool),
     Number(f64),
@@ -886,11 +888,19 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
 
     fn visit_ternary_expression(
         &mut self,
-        _condition: Self::Item,
-        _consequence: Self::Item,
-        _alternative: Self::Item,
+        condition: Self::Item,
+        consequence: Self::Item,
+        alternative: Self::Item,
     ) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedTernaryExpression) // TODO
+        match condition {
+            EvaluatedValue::Bool(b) => Ok(if b { consequence } else { alternative }),
+            EvaluatedValue::Number(_)
+            | EvaluatedValue::String(..)
+            | EvaluatedValue::StringList(_)
+            | EvaluatedValue::EmptyList => Err(ExpressionError::UnsupportedConditionType(
+                condition.type_desc().qualified_name().into(),
+            )),
+        }
     }
 }
 
@@ -1629,5 +1639,11 @@ mod tests {
     #[test]
     fn format_object_property() {
         assert_eq!(format_expr("!foo.checked"), "!foo->isChecked()",);
+    }
+
+    #[test]
+    fn evalute_ternary() {
+        assert_eq!(evaluate_expr("true ? 1 : 2"), EvaluatedValue::Number(1.));
+        assert_eq!(evaluate_expr("false ? 1 : 2"), EvaluatedValue::Number(2.));
     }
 }
