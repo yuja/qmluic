@@ -1512,6 +1512,26 @@ mod tests {
             map.get("a").unwrap().get_node().unwrap()
         }
 
+        fn evaluate(&self) -> EvaluatedValue {
+            self.try_evaluate().unwrap()
+        }
+
+        fn try_evaluate(&self) -> Result<EvaluatedValue, Diagnostics> {
+            let mut diagnostics = Diagnostics::new();
+            let ctx = Context {
+                type_space: self.type_map.get_module(&self.module_id).unwrap(),
+            };
+            let node = self.node();
+            typedexpr::walk(
+                &ctx,
+                node,
+                self.doc.source(),
+                &mut ExpressionEvaluator,
+                &mut diagnostics,
+            )
+            .ok_or(diagnostics)
+        }
+
         fn format(&self) -> (TypeDesc, String, u32) {
             self.try_format().unwrap()
         }
@@ -1548,6 +1568,10 @@ mod tests {
                 _ => self.type_space.get_ref(name),
             }
         }
+    }
+
+    fn evaluate_expr(expr_source: &str) -> EvaluatedValue {
+        Env::new(expr_source).evaluate()
     }
 
     fn format_expr(expr_source: &str) -> String {
