@@ -972,29 +972,9 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
         let mut elem_t: Option<TypeDesc> = None;
         let mut elem_exprs = Vec::with_capacity(elements.len());
         for (t, expr, prec) in elements {
-            elem_t = match (elem_t, t) {
-                (Some(known), t) if known == t => Some(known),
-                (Some(TypeDesc::Enum(known_en)), TypeDesc::Enum(en))
-                    if is_compatible_enum(&known_en, &en) =>
-                {
-                    Some(TypeDesc::Enum(known_en))
-                }
-                (Some(TypeDesc::ObjectRef(known_cls)), TypeDesc::ObjectRef(cls)) => {
-                    let base_cls = known_cls.common_base_class(&cls).ok_or_else(|| {
-                        ExpressionError::CannotDeduceType(
-                            known_cls.qualified_cxx_name().into(),
-                            cls.qualified_cxx_name().into(),
-                        )
-                    })?;
-                    Some(TypeDesc::ObjectRef(base_cls))
-                }
-                (Some(known), t) => {
-                    return Err(ExpressionError::CannotDeduceType(
-                        known.qualified_name().into(),
-                        t.qualified_name().into(),
-                    ))
-                }
-                (None, t) => Some(t),
+            elem_t = match elem_t {
+                Some(known) => Some(deduce_type(known, t)?),
+                None => Some(t),
             };
             // TODO: discriminate QString from char* by type desc?
             if elem_t == Some(TypeDesc::String) {
@@ -1240,6 +1220,31 @@ fn is_compatible_enum(left_en: &Enum, right_en: &Enum) -> bool {
     left_en == right_en
         || left_en.alias_enum().map_or(false, |en| &en == right_en)
         || right_en.alias_enum().map_or(false, |en| &en == left_en)
+}
+
+fn deduce_type<'a>(
+    left_t: TypeDesc<'a>,
+    right_t: TypeDesc<'a>,
+) -> Result<TypeDesc<'a>, ExpressionError> {
+    match (left_t, right_t) {
+        (l, r) if l == r => Ok(l),
+        (TypeDesc::Enum(l), TypeDesc::Enum(r)) if is_compatible_enum(&l, &r) => {
+            Ok(TypeDesc::Enum(l))
+        }
+        (TypeDesc::ObjectRef(l), TypeDesc::ObjectRef(r)) => l
+            .common_base_class(&r)
+            .map(TypeDesc::ObjectRef)
+            .ok_or_else(|| {
+                ExpressionError::CannotDeduceType(
+                    l.qualified_cxx_name().into(),
+                    r.qualified_cxx_name().into(),
+                )
+            }),
+        (l, r) => Err(ExpressionError::CannotDeduceType(
+            l.qualified_name().into(),
+            r.qualified_name().into(),
+        )),
+    }
 }
 
 pub(super) fn strip_enum_prefix(s: &str) -> &str {
