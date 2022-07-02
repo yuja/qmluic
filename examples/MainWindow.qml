@@ -10,7 +10,9 @@ QMainWindow {
     // code for geometry. You can omit 'x: 0; y: 0;' part.
     geometry { x: 0; y: 0; width: 800; height: 600 }
 
-    windowTitle: qsTr("Qmluic example: ") + fileNameEdit.currentText
+    windowTitle: (qsTr("Qmluic Example: ")
+                  + (fileNameEdit.currentIndex === 0 ? qsTr("*** Select Source ***")
+                                                     : fileNameEdit.currentText))
 
     // QAction and QMenu instances will be added automatically unless 'actions'
     // is explicitly set.
