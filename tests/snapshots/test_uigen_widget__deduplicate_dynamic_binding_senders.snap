@@ -1,0 +1,42 @@
+---
+source: tests/test_uigen_widget.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_mytype.h"
+
+namespace UiSupport {
+class MyType
+{
+public:
+    MyType(QDialog *root, Ui::MyType *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+        this->setup_dialog_windowTitle();
+        this->update_dialog_windowTitle();
+    }
+
+private:
+    void setup_dialog_windowTitle()
+    {
+        auto *const combo = this->ui_->combo;
+
+        QObject::connect(combo, &QComboBox::currentIndexChanged, root_, [this]() { this->update_dialog_windowTitle(); });
+        QObject::connect(combo, &QComboBox::currentTextChanged, root_, [this]() { this->update_dialog_windowTitle(); });
+    }
+
+    void update_dialog_windowTitle()
+    {
+        auto *const dialog = this->root_;
+        auto *const combo = this->ui_->combo;
+
+        dialog->setWindowTitle(combo->currentIndex()==0 ? "-" : combo->currentText());
+    }
+
+    QDialog *const root_;
+    Ui::MyType *const ui_;
+
+};
+} // namespace UiSupport
+
