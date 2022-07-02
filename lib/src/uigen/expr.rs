@@ -625,6 +625,8 @@ fn parse_object_reference_list(
 
 #[derive(Clone, Debug, Error)]
 enum ExpressionError {
+    #[error("unsupported type: {0}")]
+    UnsupportedType(String),
     #[error("unsupported literal: {0}")]
     UnsupportedLiteral(&'static str),
     #[error("unsupported reference")]
@@ -997,6 +999,12 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
             Some(TypeDesc::ObjectRefList(_) | TypeDesc::StringList | TypeDesc::EmptyList) => {
                 return Err(ExpressionError::UnsupportedLiteral("nested array"))
             }
+            Some(TypeDesc::Concrete(k)) => {
+                return Err(ExpressionError::UnsupportedType(format!(
+                    "array of {}",
+                    k.qualified_cxx_name()
+                )));
+            }
             None => TypeDesc::EmptyList,
         };
         // not a term, but would be as strong as a term
@@ -1093,10 +1101,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                 Minus | Plus => Err(type_error()),
                 Typeof | Void | Delete => Err(type_error()),
             },
-            TypeDesc::ObjectRef(_)
-            | TypeDesc::ObjectRefList(_)
-            | TypeDesc::StringList
-            | TypeDesc::EmptyList => Err(type_error()),
+            _ => Err(type_error()),
         }
     }
 
