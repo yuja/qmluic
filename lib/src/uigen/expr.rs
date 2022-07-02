@@ -641,6 +641,8 @@ enum ExpressionError {
     UnsupportedUnaryOperationOnType(UnaryOperator, String),
     #[error("unsupported binary operation on types: <{1}> {0} <{2}>")]
     UnsupportedBinaryOperationOnType(BinaryOperator, String, String),
+    #[error("unsupported ternary expression")]
+    UnsupportedTernaryExpression,
     #[error("cannot evaluate as constant")]
     CannotEvaluateAsConstant,
     #[error("cannot deduce type from '{0}' and '{1}'")]
@@ -880,6 +882,15 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
             }
             _ => Err(type_error()),
         }
+    }
+
+    fn visit_ternary_expression(
+        &mut self,
+        _condition: Self::Item,
+        _consequence: Self::Item,
+        _alternative: Self::Item,
+    ) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedTernaryExpression) // TODO
     }
 }
 
@@ -1204,6 +1215,15 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
             _ => Err(type_error()),
         }
     }
+
+    fn visit_ternary_expression(
+        &mut self,
+        _condition: Self::Item,
+        _consequence: Self::Item,
+        _alternative: Self::Item,
+    ) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedTernaryExpression) // TODO
+    }
 }
 
 fn is_compatible_enum(left_en: &Enum, right_en: &Enum) -> bool {
@@ -1425,6 +1445,15 @@ impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
             left.type_desc().qualified_name().into(),
             right.type_desc().qualified_name().into(),
         ))
+    }
+
+    fn visit_ternary_expression(
+        &mut self,
+        _condition: Self::Item,
+        _consequence: Self::Item,
+        _alternative: Self::Item,
+    ) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedTernaryExpression)
     }
 }
 

@@ -151,6 +151,12 @@ pub trait ExpressionVisitor<'a> {
         left: Self::Item,
         right: Self::Item,
     ) -> Result<Self::Item, Self::Error>;
+    fn visit_ternary_expression(
+        &mut self,
+        condition: Self::Item,
+        consequence: Self::Item,
+        alternative: Self::Item,
+    ) -> Result<Self::Item, Self::Error>;
 }
 
 #[derive(Debug)]
@@ -276,11 +282,15 @@ where
                 .map(Intermediate::Item)
         }
         Expression::TernaryExpression(x) => {
-            diagnostics.push(Diagnostic::error(
-                node.byte_range(),
-                "unsupported expression",
-            ));
-            None
+            let condition = walk(ctx, x.condition, source, visitor, diagnostics)?;
+            let consequence = walk(ctx, x.consequence, source, visitor, diagnostics)?;
+            let alternative = walk(ctx, x.alternative, source, visitor, diagnostics)?;
+            diagnostics
+                .consume_node_err(
+                    node,
+                    visitor.visit_ternary_expression(condition, consequence, alternative),
+                )
+                .map(Intermediate::Item)
         }
     }
 }
