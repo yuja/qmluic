@@ -141,6 +141,51 @@ fn test_omit_dynamic_binding() {
 }
 
 #[test]
+fn test_deduplicate_dynamic_binding_senders() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QDialog {
+             windowTitle: combo.currentIndex === 0 ? "-" : combo.currentText
+             QComboBox { id: combo }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
+fn test_deduplicate_dynamic_binding_connections() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QDialog {
+             windowTitle: edit.text + edit.text
+             QLineEdit { id: edit }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
+fn test_deduplicate_dynamic_binding_sender_receiver() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QLineEdit {
+            id: edit
+            enabled: edit.text === ""
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
 fn test_ternary_expression_type_mismatch() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets

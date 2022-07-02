@@ -5,6 +5,7 @@ use crate::qtname::FileNameRules;
 use crate::typemap::TypeSpace;
 use itertools::Itertools as _;
 use std::io;
+use std::iter;
 
 /// C++ code to set up dynamic property bindings.
 #[derive(Clone, Debug)]
@@ -173,11 +174,15 @@ impl BindingCode {
     fn write_setup_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
         writeln!(writer, "{indent}void {}()", self.setup_function_name)?;
         writeln!(writer, "{indent}{{")?;
-        self.write_sender_variables(writer, &(indent.to_owned() + "    "))?;
-        for (sender, signal) in &self.sender_signals {
+        let indent_body = indent.to_owned() + "    ";
+        for field in self.sender_signals.iter().map(|(s, _)| s).unique() {
+            field.write_local_variable(writer, &indent_body)?;
+        }
+        writeln!(writer)?;
+        for (sender, signal) in self.sender_signals.iter().unique() {
             writeln!(
                 writer,
-                "{indent}    QObject::connect({}, &{}, root_, [this]() {{ this->{}(); }});",
+                "{indent_body}QObject::connect({}, &{}, root_, [this]() {{ this->{}(); }});",
                 sender.name(),
                 signal,
                 self.update_function_name
@@ -190,24 +195,22 @@ impl BindingCode {
     fn write_update_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
         writeln!(writer, "{indent}void {}()", self.update_function_name)?;
         writeln!(writer, "{indent}{{")?;
+        let indent_body = indent.to_owned() + "    ";
         // TODO: insert cycle detector
-        self.receiver
-            .write_local_variable(writer, &(indent.to_owned() + "    "))?;
-        self.write_sender_variables(writer, &(indent.to_owned() + "    "))?;
-        writeln!(writer, "{indent}    {};", self.write_expr)?;
-        writeln!(writer, "{indent}}}")?;
-        writeln!(writer)
-    }
-
-    fn write_sender_variables<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
-        for (sender, _) in &self.sender_signals {
-            sender.write_local_variable(writer, indent)?;
+        for field in iter::once(&self.receiver)
+            .chain(self.sender_signals.iter().map(|(s, _)| s))
+            .unique()
+        {
+            field.write_local_variable(writer, &indent_body)?;
         }
+        writeln!(writer)?;
+        writeln!(writer, "{indent_body}{};", self.write_expr)?;
+        writeln!(writer, "{indent}}}")?;
         writeln!(writer)
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 enum CxxFieldRef {
     /// Root object: `{name} = this->root_`
     Root(String),

@@ -1,0 +1,40 @@
+---
+source: tests/test_uigen_widget.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_mytype.h"
+
+namespace UiSupport {
+class MyType
+{
+public:
+    MyType(QLineEdit *root, Ui::MyType *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+        this->setup_edit_enabled();
+        this->update_edit_enabled();
+    }
+
+private:
+    void setup_edit_enabled()
+    {
+        auto *const edit = this->root_;
+
+        QObject::connect(edit, &QLineEdit::textChanged, root_, [this]() { this->update_edit_enabled(); });
+    }
+
+    void update_edit_enabled()
+    {
+        auto *const edit = this->root_;
+
+        edit->setEnabled(QString(edit->text())=="");
+    }
+
+    QLineEdit *const root_;
+    Ui::MyType *const ui_;
+
+};
+} // namespace UiSupport
+
