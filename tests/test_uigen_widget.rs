@@ -139,3 +139,14 @@ fn test_omit_dynamic_binding() {
     </ui>
     "###);
 }
+
+#[test]
+fn test_ternary_expression_type_mismatch() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QWidget {
+         windowTitle: source.checked ? 1 : "whatever"
+         QCheckBox { id: source }
+    }
+    "###).unwrap_err(), @"<unknown>:3:19: error: cannot deduce type from 'number' and 'string'");
+}

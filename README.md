@@ -193,7 +193,7 @@ Major TODOs
 - [ ] Better support for static `QComboBox`/`QListWidget` items
 - [ ] Support signal-slot connections (`on<Signal>` syntax)
 - [ ] Improve support for dynamic property bindings
-  - [ ] ternary operator
+  - [x] ternary operator
   - [ ] `.toString()`
   - [ ] `QString::arg()`
   - [ ] integer/string as bool
