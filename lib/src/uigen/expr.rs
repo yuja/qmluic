@@ -1208,11 +1208,23 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
 
     fn visit_ternary_expression(
         &mut self,
-        _condition: Self::Item,
-        _consequence: Self::Item,
-        _alternative: Self::Item,
+        (condition_t, condition_expr, condition_prec): Self::Item,
+        (consequence_t, consequence_expr, consequence_prec): Self::Item,
+        (alternative_t, alternative_expr, alternative_prec): Self::Item,
     ) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedTernaryExpression) // TODO
+        if condition_t != TypeDesc::Bool {
+            return Err(ExpressionError::UnsupportedConditionType(
+                condition_t.qualified_name().into(),
+            ));
+        }
+        let res_t = deduce_type(consequence_t, alternative_t)?;
+        let res_expr = format!(
+            "{} ? {} : {}",
+            maybe_paren(PREC_TERNARY, condition_expr, condition_prec),
+            maybe_paren(PREC_TERNARY, consequence_expr, consequence_prec),
+            maybe_paren(PREC_TERNARY, alternative_expr, alternative_prec),
+        );
+        Ok((res_t, res_expr, PREC_TERNARY))
     }
 }
 
@@ -1264,6 +1276,7 @@ const PREC_TERM: u32 = 0;
 const PREC_SCOPE: u32 = 1;
 const PREC_CALL: u32 = 2;
 const PREC_MEMBER: u32 = 2;
+const PREC_TERNARY: u32 = 16;
 const PREC_COMMA: u32 = 17;
 
 fn unary_operator_precedence(operator: UnaryOperator) -> u32 {
@@ -1650,5 +1663,13 @@ mod tests {
     fn evalute_ternary() {
         assert_eq!(evaluate_expr("true ? 1 : 2"), EvaluatedValue::Number(1.));
         assert_eq!(evaluate_expr("false ? 1 : 2"), EvaluatedValue::Number(2.));
+    }
+
+    #[test]
+    fn format_ternary() {
+        assert_eq!(
+            format_expr("foo.checked ? 1 : 2"),
+            "foo->isChecked() ? 1 : 2"
+        );
     }
 }
