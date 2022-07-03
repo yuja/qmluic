@@ -1,4 +1,4 @@
-use super::astutil;
+use super::astutil::{self, Number};
 use super::term::Identifier;
 use super::{ParseError, ParseErrorKind};
 use std::fmt;
@@ -8,7 +8,8 @@ use tree_sitter::{Node, TreeCursor};
 #[derive(Clone, Debug)]
 pub enum Expression<'tree> {
     Identifier(Identifier<'tree>),
-    Number(f64),
+    Integer(u64),
+    Float(f64),
     String(String),
     Bool(bool),
     Array(Vec<Node<'tree>>),
@@ -53,7 +54,15 @@ impl<'tree> Expression<'tree> {
         let node = cursor.node();
         let expr = match node.kind() {
             "identifier" => Expression::Identifier(Identifier::from_node(node)?),
-            "number" => Expression::Number(astutil::parse_number(node, source)?),
+            "number" => {
+                // A number is floating point in JavaScript, but we want to discriminate
+                // integer/float to process numeric operations in more C/Rust-like way.
+                // It will help avoid unexpected integer->float conversion by division.
+                match astutil::parse_number(node, source)? {
+                    Number::Integer(n) => Expression::Integer(n),
+                    Number::Float(n) => Expression::Float(n),
+                }
+            }
             "string" => Expression::String(astutil::parse_string(node, source)?),
             "true" => Expression::Bool(true),
             "false" => Expression::Bool(false),
@@ -352,9 +361,16 @@ mod tests {
             }
         }
 
-        fn unwrap_number(self) -> f64 {
+        fn unwrap_integer(self) -> u64 {
             match self {
-                Expression::Number(x) => x,
+                Expression::Integer(x) => x,
+                _ => panic!("unexpected expression: {self:?}"),
+            }
+        }
+
+        fn unwrap_float(self) -> f64 {
+            match self {
+                Expression::Float(x) => x,
                 _ => panic!("unexpected expression: {self:?}"),
             }
         }
@@ -403,7 +419,8 @@ mod tests {
             r###"
             Foo {
                 identifier: foo
-                number_: 123
+                integer: 123
+                float: 123.
                 string_: "whatever"
                 escaped_string: "foo\nbar"
                 true_: true
@@ -421,7 +438,8 @@ mod tests {
                 .to_str(doc.source()),
             "foo"
         );
-        assert_eq!(unwrap_expr(&doc, "number_").unwrap_number(), 123.);
+        assert_eq!(unwrap_expr(&doc, "integer").unwrap_integer(), 123);
+        assert_eq!(unwrap_expr(&doc, "float").unwrap_float(), 123.);
         assert_eq!(unwrap_expr(&doc, "string_").unwrap_string(), "whatever");
         assert_eq!(
             unwrap_expr(&doc, "escaped_string").unwrap_string(),
@@ -435,9 +453,9 @@ mod tests {
                 .iter()
                 .map(|&n| Expression::from_node(n, doc.source())
                     .unwrap()
-                    .unwrap_number())
+                    .unwrap_integer())
                 .collect::<Vec<_>>(),
-            [0., 1., 2.]
+            [0, 1, 2]
         );
         assert!(extract_expr(&doc, "paren1").is_ok());
         assert!(extract_expr(&doc, "paren2").is_ok());
