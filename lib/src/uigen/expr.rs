@@ -1005,16 +1005,10 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
             Some(TypeDesc::Concrete(TypeKind::Pointer(t))) => {
                 TypeDesc::Concrete(TypeKind::PointerList(t))
             }
-            Some(TypeDesc::Number) => {
-                return Err(ExpressionError::UnsupportedLiteral("non-string array"))
-            }
-            Some(TypeDesc::EmptyList) => {
-                return Err(ExpressionError::UnsupportedLiteral("nested array"))
-            }
-            Some(TypeDesc::Concrete(k)) => {
+            Some(t @ (TypeDesc::Number | TypeDesc::EmptyList | TypeDesc::Concrete(_))) => {
                 return Err(ExpressionError::UnsupportedType(format!(
                     "array of {}",
-                    k.qualified_cxx_name()
+                    t.qualified_name()
                 )));
             }
             None => TypeDesc::EmptyList,
