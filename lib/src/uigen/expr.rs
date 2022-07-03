@@ -326,7 +326,9 @@ fn parse_as_value_type(
             parse_color_value(ctx, node, diagnostics).map(Value::Gadget)
         }
         NamedType::Class(cls) if cls == &ctx.classes.cursor => match &res_t {
-            TypeDesc::Enum(res_en) if is_compatible_enum(res_en, &ctx.classes.cursor_shape) => {
+            TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(res_en)))
+                if is_compatible_enum(res_en, &ctx.classes.cursor_shape) =>
+            {
                 Some(Value::Simple(SimpleValue::CursorShape(
                     strip_enum_prefix(&res_expr).to_owned(),
                 )))
@@ -346,7 +348,9 @@ fn parse_as_value_type(
         NamedType::Class(cls) if cls == &ctx.classes.key_sequence => {
             let standard_key_en = &ctx.classes.key_sequence_standard_key;
             match &res_t {
-                TypeDesc::Enum(res_en) if is_compatible_enum(res_en, standard_key_en) => {
+                TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(res_en)))
+                    if is_compatible_enum(res_en, standard_key_en) =>
+                {
                     if standard_key_en.is_flag() {
                         Some(Value::Simple(SimpleValue::Set(res_expr)))
                     } else {
@@ -390,7 +394,9 @@ fn parse_as_value_type(
             }
         }
         NamedType::Enum(en) => match &res_t {
-            TypeDesc::Enum(res_en) if is_compatible_enum(res_en, en) => {
+            TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(res_en)))
+                if is_compatible_enum(res_en, en) =>
+            {
                 if en.is_flag() {
                     Some(Value::Simple(SimpleValue::Set(res_expr)))
                 } else {
@@ -967,7 +973,11 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
 
     fn visit_enum(&mut self, enum_ty: Enum<'a>, variant: &str) -> Result<Self::Item, Self::Error> {
         let res_expr = enum_ty.qualify_cxx_variant_name(variant);
-        Ok((TypeDesc::Enum(enum_ty), res_expr, PREC_SCOPE))
+        Ok((
+            TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(enum_ty))),
+            res_expr,
+            PREC_SCOPE,
+        ))
     }
 
     fn visit_array(&mut self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
@@ -993,7 +1003,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
         let array_t = match elem_t {
             Some(TypeDesc::String) => TypeDesc::StringList,
             Some(TypeDesc::ObjectRef(cls)) => TypeDesc::ObjectRefList(cls),
-            Some(TypeDesc::Number | TypeDesc::Enum(_)) => {
+            Some(TypeDesc::Number) => {
                 return Err(ExpressionError::UnsupportedLiteral("non-string array"))
             }
             Some(TypeDesc::ObjectRefList(_) | TypeDesc::StringList | TypeDesc::EmptyList) => {
@@ -1095,9 +1105,9 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                 Typeof | Void | Delete => Err(type_error()),
             },
             TypeDesc::String => Err(type_error()),
-            TypeDesc::Enum(en) => match operator {
+            t @ TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(_))) => match operator {
                 LogicalNot => Ok((TypeDesc::BOOL, res_expr, res_prec)),
-                BitwiseNot => Ok((TypeDesc::Enum(en), res_expr, res_prec)),
+                BitwiseNot => Ok((t, res_expr, res_prec)),
                 Minus | Plus => Err(type_error()),
                 Typeof | Void | Delete => Err(type_error()),
             },
@@ -1186,9 +1196,10 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                     NullishCoalesce | Instanceof | In => Err(type_error()),
                 }
             }
-            (TypeDesc::Enum(left_en), TypeDesc::Enum(right_en))
-                if is_compatible_enum(&left_en, &right_en) =>
-            {
+            (
+                TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(left_en))),
+                TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(right_en))),
+            ) if is_compatible_enum(&left_en, &right_en) => {
                 let res_expr = [
                     &maybe_paren(res_prec, left_expr, left_prec),
                     binary_operator_str(operator),
@@ -1198,9 +1209,11 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                 match operator {
                     LogicalAnd | LogicalOr => Ok((TypeDesc::BOOL, res_expr, res_prec)),
                     RightShift | UnsignedRightShift | LeftShift => Err(type_error()),
-                    BitwiseAnd | BitwiseXor | BitwiseOr => {
-                        Ok((TypeDesc::Enum(left_en), res_expr, res_prec))
-                    }
+                    BitwiseAnd | BitwiseXor | BitwiseOr => Ok((
+                        TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(left_en))),
+                        res_expr,
+                        res_prec,
+                    )),
                     Add | Sub | Mul | Div | Rem | Exp => Err(type_error()),
                     Equal | StrictEqual | NotEqual | StrictNotEqual | LessThan | LessThanEqual
                     | GreaterThan | GreaterThanEqual => Ok((TypeDesc::BOOL, res_expr, res_prec)),
@@ -1245,8 +1258,11 @@ fn deduce_type<'a>(
 ) -> Result<TypeDesc<'a>, ExpressionError> {
     match (left_t, right_t) {
         (l, r) if l == r => Ok(l),
-        (TypeDesc::Enum(l), TypeDesc::Enum(r)) if is_compatible_enum(&l, &r) => {
-            Ok(TypeDesc::Enum(l))
+        (
+            TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(l))),
+            TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(r))),
+        ) if is_compatible_enum(&l, &r) => {
+            Ok(TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(l))))
         }
         (TypeDesc::ObjectRef(l), TypeDesc::ObjectRef(r)) => l
             .common_base_class(&r)
