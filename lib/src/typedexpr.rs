@@ -9,8 +9,8 @@ use std::fmt::Debug;
 /// Expression type.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TypeDesc<'a> {
-    /// Number literal or constant expression without concrete type.
-    ConstNumber,
+    /// Integer literal or constant expression without concrete type.
+    ConstInteger,
     /// String literal or constant expression without concrete type.
     ConstString,
     /// Empty array literal or constant expression without concrete type.
@@ -36,7 +36,7 @@ impl<'a> TypeDesc<'a> {
 
     pub fn qualified_name(&self) -> Cow<'_, str> {
         match self {
-            TypeDesc::ConstNumber => "number".into(),
+            TypeDesc::ConstInteger => "integer".into(),
             TypeDesc::ConstString => "string".into(),
             TypeDesc::EmptyList => "list".into(),
             TypeDesc::Concrete(k) => k.qualified_cxx_name(),
@@ -94,7 +94,8 @@ pub trait ExpressionVisitor<'a> {
     type Item: DescribeType<'a>; // TODO: do we want to check type error by walk()?
     type Error: ToString;
 
-    fn visit_number(&mut self, value: f64) -> Result<Self::Item, Self::Error>;
+    fn visit_integer(&mut self, value: u64) -> Result<Self::Item, Self::Error>;
+    fn visit_float(&mut self, value: f64) -> Result<Self::Item, Self::Error>;
     fn visit_string(&mut self, value: String) -> Result<Self::Item, Self::Error>;
     fn visit_bool(&mut self, value: bool) -> Result<Self::Item, Self::Error>;
     fn visit_enum(&mut self, enum_ty: Enum<'a>, variant: &str) -> Result<Self::Item, Self::Error>;
@@ -183,10 +184,10 @@ where
     match diagnostics.consume_err(Expression::from_node(node, source))? {
         Expression::Identifier(x) => process_identifier(ctx, x, source, visitor, diagnostics),
         Expression::Integer(v) => diagnostics
-            .consume_node_err(node, visitor.visit_number(v as f64)) // TODO: visit_integer
+            .consume_node_err(node, visitor.visit_integer(v))
             .map(Intermediate::Item),
         Expression::Float(v) => diagnostics
-            .consume_node_err(node, visitor.visit_number(v)) // TODO: visit_float
+            .consume_node_err(node, visitor.visit_float(v))
             .map(Intermediate::Item),
         Expression::String(v) => diagnostics
             .consume_node_err(node, visitor.visit_string(v))
@@ -316,7 +317,7 @@ where
     let name = id.to_str(source);
     match item.type_desc() {
         // simple value types
-        TypeDesc::ConstNumber
+        TypeDesc::ConstInteger
         | TypeDesc::ConstString
         | TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(
             PrimitiveType::Bool
