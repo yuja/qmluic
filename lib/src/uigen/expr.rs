@@ -1002,8 +1002,8 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
 
         let array_t = match elem_t {
             Some(TypeDesc::String) => TypeDesc::StringList,
-            Some(TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(cls)))) => {
-                TypeDesc::Concrete(TypeKind::PointerList(NamedType::Class(cls)))
+            Some(TypeDesc::Concrete(TypeKind::Pointer(t))) => {
+                TypeDesc::Concrete(TypeKind::PointerList(t))
             }
             Some(TypeDesc::Number) => {
                 return Err(ExpressionError::UnsupportedLiteral("non-string array"))
