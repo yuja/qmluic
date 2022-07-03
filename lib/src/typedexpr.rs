@@ -182,8 +182,11 @@ where
 {
     match diagnostics.consume_err(Expression::from_node(node, source))? {
         Expression::Identifier(x) => process_identifier(ctx, x, source, visitor, diagnostics),
-        Expression::Number(v) => diagnostics
-            .consume_node_err(node, visitor.visit_number(v))
+        Expression::Integer(v) => diagnostics
+            .consume_node_err(node, visitor.visit_number(v as f64)) // TODO: visit_integer
+            .map(Intermediate::Item),
+        Expression::Float(v) => diagnostics
+            .consume_node_err(node, visitor.visit_number(v)) // TODO: visit_float
             .map(Intermediate::Item),
         Expression::String(v) => diagnostics
             .consume_node_err(node, visitor.visit_string(v))

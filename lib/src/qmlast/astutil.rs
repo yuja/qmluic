@@ -36,10 +36,16 @@ pub(super) fn handle_uninteresting_node(node: Node) -> Result<(), ParseError> {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) enum Number {
+    Integer(u64),
+    Float(f64),
+}
+
 pub(super) fn parse_number<'tree, 'source>(
     node: Node<'tree>,
     source: &'source str,
-) -> Result<f64, ParseError<'tree>> {
+) -> Result<Number, ParseError<'tree>> {
     if node.kind() != "number" {
         return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
     }
@@ -47,20 +53,26 @@ pub(super) fn parse_number<'tree, 'source>(
         .ok_or_else(|| ParseError::new(node, ParseErrorKind::InvalidSyntax))
 }
 
-fn parse_number_str(s: &str) -> Option<f64> {
+fn parse_number_str(s: &str) -> Option<Number> {
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#numeric_literals
     // TODO: maybe incomplete
     if let Some((radix, t)) = strip_radix_prefix(s) {
-        u32::from_str_radix(t, radix)
-            .or_else(|_| {
-                let cleaned: String = t.chars().filter(|&c| c != '_').collect();
-                u32::from_str_radix(&cleaned, radix)
-            })
-            .ok()
-            .map(|n| n.into())
+        parse_integer_str_radix(t, radix)
+    } else if s.contains(&['e', '.']) {
+        s.parse().ok().map(Number::Float)
     } else {
-        s.parse().ok()
+        parse_integer_str_radix(s, 10)
     }
+}
+
+fn parse_integer_str_radix(s: &str, radix: u32) -> Option<Number> {
+    u64::from_str_radix(s, radix)
+        .or_else(|_| {
+            let cleaned: String = s.chars().filter(|&c| c != '_').collect();
+            u64::from_str_radix(&cleaned, radix)
+        })
+        .ok()
+        .map(Number::Integer)
 }
 
 fn strip_radix_prefix(s: &str) -> Option<(u32, &str)> {
@@ -144,14 +156,20 @@ mod tests {
 
     #[test]
     fn number_literal() {
-        assert_eq!(parse_number_str("0"), Some(0.));
-        assert_eq!(parse_number_str("123"), Some(123.));
-        assert_eq!(parse_number_str("01234567"), Some(0o1234567 as f64));
-        assert_eq!(parse_number_str("0o123"), Some(0o123 as f64));
-        assert_eq!(parse_number_str("0Xdead"), Some(0xdead as f64));
-        assert_eq!(parse_number_str("0e-1"), Some(0.));
-        assert_eq!(parse_number_str("0.8"), Some(0.8));
-        assert_eq!(parse_number_str("0b0101_1010"), Some(0b0101_1010 as f64));
+        assert_eq!(parse_number_str("0"), Some(Number::Integer(0)));
+        assert_eq!(parse_number_str("123"), Some(Number::Integer(123)));
+        assert_eq!(
+            parse_number_str("01234567"),
+            Some(Number::Integer(0o1234567))
+        );
+        assert_eq!(parse_number_str("0o123"), Some(Number::Integer(0o123)));
+        assert_eq!(parse_number_str("0Xdead"), Some(Number::Integer(0xdead)));
+        assert_eq!(parse_number_str("0e-1"), Some(Number::Float(0.)));
+        assert_eq!(parse_number_str("0.8"), Some(Number::Float(0.8)));
+        assert_eq!(
+            parse_number_str("0b0101_1010"),
+            Some(Number::Integer(0b0101_1010))
+        );
     }
 
     #[test]
