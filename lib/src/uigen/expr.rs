@@ -671,7 +671,7 @@ enum EvaluatedValue {
 impl DescribeType<'_> for EvaluatedValue {
     fn type_desc(&self) -> TypeDesc<'static> {
         match self {
-            EvaluatedValue::Bool(_) => TypeDesc::Bool,
+            EvaluatedValue::Bool(_) => TypeDesc::BOOL,
             EvaluatedValue::Number(_) => TypeDesc::Number,
             EvaluatedValue::String(..) => TypeDesc::String,
             EvaluatedValue::StringList(_) => TypeDesc::StringList,
@@ -955,7 +955,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
 
     fn visit_bool(&mut self, value: bool) -> Result<Self::Item, Self::Error> {
         Ok((
-            TypeDesc::Bool,
+            TypeDesc::BOOL,
             if value {
                 "true".to_owned()
             } else {
@@ -993,7 +993,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
         let array_t = match elem_t {
             Some(TypeDesc::String) => TypeDesc::StringList,
             Some(TypeDesc::ObjectRef(cls)) => TypeDesc::ObjectRefList(cls),
-            Some(TypeDesc::Bool | TypeDesc::Number | TypeDesc::Enum(_)) => {
+            Some(TypeDesc::Number | TypeDesc::Enum(_)) => {
                 return Err(ExpressionError::UnsupportedLiteral("non-string array"))
             }
             Some(TypeDesc::ObjectRefList(_) | TypeDesc::StringList | TypeDesc::EmptyList) => {
@@ -1083,20 +1083,20 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
         ]
         .concat();
         match arg_t {
-            TypeDesc::Bool => match operator {
-                LogicalNot => Ok((TypeDesc::Bool, res_expr, res_prec)),
+            TypeDesc::BOOL => match operator {
+                LogicalNot => Ok((TypeDesc::BOOL, res_expr, res_prec)),
                 BitwiseNot => Err(type_error()),
                 Minus | Plus => Err(type_error()),
                 Typeof | Void | Delete => Err(type_error()),
             },
             TypeDesc::Number => match operator {
-                LogicalNot => Ok((TypeDesc::Bool, res_expr, res_prec)),
+                LogicalNot => Ok((TypeDesc::BOOL, res_expr, res_prec)),
                 BitwiseNot | Minus | Plus => Ok((TypeDesc::Number, res_expr, res_prec)),
                 Typeof | Void | Delete => Err(type_error()),
             },
             TypeDesc::String => Err(type_error()),
             TypeDesc::Enum(en) => match operator {
-                LogicalNot => Ok((TypeDesc::Bool, res_expr, res_prec)),
+                LogicalNot => Ok((TypeDesc::BOOL, res_expr, res_prec)),
                 BitwiseNot => Ok((TypeDesc::Enum(en), res_expr, res_prec)),
                 Minus | Plus => Err(type_error()),
                 Typeof | Void | Delete => Err(type_error()),
@@ -1125,7 +1125,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
         };
         let res_prec = binary_operator_precedence(operator);
         match (left_t, right_t) {
-            (TypeDesc::Bool, TypeDesc::Bool) => {
+            (TypeDesc::BOOL, TypeDesc::BOOL) => {
                 let res_expr = [
                     &maybe_paren(res_prec, left_expr, left_prec),
                     binary_operator_str(operator),
@@ -1133,12 +1133,12 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                 ]
                 .concat();
                 match operator {
-                    LogicalAnd | LogicalOr => Ok((TypeDesc::Bool, res_expr, res_prec)),
+                    LogicalAnd | LogicalOr => Ok((TypeDesc::BOOL, res_expr, res_prec)),
                     RightShift | UnsignedRightShift | LeftShift => Err(type_error()),
-                    BitwiseAnd | BitwiseXor | BitwiseOr => Ok((TypeDesc::Bool, res_expr, res_prec)),
+                    BitwiseAnd | BitwiseXor | BitwiseOr => Ok((TypeDesc::BOOL, res_expr, res_prec)),
                     Add | Sub | Mul | Div | Rem | Exp => Err(type_error()),
                     Equal | StrictEqual | NotEqual | StrictNotEqual | LessThan | LessThanEqual
-                    | GreaterThan | GreaterThanEqual => Ok((TypeDesc::Bool, res_expr, res_prec)),
+                    | GreaterThan | GreaterThanEqual => Ok((TypeDesc::BOOL, res_expr, res_prec)),
                     NullishCoalesce | Instanceof | In => Err(type_error()),
                 }
             }
@@ -1162,7 +1162,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                     Add | Sub | Mul | Div | Rem => Ok((TypeDesc::Number, res_expr, res_prec)),
                     Exp => Err(type_error()), // TODO
                     Equal | StrictEqual | NotEqual | StrictNotEqual | LessThan | LessThanEqual
-                    | GreaterThan | GreaterThanEqual => Ok((TypeDesc::Bool, res_expr, res_prec)),
+                    | GreaterThan | GreaterThanEqual => Ok((TypeDesc::BOOL, res_expr, res_prec)),
                     NullishCoalesce | Instanceof | In => Err(type_error()),
                 }
             }
@@ -1181,7 +1181,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                     Add => Ok((TypeDesc::String, res_expr, res_prec)),
                     Sub | Mul | Div | Rem | Exp => Err(type_error()),
                     Equal | StrictEqual | NotEqual | StrictNotEqual | LessThan | LessThanEqual
-                    | GreaterThan | GreaterThanEqual => Ok((TypeDesc::Bool, res_expr, res_prec)),
+                    | GreaterThan | GreaterThanEqual => Ok((TypeDesc::BOOL, res_expr, res_prec)),
 
                     NullishCoalesce | Instanceof | In => Err(type_error()),
                 }
@@ -1196,14 +1196,14 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                 ]
                 .concat();
                 match operator {
-                    LogicalAnd | LogicalOr => Ok((TypeDesc::Bool, res_expr, res_prec)),
+                    LogicalAnd | LogicalOr => Ok((TypeDesc::BOOL, res_expr, res_prec)),
                     RightShift | UnsignedRightShift | LeftShift => Err(type_error()),
                     BitwiseAnd | BitwiseXor | BitwiseOr => {
                         Ok((TypeDesc::Enum(left_en), res_expr, res_prec))
                     }
                     Add | Sub | Mul | Div | Rem | Exp => Err(type_error()),
                     Equal | StrictEqual | NotEqual | StrictNotEqual | LessThan | LessThanEqual
-                    | GreaterThan | GreaterThanEqual => Ok((TypeDesc::Bool, res_expr, res_prec)),
+                    | GreaterThan | GreaterThanEqual => Ok((TypeDesc::BOOL, res_expr, res_prec)),
                     NullishCoalesce | Instanceof | In => Err(type_error()),
                 }
             }
@@ -1217,7 +1217,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
         (consequence_t, consequence_expr, consequence_prec): Self::Item,
         (alternative_t, alternative_expr, alternative_prec): Self::Item,
     ) -> Result<Self::Item, Self::Error> {
-        if condition_t != TypeDesc::Bool {
+        if condition_t != TypeDesc::BOOL {
             return Err(ExpressionError::UnsupportedConditionType(
                 condition_t.qualified_name().into(),
             ));
