@@ -674,7 +674,7 @@ impl DescribeType<'_> for EvaluatedValue {
     fn type_desc(&self) -> TypeDesc<'static> {
         match self {
             EvaluatedValue::Bool(_) => TypeDesc::BOOL,
-            EvaluatedValue::Number(_) => TypeDesc::ConstNumber,
+            EvaluatedValue::Number(_) => TypeDesc::REAL,
             EvaluatedValue::String(_, StringKind::NoTr) => TypeDesc::ConstString,
             EvaluatedValue::String(_, StringKind::Tr) => TypeDesc::STRING,
             EvaluatedValue::StringList(_) => TypeDesc::STRING_LIST,
@@ -687,7 +687,11 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
     type Item = EvaluatedValue;
     type Error = ExpressionError;
 
-    fn visit_number(&mut self, value: f64) -> Result<Self::Item, Self::Error> {
+    fn visit_integer(&mut self, value: u64) -> Result<Self::Item, Self::Error> {
+        Ok(EvaluatedValue::Number(value as f64)) // TODO
+    }
+
+    fn visit_float(&mut self, value: f64) -> Result<Self::Item, Self::Error> {
         Ok(EvaluatedValue::Number(value))
     }
 
@@ -948,8 +952,12 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
     type Item = (TypeDesc<'a>, String, u32);
     type Error = ExpressionError;
 
-    fn visit_number(&mut self, value: f64) -> Result<Self::Item, Self::Error> {
-        Ok((TypeDesc::ConstNumber, value.to_string(), PREC_TERM))
+    fn visit_integer(&mut self, value: u64) -> Result<Self::Item, Self::Error> {
+        Ok((TypeDesc::ConstInteger, value.to_string(), PREC_TERM))
+    }
+
+    fn visit_float(&mut self, value: f64) -> Result<Self::Item, Self::Error> {
+        Ok((TypeDesc::REAL, format!("{value:e}"), PREC_TERM))
     }
 
     fn visit_string(&mut self, value: String) -> Result<Self::Item, Self::Error> {
@@ -994,7 +1002,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
             Some(TypeDesc::Concrete(TypeKind::Pointer(t))) => {
                 TypeDesc::Concrete(TypeKind::PointerList(t))
             }
-            Some(t @ (TypeDesc::ConstNumber | TypeDesc::EmptyList | TypeDesc::Concrete(_))) => {
+            Some(t @ (TypeDesc::ConstInteger | TypeDesc::EmptyList | TypeDesc::Concrete(_))) => {
                 return Err(ExpressionError::UnsupportedType(format!(
                     "array of {}",
                     t.qualified_name()
@@ -1089,13 +1097,17 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                 Minus | Plus => Err(type_error()),
                 Typeof | Void | Delete => Err(type_error()),
             },
-            t @ (TypeDesc::ConstNumber | TypeDesc::INT | TypeDesc::REAL | TypeDesc::UINT) => {
-                match operator {
-                    LogicalNot => Ok((TypeDesc::BOOL, res_expr, res_prec)),
-                    BitwiseNot | Minus | Plus => Ok((t, res_expr, res_prec)),
-                    Typeof | Void | Delete => Err(type_error()),
-                }
-            }
+            t @ (TypeDesc::ConstInteger | TypeDesc::INT | TypeDesc::UINT) => match operator {
+                LogicalNot => Ok((TypeDesc::BOOL, res_expr, res_prec)),
+                BitwiseNot | Minus | Plus => Ok((t, res_expr, res_prec)),
+                Typeof | Void | Delete => Err(type_error()),
+            },
+            t @ TypeDesc::REAL => match operator {
+                LogicalNot => Ok((TypeDesc::BOOL, res_expr, res_prec)),
+                BitwiseNot => Err(type_error()),
+                Minus | Plus => Ok((t, res_expr, res_prec)),
+                Typeof | Void | Delete => Err(type_error()),
+            },
             TypeDesc::ConstString | TypeDesc::STRING => Err(type_error()),
             t @ TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(_))) => match operator {
                 LogicalNot => Ok((TypeDesc::BOOL, res_expr, res_prec)),
@@ -1145,8 +1157,8 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                 }
             }
             (
-                left_t @ (TypeDesc::ConstNumber | TypeDesc::INT | TypeDesc::REAL | TypeDesc::UINT),
-                right_t @ (TypeDesc::ConstNumber | TypeDesc::INT | TypeDesc::REAL | TypeDesc::UINT),
+                left_t @ (TypeDesc::ConstInteger | TypeDesc::INT | TypeDesc::UINT),
+                right_t @ (TypeDesc::ConstInteger | TypeDesc::INT | TypeDesc::UINT),
             ) => {
                 let res_t = deduce_type(left_t, right_t)?;
                 let res_expr = [
@@ -1165,6 +1177,25 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                     BitwiseAnd => Err(type_error()),
                     BitwiseXor => Err(type_error()),
                     BitwiseOr => Err(type_error()),
+                    Add | Sub | Mul | Div | Rem => Ok((res_t, res_expr, res_prec)),
+                    Exp => Err(type_error()), // TODO
+                    Equal | StrictEqual | NotEqual | StrictNotEqual | LessThan | LessThanEqual
+                    | GreaterThan | GreaterThanEqual => Ok((TypeDesc::BOOL, res_expr, res_prec)),
+                    NullishCoalesce | Instanceof | In => Err(type_error()),
+                }
+            }
+            (left_t @ TypeDesc::REAL, right_t @ TypeDesc::REAL) => {
+                let res_t = deduce_type(left_t, right_t)?;
+                let res_expr = [
+                    &maybe_paren(res_prec, left_expr, left_prec),
+                    binary_operator_str(operator),
+                    &maybe_paren(res_prec, right_expr, right_prec),
+                ]
+                .concat();
+                match operator {
+                    LogicalAnd | LogicalOr => Err(type_error()),
+                    RightShift | UnsignedRightShift | LeftShift => Err(type_error()),
+                    BitwiseAnd | BitwiseXor | BitwiseOr => Err(type_error()),
                     Add | Sub | Mul | Div | Rem => Ok((res_t, res_expr, res_prec)),
                     Exp => Err(type_error()), // TODO
                     Equal | StrictEqual | NotEqual | StrictNotEqual | LessThan | LessThanEqual
@@ -1293,8 +1324,8 @@ fn deduce_type<'a>(
 ) -> Result<TypeDesc<'a>, ExpressionError> {
     match (left_t, right_t) {
         (l, r) if l == r => Ok(l),
-        (l @ (TypeDesc::INT | TypeDesc::REAL | TypeDesc::UINT), TypeDesc::ConstNumber) => Ok(l),
-        (TypeDesc::ConstNumber, r @ (TypeDesc::INT | TypeDesc::REAL | TypeDesc::UINT)) => Ok(r),
+        (l @ (TypeDesc::INT | TypeDesc::UINT), TypeDesc::ConstInteger) => Ok(l),
+        (TypeDesc::ConstInteger, r @ (TypeDesc::INT | TypeDesc::UINT)) => Ok(r),
         (
             TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(l))),
             TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(r))),
@@ -1343,10 +1374,8 @@ fn take_expression_of_type(
     match (expected_k, actual_t) {
         (_, TypeDesc::Concrete(k)) if expected_k == k => Some(expr),
         (
-            TypeKind::Just(NamedType::Primitive(
-                PrimitiveType::Int | PrimitiveType::QReal | PrimitiveType::UInt,
-            )),
-            TypeDesc::ConstNumber,
+            TypeKind::Just(NamedType::Primitive(PrimitiveType::Int | PrimitiveType::UInt)),
+            TypeDesc::ConstInteger,
         ) => Some(expr),
         (TypeKind::Just(NamedType::Primitive(PrimitiveType::QString)), TypeDesc::ConstString) => {
             Some(format!("QStringLiteral({})", expr))
@@ -1487,8 +1516,12 @@ impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
     type Item = ObjectRef<'a>;
     type Error = ExpressionError;
 
-    fn visit_number(&mut self, _value: f64) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedLiteral("number"))
+    fn visit_integer(&mut self, _value: u64) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedLiteral("integer"))
+    }
+
+    fn visit_float(&mut self, _value: f64) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedLiteral("float"))
     }
 
     fn visit_string(&mut self, _value: String) -> Result<Self::Item, Self::Error> {
@@ -1724,6 +1757,12 @@ mod tests {
     fn format_expr(expr_source: &str) -> String {
         let (_, expr, _) = Env::new(expr_source).format();
         expr
+    }
+
+    #[test]
+    fn format_number() {
+        assert_eq!(format_expr("123"), "123");
+        assert_eq!(format_expr("123."), "1.23e2");
     }
 
     #[test]

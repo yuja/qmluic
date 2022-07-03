@@ -193,5 +193,5 @@ fn test_ternary_expression_type_mismatch() {
          windowTitle: source.checked ? 1 : "whatever"
          QCheckBox { id: source }
     }
-    "###).unwrap_err(), @"<unknown>:3:19: error: cannot deduce type from 'number' and 'QString'");
+    "###).unwrap_err(), @"<unknown>:3:19: error: cannot deduce type from 'integer' and 'QString'");
 }
