@@ -9,7 +9,6 @@ use std::fmt::Debug;
 /// Expression type.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TypeDesc<'a> {
-    Bool,
     Number,
     String,
     Enum(Enum<'a>),
@@ -22,6 +21,9 @@ pub enum TypeDesc<'a> {
 }
 
 impl<'a> TypeDesc<'a> {
+    pub const BOOL: Self =
+        TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::Bool)));
+
     // TODO: refactor type handling to eliminate this kind of repacking?
     pub fn from_type_kind(type_kind: TypeKind<'a>) -> Option<Self> {
         match type_kind {
@@ -49,19 +51,18 @@ impl<'a> TypeDesc<'a> {
 
     fn from_primitive_type(p: PrimitiveType) -> Option<Self> {
         match p {
-            PrimitiveType::Bool => Some(TypeDesc::Bool),
             PrimitiveType::Int | PrimitiveType::QReal | PrimitiveType::UInt => {
                 Some(TypeDesc::Number)
             }
             PrimitiveType::QString => Some(TypeDesc::String),
             PrimitiveType::QStringList => Some(TypeDesc::StringList),
             PrimitiveType::Void => None,
+            p => Some(TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(p)))),
         }
     }
 
     pub fn qualified_name(&self) -> Cow<'_, str> {
         match self {
-            TypeDesc::Bool => "bool".into(),
             TypeDesc::Number => "number".into(),
             TypeDesc::String => "string".into(),
             TypeDesc::Enum(en) => en.qualified_cxx_name(),
@@ -343,8 +344,7 @@ where
     let name = id.to_str(source);
     match item.type_desc() {
         // simple value types
-        TypeDesc::Bool
-        | TypeDesc::Number
+        TypeDesc::Number
         | TypeDesc::String
         | TypeDesc::Enum(_)
         | TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(
