@@ -30,7 +30,7 @@ private:
         auto *const dialog = this->root_;
         auto *const edit = this->ui_->edit;
 
-        dialog->setWindowTitle(QString(edit->text())+edit->text());
+        dialog->setWindowTitle(edit->text()+edit->text());
     }
 
     QDialog *const root_;

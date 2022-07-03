@@ -48,7 +48,7 @@ private:
         auto *const mainWindow = this->root_;
         auto *const fileNameEdit = this->ui_->fileNameEdit;
 
-        mainWindow->setWindowTitle(QString(QCoreApplication::translate("MainWindow", "Qmluic Example: "))+(fileNameEdit->currentIndex()==0 ? QCoreApplication::translate("MainWindow", "*** Select Source ***") : fileNameEdit->currentText()));
+        mainWindow->setWindowTitle(QCoreApplication::translate("MainWindow", "Qmluic Example: ")+(fileNameEdit->currentIndex()==0 ? QCoreApplication::translate("MainWindow", "*** Select Source ***") : fileNameEdit->currentText()));
     }
 
     QMainWindow *const root_;

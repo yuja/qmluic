@@ -31,7 +31,7 @@ private:
         auto *const dialog = this->root_;
         auto *const combo = this->ui_->combo;
 
-        dialog->setWindowTitle(combo->currentIndex()==0 ? "-" : combo->currentText());
+        dialog->setWindowTitle(combo->currentIndex()==0 ? QStringLiteral("-") : combo->currentText());
     }
 
     QDialog *const root_;

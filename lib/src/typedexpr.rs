@@ -12,7 +12,7 @@ pub enum TypeDesc<'a> {
     /// Number literal or constant expression without concrete type.
     Number,
     /// String literal or constant expression without concrete type.
-    String,
+    ConstString,
     /// Empty array literal or constant expression without concrete type.
     EmptyList,
     /// Type that has been determined.
@@ -22,6 +22,8 @@ pub enum TypeDesc<'a> {
 impl<'a> TypeDesc<'a> {
     pub const BOOL: Self =
         TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::Bool)));
+    pub const STRING: Self =
+        TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::QString)));
     pub const STRING_LIST: Self = TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(
         PrimitiveType::QStringList,
     )));
@@ -54,7 +56,6 @@ impl<'a> TypeDesc<'a> {
             PrimitiveType::Int | PrimitiveType::QReal | PrimitiveType::UInt => {
                 Some(TypeDesc::Number)
             }
-            PrimitiveType::QString => Some(TypeDesc::String),
             PrimitiveType::Void => None,
             p => Some(TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(p)))),
         }
@@ -63,7 +64,7 @@ impl<'a> TypeDesc<'a> {
     pub fn qualified_name(&self) -> Cow<'_, str> {
         match self {
             TypeDesc::Number => "number".into(),
-            TypeDesc::String => "string".into(),
+            TypeDesc::ConstString => "string".into(),
             TypeDesc::EmptyList => "list".into(),
             TypeDesc::Concrete(k) => k.qualified_cxx_name(),
         }
@@ -340,7 +341,7 @@ where
     match item.type_desc() {
         // simple value types
         TypeDesc::Number
-        | TypeDesc::String
+        | TypeDesc::ConstString
         | TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(
             PrimitiveType::Bool
             | PrimitiveType::Int
