@@ -1003,12 +1003,12 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
         let array_t = match elem_t {
             Some(TypeDesc::String) => TypeDesc::StringList,
             Some(TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(cls)))) => {
-                TypeDesc::ObjectRefList(cls)
+                TypeDesc::Concrete(TypeKind::PointerList(NamedType::Class(cls)))
             }
             Some(TypeDesc::Number) => {
                 return Err(ExpressionError::UnsupportedLiteral("non-string array"))
             }
-            Some(TypeDesc::ObjectRefList(_) | TypeDesc::StringList | TypeDesc::EmptyList) => {
+            Some(TypeDesc::StringList | TypeDesc::EmptyList) => {
                 return Err(ExpressionError::UnsupportedLiteral("nested array"))
             }
             Some(TypeDesc::Concrete(k)) => {
@@ -1400,7 +1400,9 @@ impl<'a> DescribeType<'a> for ObjectRef<'a> {
             ObjectRef::Just(cls, _) => {
                 TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(cls.clone())))
             }
-            ObjectRef::List(cls, _) => TypeDesc::ObjectRefList(cls.clone()),
+            ObjectRef::List(cls, _) => {
+                TypeDesc::Concrete(TypeKind::PointerList(NamedType::Class(cls.clone())))
+            }
             ObjectRef::EmptyList => TypeDesc::EmptyList,
         }
     }
