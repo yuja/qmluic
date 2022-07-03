@@ -11,7 +11,6 @@ use std::fmt::Debug;
 pub enum TypeDesc<'a> {
     Number,
     String,
-    StringList,
     EmptyList,
     /// Type that has been determined.
     Concrete(TypeKind<'a>),
@@ -20,6 +19,9 @@ pub enum TypeDesc<'a> {
 impl<'a> TypeDesc<'a> {
     pub const BOOL: Self =
         TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::Bool)));
+    pub const STRING_LIST: Self = TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(
+        PrimitiveType::QStringList,
+    )));
 
     // TODO: refactor type handling to eliminate this kind of repacking?
     pub fn from_type_kind(type_kind: TypeKind<'a>) -> Option<Self> {
@@ -50,7 +52,6 @@ impl<'a> TypeDesc<'a> {
                 Some(TypeDesc::Number)
             }
             PrimitiveType::QString => Some(TypeDesc::String),
-            PrimitiveType::QStringList => Some(TypeDesc::StringList),
             PrimitiveType::Void => None,
             p => Some(TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(p)))),
         }
@@ -60,7 +61,6 @@ impl<'a> TypeDesc<'a> {
         match self {
             TypeDesc::Number => "number".into(),
             TypeDesc::String => "string".into(),
-            TypeDesc::StringList => "list<string>".into(),
             TypeDesc::EmptyList => "list".into(),
             TypeDesc::Concrete(k) => k.qualified_cxx_name(),
         }
@@ -366,8 +366,7 @@ where
             }
         }
         // list types
-        TypeDesc::StringList
-        | TypeDesc::EmptyList
+        TypeDesc::EmptyList
         | TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::QStringList)))
         | TypeDesc::Concrete(TypeKind::PointerList(_)) => {
             diagnostics.push(not_found());

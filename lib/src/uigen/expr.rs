@@ -680,7 +680,7 @@ impl DescribeType<'_> for EvaluatedValue {
             EvaluatedValue::Bool(_) => TypeDesc::BOOL,
             EvaluatedValue::Number(_) => TypeDesc::Number,
             EvaluatedValue::String(..) => TypeDesc::String,
-            EvaluatedValue::StringList(_) => TypeDesc::StringList,
+            EvaluatedValue::StringList(_) => TypeDesc::STRING_LIST,
             EvaluatedValue::EmptyList => TypeDesc::EmptyList,
         }
     }
@@ -1001,14 +1001,14 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
         }
 
         let array_t = match elem_t {
-            Some(TypeDesc::String) => TypeDesc::StringList,
+            Some(TypeDesc::String) => TypeDesc::STRING_LIST,
             Some(TypeDesc::Concrete(TypeKind::Pointer(t))) => {
                 TypeDesc::Concrete(TypeKind::PointerList(t))
             }
             Some(TypeDesc::Number) => {
                 return Err(ExpressionError::UnsupportedLiteral("non-string array"))
             }
-            Some(TypeDesc::StringList | TypeDesc::EmptyList) => {
+            Some(TypeDesc::EmptyList) => {
                 return Err(ExpressionError::UnsupportedLiteral("nested array"))
             }
             Some(TypeDesc::Concrete(k)) => {
