@@ -11,7 +11,6 @@ use std::fmt::Debug;
 pub enum TypeDesc<'a> {
     Number,
     String,
-    ObjectRefList(Class<'a>),
     StringList,
     EmptyList,
     /// Type that has been determined.
@@ -35,7 +34,6 @@ impl<'a> TypeDesc<'a> {
                 | NamedType::Primitive(_)
                 | NamedType::QmlComponent(_),
             ) => None,
-            TypeKind::PointerList(NamedType::Class(cls)) => Some(TypeDesc::ObjectRefList(cls)),
             TypeKind::PointerList(
                 NamedType::Enum(_)
                 | NamedType::Namespace(_)
@@ -62,7 +60,6 @@ impl<'a> TypeDesc<'a> {
         match self {
             TypeDesc::Number => "number".into(),
             TypeDesc::String => "string".into(),
-            TypeDesc::ObjectRefList(cls) => format!("list<{}>", cls.qualified_cxx_name()).into(),
             TypeDesc::StringList => "list<string>".into(),
             TypeDesc::EmptyList => "list".into(),
             TypeDesc::Concrete(k) => k.qualified_cxx_name(),
@@ -369,8 +366,7 @@ where
             }
         }
         // list types
-        TypeDesc::ObjectRefList(_)
-        | TypeDesc::StringList
+        TypeDesc::StringList
         | TypeDesc::EmptyList
         | TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::QStringList)))
         | TypeDesc::Concrete(TypeKind::PointerList(_)) => {
