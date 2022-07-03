@@ -43,6 +43,7 @@ impl<'a, 't> PropertyValue<'a, 't> {
                     let mut formatter = ExpressionFormatter::new(ctx.doc_type_name);
                     let (res_t, res_expr, _) =
                         typedexpr::walk(ctx, *n, ctx.source, &mut formatter, diagnostics)?;
+                    // TODO: ensure concrete number/string type
                     if formatter.property_deps.is_empty() {
                         // constant expression can be mapped to .ui value type
                         parse_as_value_type(ctx, t, *n, res_t, res_expr, diagnostics)
@@ -357,7 +358,7 @@ fn parse_as_value_type(
                         Some(Value::Simple(SimpleValue::Enum(res_expr)))
                     }
                 }
-                TypeDesc::String => {
+                TypeDesc::ConstString | &TypeDesc::STRING => {
                     evaluate_as_primitive(ctx, PrimitiveType::QString, node, diagnostics)
                 }
                 _ => {
@@ -679,7 +680,8 @@ impl DescribeType<'_> for EvaluatedValue {
         match self {
             EvaluatedValue::Bool(_) => TypeDesc::BOOL,
             EvaluatedValue::Number(_) => TypeDesc::Number,
-            EvaluatedValue::String(..) => TypeDesc::String,
+            EvaluatedValue::String(_, StringKind::NoTr) => TypeDesc::ConstString,
+            EvaluatedValue::String(_, StringKind::Tr) => TypeDesc::STRING,
             EvaluatedValue::StringList(_) => TypeDesc::STRING_LIST,
             EvaluatedValue::EmptyList => TypeDesc::EmptyList,
         }
@@ -956,7 +958,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
     }
 
     fn visit_string(&mut self, value: String) -> Result<Self::Item, Self::Error> {
-        Ok((TypeDesc::String, format!("{:?}", value), PREC_TERM)) // TODO: escape per C spec)
+        Ok((TypeDesc::ConstString, format!("{:?}", value), PREC_TERM)) // TODO: escape per C spec)
     }
 
     fn visit_bool(&mut self, value: bool) -> Result<Self::Item, Self::Error> {
@@ -984,24 +986,16 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
         let mut elem_t: Option<TypeDesc> = None;
         let mut elem_exprs = Vec::with_capacity(elements.len());
         for (t, expr, prec) in elements {
+            let (t, expr, prec) = ensure_concrete_string(t, expr, prec);
             elem_t = match elem_t {
                 Some(known) => Some(deduce_type(known, t)?),
                 None => Some(t),
             };
-            // TODO: discriminate QString from char* by type desc?
-            if elem_t == Some(TypeDesc::String) {
-                elem_exprs.push(maybe_paren(
-                    PREC_COMMA,
-                    format!("QString({})", expr),
-                    PREC_CALL,
-                ));
-            } else {
-                elem_exprs.push(maybe_paren(PREC_COMMA, expr, prec));
-            }
+            elem_exprs.push(maybe_paren(PREC_COMMA, expr, prec));
         }
 
         let array_t = match elem_t {
-            Some(TypeDesc::String) => TypeDesc::STRING_LIST,
+            Some(TypeDesc::STRING) => TypeDesc::STRING_LIST,
             Some(TypeDesc::Concrete(TypeKind::Pointer(t))) => {
                 TypeDesc::Concrete(TypeKind::PointerList(t))
             }
@@ -1011,6 +1005,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                     t.qualified_name()
                 )));
             }
+            Some(TypeDesc::ConstString) => unreachable!("must be converted to concrete type"),
             None => TypeDesc::EmptyList,
         };
         // not a term, but would be as strong as a term
@@ -1054,9 +1049,9 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
     ) -> Result<Self::Item, Self::Error> {
         match function {
             BuiltinFunctionKind::Tr if arguments.len() == 1 => {
-                if let (TypeDesc::String, expr, _prec) = &arguments[0] {
+                if let (TypeDesc::ConstString, expr, _prec) = &arguments[0] {
                     Ok((
-                        TypeDesc::String,
+                        TypeDesc::STRING,
                         format!(
                             "QCoreApplication::translate({:?}, {})",
                             self.tr_context, expr
@@ -1104,7 +1099,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                 BitwiseNot | Minus | Plus => Ok((TypeDesc::Number, res_expr, res_prec)),
                 Typeof | Void | Delete => Err(type_error()),
             },
-            TypeDesc::String => Err(type_error()),
+            TypeDesc::ConstString | TypeDesc::STRING => Err(type_error()),
             t @ TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(_))) => match operator {
                 LogicalNot => Ok((TypeDesc::BOOL, res_expr, res_prec)),
                 BitwiseNot => Ok((t, res_expr, res_prec)),
@@ -1176,8 +1171,44 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                     NullishCoalesce | Instanceof | In => Err(type_error()),
                 }
             }
-            (TypeDesc::String, TypeDesc::String) => {
-                let (left_expr, left_prec) = (format!("QString({})", left_expr), PREC_CALL);
+            (left_t @ TypeDesc::ConstString, right_t @ TypeDesc::ConstString)
+                if left_prec == PREC_TERM && right_prec == PREC_TERM =>
+            {
+                match operator {
+                    LogicalAnd | LogicalOr => Err(type_error()),
+                    RightShift | UnsignedRightShift | LeftShift => Err(type_error()),
+                    BitwiseAnd | BitwiseXor | BitwiseOr => Err(type_error()),
+                    Add => Ok((
+                        TypeDesc::ConstString,
+                        left_expr + " " + &right_expr, // concat "<left>" "<right>"
+                        PREC_TERM,
+                    )),
+                    Sub | Mul | Div | Rem | Exp => Err(type_error()),
+                    Equal | StrictEqual | NotEqual | StrictNotEqual | LessThan | LessThanEqual
+                    | GreaterThan | GreaterThanEqual => {
+                        let (_, left_expr, left_prec) =
+                            ensure_concrete_string(left_t, left_expr, left_prec);
+                        let (_, right_expr, right_prec) =
+                            ensure_concrete_string(right_t, right_expr, right_prec);
+                        let res_expr = [
+                            &maybe_paren(res_prec, left_expr, left_prec),
+                            binary_operator_str(operator),
+                            &maybe_paren(res_prec, right_expr, right_prec),
+                        ]
+                        .concat();
+                        Ok((TypeDesc::BOOL, res_expr, res_prec))
+                    }
+                    NullishCoalesce | Instanceof | In => Err(type_error()),
+                }
+            }
+            (
+                left_t @ (TypeDesc::ConstString | TypeDesc::STRING),
+                right_t @ (TypeDesc::ConstString | TypeDesc::STRING),
+            ) => {
+                let (_, left_expr, left_prec) =
+                    ensure_concrete_string(left_t, left_expr, left_prec);
+                let (_, right_expr, right_prec) =
+                    ensure_concrete_string(right_t, right_expr, right_prec);
                 let res_expr = [
                     &maybe_paren(res_prec, left_expr, left_prec),
                     binary_operator_str(operator),
@@ -1188,11 +1219,10 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                     LogicalAnd | LogicalOr => Err(type_error()),
                     RightShift | UnsignedRightShift | LeftShift => Err(type_error()),
                     BitwiseAnd | BitwiseXor | BitwiseOr => Err(type_error()),
-                    Add => Ok((TypeDesc::String, res_expr, res_prec)),
+                    Add => Ok((TypeDesc::STRING, res_expr, res_prec)),
                     Sub | Mul | Div | Rem | Exp => Err(type_error()),
                     Equal | StrictEqual | NotEqual | StrictNotEqual | LessThan | LessThanEqual
                     | GreaterThan | GreaterThanEqual => Ok((TypeDesc::BOOL, res_expr, res_prec)),
-
                     NullishCoalesce | Instanceof | In => Err(type_error()),
                 }
             }
@@ -1235,6 +1265,10 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                 condition_t.qualified_name().into(),
             ));
         }
+        let (consequence_t, consequence_expr, consequence_prec) =
+            ensure_concrete_string(consequence_t, consequence_expr, consequence_prec);
+        let (alternative_t, alternative_expr, alternative_prec) =
+            ensure_concrete_string(alternative_t, alternative_expr, alternative_prec);
         let res_t = deduce_type(consequence_t, alternative_t)?;
         let res_expr = format!(
             "{} ? {} : {}",
@@ -1285,6 +1319,17 @@ fn deduce_type<'a>(
 
 pub(super) fn strip_enum_prefix(s: &str) -> &str {
     s.split_once("::").map(|(_, t)| t).unwrap_or(s)
+}
+
+fn ensure_concrete_string(t: TypeDesc, expr: String, prec: u32) -> (TypeDesc, String, u32) {
+    match t {
+        TypeDesc::ConstString => (
+            TypeDesc::STRING,
+            format!("QStringLiteral({})", expr),
+            PREC_CALL,
+        ),
+        t => (t, expr, prec),
+    }
 }
 
 fn maybe_paren(res_prec: u32, arg_expr: String, arg_prec: u32) -> String {
@@ -1658,7 +1703,15 @@ mod tests {
     fn format_operator_str() {
         assert_eq!(format_expr("1 === 1"), "1==1");
         assert_eq!(format_expr("1 !== 2"), "1!=2");
-        assert_eq!(format_expr("'foo' + 'bar'"), r#"QString("foo")+"bar""#);
+        assert_eq!(format_expr("'foo' + 'bar'"), r#""foo" "bar""#);
+        assert_eq!(
+            format_expr("'foo' === 'bar'"),
+            r#"QStringLiteral("foo")==QStringLiteral("bar")"#
+        );
+        assert_eq!(
+            format_expr("'foo' + qsTr('bar')"),
+            r#"QStringLiteral("foo")+QCoreApplication::translate("MyClass", "bar")"#
+        );
     }
 
     #[test]
@@ -1678,7 +1731,7 @@ mod tests {
     fn format_string_array() {
         assert_eq!(
             format_expr("['foo', 'bar']"),
-            r#"{QString("foo"), QString("bar")}"#
+            r#"{QStringLiteral("foo"), QStringLiteral("bar")}"#
         );
     }
 
@@ -1698,6 +1751,10 @@ mod tests {
         assert_eq!(
             format_expr("foo.checked ? 1 : 2"),
             "foo->isChecked() ? 1 : 2"
+        );
+        assert_eq!(
+            format_expr("foo.checked ? 'foo' : qsTr('bar')"),
+            r#"foo->isChecked() ? QStringLiteral("foo") : QCoreApplication::translate("MyClass", "bar")"#
         );
     }
 }
