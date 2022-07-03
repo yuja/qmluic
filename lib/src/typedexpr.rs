@@ -11,7 +11,6 @@ use std::fmt::Debug;
 pub enum TypeDesc<'a> {
     Number,
     String,
-    Enum(Enum<'a>),
     ObjectRef(Class<'a>),
     ObjectRefList(Class<'a>),
     StringList,
@@ -27,7 +26,6 @@ impl<'a> TypeDesc<'a> {
     // TODO: refactor type handling to eliminate this kind of repacking?
     pub fn from_type_kind(type_kind: TypeKind<'a>) -> Option<Self> {
         match type_kind {
-            TypeKind::Just(NamedType::Enum(en)) => Some(TypeDesc::Enum(en)),
             TypeKind::Just(NamedType::Primitive(p)) => Self::from_primitive_type(p),
             TypeKind::Just(
                 NamedType::Class(_) | NamedType::Namespace(_) | NamedType::QmlComponent(_),
@@ -46,6 +44,7 @@ impl<'a> TypeDesc<'a> {
                 | NamedType::Primitive(_)
                 | NamedType::QmlComponent(_),
             ) => None,
+            k => Some(TypeDesc::Concrete(k)),
         }
     }
 
@@ -65,7 +64,6 @@ impl<'a> TypeDesc<'a> {
         match self {
             TypeDesc::Number => "number".into(),
             TypeDesc::String => "string".into(),
-            TypeDesc::Enum(en) => en.qualified_cxx_name(),
             TypeDesc::ObjectRef(cls) => cls.qualified_cxx_name(),
             TypeDesc::ObjectRefList(cls) => format!("list<{}>", cls.qualified_cxx_name()).into(),
             TypeDesc::StringList => "list<string>".into(),
@@ -346,7 +344,6 @@ where
         // simple value types
         TypeDesc::Number
         | TypeDesc::String
-        | TypeDesc::Enum(_)
         | TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(
             PrimitiveType::Bool
             | PrimitiveType::Int
