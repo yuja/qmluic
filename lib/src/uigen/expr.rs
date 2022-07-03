@@ -43,18 +43,13 @@ impl<'a, 't> PropertyValue<'a, 't> {
                     let mut formatter = ExpressionFormatter::new(ctx.doc_type_name);
                     let (res_t, res_expr, _) =
                         typedexpr::walk(ctx, *n, ctx.source, &mut formatter, diagnostics)?;
-                    // TODO: ensure concrete number/string type
                     if formatter.property_deps.is_empty() {
                         // constant expression can be mapped to .ui value type
                         parse_as_value_type(ctx, t, *n, res_t, res_expr, diagnostics)
                             .map(PropertyValue::Serializable)
-                    } else if TypeDesc::from_type_kind(ty.clone())
-                        .map(|t| t == res_t)
-                        .unwrap_or(false)
-                    {
-                        // TODO: refactor type comparison, handle compatible enum, etc.
+                    } else if let Some(expr) = take_expression_of_type(ty, &res_t, res_expr) {
                         let dyn_expr = DynamicExpression {
-                            expr: res_expr,
+                            expr,
                             property_deps: formatter.property_deps,
                         };
                         Some(PropertyValue::Dynamic(dyn_expr))
@@ -1337,6 +1332,39 @@ fn ensure_concrete_string(t: TypeDesc, expr: String, prec: u32) -> (TypeDesc, St
             PREC_CALL,
         ),
         t => (t, expr, prec),
+    }
+}
+
+fn take_expression_of_type(
+    expected_k: &TypeKind,
+    actual_t: &TypeDesc,
+    expr: String,
+) -> Option<String> {
+    match (expected_k, actual_t) {
+        (_, TypeDesc::Concrete(k)) if expected_k == k => Some(expr),
+        (
+            TypeKind::Just(NamedType::Primitive(
+                PrimitiveType::Int | PrimitiveType::QReal | PrimitiveType::UInt,
+            )),
+            TypeDesc::ConstNumber,
+        ) => Some(expr),
+        (TypeKind::Just(NamedType::Primitive(PrimitiveType::QString)), TypeDesc::ConstString) => {
+            Some(format!("QStringLiteral({})", expr))
+        }
+        (
+            TypeKind::Just(NamedType::Enum(e)),
+            TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(a))),
+        ) if is_compatible_enum(e, a) => Some(expr),
+        (
+            TypeKind::Pointer(NamedType::Class(e)),
+            TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(a))),
+        ) if a.is_derived_from(e) => Some(expr),
+        (
+            TypeKind::Just(NamedType::Primitive(PrimitiveType::QStringList))
+            | TypeKind::PointerList(_),
+            TypeDesc::EmptyList,
+        ) => Some(expr),
+        _ => None,
     }
 }
 
