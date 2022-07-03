@@ -1002,7 +1002,9 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
 
         let array_t = match elem_t {
             Some(TypeDesc::String) => TypeDesc::StringList,
-            Some(TypeDesc::ObjectRef(cls)) => TypeDesc::ObjectRefList(cls),
+            Some(TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(cls)))) => {
+                TypeDesc::ObjectRefList(cls)
+            }
             Some(TypeDesc::Number) => {
                 return Err(ExpressionError::UnsupportedLiteral("non-string array"))
             }
@@ -1022,7 +1024,11 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
     }
 
     fn visit_object_ref(&mut self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error> {
-        Ok((TypeDesc::ObjectRef(cls), name.to_owned(), PREC_TERM))
+        Ok((
+            TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(cls))),
+            name.to_owned(),
+            PREC_TERM,
+        ))
     }
 
     fn visit_object_property(
@@ -1264,9 +1270,12 @@ fn deduce_type<'a>(
         ) if is_compatible_enum(&l, &r) => {
             Ok(TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(l))))
         }
-        (TypeDesc::ObjectRef(l), TypeDesc::ObjectRef(r)) => l
+        (
+            TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(l))),
+            TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(r))),
+        ) => l
             .common_base_class(&r)
-            .map(TypeDesc::ObjectRef)
+            .map(|c| TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(c))))
             .ok_or_else(|| {
                 ExpressionError::CannotDeduceType(
                     l.qualified_cxx_name().into(),
@@ -1388,7 +1397,9 @@ enum ObjectRef<'a> {
 impl<'a> DescribeType<'a> for ObjectRef<'a> {
     fn type_desc(&self) -> TypeDesc<'a> {
         match self {
-            ObjectRef::Just(cls, _) => TypeDesc::ObjectRef(cls.clone()),
+            ObjectRef::Just(cls, _) => {
+                TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(cls.clone())))
+            }
             ObjectRef::List(cls, _) => TypeDesc::ObjectRefList(cls.clone()),
             ObjectRef::EmptyList => TypeDesc::EmptyList,
         }

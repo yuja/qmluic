@@ -11,7 +11,6 @@ use std::fmt::Debug;
 pub enum TypeDesc<'a> {
     Number,
     String,
-    ObjectRef(Class<'a>),
     ObjectRefList(Class<'a>),
     StringList,
     EmptyList,
@@ -30,7 +29,6 @@ impl<'a> TypeDesc<'a> {
             TypeKind::Just(
                 NamedType::Class(_) | NamedType::Namespace(_) | NamedType::QmlComponent(_),
             ) => None,
-            TypeKind::Pointer(NamedType::Class(cls)) => Some(TypeDesc::ObjectRef(cls)),
             TypeKind::Pointer(
                 NamedType::Enum(_)
                 | NamedType::Namespace(_)
@@ -64,7 +62,6 @@ impl<'a> TypeDesc<'a> {
         match self {
             TypeDesc::Number => "number".into(),
             TypeDesc::String => "string".into(),
-            TypeDesc::ObjectRef(cls) => cls.qualified_cxx_name(),
             TypeDesc::ObjectRefList(cls) => format!("list<{}>", cls.qualified_cxx_name()).into(),
             TypeDesc::StringList => "list<string>".into(),
             TypeDesc::EmptyList => "list".into(),
@@ -361,7 +358,7 @@ where
             None
         }
         // object types
-        TypeDesc::ObjectRef(cls) | TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(cls))) => {
+        TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(cls))) => {
             if let Some(p) = cls.get_property(name) {
                 diagnostics
                     .consume_node_err(id.node(), visitor.visit_object_property(item, p))
