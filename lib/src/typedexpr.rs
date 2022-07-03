@@ -9,8 +9,11 @@ use std::fmt::Debug;
 /// Expression type.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TypeDesc<'a> {
+    /// Number literal or constant expression without concrete type.
     Number,
+    /// String literal or constant expression without concrete type.
     String,
+    /// Empty array literal or constant expression without concrete type.
     EmptyList,
     /// Type that has been determined.
     Concrete(TypeKind<'a>),
