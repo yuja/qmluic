@@ -679,7 +679,7 @@ impl DescribeType<'_> for EvaluatedValue {
     fn type_desc(&self) -> TypeDesc<'static> {
         match self {
             EvaluatedValue::Bool(_) => TypeDesc::BOOL,
-            EvaluatedValue::Number(_) => TypeDesc::Number,
+            EvaluatedValue::Number(_) => TypeDesc::ConstNumber,
             EvaluatedValue::String(_, StringKind::NoTr) => TypeDesc::ConstString,
             EvaluatedValue::String(_, StringKind::Tr) => TypeDesc::STRING,
             EvaluatedValue::StringList(_) => TypeDesc::STRING_LIST,
@@ -954,7 +954,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
     type Error = ExpressionError;
 
     fn visit_number(&mut self, value: f64) -> Result<Self::Item, Self::Error> {
-        Ok((TypeDesc::Number, value.to_string(), PREC_TERM))
+        Ok((TypeDesc::ConstNumber, value.to_string(), PREC_TERM))
     }
 
     fn visit_string(&mut self, value: String) -> Result<Self::Item, Self::Error> {
@@ -999,7 +999,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
             Some(TypeDesc::Concrete(TypeKind::Pointer(t))) => {
                 TypeDesc::Concrete(TypeKind::PointerList(t))
             }
-            Some(t @ (TypeDesc::Number | TypeDesc::EmptyList | TypeDesc::Concrete(_))) => {
+            Some(t @ (TypeDesc::ConstNumber | TypeDesc::EmptyList | TypeDesc::Concrete(_))) => {
                 return Err(ExpressionError::UnsupportedType(format!(
                     "array of {}",
                     t.qualified_name()
@@ -1094,11 +1094,13 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                 Minus | Plus => Err(type_error()),
                 Typeof | Void | Delete => Err(type_error()),
             },
-            TypeDesc::Number => match operator {
-                LogicalNot => Ok((TypeDesc::BOOL, res_expr, res_prec)),
-                BitwiseNot | Minus | Plus => Ok((TypeDesc::Number, res_expr, res_prec)),
-                Typeof | Void | Delete => Err(type_error()),
-            },
+            t @ (TypeDesc::ConstNumber | TypeDesc::INT | TypeDesc::REAL | TypeDesc::UINT) => {
+                match operator {
+                    LogicalNot => Ok((TypeDesc::BOOL, res_expr, res_prec)),
+                    BitwiseNot | Minus | Plus => Ok((t, res_expr, res_prec)),
+                    Typeof | Void | Delete => Err(type_error()),
+                }
+            }
             TypeDesc::ConstString | TypeDesc::STRING => Err(type_error()),
             t @ TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(_))) => match operator {
                 LogicalNot => Ok((TypeDesc::BOOL, res_expr, res_prec)),
@@ -1147,7 +1149,11 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                     NullishCoalesce | Instanceof | In => Err(type_error()),
                 }
             }
-            (TypeDesc::Number, TypeDesc::Number) => {
+            (
+                left_t @ (TypeDesc::ConstNumber | TypeDesc::INT | TypeDesc::REAL | TypeDesc::UINT),
+                right_t @ (TypeDesc::ConstNumber | TypeDesc::INT | TypeDesc::REAL | TypeDesc::UINT),
+            ) => {
+                let res_t = deduce_type(left_t, right_t)?;
                 let res_expr = [
                     &maybe_paren(res_prec, left_expr, left_prec),
                     binary_operator_str(operator),
@@ -1164,7 +1170,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                     BitwiseAnd => Err(type_error()),
                     BitwiseXor => Err(type_error()),
                     BitwiseOr => Err(type_error()),
-                    Add | Sub | Mul | Div | Rem => Ok((TypeDesc::Number, res_expr, res_prec)),
+                    Add | Sub | Mul | Div | Rem => Ok((res_t, res_expr, res_prec)),
                     Exp => Err(type_error()), // TODO
                     Equal | StrictEqual | NotEqual | StrictNotEqual | LessThan | LessThanEqual
                     | GreaterThan | GreaterThanEqual => Ok((TypeDesc::BOOL, res_expr, res_prec)),
@@ -1292,6 +1298,8 @@ fn deduce_type<'a>(
 ) -> Result<TypeDesc<'a>, ExpressionError> {
     match (left_t, right_t) {
         (l, r) if l == r => Ok(l),
+        (l @ (TypeDesc::INT | TypeDesc::REAL | TypeDesc::UINT), TypeDesc::ConstNumber) => Ok(l),
+        (TypeDesc::ConstNumber, r @ (TypeDesc::INT | TypeDesc::REAL | TypeDesc::UINT)) => Ok(r),
         (
             TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(l))),
             TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(r))),
@@ -1584,14 +1592,24 @@ mod tests {
                 qualified_class_name: "Foo".to_owned(),
                 object: true,
                 enums: vec![metatype::Enum::with_values("Bar", ["Bar0", "Bar1", "Bar2"])],
-                properties: vec![metatype::Property {
-                    name: "checked".to_owned(),
-                    r#type: "bool".to_owned(),
-                    read: Some("isChecked".to_owned()),
-                    write: Some("setChecked".to_owned()),
-                    notify: Some("toggled".to_owned()),
-                    ..Default::default()
-                }],
+                properties: vec![
+                    metatype::Property {
+                        name: "checked".to_owned(),
+                        r#type: "bool".to_owned(),
+                        read: Some("isChecked".to_owned()),
+                        write: Some("setChecked".to_owned()),
+                        notify: Some("toggled".to_owned()),
+                        ..Default::default()
+                    },
+                    metatype::Property {
+                        name: "currentIndex".to_owned(),
+                        r#type: "int".to_owned(),
+                        read: Some("currentIndex".to_owned()),
+                        write: Some("setCurrentIndex".to_owned()),
+                        notify: Some("currentIndexChanged".to_owned()),
+                        ..Default::default()
+                    },
+                ],
                 ..Default::default()
             };
             type_map
@@ -1719,6 +1737,18 @@ mod tests {
         assert_eq!(
             format_expr("qsTr('foo')"),
             r#"QCoreApplication::translate("MyClass", "foo")"#
+        );
+    }
+
+    #[test]
+    fn format_operator_number() {
+        assert_eq!(
+            format_expr("foo.currentIndex === 0"),
+            "foo->currentIndex()==0"
+        );
+        assert_eq!(
+            format_expr("foo.currentIndex - 1 === 0"),
+            "foo->currentIndex()-1==0"
         );
     }
 

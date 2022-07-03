@@ -10,7 +10,7 @@ use std::fmt::Debug;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TypeDesc<'a> {
     /// Number literal or constant expression without concrete type.
-    Number,
+    ConstNumber,
     /// String literal or constant expression without concrete type.
     ConstString,
     /// Empty array literal or constant expression without concrete type.
@@ -22,6 +22,12 @@ pub enum TypeDesc<'a> {
 impl<'a> TypeDesc<'a> {
     pub const BOOL: Self =
         TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::Bool)));
+    pub const INT: Self =
+        TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::Int)));
+    pub const REAL: Self =
+        TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::QReal)));
+    pub const UINT: Self =
+        TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::UInt)));
     pub const STRING: Self =
         TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::QString)));
     pub const STRING_LIST: Self = TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(
@@ -53,9 +59,6 @@ impl<'a> TypeDesc<'a> {
 
     fn from_primitive_type(p: PrimitiveType) -> Option<Self> {
         match p {
-            PrimitiveType::Int | PrimitiveType::QReal | PrimitiveType::UInt => {
-                Some(TypeDesc::Number)
-            }
             PrimitiveType::Void => None,
             p => Some(TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(p)))),
         }
@@ -63,7 +66,7 @@ impl<'a> TypeDesc<'a> {
 
     pub fn qualified_name(&self) -> Cow<'_, str> {
         match self {
-            TypeDesc::Number => "number".into(),
+            TypeDesc::ConstNumber => "number".into(),
             TypeDesc::ConstString => "string".into(),
             TypeDesc::EmptyList => "list".into(),
             TypeDesc::Concrete(k) => k.qualified_cxx_name(),
@@ -340,7 +343,7 @@ where
     let name = id.to_str(source);
     match item.type_desc() {
         // simple value types
-        TypeDesc::Number
+        TypeDesc::ConstNumber
         | TypeDesc::ConstString
         | TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(
             PrimitiveType::Bool
