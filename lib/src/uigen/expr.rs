@@ -635,8 +635,8 @@ enum ExpressionError {
     UnsupportedReference,
     #[error("unsupported object property resolution")]
     UnsupportedObjectProperty,
-    #[error("unsupported property type: {0}")]
-    UnsupportedPropertyType(String),
+    #[error("unresolved property type: {0}")]
+    UnresolvedPropertyType(String),
     #[error("not a readable property")]
     UnreadableProperty,
     #[error("unsupported function call")]
@@ -1022,9 +1022,9 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
     ) -> Result<Self::Item, Self::Error> {
         let res_t = property
             .value_type()
-            .and_then(TypeDesc::from_type_kind)
+            .map(TypeDesc::Concrete)
             .ok_or_else(|| {
-                ExpressionError::UnsupportedPropertyType(property.value_type_name().to_owned())
+                ExpressionError::UnresolvedPropertyType(property.value_type_name().to_owned())
             })?;
         let res_expr = format!(
             "{}->{}()",
