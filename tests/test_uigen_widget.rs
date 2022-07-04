@@ -52,6 +52,23 @@ fn test_dynamic_width_is_readonly() {
 }
 
 #[test]
+fn test_assign_double() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QDoubleSpinBox { value: 1.0 }
+    "###).unwrap(), @r###"
+    <ui version="4.0">
+     <class>MyType</class>
+     <widget class="QDoubleSpinBox" name="doubleSpinBox">
+      <property name="value">
+       <number>1</number>
+      </property>
+     </widget>
+    </ui>
+    "###);
+}
+
+#[test]
 fn test_assign_float_to_int() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets

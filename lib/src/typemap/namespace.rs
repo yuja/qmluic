@@ -76,11 +76,18 @@ impl NamespaceData {
     // TODO: redesign mutation API
 
     pub(super) fn with_primitive_types(types: &[PrimitiveType]) -> Self {
-        let name_map = HashMap::from_iter(
+        let mut name_map = HashMap::from_iter(
             types
                 .iter()
                 .map(|&t| (t.name().to_owned(), TypeIndex::Primitive(t))),
         );
+        // TODO: handle type alias properly
+        if types.contains(&PrimitiveType::QReal) {
+            name_map.insert(
+                "double".to_owned(),
+                TypeIndex::Primitive(PrimitiveType::QReal),
+            );
+        }
         NamespaceData {
             name_map,
             ..Default::default()
