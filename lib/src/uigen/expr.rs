@@ -12,6 +12,7 @@ use quick_xml::events::{BytesStart, BytesText, Event};
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
+use std::num::TryFromIntError;
 use thiserror::Error;
 
 /// Variant for the property values that can or cannot be serialized to UI XML.
@@ -444,10 +445,12 @@ fn evaluate_as_primitive(
     let res = evaluate_expression(ctx, node, diagnostics)?;
     match (p, res) {
         (PrimitiveType::Bool, EvaluatedValue::Bool(v)) => Some(Value::Simple(SimpleValue::Bool(v))),
-        (
-            PrimitiveType::Int | PrimitiveType::QReal | PrimitiveType::UInt,
-            EvaluatedValue::Number(v),
-        ) => Some(Value::Simple(SimpleValue::Number(v))),
+        (PrimitiveType::Int | PrimitiveType::UInt, EvaluatedValue::Integer(v)) => {
+            Some(Value::Simple(SimpleValue::Number(v as f64))) // TODO: handle overflow
+        }
+        (PrimitiveType::QReal, EvaluatedValue::Float(v)) => {
+            Some(Value::Simple(SimpleValue::Number(v)))
+        }
         (PrimitiveType::QString, EvaluatedValue::String(s, k)) => {
             Some(Value::Simple(SimpleValue::String(s, k)))
         }
@@ -653,6 +656,8 @@ enum ExpressionError {
     CannotEvaluateAsConstant,
     #[error("cannot deduce type from '{0}' and '{1}'")]
     CannotDeduceType(String, String),
+    #[error("integer conversion failed")]
+    IntegerConversion(#[from] TryFromIntError),
 }
 
 /// Evaluates expression tree as arbitrary constant value expression.
@@ -664,7 +669,8 @@ struct ExpressionEvaluator;
 #[derive(Clone, Debug, PartialEq)]
 enum EvaluatedValue {
     Bool(bool),
-    Number(f64),
+    Integer(i64),
+    Float(f64),
     String(String, StringKind),
     StringList(Vec<(String, StringKind)>),
     EmptyList,
@@ -674,7 +680,8 @@ impl DescribeType<'_> for EvaluatedValue {
     fn type_desc(&self) -> TypeDesc<'static> {
         match self {
             EvaluatedValue::Bool(_) => TypeDesc::BOOL,
-            EvaluatedValue::Number(_) => TypeDesc::REAL,
+            EvaluatedValue::Integer(_) => TypeDesc::ConstInteger,
+            EvaluatedValue::Float(_) => TypeDesc::REAL,
             EvaluatedValue::String(_, StringKind::NoTr) => TypeDesc::ConstString,
             EvaluatedValue::String(_, StringKind::Tr) => TypeDesc::STRING,
             EvaluatedValue::StringList(_) => TypeDesc::STRING_LIST,
@@ -688,11 +695,11 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
     type Error = ExpressionError;
 
     fn visit_integer(&mut self, value: u64) -> Result<Self::Item, Self::Error> {
-        Ok(EvaluatedValue::Number(value as f64)) // TODO
+        Ok(EvaluatedValue::Integer(value.try_into()?))
     }
 
     fn visit_float(&mut self, value: f64) -> Result<Self::Item, Self::Error> {
-        Ok(EvaluatedValue::Number(value))
+        Ok(EvaluatedValue::Float(value))
     }
 
     fn visit_string(&mut self, value: String) -> Result<Self::Item, Self::Error> {
@@ -783,12 +790,20 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
                 Minus | Plus => Err(type_error()),
                 Typeof | Void | Delete => Err(type_error()),
             },
-            EvaluatedValue::Number(a) => match operator {
+            EvaluatedValue::Integer(a) => match operator {
                 // TODO: handle overflow, etc.
                 LogicalNot => Err(type_error()), // TODO: !
                 BitwiseNot => Err(type_error()), // TODO: ~
-                Minus => Ok(EvaluatedValue::Number(-a)),
-                Plus => Ok(EvaluatedValue::Number(a)),
+                Minus => Ok(EvaluatedValue::Integer(-a)),
+                Plus => Ok(EvaluatedValue::Integer(a)),
+                Typeof | Void | Delete => Err(type_error()),
+            },
+            EvaluatedValue::Float(a) => match operator {
+                // TODO: handle overflow, etc.
+                LogicalNot => Err(type_error()), // TODO: !
+                BitwiseNot => Err(type_error()),
+                Minus => Ok(EvaluatedValue::Float(-a)),
+                Plus => Ok(EvaluatedValue::Float(a)),
                 Typeof | Void | Delete => Err(type_error()),
             },
             EvaluatedValue::String(_, StringKind::NoTr) => Err(type_error()),
@@ -837,7 +852,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
                 GreaterThanEqual => Ok(EvaluatedValue::Bool(l >= r)),
                 NullishCoalesce | Instanceof | In => Err(type_error()),
             },
-            (EvaluatedValue::Number(l), EvaluatedValue::Number(r)) => match operator {
+            (EvaluatedValue::Integer(l), EvaluatedValue::Integer(r)) => match operator {
                 // TODO: handle overflow, etc.
                 LogicalAnd | LogicalOr => Err(type_error()),
                 // TODO: >>, (unsigned)>>, <<
@@ -848,12 +863,35 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
                 BitwiseAnd => Err(type_error()),
                 BitwiseXor => Err(type_error()),
                 BitwiseOr => Err(type_error()),
-                Add => Ok(EvaluatedValue::Number(l + r)),
-                Sub => Ok(EvaluatedValue::Number(l - r)),
-                Mul => Ok(EvaluatedValue::Number(l * r)),
-                Div => Ok(EvaluatedValue::Number(l / r)),
-                Rem => Ok(EvaluatedValue::Number(l % r)),
-                Exp => Ok(EvaluatedValue::Number(l.powf(r))),
+                Add => Ok(EvaluatedValue::Integer(l + r)),
+                Sub => Ok(EvaluatedValue::Integer(l - r)),
+                Mul => Ok(EvaluatedValue::Integer(l * r)),
+                Div => Ok(EvaluatedValue::Integer(l / r)),
+                Rem => Ok(EvaluatedValue::Integer(l % r)),
+                Exp => Ok(EvaluatedValue::Integer(l.pow(r.try_into()?))),
+                Equal => Ok(EvaluatedValue::Bool(l == r)),
+                StrictEqual => Ok(EvaluatedValue::Bool(l == r)),
+                NotEqual => Ok(EvaluatedValue::Bool(l != r)),
+                StrictNotEqual => Ok(EvaluatedValue::Bool(l != r)),
+                LessThan => Ok(EvaluatedValue::Bool(l < r)),
+                LessThanEqual => Ok(EvaluatedValue::Bool(l <= r)),
+                GreaterThan => Ok(EvaluatedValue::Bool(l > r)),
+                GreaterThanEqual => Ok(EvaluatedValue::Bool(l >= r)),
+                NullishCoalesce => Err(type_error()),
+                Instanceof => Err(type_error()),
+                In => Err(type_error()),
+            },
+            (EvaluatedValue::Float(l), EvaluatedValue::Float(r)) => match operator {
+                // TODO: handle overflow, etc.
+                LogicalAnd | LogicalOr => Err(type_error()),
+                RightShift | UnsignedRightShift | LeftShift => Err(type_error()),
+                BitwiseAnd | BitwiseXor | BitwiseOr => Err(type_error()),
+                Add => Ok(EvaluatedValue::Float(l + r)),
+                Sub => Ok(EvaluatedValue::Float(l - r)),
+                Mul => Ok(EvaluatedValue::Float(l * r)),
+                Div => Ok(EvaluatedValue::Float(l / r)),
+                Rem => Ok(EvaluatedValue::Float(l % r)),
+                Exp => Ok(EvaluatedValue::Float(l.powf(r))),
                 Equal => Ok(EvaluatedValue::Bool(l == r)),
                 StrictEqual => Ok(EvaluatedValue::Bool(l == r)),
                 NotEqual => Ok(EvaluatedValue::Bool(l != r)),
@@ -903,7 +941,8 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
     ) -> Result<Self::Item, Self::Error> {
         match condition {
             EvaluatedValue::Bool(b) => Ok(if b { consequence } else { alternative }),
-            EvaluatedValue::Number(_)
+            EvaluatedValue::Integer(_)
+            | EvaluatedValue::Float(_)
             | EvaluatedValue::String(..)
             | EvaluatedValue::StringList(_)
             | EvaluatedValue::EmptyList => Err(ExpressionError::UnsupportedConditionType(
@@ -1760,6 +1799,12 @@ mod tests {
     }
 
     #[test]
+    fn evalute_number_division() {
+        assert_eq!(evaluate_expr("3 / 2 * 2"), EvaluatedValue::Integer(2));
+        assert_eq!(evaluate_expr("3. / 2. * 2."), EvaluatedValue::Float(3.));
+    }
+
+    #[test]
     fn format_number() {
         assert_eq!(format_expr("123"), "123");
         assert_eq!(format_expr("123."), "1.23e2");
@@ -1839,8 +1884,8 @@ mod tests {
 
     #[test]
     fn evalute_ternary() {
-        assert_eq!(evaluate_expr("true ? 1 : 2"), EvaluatedValue::Number(1.));
-        assert_eq!(evaluate_expr("false ? 1 : 2"), EvaluatedValue::Number(2.));
+        assert_eq!(evaluate_expr("true ? 1 : 2"), EvaluatedValue::Integer(1));
+        assert_eq!(evaluate_expr("false ? 1 : 2"), EvaluatedValue::Integer(2));
     }
 
     #[test]

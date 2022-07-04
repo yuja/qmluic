@@ -52,6 +52,14 @@ fn test_dynamic_width_is_readonly() {
 }
 
 #[test]
+fn test_assign_float_to_int() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QSpinBox { value: 1.0 }
+    "###).unwrap_err(), @"<unknown>:2:19: error: evaluated type mismatch (expected: int, actual: qreal)");
+}
+
+#[test]
 fn test_object_property_binding() {
     let doc = common::parse_doc(
         r###"
