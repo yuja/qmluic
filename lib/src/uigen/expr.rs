@@ -448,7 +448,7 @@ fn evaluate_as_primitive(
         (PrimitiveType::Int | PrimitiveType::UInt, EvaluatedValue::Integer(v)) => {
             Some(Value::Simple(SimpleValue::Number(v as f64))) // TODO: handle overflow
         }
-        (PrimitiveType::QReal, EvaluatedValue::Float(v)) => {
+        (PrimitiveType::Double, EvaluatedValue::Float(v)) => {
             Some(Value::Simple(SimpleValue::Number(v)))
         }
         (PrimitiveType::QString, EvaluatedValue::String(s, k)) => {
@@ -473,8 +473,8 @@ fn evaluate_as_primitive(
         }
         (
             PrimitiveType::Bool
+            | PrimitiveType::Double
             | PrimitiveType::Int
-            | PrimitiveType::QReal
             | PrimitiveType::QString
             | PrimitiveType::QStringList
             | PrimitiveType::UInt
@@ -681,7 +681,7 @@ impl DescribeType<'_> for EvaluatedValue {
         match self {
             EvaluatedValue::Bool(_) => TypeDesc::BOOL,
             EvaluatedValue::Integer(_) => TypeDesc::ConstInteger,
-            EvaluatedValue::Float(_) => TypeDesc::REAL,
+            EvaluatedValue::Float(_) => TypeDesc::DOUBLE,
             EvaluatedValue::String(_, StringKind::NoTr) => TypeDesc::ConstString,
             EvaluatedValue::String(_, StringKind::Tr) => TypeDesc::STRING,
             EvaluatedValue::StringList(_) => TypeDesc::STRING_LIST,
@@ -996,7 +996,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
     }
 
     fn visit_float(&mut self, value: f64) -> Result<Self::Item, Self::Error> {
-        Ok((TypeDesc::REAL, format!("{value:e}"), PREC_TERM))
+        Ok((TypeDesc::DOUBLE, format!("{value:e}"), PREC_TERM))
     }
 
     fn visit_string(&mut self, value: String) -> Result<Self::Item, Self::Error> {
@@ -1141,7 +1141,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                 BitwiseNot | Minus | Plus => Ok((t, res_expr, res_prec)),
                 Typeof | Void | Delete => Err(type_error()),
             },
-            t @ TypeDesc::REAL => match operator {
+            t @ TypeDesc::DOUBLE => match operator {
                 LogicalNot => Ok((TypeDesc::BOOL, res_expr, res_prec)),
                 BitwiseNot => Err(type_error()),
                 Minus | Plus => Ok((t, res_expr, res_prec)),
@@ -1223,7 +1223,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                     NullishCoalesce | Instanceof | In => Err(type_error()),
                 }
             }
-            (left_t @ TypeDesc::REAL, right_t @ TypeDesc::REAL) => {
+            (left_t @ TypeDesc::DOUBLE, right_t @ TypeDesc::DOUBLE) => {
                 let res_t = deduce_type(left_t, right_t)?;
                 let res_expr = [
                     &maybe_paren(res_prec, left_expr, left_prec),

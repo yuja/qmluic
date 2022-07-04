@@ -69,11 +69,28 @@ fn test_assign_double() {
 }
 
 #[test]
+fn test_assign_qreal() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QDial { notchTarget: 3.7 }
+    "###).unwrap(), @r###"
+    <ui version="4.0">
+     <class>MyType</class>
+     <widget class="QDial" name="dial">
+      <property name="notchTarget">
+       <number>3.7</number>
+      </property>
+     </widget>
+    </ui>
+    "###);
+}
+
+#[test]
 fn test_assign_float_to_int() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
     QSpinBox { value: 1.0 }
-    "###).unwrap_err(), @"<unknown>:2:19: error: evaluated type mismatch (expected: int, actual: qreal)");
+    "###).unwrap_err(), @"<unknown>:2:19: error: evaluated type mismatch (expected: int, actual: double)");
 }
 
 #[test]

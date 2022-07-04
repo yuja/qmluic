@@ -45,8 +45,8 @@ impl TypeMap {
 
         let builtins = ModuleData::with_namespace(NamespaceData::with_primitive_types(&[
             Bool,
+            Double,
             Int,
-            QReal,
             QString,
             QStringList,
             UInt,
@@ -226,8 +226,8 @@ impl<'a> TypeSpace<'a> for ParentSpace<'a> {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum PrimitiveType {
     Bool,
+    Double,
     Int,
-    QReal,
     QString,
     QStringList,
     UInt,
@@ -240,8 +240,8 @@ impl PrimitiveType {
         use PrimitiveType::*;
         match self {
             Bool => "bool",
+            Double => "double",
             Int => "int",
-            QReal => "qreal",
             QString => "QString",
             QStringList => "QStringList",
             UInt => "uint",

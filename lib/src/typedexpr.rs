@@ -22,10 +22,10 @@ pub enum TypeDesc<'a> {
 impl<'a> TypeDesc<'a> {
     pub const BOOL: Self =
         TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::Bool)));
+    pub const DOUBLE: Self =
+        TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::Double)));
     pub const INT: Self =
         TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::Int)));
-    pub const REAL: Self =
-        TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::QReal)));
     pub const UINT: Self =
         TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::UInt)));
     pub const STRING: Self =
@@ -321,8 +321,8 @@ where
         | TypeDesc::ConstString
         | TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(
             PrimitiveType::Bool
+            | PrimitiveType::Double
             | PrimitiveType::Int
-            | PrimitiveType::QReal
             | PrimitiveType::QString
             | PrimitiveType::UInt,
         )))

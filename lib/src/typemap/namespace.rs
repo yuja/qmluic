@@ -82,10 +82,10 @@ impl NamespaceData {
                 .map(|&t| (t.name().to_owned(), TypeIndex::Primitive(t))),
         );
         // TODO: handle type alias properly
-        if types.contains(&PrimitiveType::QReal) {
+        if types.contains(&PrimitiveType::Double) {
             name_map.insert(
-                "double".to_owned(),
-                TypeIndex::Primitive(PrimitiveType::QReal),
+                "qreal".to_owned(),
+                TypeIndex::Primitive(PrimitiveType::Double),
             );
         }
         NamespaceData {
