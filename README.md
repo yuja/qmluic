@@ -197,7 +197,7 @@ Major TODOs
   - [ ] `.toString()`
   - [x] `QString::arg()`
   - [ ] integer/string as bool
-  - [ ] integer/floating point mess
+  - [x] integer/floating point mess
   - [ ] implicit/explicit `this` property
   - [ ] gadget types
   - [ ] cycle detection
