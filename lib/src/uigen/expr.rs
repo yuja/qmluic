@@ -803,7 +803,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
             },
             EvaluatedValue::Integer(a) => match operator {
                 // TODO: handle overflow, etc.
-                LogicalNot => Err(type_error()), // TODO: !
+                LogicalNot => Err(type_error()),
                 BitwiseNot => Err(type_error()), // TODO: ~
                 Minus => Ok(EvaluatedValue::Integer(-a)),
                 Plus => Ok(EvaluatedValue::Integer(a)),
@@ -811,7 +811,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
             },
             EvaluatedValue::Float(a) => match operator {
                 // TODO: handle overflow, etc.
-                LogicalNot => Err(type_error()), // TODO: !
+                LogicalNot => Err(type_error()),
                 BitwiseNot => Err(type_error()),
                 Minus => Ok(EvaluatedValue::Float(-a)),
                 Plus => Ok(EvaluatedValue::Float(a)),
@@ -1199,19 +1199,19 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                 Typeof | Void | Delete => Err(type_error()),
             },
             t @ (TypeDesc::ConstInteger | TypeDesc::INT | TypeDesc::UINT) => match operator {
-                LogicalNot => Ok((TypeDesc::BOOL, res_expr, res_prec)),
+                LogicalNot => Err(type_error()),
                 BitwiseNot | Minus | Plus => Ok((t, res_expr, res_prec)),
                 Typeof | Void | Delete => Err(type_error()),
             },
             t @ TypeDesc::DOUBLE => match operator {
-                LogicalNot => Ok((TypeDesc::BOOL, res_expr, res_prec)),
+                LogicalNot => Err(type_error()),
                 BitwiseNot => Err(type_error()),
                 Minus | Plus => Ok((t, res_expr, res_prec)),
                 Typeof | Void | Delete => Err(type_error()),
             },
             TypeDesc::ConstString | TypeDesc::STRING => Err(type_error()),
             t @ TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(_))) => match operator {
-                LogicalNot => Ok((TypeDesc::BOOL, res_expr, res_prec)),
+                LogicalNot => Err(type_error()),
                 BitwiseNot => Ok((t, res_expr, res_prec)),
                 Minus | Plus => Err(type_error()),
                 Typeof | Void | Delete => Err(type_error()),
@@ -1370,7 +1370,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                 ]
                 .concat();
                 match operator {
-                    LogicalAnd | LogicalOr => Ok((TypeDesc::BOOL, res_expr, res_prec)),
+                    LogicalAnd | LogicalOr => Err(type_error()),
                     RightShift | UnsignedRightShift | LeftShift => Err(type_error()),
                     BitwiseAnd | BitwiseXor | BitwiseOr => Ok((
                         TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(left_en))),
