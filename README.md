@@ -195,7 +195,7 @@ Major TODOs
 - [ ] Improve support for dynamic property bindings
   - [x] ternary operator
   - [ ] `.toString()`
-  - [ ] `QString::arg()`
+  - [x] `QString::arg()`
   - [ ] integer/string as bool
   - [ ] integer/floating point mess
   - [ ] implicit/explicit `this` property

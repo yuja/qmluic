@@ -1,0 +1,55 @@
+---
+source: tests/test_uigen_widget.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_mytype.h"
+
+namespace UiSupport {
+class MyType
+{
+public:
+    MyType(QWidget *root, Ui::MyType *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+        this->setup_label_text();
+        this->setup_label1_text();
+        this->update_label_text();
+        this->update_label1_text();
+    }
+
+private:
+    void setup_label_text()
+    {
+        auto *const combo = this->ui_->combo;
+
+        QObject::connect(combo, &QComboBox::currentIndexChanged, root_, [this]() { this->update_label_text(); });
+    }
+
+    void update_label_text()
+    {
+        auto *const label = this->ui_->label;
+        auto *const combo = this->ui_->combo;
+
+        label->setText(QStringLiteral("dynamic %1").arg(combo->currentIndex()));
+    }
+
+    void setup_label1_text()
+    {
+
+    }
+
+    void update_label1_text()
+    {
+        auto *const label1 = this->ui_->label1;
+
+        label1->setText(QStringLiteral("static %1").arg(1));
+    }
+
+    QWidget *const root_;
+    Ui::MyType *const ui_;
+
+};
+} // namespace UiSupport
+

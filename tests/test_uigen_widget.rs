@@ -237,3 +237,19 @@ fn test_ternary_expression_type_mismatch() {
     }
     "###).unwrap_err(), @"<unknown>:3:19: error: cannot deduce type from 'integer' and 'QString'");
 }
+
+#[test]
+fn test_qstring_arg() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QWidget {
+            QLabel { text: "dynamic %1".arg(combo.currentIndex) }
+            QLabel { text: "static %1".arg(1) }
+            QComboBox { id: combo }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
