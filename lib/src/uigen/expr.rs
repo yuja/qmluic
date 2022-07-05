@@ -46,7 +46,7 @@ impl<'a, 't> PropertyValue<'a, 't> {
                     let mut formatter = ExpressionFormatter::new(ctx.doc_type_name);
                     let (res_t, res_expr, _) =
                         typedexpr::walk(ctx, *n, ctx.source, &mut formatter, diagnostics)?;
-                    if formatter.property_deps.is_empty() {
+                    if formatter.property_deps.is_empty() && !formatter.has_method_call {
                         // constant expression can be mapped to .ui value type
                         parse_as_value_type(ctx, t, *n, res_t, res_expr, diagnostics)
                             .map(PropertyValue::Serializable)
@@ -981,6 +981,9 @@ struct ExpressionFormatter<'a> {
     tr_context: String,
     /// List of `(obj_expr, property)` accessed from this expression.
     property_deps: Vec<(String, Property<'a>)>,
+    /// Whether or not the expression has a object method call which ExpressionEvaluator
+    /// doesn't support.
+    has_method_call: bool,
 }
 
 impl ExpressionFormatter<'_> {
@@ -988,6 +991,7 @@ impl ExpressionFormatter<'_> {
         ExpressionFormatter {
             tr_context: tr_context.into(),
             property_deps: Vec::new(),
+            has_method_call: false,
         }
     }
 }
@@ -1097,11 +1101,49 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
 
     fn visit_object_builtin_method_call(
         &mut self,
-        _object: Self::Item,
-        _function: BuiltinMethodKind,
-        _arguments: Vec<Self::Item>,
+        (obj_t, obj_expr, obj_prec): Self::Item,
+        function: BuiltinMethodKind,
+        arguments: Vec<Self::Item>,
     ) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedFunctionCall) // TODO
+        self.has_method_call = true;
+        match function {
+            BuiltinMethodKind::Arg if arguments.len() == 1 => {
+                let (obj_t, obj_expr, obj_prec) = ensure_concrete_string(obj_t, obj_expr, obj_prec);
+                assert!(obj_t == TypeDesc::STRING);
+                let (arg_t, arg_expr, _) = &arguments[0];
+                match arg_t {
+                    TypeDesc::ConstInteger
+                    | TypeDesc::ConstString
+                    | TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(
+                        PrimitiveType::Bool
+                        | PrimitiveType::Double
+                        | PrimitiveType::Int
+                        | PrimitiveType::QString
+                        | PrimitiveType::UInt,
+                    ))) => Ok((
+                        TypeDesc::STRING,
+                        format!(
+                            "{}.arg({})",
+                            maybe_paren(PREC_MEMBER, obj_expr, obj_prec),
+                            arg_expr
+                        ),
+                        PREC_MEMBER,
+                    )),
+                    TypeDesc::EmptyList
+                    | TypeDesc::Concrete(TypeKind::Just(
+                        NamedType::Class(_)
+                        | NamedType::Enum(_)
+                        | NamedType::Namespace(_)
+                        | NamedType::Primitive(PrimitiveType::QStringList | PrimitiveType::Void)
+                        | NamedType::QmlComponent(_),
+                    ))
+                    | TypeDesc::Concrete(TypeKind::Pointer(_) | TypeKind::PointerList(_)) => {
+                        Err(ExpressionError::UnsupportedFunctionCall)
+                    }
+                }
+            }
+            BuiltinMethodKind::Arg => Err(ExpressionError::UnsupportedFunctionCall),
+        }
     }
 
     fn visit_builtin_call(
@@ -1879,6 +1921,19 @@ mod tests {
             format_expr("qsTr('foo')"),
             r#"QCoreApplication::translate("MyClass", "foo")"#
         );
+    }
+
+    #[test]
+    fn format_string_arg() {
+        assert_eq!(
+            format_expr("'foo %1'.arg('bar')"),
+            r#"QStringLiteral("foo %1").arg("bar")"#
+        );
+        assert_eq!(
+            format_expr("qsTr('foo %1').arg(1)"),
+            r#"QCoreApplication::translate("MyClass", "foo %1").arg(1)"#
+        );
+        assert!(Env::new("'foo'.arg([])").try_format().is_err());
     }
 
     #[test]
