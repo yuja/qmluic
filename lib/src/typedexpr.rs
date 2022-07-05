@@ -56,6 +56,13 @@ pub enum BuiltinFunctionKind {
     Tr,
 }
 
+/// Builtin methods.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum BuiltinMethodKind {
+    /// `QString::arg()`
+    Arg,
+}
+
 /// Resolved type/object reference.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RefKind<'a> {
@@ -108,6 +115,12 @@ pub trait ExpressionVisitor<'a> {
         object: Self::Item,
         property: Property<'a>,
     ) -> Result<Self::Item, Self::Error>;
+    fn visit_object_builtin_method_call(
+        &mut self,
+        object: Self::Item,
+        function: BuiltinMethodKind,
+        arguments: Vec<Self::Item>,
+    ) -> Result<Self::Item, Self::Error>;
 
     fn visit_builtin_call(
         &mut self,
@@ -136,6 +149,7 @@ pub trait ExpressionVisitor<'a> {
 #[derive(Debug)]
 enum Intermediate<'a, T> {
     Item(T),
+    BoundBuiltinMethod(T, BuiltinMethodKind),
     BuiltinFunction(BuiltinFunctionKind),
     Type(NamedType<'a>),
 }
@@ -156,7 +170,7 @@ where
 {
     match walk_inner(ctx, node, source, visitor, diagnostics)? {
         Intermediate::Item(x) => Some(x),
-        Intermediate::BuiltinFunction(_) => {
+        Intermediate::BoundBuiltinMethod(..) | Intermediate::BuiltinFunction(_) => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
                 "bare function reference",
@@ -209,7 +223,7 @@ where
                 Intermediate::Item(it) => {
                     process_item_property(it, x.property, source, visitor, diagnostics)
                 }
-                Intermediate::BuiltinFunction(_) => {
+                Intermediate::BoundBuiltinMethod(..) | Intermediate::BuiltinFunction(_) => {
                     diagnostics.push(Diagnostic::error(
                         node.byte_range(),
                         "function has no property/method",
@@ -228,6 +242,15 @@ where
                 .map(|&n| walk(ctx, n, source, visitor, diagnostics))
                 .collect::<Option<Vec<_>>>()?;
             match walk_inner(ctx, x.function, source, visitor, diagnostics)? {
+                Intermediate::BoundBuiltinMethod(it, f) => {
+                    // TODO: confine type error?
+                    diagnostics
+                        .consume_node_err(
+                            node,
+                            visitor.visit_object_builtin_method_call(it, f, arguments),
+                        )
+                        .map(Intermediate::Item)
+                }
                 Intermediate::BuiltinFunction(f) => {
                     // TODO: confine type error?
                     diagnostics
@@ -318,18 +341,23 @@ where
     match item.type_desc() {
         // simple value types
         TypeDesc::ConstInteger
-        | TypeDesc::ConstString
         | TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(
-            PrimitiveType::Bool
-            | PrimitiveType::Double
-            | PrimitiveType::Int
-            | PrimitiveType::QString
-            | PrimitiveType::UInt,
+            PrimitiveType::Bool | PrimitiveType::Double | PrimitiveType::Int | PrimitiveType::UInt,
         )))
         | TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(_))) => {
             diagnostics.push(not_found());
             None
         }
+        TypeDesc::ConstString | TypeDesc::STRING => match name {
+            "arg" => Some(Intermediate::BoundBuiltinMethod(
+                item,
+                BuiltinMethodKind::Arg,
+            )),
+            _ => {
+                diagnostics.push(not_found());
+                None
+            }
+        },
         // gadget types
         TypeDesc::Concrete(TypeKind::Just(NamedType::Class(_))) => {
             diagnostics.push(not_found());

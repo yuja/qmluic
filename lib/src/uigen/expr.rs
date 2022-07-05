@@ -6,7 +6,9 @@ use super::{XmlResult, XmlWriter};
 use crate::color::Color;
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{BinaryOperator, Node, UiBindingValue, UnaryOperator};
-use crate::typedexpr::{self, BuiltinFunctionKind, DescribeType, ExpressionVisitor, TypeDesc};
+use crate::typedexpr::{
+    self, BuiltinFunctionKind, BuiltinMethodKind, DescribeType, ExpressionVisitor, TypeDesc,
+};
 use crate::typemap::{Class, Enum, NamedType, PrimitiveType, Property, TypeKind, TypeSpace};
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::collections::HashMap;
@@ -752,6 +754,15 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
         Err(ExpressionError::UnsupportedObjectProperty)
     }
 
+    fn visit_object_builtin_method_call(
+        &mut self,
+        _object: Self::Item,
+        _function: BuiltinMethodKind,
+        _arguments: Vec<Self::Item>,
+    ) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedFunctionCall)
+    }
+
     fn visit_builtin_call(
         &mut self,
         function: BuiltinFunctionKind,
@@ -1082,6 +1093,15 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
         );
         self.property_deps.push((obj_expr, property));
         Ok((res_t, res_expr, PREC_MEMBER))
+    }
+
+    fn visit_object_builtin_method_call(
+        &mut self,
+        _object: Self::Item,
+        _function: BuiltinMethodKind,
+        _arguments: Vec<Self::Item>,
+    ) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedFunctionCall) // TODO
     }
 
     fn visit_builtin_call(
@@ -1622,6 +1642,15 @@ impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
         _property: Property<'a>,
     ) -> Result<Self::Item, Self::Error> {
         Err(ExpressionError::UnsupportedObjectProperty)
+    }
+
+    fn visit_object_builtin_method_call(
+        &mut self,
+        _object: Self::Item,
+        _function: BuiltinMethodKind,
+        _arguments: Vec<Self::Item>,
+    ) -> Result<Self::Item, Self::Error> {
+        Err(ExpressionError::UnsupportedFunctionCall)
     }
 
     fn visit_builtin_call(
