@@ -60,6 +60,17 @@ impl ModuleData {
         self.imports.push(id.into())
     }
 
+    /// Make type `scoped_name` in `module_id` also found by the given `new_name` in this
+    /// module space.
+    pub fn push_alias<S, T, U>(&mut self, new_name: S, module_id: T, scoped_name: U)
+    where
+        S: Into<String>,
+        T: Into<ModuleId<'static>>,
+        U: Into<String>,
+    {
+        self.namespace.push_alias(new_name, module_id, scoped_name);
+    }
+
     pub fn push_qml_component(&mut self, data: QmlComponentData) {
         self.namespace.push_qml_component(data);
     }

@@ -1,6 +1,7 @@
 use super::class::{Class, ClassData};
 use super::core::TypeSpace;
 use super::enum_::{Enum, EnumData};
+use super::module::ModuleId;
 use super::qml_component::{QmlComponent, QmlComponentData};
 use super::util::{TypeDataRef, TypeMapRef};
 use super::{NamedType, ParentSpace, PrimitiveType};
@@ -20,15 +21,23 @@ pub struct Namespace<'a> {
 #[derive(Clone, Debug, Default)]
 pub struct NamespaceData {
     name_map: HashMap<String, TypeIndex>,
+    aliases: Vec<AliasData>,
     classes: Vec<ClassData>,
     enums: Vec<EnumData>,
     enum_variant_map: HashMap<String, usize>,
     qml_components: Vec<QmlComponentData>,
 }
 
+#[derive(Clone, Debug)]
+struct AliasData {
+    module_id: ModuleId<'static>,
+    scoped_name: String,
+}
+
 /// Index to type variant stored in [`NamespaceData`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum TypeIndex {
+    Alias(usize),
     Class(usize),
     Enum(usize),
     Primitive(PrimitiveType),
@@ -125,6 +134,21 @@ impl NamespaceData {
         }
     }
 
+    pub(super) fn push_alias<S, T, U>(&mut self, new_name: S, module_id: T, scoped_name: U)
+    where
+        S: Into<String>,
+        T: Into<ModuleId<'static>>,
+        U: Into<String>,
+    {
+        let start = self.aliases.len();
+        self.aliases.push(AliasData {
+            module_id: module_id.into(),
+            scoped_name: scoped_name.into(),
+        });
+        self.name_map
+            .insert(new_name.into(), TypeIndex::Alias(start));
+    }
+
     pub(super) fn push_qml_component(&mut self, data: QmlComponentData) {
         let start = self.qml_components.len();
         let name = data.class_name().to_owned();
@@ -141,20 +165,29 @@ impl NamespaceData {
     where
         F: FnOnce() -> ParentSpace<'a>,
     {
-        self.name_map.get(name).map(|&index| match index {
-            TypeIndex::Class(i) => NamedType::Class(Class::new(
+        self.name_map.get(name).and_then(|&index| match index {
+            TypeIndex::Alias(i) => {
+                // TODO: error if aliased type not found
+                let a = &self.aliases[i];
+                type_map
+                    .as_ref()
+                    .get_module(&a.module_id)
+                    .and_then(|ns| ns.get_type_scoped(&a.scoped_name))
+            }
+            TypeIndex::Class(i) => Some(NamedType::Class(Class::new(
                 TypeDataRef(&self.classes[i]),
                 type_map,
                 make_parent_space(),
-            )),
-            TypeIndex::Enum(i) => {
-                NamedType::Enum(Enum::new(TypeDataRef(&self.enums[i]), make_parent_space()))
-            }
-            TypeIndex::Primitive(t) => NamedType::Primitive(t),
-            TypeIndex::QmlComponent(i) => NamedType::QmlComponent(QmlComponent::new(
+            ))),
+            TypeIndex::Enum(i) => Some(NamedType::Enum(Enum::new(
+                TypeDataRef(&self.enums[i]),
+                make_parent_space(),
+            ))),
+            TypeIndex::Primitive(t) => Some(NamedType::Primitive(t)),
+            TypeIndex::QmlComponent(i) => Some(NamedType::QmlComponent(QmlComponent::new(
                 TypeDataRef(&self.qml_components[i]),
                 type_map,
-            )),
+            ))),
         })
     }
 

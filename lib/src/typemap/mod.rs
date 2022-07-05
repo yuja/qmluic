@@ -347,6 +347,31 @@ mod tests {
     }
 
     #[test]
+    fn aliased_type() {
+        let mut type_map = TypeMap::with_primitive_types();
+        let module_id = ModuleId::Named("foo".into());
+        let mut module_data = ModuleData::default();
+        let mut foo_meta = metatype::Class::new("Foo");
+        foo_meta.enums.push(metatype::Enum::new("Bar"));
+        module_data.extend([foo_meta]);
+        module_data.push_alias("aliased_int", ModuleId::Builtins, "int");
+        module_data.push_alias("aliased_foo_bar", module_id.clone(), "Foo::Bar");
+        type_map.insert_module(module_id.clone(), module_data);
+
+        let builtins = type_map.get_module(ModuleId::Builtins).unwrap();
+        let module = type_map.get_module(module_id).unwrap();
+        // generic type alias is purely an alias. no new type wouldn't be created.
+        assert_eq!(
+            module.get_type("aliased_int").unwrap(),
+            builtins.get_type("int").unwrap()
+        );
+        assert_eq!(
+            module.get_type("aliased_foo_bar").unwrap(),
+            module.get_type_scoped("Foo::Bar").unwrap()
+        );
+    }
+
+    #[test]
     fn aliased_enum_eq() {
         let mut type_map = TypeMap::empty();
         let module_id = ModuleId::Named("foo".into());
@@ -357,6 +382,7 @@ mod tests {
         ]);
 
         let module = type_map.get_module(module_id).unwrap();
+        // unlike generic type alias, aliased enum (or flag) is a separate type.
         assert_eq!(
             unwrap_enum(module.get_type("Foos")).alias_enum(),
             Some(unwrap_enum(module.get_type("Foo")))
