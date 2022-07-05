@@ -804,7 +804,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
             EvaluatedValue::Integer(a) => match operator {
                 // TODO: handle overflow, etc.
                 LogicalNot => Err(type_error()),
-                BitwiseNot => Err(type_error()), // TODO: ~
+                BitwiseNot => Ok(EvaluatedValue::Integer(!a)),
                 Minus => Ok(EvaluatedValue::Integer(-a)),
                 Plus => Ok(EvaluatedValue::Integer(a)),
                 Typeof | Void | Delete => Err(type_error()),
@@ -870,10 +870,9 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
                 RightShift => Err(type_error()),
                 UnsignedRightShift => Err(type_error()),
                 LeftShift => Err(type_error()),
-                // TODO: &, ^, |
-                BitwiseAnd => Err(type_error()),
-                BitwiseXor => Err(type_error()),
-                BitwiseOr => Err(type_error()),
+                BitwiseAnd => Ok(EvaluatedValue::Integer(l & r)),
+                BitwiseXor => Ok(EvaluatedValue::Integer(l ^ r)),
+                BitwiseOr => Ok(EvaluatedValue::Integer(l | r)),
                 Add => Ok(EvaluatedValue::Integer(l + r)),
                 Sub => Ok(EvaluatedValue::Integer(l - r)),
                 Mul => Ok(EvaluatedValue::Integer(l * r)),
@@ -1274,10 +1273,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                     RightShift => Err(type_error()),
                     UnsignedRightShift => Err(type_error()),
                     LeftShift => Err(type_error()),
-                    // TODO: &, ^, |
-                    BitwiseAnd => Err(type_error()),
-                    BitwiseXor => Err(type_error()),
-                    BitwiseOr => Err(type_error()),
+                    BitwiseAnd | BitwiseXor | BitwiseOr => Ok((res_t, res_expr, res_prec)),
                     Add | Sub | Mul | Div | Rem => Ok((res_t, res_expr, res_prec)),
                     Exp => Err(type_error()), // TODO
                     Equal | StrictEqual | NotEqual | StrictNotEqual | LessThan | LessThanEqual
@@ -1867,6 +1863,19 @@ mod tests {
     fn format_expr(expr_source: &str) -> String {
         let (_, expr, _) = Env::new(expr_source).format();
         expr
+    }
+
+    #[test]
+    fn evaluate_integer_bit_ops() {
+        assert_eq!(
+            evaluate_expr("((1 | 2) ^ 5) & ~0"),
+            EvaluatedValue::Integer(6)
+        );
+    }
+
+    #[test]
+    fn format_integer_bit_ops() {
+        assert_eq!(format_expr("((1 | 2) ^ 5) & ~0"), "((1|2)^5)&~0");
     }
 
     #[test]
