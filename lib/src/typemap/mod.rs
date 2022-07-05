@@ -43,7 +43,7 @@ impl TypeMap {
     pub fn with_primitive_types() -> Self {
         use PrimitiveType::*;
 
-        let builtins = ModuleData::with_namespace(NamespaceData::with_primitive_types(&[
+        let mut builtins = ModuleData::with_namespace(NamespaceData::with_primitive_types(&[
             Bool,
             Double,
             Int,
@@ -52,6 +52,7 @@ impl TypeMap {
             UInt,
             Void,
         ]));
+        builtins.push_alias("qreal", ModuleId::Builtins, "double");
 
         TypeMap {
             builtins,
