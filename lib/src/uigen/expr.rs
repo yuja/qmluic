@@ -1431,6 +1431,7 @@ fn deduce_type<'a>(
             TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(r))),
         ) => l
             .common_base_class(&r)
+            .transpose()?
             .map(|c| TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(c))))
             .ok_or_else(|| {
                 ExpressionError::CannotDeduceType(
@@ -1642,7 +1643,7 @@ impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
                 ObjectRef::Just(cls, s) => {
                     base_cls = match base_cls {
                         Some(base) if base != cls => {
-                            Some(base.common_base_class(&cls).ok_or_else(|| {
+                            Some(base.common_base_class(&cls).transpose()?.ok_or_else(|| {
                                 ExpressionError::CannotDeduceType(
                                     base.qualified_cxx_name().into(),
                                     cls.qualified_cxx_name().into(),

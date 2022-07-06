@@ -365,13 +365,21 @@ where
         }
         // object types
         TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(cls))) => {
-            if let Some(p) = cls.get_property(name) {
-                diagnostics
+            match cls.get_property(name) {
+                Some(Ok(p)) => diagnostics
                     .consume_node_err(id.node(), visitor.visit_object_property(item, p))
-                    .map(Intermediate::Item)
-            } else {
-                diagnostics.push(not_found());
-                None
+                    .map(Intermediate::Item),
+                Some(Err(e)) => {
+                    diagnostics.push(Diagnostic::error(
+                        id.node().byte_range(),
+                        format!("property resolution failed: {e}"),
+                    ));
+                    None
+                }
+                None => {
+                    diagnostics.push(not_found());
+                    None
+                }
             }
         }
         // list types

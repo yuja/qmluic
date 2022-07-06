@@ -230,8 +230,8 @@ where
     binding_map
         .iter()
         .filter_map(|(&name, value)| {
-            if let Some(desc) = cls.get_property(name) {
-                match desc.value_type() {
+            match cls.get_property(name) {
+                Some(Ok(desc)) => match desc.value_type() {
                     Ok(ty) => PropertyValue::from_binding_value(ctx, &ty, value, diagnostics)
                         .map(|v| PropertyDescValue::new(desc, v)),
                     Err(e) => {
@@ -241,17 +241,25 @@ where
                         ));
                         None
                     }
+                },
+                Some(Err(e)) => {
+                    diagnostics.push(Diagnostic::error(
+                        value.binding_node().byte_range(),
+                        format!("property resolution failed: {e}"),
+                    ));
+                    None
                 }
-            } else {
-                diagnostics.push(Diagnostic::error(
-                    value.binding_node().byte_range(),
-                    format!(
-                        "unknown property of class '{}': {}",
-                        cls.qualified_cxx_name(),
-                        name
-                    ),
-                ));
-                None
+                None => {
+                    diagnostics.push(Diagnostic::error(
+                        value.binding_node().byte_range(),
+                        format!(
+                            "unknown property of class '{}': {}",
+                            cls.qualified_cxx_name(),
+                            name
+                        ),
+                    ));
+                    None
+                }
             }
             .and_then(|x| {
                 make_value(WithNode::new(value, x), diagnostics).map(|v| (name.to_owned(), v))

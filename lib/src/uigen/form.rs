@@ -83,7 +83,7 @@ impl CustomWidget {
     pub(super) fn from_class(cls: &Class, file_name_rules: &FileNameRules) -> Option<Self> {
         // If super class doesn't exist, diagnostic message would have been emitted while
         // building the object representation. So returns silently.
-        let super_cls = cls.public_super_classes().next()?;
+        let super_cls = cls.public_super_classes().next().and_then(|r| r.ok())?;
         Some(CustomWidget {
             class: cls.qualified_cxx_name().into(),
             extends: super_cls.qualified_cxx_name().into(),

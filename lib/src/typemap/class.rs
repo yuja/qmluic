@@ -54,11 +54,12 @@ impl<'a> Class<'a> {
     fn find_map_self_and_base_classes<T>(
         &self,
         mut f: impl FnMut(&Class<'a>) -> Option<T>,
-    ) -> Option<T> {
+    ) -> Option<Result<T, TypeMapError>> {
         if let Some(r) = f(self) {
-            Some(r)
+            Some(Ok(r))
         } else {
-            self.base_classes().find_map(|cls| f(&cls))
+            self.base_classes()
+                .find_map(|r| r.map(|c| f(&c)).transpose())
         }
     }
 
@@ -66,11 +67,12 @@ impl<'a> Class<'a> {
         if self == base {
             true
         } else {
-            self.base_classes().any(|c| &c == base)
+            self.base_classes()
+                .any(|r| r.map(|c| &c == base).unwrap_or(false))
         }
     }
 
-    pub fn common_base_class(&self, other: &Class<'a>) -> Option<Class<'a>> {
+    pub fn common_base_class(&self, other: &Class<'a>) -> Option<Result<Class<'a>, TypeMapError>> {
         // quadratic, but the inheritance chain should be short
         self.find_map_self_and_base_classes(|cls| other.is_derived_from(cls).then(|| cls.clone()))
     }
@@ -90,7 +92,7 @@ impl<'a> Class<'a> {
     }
 
     /// Looks up property by name.
-    pub fn get_property(&self, name: &str) -> Option<Property<'a>> {
+    pub fn get_property(&self, name: &str) -> Option<Result<Property<'a>, TypeMapError>> {
         self.find_map_self_and_base_classes(|cls| cls.get_property_no_super(name))
     }
 
@@ -110,6 +112,7 @@ impl<'a> TypeSpace<'a> for Class<'a> {
 
     fn get_type(&self, name: &str) -> Option<NamedType<'a>> {
         self.find_map_self_and_base_classes(|cls| cls.get_type_no_super(name))
+            .and_then(|r| r.ok()) // TODO
     }
 
     fn lexical_parent(&self) -> Option<&ParentSpace<'a>> {
@@ -118,6 +121,7 @@ impl<'a> TypeSpace<'a> for Class<'a> {
 
     fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
         self.find_map_self_and_base_classes(|cls| cls.get_enum_by_variant_no_super(name))
+            .and_then(|r| r.ok()) // TODO
     }
 }
 
@@ -290,18 +294,19 @@ impl<'a> SuperClasses<'a> {
 }
 
 impl<'a> Iterator for SuperClasses<'a> {
-    type Item = Class<'a>;
+    type Item = Result<Class<'a>, TypeMapError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        for n in self.names_iter.by_ref() {
-            match self.parent_space.resolve_type_scoped(n) {
-                Some(NamedType::Class(x)) => return Some(x),
-                Some(NamedType::QmlComponent(ns)) => return Some(ns.into_class()),
-                Some(NamedType::Enum(_) | NamedType::Namespace(_) | NamedType::Primitive(_))
-                | None => (), // TODO: error?
-            }
-        }
-        None
+        self.names_iter
+            .next()
+            .map(|n| match self.parent_space.resolve_type_scoped(n) {
+                Some(NamedType::Class(x)) => Ok(x),
+                Some(NamedType::QmlComponent(ns)) => Ok(ns.into_class()),
+                Some(NamedType::Enum(_) | NamedType::Namespace(_) | NamedType::Primitive(_)) => {
+                    Err(TypeMapError::InvalidSuperClassType(n.to_owned()))
+                }
+                None => Err(TypeMapError::InvalidTypeRef(n.to_owned())),
+            })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -333,15 +338,19 @@ impl<'a> BaseClasses<'a> {
 }
 
 impl<'a> Iterator for BaseClasses<'a> {
-    type Item = Class<'a>;
+    type Item = Result<Class<'a>, TypeMapError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(supers) = self.pending.front_mut() {
-            for cls in supers.by_ref() {
-                if self.visited.insert(cls.clone()) {
-                    self.pending.push_back(cls.public_super_classes());
-                    return Some(cls);
-                }
+            for r in supers.by_ref() {
+                return match r {
+                    Ok(c) if self.visited.insert(c.clone()) => {
+                        self.pending.push_back(c.public_super_classes());
+                        Some(Ok(c))
+                    }
+                    Ok(_) => continue, // already visited
+                    Err(_) => Some(r),
+                };
             }
             self.pending.pop_front();
         }
@@ -381,13 +390,25 @@ mod tests {
         let sub1_class = unwrap_class(module.get_type("Sub1"));
         let sub2_class = unwrap_class(module.get_type("Sub2"));
 
-        assert_eq!(root_class.base_classes().collect::<Vec<_>>(), []);
         assert_eq!(
-            sub1_class.base_classes().collect::<Vec<_>>(),
+            root_class
+                .base_classes()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap(),
+            []
+        );
+        assert_eq!(
+            sub1_class
+                .base_classes()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap(),
             [root_class.clone()]
         );
         assert_eq!(
-            sub2_class.base_classes().collect::<Vec<_>>(),
+            sub2_class
+                .base_classes()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap(),
             [sub1_class.clone(), root_class.clone()]
         );
     }
@@ -412,7 +433,10 @@ mod tests {
         let sub2_class = unwrap_class(module.get_type("Sub2"));
 
         assert_eq!(
-            sub2_class.base_classes().collect::<Vec<_>>(),
+            sub2_class
+                .base_classes()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap(),
             [sub1_class.clone(), root2_class.clone(), root1_class.clone()]
         );
     }
@@ -437,7 +461,10 @@ mod tests {
         let leaf_class = unwrap_class(module.get_type("Leaf"));
 
         assert_eq!(
-            leaf_class.base_classes().collect::<Vec<_>>(),
+            leaf_class
+                .base_classes()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap(),
             [mid1_class.clone(), mid2_class.clone(), root_class.clone()]
         );
     }
@@ -476,38 +503,54 @@ mod tests {
         assert!(Class::common_base_class(&mid1_class, &mid2_class).is_none());
 
         assert_eq!(
-            Class::common_base_class(&mid2_class, &mid3_class).unwrap(),
+            Class::common_base_class(&mid2_class, &mid3_class)
+                .unwrap()
+                .unwrap(),
             root2_class
         );
         assert_eq!(
-            Class::common_base_class(&mid3_class, &mid2_class).unwrap(),
+            Class::common_base_class(&mid3_class, &mid2_class)
+                .unwrap()
+                .unwrap(),
             root2_class
         );
 
         assert_eq!(
-            Class::common_base_class(&leaf1_class, &mid1_class).unwrap(),
+            Class::common_base_class(&leaf1_class, &mid1_class)
+                .unwrap()
+                .unwrap(),
             mid1_class
         );
         assert_eq!(
-            Class::common_base_class(&mid1_class, &leaf1_class).unwrap(),
+            Class::common_base_class(&mid1_class, &leaf1_class)
+                .unwrap()
+                .unwrap(),
             mid1_class
         );
 
         assert_eq!(
-            Class::common_base_class(&leaf1_class, &mid2_class).unwrap(),
+            Class::common_base_class(&leaf1_class, &mid2_class)
+                .unwrap()
+                .unwrap(),
             mid2_class
         );
         assert_eq!(
-            Class::common_base_class(&mid2_class, &leaf1_class).unwrap(),
+            Class::common_base_class(&mid2_class, &leaf1_class)
+                .unwrap()
+                .unwrap(),
             mid2_class
         );
 
         assert_eq!(
-            Class::common_base_class(&leaf1_class, &leaf2_class).unwrap(),
+            Class::common_base_class(&leaf1_class, &leaf2_class)
+                .unwrap()
+                .unwrap(),
             root2_class
         );
         assert_eq!(
-            Class::common_base_class(&leaf2_class, &leaf1_class).unwrap(),
+            Class::common_base_class(&leaf2_class, &leaf1_class)
+                .unwrap()
+                .unwrap(),
             root2_class
         );
     }
@@ -564,16 +607,35 @@ mod tests {
         let sub_class = unwrap_class(module.get_type("Sub"));
 
         assert_eq!(
-            sub_class.get_property("rootStd").unwrap().is_std_set(),
+            sub_class
+                .get_property("rootStd")
+                .unwrap()
+                .unwrap()
+                .is_std_set(),
             true
         );
         assert_eq!(
-            sub_class.get_property("rootNoStd").unwrap().is_std_set(),
+            sub_class
+                .get_property("rootNoStd")
+                .unwrap()
+                .unwrap()
+                .is_std_set(),
             false
         );
-        assert_eq!(sub_class.get_property("subStd").unwrap().is_std_set(), true);
         assert_eq!(
-            sub_class.get_property("subNoWrite").unwrap().is_std_set(),
+            sub_class
+                .get_property("subStd")
+                .unwrap()
+                .unwrap()
+                .is_std_set(),
+            true
+        );
+        assert_eq!(
+            sub_class
+                .get_property("subNoWrite")
+                .unwrap()
+                .unwrap()
+                .is_std_set(),
             false
         );
     }
