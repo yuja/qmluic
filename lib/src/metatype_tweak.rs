@@ -417,6 +417,7 @@ pub fn internal_widgets_classes() -> impl IntoIterator<Item = Class> {
             ],
             ..Default::default()
         },
+        Class::new("QLayoutItem"), // super class of QLayout, QSpacerItem, and QWidgetItem
         Class {
             class_name: "QSpacerItem".to_owned(),
             qualified_class_name: "QSpacerItem".to_owned(),
