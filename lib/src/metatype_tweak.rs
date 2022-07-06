@@ -331,6 +331,7 @@ pub fn internal_gui_classes() -> impl IntoIterator<Item = Class> {
             ],
             ..Default::default()
         },
+        Class::new("QPaintDevice"), // super class of QWidget
         Class {
             class_name: "QPalette".to_owned(),
             qualified_class_name: "QPalette".to_owned(),
