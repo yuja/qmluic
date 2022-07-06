@@ -64,18 +64,26 @@ impl<'a> Class<'a> {
     }
 
     pub fn is_derived_from(&self, base: &Class) -> bool {
+        self.is_derived_from_pedantic(base)
+            .and_then(|r| r.ok())
+            .is_some()
+    }
+
+    fn is_derived_from_pedantic(&self, base: &Class) -> Option<Result<(), TypeMapError>> {
         if self == base {
-            true
+            Some(Ok(()))
         } else {
             self.base_classes()
-                .any(|r| r.map(|c| &c == base).unwrap_or(false))
+                .find_map(|r| r.map(|c| (&c == base).then(|| ())).transpose())
         }
     }
 
     pub fn common_base_class(&self, other: &Class<'a>) -> Option<Result<Class<'a>, TypeMapError>> {
         // quadratic, but the inheritance chain should be short
         self.find_map_self_and_base_classes(|cls| {
-            other.is_derived_from(cls).then(|| Ok(cls.clone()))
+            other
+                .is_derived_from_pedantic(cls)
+                .map(|r| r.map(|()| cls.clone()))
         })
     }
 
