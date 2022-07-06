@@ -385,8 +385,11 @@ mod tests {
         let module = type_map.get_module(module_id).unwrap();
         // unlike generic type alias, aliased enum (or flag) is a separate type.
         assert_eq!(
-            unwrap_enum(module.get_type("Foos")).alias_enum(),
-            Some(unwrap_enum(module.get_type("Foo")))
+            unwrap_enum(module.get_type("Foos"))
+                .alias_enum()
+                .unwrap()
+                .unwrap(),
+            unwrap_enum(module.get_type("Foo"))
         );
     }
 

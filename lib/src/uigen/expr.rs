@@ -1408,8 +1408,14 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
 
 fn is_compatible_enum(left_en: &Enum, right_en: &Enum) -> bool {
     left_en == right_en
-        || left_en.alias_enum().map_or(false, |en| &en == right_en)
-        || right_en.alias_enum().map_or(false, |en| &en == left_en)
+        || left_en
+            .alias_enum()
+            .and_then(|r| r.ok())
+            .map_or(false, |en| &en == right_en)
+        || right_en
+            .alias_enum()
+            .and_then(|r| r.ok())
+            .map_or(false, |en| &en == left_en)
 }
 
 fn deduce_type<'a>(
