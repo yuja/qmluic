@@ -566,6 +566,7 @@ mod tests {
             bar_class
                 .get_property("bar_prop")
                 .unwrap()
+                .unwrap()
                 .value_type()
                 .unwrap(),
             TypeKind::Just(module.resolve_type("bool").unwrap())
@@ -573,6 +574,7 @@ mod tests {
         assert_eq!(
             bar_class
                 .get_property("foo_prop")
+                .unwrap()
                 .unwrap()
                 .value_type()
                 .unwrap(),
@@ -600,6 +602,7 @@ mod tests {
             foo_class
                 .get_property("pointer")
                 .unwrap()
+                .unwrap()
                 .value_type()
                 .unwrap(),
             TypeKind::Pointer(NamedType::Class(foo_class.clone()))
@@ -608,6 +611,7 @@ mod tests {
             foo_class
                 .get_property("pointer_list")
                 .unwrap()
+                .unwrap()
                 .value_type()
                 .unwrap(),
             TypeKind::PointerList(NamedType::Class(foo_class.clone()))
@@ -615,6 +619,7 @@ mod tests {
         assert_eq!(
             foo_class
                 .get_property("pointer_vector")
+                .unwrap()
                 .unwrap()
                 .value_type()
                 .unwrap(),

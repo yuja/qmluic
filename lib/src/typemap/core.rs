@@ -103,6 +103,8 @@ impl<'a, 'b> FusedIterator for LexicalAncestorSpaces<'a, 'b> {}
 pub enum TypeMapError {
     #[error("invalid type reference '{0}'")]
     InvalidTypeRef(String),
+    #[error("invalid type '{0}' as a super class")]
+    InvalidSuperClassType(String),
     #[error("unsupported type decoration in '{0}'")]
     UnsupportedDecoration(String),
 }
