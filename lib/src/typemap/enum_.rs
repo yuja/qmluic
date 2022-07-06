@@ -33,8 +33,9 @@ impl<'a> Enum<'a> {
             .alias
             .as_ref()
             .map(|n| match self.parent_space.resolve_type_scoped(n) {
-                Some(NamedType::Enum(x)) => Ok(x),
-                Some(_) => Err(TypeMapError::InvalidAliasEnumType(n.to_owned())),
+                Some(Ok(NamedType::Enum(x))) => Ok(x),
+                Some(Ok(_)) => Err(TypeMapError::InvalidAliasEnumType(n.to_owned())),
+                Some(Err(e)) => Err(e),
                 None => Err(TypeMapError::InvalidTypeRef(n.to_owned())),
             })
     }
@@ -73,7 +74,7 @@ impl<'a> TypeSpace<'a> for Enum<'a> {
         &self.data.as_ref().name
     }
 
-    fn get_type(&self, _name: &str) -> Option<NamedType<'a>> {
+    fn get_type(&self, _name: &str) -> Option<Result<NamedType<'a>, TypeMapError>> {
         None
     }
 
@@ -81,9 +82,9 @@ impl<'a> TypeSpace<'a> for Enum<'a> {
         Some(&self.parent_space)
     }
 
-    fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
+    fn get_enum_by_variant(&self, name: &str) -> Option<Result<Enum<'a>, TypeMapError>> {
         if self.is_scoped() && self.contains_variant(name) {
-            Some(self.clone())
+            Some(Ok(self.clone()))
         } else {
             None
         }

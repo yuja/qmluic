@@ -52,9 +52,23 @@ impl<'a, 't> ObjectTree<'a, 't> {
         let type_name = obj.type_name().to_string(source);
         // TODO: look up qualified name with '.' separator
         let (class, is_custom_type) = match type_space.get_type(&type_name) {
-            Some(NamedType::Class(cls)) => (cls, false),
-            Some(NamedType::QmlComponent(ns)) => (ns.into_class(), true),
-            Some(NamedType::Enum(_) | NamedType::Namespace(_) | NamedType::Primitive(_)) | None => {
+            Some(Ok(NamedType::Class(cls))) => (cls, false),
+            Some(Ok(NamedType::QmlComponent(ns))) => (ns.into_class(), true),
+            Some(Ok(NamedType::Enum(_) | NamedType::Namespace(_) | NamedType::Primitive(_))) => {
+                diagnostics.push(Diagnostic::error(
+                    obj.type_name().node().byte_range(),
+                    format!("invalid object type: {type_name}"),
+                ));
+                return None;
+            }
+            Some(Err(e)) => {
+                diagnostics.push(Diagnostic::error(
+                    obj.type_name().node().byte_range(),
+                    format!("object type resolution failed: {e}"),
+                ));
+                return None;
+            }
+            None => {
                 diagnostics.push(Diagnostic::error(
                     obj.type_name().node().byte_range(),
                     format!("unknown object type: {type_name}"),

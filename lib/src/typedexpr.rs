@@ -2,7 +2,9 @@
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{BinaryOperator, Expression, Identifier, Node, UnaryOperator};
-use crate::typemap::{Class, Enum, NamedType, PrimitiveType, Property, TypeKind, TypeSpace};
+use crate::typemap::{
+    Class, Enum, NamedType, PrimitiveType, Property, TypeKind, TypeMapError, TypeSpace,
+};
 use std::borrow::Cow;
 use std::fmt::Debug;
 
@@ -80,16 +82,16 @@ pub enum RefKind<'a> {
 /// Top-level context or object which supports name lookup.
 pub trait RefSpace<'a> {
     /// Looks up reference by name.
-    fn get_ref(&self, name: &str) -> Option<RefKind<'a>>;
+    fn get_ref(&self, name: &str) -> Option<Result<RefKind<'a>, TypeMapError>>;
 }
 
 impl<'a, T: TypeSpace<'a>> RefSpace<'a> for T {
-    fn get_ref(&self, name: &str) -> Option<RefKind<'a>> {
+    fn get_ref(&self, name: &str) -> Option<Result<RefKind<'a>, TypeMapError>> {
         #[allow(clippy::manual_map)]
-        if let Some(ty) = self.get_type(name) {
-            Some(RefKind::Type(ty))
-        } else if let Some(en) = self.get_enum_by_variant(name) {
-            Some(RefKind::EnumVariant(en))
+        if let Some(r) = self.get_type(name) {
+            Some(r.map(RefKind::Type))
+        } else if let Some(r) = self.get_enum_by_variant(name) {
+            Some(r.map(RefKind::EnumVariant))
         } else {
             None
         }
@@ -308,14 +310,21 @@ where
 {
     let name = id.to_str(source);
     match ctx.get_ref(name) {
-        Some(RefKind::BuiltinFunction(f)) => Some(Intermediate::BuiltinFunction(f)),
-        Some(RefKind::Type(ty)) => Some(Intermediate::Type(ty)),
-        Some(RefKind::EnumVariant(en)) => diagnostics
+        Some(Ok(RefKind::BuiltinFunction(f))) => Some(Intermediate::BuiltinFunction(f)),
+        Some(Ok(RefKind::Type(ty))) => Some(Intermediate::Type(ty)),
+        Some(Ok(RefKind::EnumVariant(en))) => diagnostics
             .consume_node_err(id.node(), visitor.visit_enum(en, name))
             .map(Intermediate::Item),
-        Some(RefKind::Object(cls)) => diagnostics
+        Some(Ok(RefKind::Object(cls))) => diagnostics
             .consume_node_err(id.node(), visitor.visit_object_ref(cls, name))
             .map(Intermediate::Item),
+        Some(Err(e)) => {
+            diagnostics.push(Diagnostic::error(
+                id.node().byte_range(),
+                format!("type resolution failed: {e}"),
+            ));
+            None
+        }
         None => {
             diagnostics.push(Diagnostic::error(
                 id.node().byte_range(),

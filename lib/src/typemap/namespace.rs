@@ -1,5 +1,5 @@
 use super::class::{Class, ClassData};
-use super::core::TypeSpace;
+use super::core::{TypeMapError, TypeSpace};
 use super::enum_::{Enum, EnumData};
 use super::module::ModuleId;
 use super::qml_component::{QmlComponent, QmlComponentData};
@@ -64,7 +64,7 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
         "" // TODO: return name if not root namespace
     }
 
-    fn get_type(&self, name: &str) -> Option<NamedType<'a>> {
+    fn get_type(&self, name: &str) -> Option<Result<NamedType<'a>, TypeMapError>> {
         self.data
             .as_ref()
             .get_type_with(name, self.type_map, || ParentSpace::Namespace(self.clone()))
@@ -74,7 +74,7 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
         Some(&self.parent_space)
     }
 
-    fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
+    fn get_enum_by_variant(&self, name: &str) -> Option<Result<Enum<'a>, TypeMapError>> {
         self.data
             .as_ref()
             .get_enum_by_variant_with(name, || ParentSpace::Namespace(self.clone()))
@@ -154,30 +154,31 @@ impl NamespaceData {
         name: &str,
         type_map: TypeMapRef<'a>,
         make_parent_space: F,
-    ) -> Option<NamedType<'a>>
+    ) -> Option<Result<NamedType<'a>, TypeMapError>>
     where
         F: FnOnce() -> ParentSpace<'a>,
     {
-        self.name_map.get(name).and_then(|&index| match index {
+        self.name_map.get(name).map(|&index| match index {
             TypeIndex::Alias(i) => {
-                // TODO: error if aliased type not found
                 let a = &self.aliases[i];
-                type_map
+                let ns = type_map
                     .as_ref()
                     .get_module(&a.module_id)
-                    .and_then(|ns| ns.get_type_scoped(&a.scoped_name))
+                    .ok_or_else(|| TypeMapError::InvalidModuleRef(a.module_id.clone()))?;
+                ns.get_type_scoped(&a.scoped_name)
+                    .unwrap_or_else(|| Err(TypeMapError::InvalidTypeRef(a.scoped_name.clone())))
             }
-            TypeIndex::Class(i) => Some(NamedType::Class(Class::new(
+            TypeIndex::Class(i) => Ok(NamedType::Class(Class::new(
                 TypeDataRef(&self.classes[i]),
                 type_map,
                 make_parent_space(),
             ))),
-            TypeIndex::Enum(i) => Some(NamedType::Enum(Enum::new(
+            TypeIndex::Enum(i) => Ok(NamedType::Enum(Enum::new(
                 TypeDataRef(&self.enums[i]),
                 make_parent_space(),
             ))),
-            TypeIndex::Primitive(t) => Some(NamedType::Primitive(t)),
-            TypeIndex::QmlComponent(i) => Some(NamedType::QmlComponent(QmlComponent::new(
+            TypeIndex::Primitive(t) => Ok(NamedType::Primitive(t)),
+            TypeIndex::QmlComponent(i) => Ok(NamedType::QmlComponent(QmlComponent::new(
                 TypeDataRef(&self.qml_components[i]),
                 type_map,
             ))),
@@ -188,12 +189,12 @@ impl NamespaceData {
         &'a self,
         name: &str,
         make_parent_space: F,
-    ) -> Option<Enum<'a>>
+    ) -> Option<Result<Enum<'a>, TypeMapError>>
     where
         F: FnOnce() -> ParentSpace<'a>,
     {
         self.enum_variant_map
             .get(name)
-            .map(|&i| Enum::new(TypeDataRef(&self.enums[i]), make_parent_space()))
+            .map(|&i| Ok(Enum::new(TypeDataRef(&self.enums[i]), make_parent_space())))
     }
 }
