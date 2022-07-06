@@ -1,4 +1,4 @@
-use super::core::TypeSpace;
+use super::core::{TypeMapError, TypeSpace};
 use super::enum_::Enum;
 use super::namespace::NamespaceData;
 use super::util::{self, TypeDataRef, TypeMapRef};
@@ -206,8 +206,7 @@ impl<'a> Property<'a> {
     }
 
     /// Type of the property value.
-    pub fn value_type(&self) -> Option<TypeKind<'a>> {
-        // TODO: error out if type name can't be resolved?
+    pub fn value_type(&self) -> Result<TypeKind<'a>, TypeMapError> {
         util::decorated_type(self.value_type_name(), |n| {
             self.object_class.resolve_type_scoped(n)
         })

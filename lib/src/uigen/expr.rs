@@ -9,7 +9,9 @@ use crate::qmlast::{BinaryOperator, Node, UiBindingValue, UnaryOperator};
 use crate::typedexpr::{
     self, BuiltinFunctionKind, BuiltinMethodKind, DescribeType, ExpressionVisitor, TypeDesc,
 };
-use crate::typemap::{Class, Enum, NamedType, PrimitiveType, Property, TypeKind, TypeSpace};
+use crate::typemap::{
+    Class, Enum, NamedType, PrimitiveType, Property, TypeKind, TypeMapError, TypeSpace,
+};
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::collections::HashMap;
 use std::fmt;
@@ -640,8 +642,6 @@ enum ExpressionError {
     UnsupportedReference,
     #[error("unsupported object property resolution")]
     UnsupportedObjectProperty,
-    #[error("unresolved property type: {0}")]
-    UnresolvedPropertyType(String),
     #[error("not a readable property")]
     UnreadableProperty,
     #[error("unsupported function call")]
@@ -660,6 +660,8 @@ enum ExpressionError {
     CannotDeduceType(String, String),
     #[error("integer conversion failed")]
     IntegerConversion(#[from] TryFromIntError),
+    #[error("type resolution failed: {0}")]
+    TypeResolution(#[from] TypeMapError),
 }
 
 /// Evaluates expression tree as arbitrary constant value expression.
@@ -1081,12 +1083,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
         (_obj_t, obj_expr, obj_prec): Self::Item,
         property: Property<'a>,
     ) -> Result<Self::Item, Self::Error> {
-        let res_t = property
-            .value_type()
-            .map(TypeDesc::Concrete)
-            .ok_or_else(|| {
-                ExpressionError::UnresolvedPropertyType(property.value_type_name().to_owned())
-            })?;
+        let res_t = property.value_type().map(TypeDesc::Concrete)?;
         let res_expr = format!(
             "{}->{}()",
             maybe_paren(PREC_MEMBER, obj_expr.clone(), obj_prec),
