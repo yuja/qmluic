@@ -231,15 +231,16 @@ where
         .iter()
         .filter_map(|(&name, value)| {
             if let Some(desc) = cls.get_property(name) {
-                if let Some(ty) = desc.value_type() {
-                    PropertyValue::from_binding_value(ctx, &ty, value, diagnostics)
-                        .map(|v| PropertyDescValue::new(desc, v))
-                } else {
-                    diagnostics.push(Diagnostic::error(
-                        value.binding_node().byte_range(),
-                        format!("unresolved property type: {}", desc.value_type_name()),
-                    ));
-                    None
+                match desc.value_type() {
+                    Ok(ty) => PropertyValue::from_binding_value(ctx, &ty, value, diagnostics)
+                        .map(|v| PropertyDescValue::new(desc, v)),
+                    Err(e) => {
+                        diagnostics.push(Diagnostic::error(
+                            value.binding_node().byte_range(),
+                            format!("unresolved property type: {}", e),
+                        ));
+                        None
+                    }
                 }
             } else {
                 diagnostics.push(Diagnostic::error(

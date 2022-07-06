@@ -3,6 +3,7 @@ use super::{NamedType, ParentSpace};
 use itertools::Itertools as _;
 use std::borrow::Cow;
 use std::iter::FusedIterator;
+use thiserror::Error;
 
 /// Interface to look up type by name.
 pub trait TypeSpace<'a> {
@@ -96,6 +97,15 @@ impl<'a, 'b> Iterator for LexicalAncestorSpaces<'a, 'b> {
 }
 
 impl<'a, 'b> FusedIterator for LexicalAncestorSpaces<'a, 'b> {}
+
+/// Error denoting inconsistency in the [`TypeMap`](super::TypeMap).
+#[derive(Clone, Debug, Error)]
+pub enum TypeMapError {
+    #[error("invalid type reference '{0}'")]
+    InvalidTypeRef(String),
+    #[error("unsupported type decoration in '{0}'")]
+    UnsupportedDecoration(String),
+}
 
 /// Builds a qualified type name by walking up the type tree.
 fn make_qualified_name<'a, 'b, T>(ty: &'b T, sep: &str) -> Cow<'b, str>
