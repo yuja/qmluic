@@ -3,7 +3,9 @@ use crate::objtree::{ObjectNode, ObjectTree};
 use crate::qmldoc::UiDocument;
 use crate::qtname::FileNameRules;
 use crate::typedexpr::{BuiltinFunctionKind, RefKind, RefSpace};
-use crate::typemap::{Class, Enum, ImportedModuleSpace, ModuleId, NamedType, TypeMap, TypeSpace};
+use crate::typemap::{
+    Class, Enum, ImportedModuleSpace, ModuleId, NamedType, TypeMap, TypeMapError, TypeSpace,
+};
 use thiserror::Error;
 
 /// How to process dynamic bindings.
@@ -97,19 +99,19 @@ impl<'a> BuildContext<'a> {
         let module = type_map
             .get_module(&ModuleId::Named(MODULE_NAME.into()))
             .ok_or(BuildContextError::ModuleNotFound(MODULE_NAME))?;
-        let get_class = |name| {
-            if let Some(NamedType::Class(cls)) = module.get_type(name) {
-                Ok(cls)
-            } else {
-                Err(BuildContextError::ClassNotFound(name))
-            }
+        let get_class = |name| match module.get_type(name) {
+            Some(Ok(NamedType::Class(cls))) => Ok(cls),
+            Some(Err(e)) => Err(BuildContextError::TypeResolution(name, e)),
+            Some(Ok(_)) | None => Err(BuildContextError::ClassNotFound(name)),
         };
         let get_enum = |scoped_name| {
-            if let Some(NamedType::Enum(en)) = module.get_type_scoped(scoped_name) {
-                Ok(en)
-            } else {
-                // not a "class", but who cares
-                Err(BuildContextError::ClassNotFound(scoped_name))
+            match module.get_type_scoped(scoped_name) {
+                Some(Ok(NamedType::Enum(en))) => Ok(en),
+                Some(Err(e)) => Err(BuildContextError::TypeResolution(scoped_name, e)),
+                Some(Ok(_)) | None => {
+                    // not a "class", but who cares
+                    Err(BuildContextError::ClassNotFound(scoped_name))
+                }
             }
         };
         let classes = KnownClasses {
@@ -208,13 +210,13 @@ impl<'a, 't, 's> ObjectContext<'a, 't, 's> {
 }
 
 impl<'a> RefSpace<'a> for ObjectContext<'a, '_, '_> {
-    fn get_ref(&self, name: &str) -> Option<RefKind<'a>> {
+    fn get_ref(&self, name: &str) -> Option<Result<RefKind<'a>, TypeMapError>> {
         if let Some(obj) = self.object_tree.get_by_id(name) {
-            Some(RefKind::Object(obj.class().clone()))
-        } else if let Some(ty) = self.type_space.get_type(name) {
-            Some(RefKind::Type(ty))
+            Some(Ok(RefKind::Object(obj.class().clone())))
+        } else if let Some(r) = self.type_space.get_type(name) {
+            Some(r.map(RefKind::Type))
         } else if name == "qsTr" {
-            Some(RefKind::BuiltinFunction(BuiltinFunctionKind::Tr))
+            Some(Ok(RefKind::BuiltinFunction(BuiltinFunctionKind::Tr)))
         } else {
             None
         }
@@ -228,4 +230,6 @@ pub enum BuildContextError {
     ClassNotFound(&'static str),
     #[error("required module not found: {0}")]
     ModuleNotFound(&'static str),
+    #[error("required type '{0}' not resolved: {1}")]
+    TypeResolution(&'static str, #[source] TypeMapError),
 }

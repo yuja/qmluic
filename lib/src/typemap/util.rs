@@ -82,27 +82,27 @@ impl fmt::Debug for TypeMapRef<'_> {
 /// The given `name` should be normalized in Qt moc way.
 pub(super) fn decorated_type<'a>(
     name: &str,
-    lookup: impl FnOnce(&str) -> Option<NamedType<'a>>,
+    lookup: impl FnOnce(&str) -> Option<Result<NamedType<'a>, TypeMapError>>,
 ) -> Result<TypeKind<'a>, TypeMapError> {
     if let Some(s) = name.strip_suffix("*>") {
         if let Some(t) = s.strip_prefix("QList<") {
             lookup(t)
+                .unwrap_or_else(|| Err(TypeMapError::InvalidTypeRef(t.to_owned())))
                 .map(TypeKind::PointerList)
-                .ok_or_else(|| TypeMapError::InvalidTypeRef(t.to_owned()))
         } else if let Some(t) = s.strip_prefix("QVector<") {
             lookup(t)
+                .unwrap_or_else(|| Err(TypeMapError::InvalidTypeRef(t.to_owned())))
                 .map(TypeKind::PointerList)
-                .ok_or_else(|| TypeMapError::InvalidTypeRef(t.to_owned()))
         } else {
             Err(TypeMapError::UnsupportedDecoration(name.to_owned()))
         }
     } else if let Some(s) = name.strip_suffix('*') {
         lookup(s)
+            .unwrap_or_else(|| Err(TypeMapError::InvalidTypeRef(s.to_owned())))
             .map(TypeKind::Pointer)
-            .ok_or_else(|| TypeMapError::InvalidTypeRef(s.to_owned()))
     } else {
         lookup(name)
+            .unwrap_or_else(|| Err(TypeMapError::InvalidTypeRef(name.to_owned())))
             .map(TypeKind::Just)
-            .ok_or_else(|| TypeMapError::InvalidTypeRef(name.to_owned()))
     }
 }

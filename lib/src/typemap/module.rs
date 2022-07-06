@@ -1,4 +1,4 @@
-use super::core::TypeSpace;
+use super::core::{TypeMapError, TypeSpace};
 use super::enum_::Enum;
 use super::namespace::{Namespace, NamespaceData};
 use super::util::{TypeDataRef, TypeMapRef};
@@ -159,7 +159,7 @@ impl<'a> TypeSpace<'a> for ImportedModuleSpace<'a> {
         ""
     }
 
-    fn get_type(&self, name: &str) -> Option<NamedType<'a>> {
+    fn get_type(&self, name: &str) -> Option<Result<NamedType<'a>, TypeMapError>> {
         self.data_stack.iter().rev().find_map(|d| {
             d.as_ref().namespace.get_type_with(name, self.type_map, || {
                 ParentSpace::Namespace(d.as_ref().to_namespace(self.type_map))
@@ -171,7 +171,7 @@ impl<'a> TypeSpace<'a> for ImportedModuleSpace<'a> {
         None
     }
 
-    fn get_enum_by_variant(&self, _name: &str) -> Option<Enum<'a>> {
+    fn get_enum_by_variant(&self, _name: &str) -> Option<Result<Enum<'a>, TypeMapError>> {
         None // enum variant shouldn't exist in the top-level imported namespace
     }
 }

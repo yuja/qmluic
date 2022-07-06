@@ -149,7 +149,7 @@ impl<'a> TypeSpace<'a> for NamedType<'a> {
         }
     }
 
-    fn get_type(&self, name: &str) -> Option<NamedType<'a>> {
+    fn get_type(&self, name: &str) -> Option<Result<NamedType<'a>, TypeMapError>> {
         match self {
             NamedType::Class(cls) => cls.get_type(name),
             NamedType::Enum(_) => None,
@@ -169,7 +169,7 @@ impl<'a> TypeSpace<'a> for NamedType<'a> {
         }
     }
 
-    fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
+    fn get_enum_by_variant(&self, name: &str) -> Option<Result<Enum<'a>, TypeMapError>> {
         match self {
             NamedType::Class(cls) => cls.get_enum_by_variant(name),
             NamedType::Enum(en) => en.get_enum_by_variant(name),
@@ -198,7 +198,7 @@ impl<'a> TypeSpace<'a> for ParentSpace<'a> {
         }
     }
 
-    fn get_type(&self, name: &str) -> Option<NamedType<'a>> {
+    fn get_type(&self, name: &str) -> Option<Result<NamedType<'a>, TypeMapError>> {
         match self {
             ParentSpace::Class(cls) => cls.get_type(name),
             ParentSpace::ImportedModuleSpace(ns) => ns.get_type(name),
@@ -214,7 +214,7 @@ impl<'a> TypeSpace<'a> for ParentSpace<'a> {
         }
     }
 
-    fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
+    fn get_enum_by_variant(&self, name: &str) -> Option<Result<Enum<'a>, TypeMapError>> {
         match self {
             ParentSpace::Class(cls) => cls.get_enum_by_variant(name),
             ParentSpace::ImportedModuleSpace(ns) => ns.get_enum_by_variant(name),
@@ -288,17 +288,17 @@ mod tests {
     use super::*;
     use crate::metatype;
 
-    fn unwrap_class(ty: Option<NamedType>) -> Class {
-        match ty {
-            Some(NamedType::Class(x)) => x,
-            _ => panic!("unexpected type: {ty:?}"),
+    fn unwrap_class(r: Option<Result<NamedType, TypeMapError>>) -> Class {
+        match r {
+            Some(Ok(NamedType::Class(x))) => x,
+            _ => panic!("unexpected type: {r:?}"),
         }
     }
 
-    fn unwrap_enum(ty: Option<NamedType>) -> Enum {
-        match ty {
-            Some(NamedType::Enum(x)) => x,
-            _ => panic!("unexpected type: {ty:?}"),
+    fn unwrap_enum(r: Option<Result<NamedType, TypeMapError>>) -> Enum {
+        match r {
+            Some(Ok(NamedType::Enum(x))) => x,
+            _ => panic!("unexpected type: {r:?}"),
         }
     }
 
@@ -313,20 +313,20 @@ mod tests {
 
         let module = type_map.get_module(module_id).unwrap();
         assert_eq!(
-            module.get_type("Foo").unwrap(),
-            module.get_type("Foo").unwrap()
+            module.get_type("Foo").unwrap().unwrap(),
+            module.get_type("Foo").unwrap().unwrap()
         );
         assert_ne!(
-            module.get_type("Foo").unwrap(),
-            module.get_type("Bar").unwrap()
+            module.get_type("Foo").unwrap().unwrap(),
+            module.get_type("Bar").unwrap().unwrap()
         );
         assert_ne!(
-            module.get_type("Foo").unwrap(),
-            module.get_type("Baz").unwrap()
+            module.get_type("Foo").unwrap().unwrap(),
+            module.get_type("Baz").unwrap().unwrap()
         );
         assert_eq!(
-            module.get_type("Baz").unwrap(),
-            module.get_type("Baz").unwrap()
+            module.get_type("Baz").unwrap().unwrap(),
+            module.get_type("Baz").unwrap().unwrap()
         );
     }
 
@@ -363,12 +363,12 @@ mod tests {
         let module = type_map.get_module(module_id).unwrap();
         // generic type alias is purely an alias. no new type wouldn't be created.
         assert_eq!(
-            module.get_type("aliased_int").unwrap(),
-            builtins.get_type("int").unwrap()
+            module.get_type("aliased_int").unwrap().unwrap(),
+            builtins.get_type("int").unwrap().unwrap()
         );
         assert_eq!(
-            module.get_type("aliased_foo_bar").unwrap(),
-            module.get_type_scoped("Foo::Bar").unwrap()
+            module.get_type("aliased_foo_bar").unwrap().unwrap(),
+            module.get_type_scoped("Foo::Bar").unwrap().unwrap()
         );
     }
 
@@ -407,13 +407,21 @@ mod tests {
 
         let module = type_map.get_module(module_id).unwrap();
         assert_eq!(
-            module.resolve_type("int").unwrap().qualified_cxx_name(),
+            module
+                .resolve_type("int")
+                .unwrap()
+                .unwrap()
+                .qualified_cxx_name(),
             "int"
         );
-        let foo_type = module.get_type("Foo").unwrap();
+        let foo_type = module.get_type("Foo").unwrap().unwrap();
         assert_eq!(foo_type.qualified_cxx_name(), "Foo");
         assert_eq!(
-            foo_type.get_type("Bar").unwrap().qualified_cxx_name(),
+            foo_type
+                .get_type("Bar")
+                .unwrap()
+                .unwrap()
+                .qualified_cxx_name(),
             "Foo::Bar"
         );
     }
@@ -430,13 +438,13 @@ mod tests {
 
         let module = type_map.get_module(module_id).unwrap();
         assert_eq!(
-            module.resolve_type("int").unwrap(),
+            module.resolve_type("int").unwrap().unwrap(),
             NamedType::Primitive(PrimitiveType::Int)
         );
         let foo_class = unwrap_class(module.get_type("Foo"));
         assert!(foo_class.get_type("int").is_none());
         assert_eq!(
-            foo_class.resolve_type("int").unwrap(),
+            foo_class.resolve_type("int").unwrap().unwrap(),
             NamedType::Primitive(PrimitiveType::Int)
         );
     }
@@ -456,17 +464,17 @@ mod tests {
         let module = type_map.get_module(module_id).unwrap();
         let foo_class = unwrap_class(module.get_type("Foo"));
         assert_eq!(
-            module.get_type_scoped("Foo").unwrap(),
-            module.get_type("Foo").unwrap()
+            module.get_type_scoped("Foo").unwrap().unwrap(),
+            module.get_type("Foo").unwrap().unwrap()
         );
         assert_eq!(
-            module.get_type_scoped("Foo::Bar").unwrap(),
-            foo_class.get_type("Bar").unwrap()
+            module.get_type_scoped("Foo::Bar").unwrap().unwrap(),
+            foo_class.get_type("Bar").unwrap().unwrap()
         );
         assert!(foo_class.get_type_scoped("Foo::Bar").is_none());
         assert_eq!(
-            foo_class.resolve_type_scoped("Foo::Bar").unwrap(),
-            foo_class.get_type("Bar").unwrap()
+            foo_class.resolve_type_scoped("Foo::Bar").unwrap().unwrap(),
+            foo_class.get_type("Bar").unwrap().unwrap()
         );
     }
 
@@ -507,12 +515,12 @@ mod tests {
         let root_class = unwrap_class(module.get_type("Root"));
         let sub2_class = unwrap_class(module.get_type("Sub2"));
         assert_eq!(
-            sub2_class.get_type("RootEnum").unwrap(),
-            root_class.get_type("RootEnum").unwrap()
+            sub2_class.get_type("RootEnum").unwrap().unwrap(),
+            root_class.get_type("RootEnum").unwrap().unwrap()
         );
         assert_eq!(
-            module.get_type_scoped("Sub2::RootEnum").unwrap(),
-            root_class.get_type("RootEnum").unwrap()
+            module.get_type_scoped("Sub2::RootEnum").unwrap().unwrap(),
+            root_class.get_type("RootEnum").unwrap().unwrap()
         );
     }
 
@@ -572,7 +580,7 @@ mod tests {
                 .unwrap()
                 .value_type()
                 .unwrap(),
-            TypeKind::Just(module.resolve_type("bool").unwrap())
+            TypeKind::Just(module.resolve_type("bool").unwrap().unwrap())
         );
         assert_eq!(
             bar_class
@@ -581,7 +589,7 @@ mod tests {
                 .unwrap()
                 .value_type()
                 .unwrap(),
-            TypeKind::Just(module.resolve_type("int").unwrap())
+            TypeKind::Just(module.resolve_type("int").unwrap().unwrap())
         );
     }
 
@@ -648,13 +656,22 @@ mod tests {
         let module = type_map.get_module(module_id).unwrap();
         let foo_class = unwrap_class(module.get_type("Foo"));
         let unscoped_enum = unwrap_enum(foo_class.get_type("Unscoped"));
-        assert_eq!(foo_class.get_enum_by_variant("X").unwrap(), unscoped_enum);
-        assert_eq!(foo_class.get_enum_by_variant("Y").unwrap(), unscoped_enum);
+        assert_eq!(
+            foo_class.get_enum_by_variant("X").unwrap().unwrap(),
+            unscoped_enum
+        );
+        assert_eq!(
+            foo_class.get_enum_by_variant("Y").unwrap().unwrap(),
+            unscoped_enum
+        );
         assert!(foo_class.get_enum_by_variant("A").is_none());
 
         let scoped_enum = unwrap_enum(foo_class.get_type("Scoped"));
         assert!(unscoped_enum.get_enum_by_variant("X").is_none());
-        assert_eq!(scoped_enum.get_enum_by_variant("A").unwrap(), scoped_enum);
+        assert_eq!(
+            scoped_enum.get_enum_by_variant("A").unwrap().unwrap(),
+            scoped_enum
+        );
     }
 
     #[test]
@@ -675,6 +692,9 @@ mod tests {
         let foo_class = unwrap_class(module.get_type("Bar"));
         let bar_class = unwrap_class(module.get_type("Bar"));
         let unscoped_enum = unwrap_enum(foo_class.get_type("Unscoped"));
-        assert_eq!(bar_class.get_enum_by_variant("X").unwrap(), unscoped_enum);
+        assert_eq!(
+            bar_class.get_enum_by_variant("X").unwrap().unwrap(),
+            unscoped_enum
+        );
     }
 }

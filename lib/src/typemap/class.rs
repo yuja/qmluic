@@ -53,13 +53,13 @@ impl<'a> Class<'a> {
 
     fn find_map_self_and_base_classes<T>(
         &self,
-        mut f: impl FnMut(&Class<'a>) -> Option<T>,
+        mut f: impl FnMut(&Class<'a>) -> Option<Result<T, TypeMapError>>,
     ) -> Option<Result<T, TypeMapError>> {
         if let Some(r) = f(self) {
-            Some(Ok(r))
+            Some(r)
         } else {
             self.base_classes()
-                .find_map(|r| r.map(|c| f(&c)).transpose())
+                .find_map(|r| r.and_then(|c| f(&c).transpose()).transpose())
         }
     }
 
@@ -74,17 +74,19 @@ impl<'a> Class<'a> {
 
     pub fn common_base_class(&self, other: &Class<'a>) -> Option<Result<Class<'a>, TypeMapError>> {
         // quadratic, but the inheritance chain should be short
-        self.find_map_self_and_base_classes(|cls| other.is_derived_from(cls).then(|| cls.clone()))
+        self.find_map_self_and_base_classes(|cls| {
+            other.is_derived_from(cls).then(|| Ok(cls.clone()))
+        })
     }
 
-    fn get_type_no_super(&self, name: &str) -> Option<NamedType<'a>> {
+    fn get_type_no_super(&self, name: &str) -> Option<Result<NamedType<'a>, TypeMapError>> {
         self.data
             .as_ref()
             .inner_type_map
             .get_type_with(name, self.type_map, || ParentSpace::Class(self.clone()))
     }
 
-    fn get_enum_by_variant_no_super(&self, name: &str) -> Option<Enum<'a>> {
+    fn get_enum_by_variant_no_super(&self, name: &str) -> Option<Result<Enum<'a>, TypeMapError>> {
         self.data
             .as_ref()
             .inner_type_map
@@ -96,12 +98,12 @@ impl<'a> Class<'a> {
         self.find_map_self_and_base_classes(|cls| cls.get_property_no_super(name))
     }
 
-    fn get_property_no_super(&self, name: &str) -> Option<Property<'a>> {
+    fn get_property_no_super(&self, name: &str) -> Option<Result<Property<'a>, TypeMapError>> {
         self.data
             .as_ref()
             .property_map
             .get_key_value(name)
-            .map(|(n, d)| Property::new(TypeDataRef(n), TypeDataRef(d), self.clone()))
+            .map(|(n, d)| Ok(Property::new(TypeDataRef(n), TypeDataRef(d), self.clone())))
     }
 }
 
@@ -110,18 +112,16 @@ impl<'a> TypeSpace<'a> for Class<'a> {
         &self.data.as_ref().class_name
     }
 
-    fn get_type(&self, name: &str) -> Option<NamedType<'a>> {
+    fn get_type(&self, name: &str) -> Option<Result<NamedType<'a>, TypeMapError>> {
         self.find_map_self_and_base_classes(|cls| cls.get_type_no_super(name))
-            .and_then(|r| r.ok()) // TODO
     }
 
     fn lexical_parent(&self) -> Option<&ParentSpace<'a>> {
         Some(&self.parent_space)
     }
 
-    fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>> {
+    fn get_enum_by_variant(&self, name: &str) -> Option<Result<Enum<'a>, TypeMapError>> {
         self.find_map_self_and_base_classes(|cls| cls.get_enum_by_variant_no_super(name))
-            .and_then(|r| r.ok()) // TODO
     }
 }
 
@@ -300,11 +300,12 @@ impl<'a> Iterator for SuperClasses<'a> {
         self.names_iter
             .next()
             .map(|n| match self.parent_space.resolve_type_scoped(n) {
-                Some(NamedType::Class(x)) => Ok(x),
-                Some(NamedType::QmlComponent(ns)) => Ok(ns.into_class()),
-                Some(NamedType::Enum(_) | NamedType::Namespace(_) | NamedType::Primitive(_)) => {
-                    Err(TypeMapError::InvalidSuperClassType(n.to_owned()))
-                }
+                Some(Ok(NamedType::Class(x))) => Ok(x),
+                Some(Ok(NamedType::QmlComponent(ns))) => Ok(ns.into_class()),
+                Some(Ok(
+                    NamedType::Enum(_) | NamedType::Namespace(_) | NamedType::Primitive(_),
+                )) => Err(TypeMapError::InvalidSuperClassType(n.to_owned())),
+                Some(Err(e)) => Err(e),
                 None => Err(TypeMapError::InvalidTypeRef(n.to_owned())),
             })
     }
@@ -366,10 +367,10 @@ mod tests {
     use super::*;
     use crate::metatype;
 
-    fn unwrap_class(ty: Option<NamedType>) -> Class {
-        match ty {
-            Some(NamedType::Class(x)) => x,
-            _ => panic!("unexpected type: {ty:?}"),
+    fn unwrap_class(r: Option<Result<NamedType, TypeMapError>>) -> Class {
+        match r {
+            Some(Ok(NamedType::Class(x))) => x,
+            _ => panic!("unexpected type: {r:?}"),
         }
     }
 

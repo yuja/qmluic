@@ -1848,13 +1848,13 @@ mod tests {
     }
 
     impl<'a> RefSpace<'a> for Context<'a> {
-        fn get_ref(&self, name: &str) -> Option<RefKind<'a>> {
+        fn get_ref(&self, name: &str) -> Option<Result<RefKind<'a>, TypeMapError>> {
             match name {
-                "foo" => match self.type_space.get_type("Foo").unwrap() {
-                    NamedType::Class(cls) => Some(RefKind::Object(cls)),
+                "foo" => match self.type_space.get_type("Foo").unwrap().unwrap() {
+                    NamedType::Class(cls) => Some(Ok(RefKind::Object(cls))),
                     _ => panic!("Foo must be of class type"),
                 },
-                "qsTr" => Some(RefKind::BuiltinFunction(BuiltinFunctionKind::Tr)),
+                "qsTr" => Some(Ok(RefKind::BuiltinFunction(BuiltinFunctionKind::Tr))),
                 _ => self.type_space.get_ref(name),
             }
         }

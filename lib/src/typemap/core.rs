@@ -1,4 +1,5 @@
 use super::enum_::Enum;
+use super::module::ModuleId;
 use super::{NamedType, ParentSpace};
 use itertools::Itertools as _;
 use std::borrow::Cow;
@@ -20,14 +21,17 @@ pub trait TypeSpace<'a> {
     /// Looks up type by name.
     ///
     /// If this type is a class, the returned type may be inherited from one of the super classes.
-    fn get_type(&self, name: &str) -> Option<NamedType<'a>>;
+    fn get_type(&self, name: &str) -> Option<Result<NamedType<'a>, TypeMapError>>;
 
     /// Looks up type by scoped name.
-    fn get_type_scoped(&self, scoped_name: &str) -> Option<NamedType<'a>> {
+    fn get_type_scoped(&self, scoped_name: &str) -> Option<Result<NamedType<'a>, TypeMapError>> {
         // no support for the ::<top-level> notation
         let mut parts = scoped_name.split("::");
         let head = self.get_type(parts.next().expect("split should have at least one name"));
-        parts.fold(head, |outer, name| outer.and_then(|ty| ty.get_type(name)))
+        parts.fold(head, |outer, name| match outer {
+            Some(Ok(ty)) => ty.get_type(name),
+            Some(Err(_)) | None => outer,
+        })
     }
 
     /// Parent space of this type.
@@ -37,25 +41,31 @@ pub trait TypeSpace<'a> {
     fn lexical_parent(&self) -> Option<&ParentSpace<'a>>;
 
     /// Looks up type by name from this towards the parent type space.
-    fn resolve_type(&self, name: &str) -> Option<NamedType<'a>> {
+    fn resolve_type(&self, name: &str) -> Option<Result<NamedType<'a>, TypeMapError>> {
         self.get_type(name)
             .or_else(|| LexicalAncestorSpaces::new(self).find_map(|ty| ty.get_type(name)))
     }
 
     /// Looks up type by scoped name from this towards the parent type space.
-    fn resolve_type_scoped(&self, scoped_name: &str) -> Option<NamedType<'a>> {
+    fn resolve_type_scoped(
+        &self,
+        scoped_name: &str,
+    ) -> Option<Result<NamedType<'a>, TypeMapError>> {
         // no support for the ::<top-level> notation
         let mut parts = scoped_name.split("::");
         let head = self.resolve_type(parts.next().expect("split should have at least one name"));
         // "resolve" only the first node. the remainder should be direct child.
-        parts.fold(head, |outer, name| outer.and_then(|ty| ty.get_type(name)))
+        parts.fold(head, |outer, name| match outer {
+            Some(Ok(ty)) => ty.get_type(name),
+            Some(Err(_)) | None => outer,
+        })
     }
 
     /// Looks up enum type by variant name.
     ///
     /// The returned type is not an abstract [`NamedType`] since Qt metatype does not support
     /// an arbitrary static constant.
-    fn get_enum_by_variant(&self, name: &str) -> Option<Enum<'a>>;
+    fn get_enum_by_variant(&self, name: &str) -> Option<Result<Enum<'a>, TypeMapError>>;
 }
 
 /// Iterator to walk up the type tree.
@@ -101,6 +111,8 @@ impl<'a, 'b> FusedIterator for LexicalAncestorSpaces<'a, 'b> {}
 /// Error denoting inconsistency in the [`TypeMap`](super::TypeMap).
 #[derive(Clone, Debug, Error)]
 pub enum TypeMapError {
+    #[error("invalid module reference '{0:?}'")]
+    InvalidModuleRef(ModuleId<'static>),
     #[error("invalid type reference '{0}'")]
     InvalidTypeRef(String),
     #[error("invalid type '{0}' as a super class")]
