@@ -105,6 +105,8 @@ pub enum TypeMapError {
     InvalidTypeRef(String),
     #[error("invalid type '{0}' as a super class")]
     InvalidSuperClassType(String),
+    #[error("invalid type '{0}' as an alias enum")]
+    InvalidAliasEnumType(String),
     #[error("unsupported type decoration in '{0}'")]
     UnsupportedDecoration(String),
 }

@@ -1,4 +1,4 @@
-use super::core::TypeSpace;
+use super::core::{TypeMapError, TypeSpace};
 use super::util::TypeDataRef;
 use super::{NamedType, ParentSpace};
 use crate::metatype;
@@ -27,13 +27,16 @@ impl<'a> Enum<'a> {
         Enum { data, parent_space }
     }
 
-    pub fn alias_enum(&self) -> Option<Enum<'a>> {
-        self.data.as_ref().alias.as_ref().and_then(|n| {
-            match self.parent_space.resolve_type_scoped(n) {
-                Some(NamedType::Enum(x)) => Some(x),
-                _ => None, // TODO: error?
-            }
-        })
+    pub fn alias_enum(&self) -> Option<Result<Enum<'a>, TypeMapError>> {
+        self.data
+            .as_ref()
+            .alias
+            .as_ref()
+            .map(|n| match self.parent_space.resolve_type_scoped(n) {
+                Some(NamedType::Enum(x)) => Ok(x),
+                Some(_) => Err(TypeMapError::InvalidAliasEnumType(n.to_owned())),
+                None => Err(TypeMapError::InvalidTypeRef(n.to_owned())),
+            })
     }
 
     pub fn is_scoped(&self) -> bool {
