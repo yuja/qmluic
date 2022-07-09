@@ -1,6 +1,6 @@
 use super::{
-    BasicBlock, BinaryArithOp, CodeBody, ConstantValue, Local, NamedObject, Operand, Rvalue,
-    Statement, Terminator,
+    BasicBlock, BasicBlockRef, BinaryArithOp, CodeBody, ConstantValue, Local, NamedObject, Operand,
+    Rvalue, Statement, Terminator,
 };
 use crate::diagnostic::Diagnostics;
 use crate::qmlast::{BinaryOperator, Node, UnaryOperator};
@@ -31,11 +31,20 @@ impl<'a> CodeBuilder<'a> {
         a
     }
 
+    fn current_basic_block_ref(&self) -> BasicBlockRef {
+        assert!(!self.code.basic_blocks.is_empty());
+        BasicBlockRef(self.code.basic_blocks.len() - 1)
+    }
+
     fn current_basic_block_mut(&mut self) -> &mut BasicBlock<'a> {
         self.code
             .basic_blocks
             .last_mut()
             .expect("at least one basic block must exist")
+    }
+
+    fn get_basic_block_mut(&mut self, r: BasicBlockRef) -> &mut BasicBlock<'a> {
+        &mut self.code.basic_blocks[r.0]
     }
 
     fn push_statement(&mut self, stmt: Statement<'a>) {
@@ -45,7 +54,7 @@ impl<'a> CodeBuilder<'a> {
 
 impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
     type Item = Operand<'a>;
-    type Label = ();
+    type Label = BasicBlockRef;
     type Error = ExpressionError;
 
     fn visit_integer(&mut self, value: u64) -> Result<Self::Item, Self::Error> {
@@ -157,18 +166,47 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
 
     fn visit_ternary_expression(
         &mut self,
-        _condition: Self::Item,
-        _consequence: Self::Item,
-        _alternative: Self::Item,
-        _condition_label: Self::Label,
-        _consequence_label: Self::Label,
-        _alternative_label: Self::Label,
+        condition: Self::Item,
+        consequence: Self::Item,
+        alternative: Self::Item,
+        condition_ref: Self::Label,
+        consequence_ref: Self::Label,
+        alternative_ref: Self::Label,
     ) -> Result<Self::Item, Self::Error> {
-        todo!()
+        if condition.type_desc() != TypeDesc::BOOL {
+            return Err(ExpressionError::IncompatibleConditionType(
+                condition.type_desc().qualified_name().into(),
+            ));
+        }
+        let consequence = ensure_concrete_string(consequence);
+        let alternative = ensure_concrete_string(alternative);
+        let ty = deduce_concrete_type("ternary", consequence.type_desc(), alternative.type_desc())?;
+        let sink = self.alloca(ty);
+        self.get_basic_block_mut(condition_ref)
+            .finalize(Terminator::BrCond(
+                condition,
+                condition_ref.next(),   // consequence start
+                consequence_ref.next(), // alternative start
+            ));
+        for (src, src_ref) in [
+            (consequence, consequence_ref),
+            (alternative, alternative_ref),
+        ] {
+            let block = self.get_basic_block_mut(src_ref);
+            block.push_statement(Statement::Assign(sink.name, Rvalue::Copy(src)));
+            block.finalize(Terminator::Br(alternative_ref.next())); // end
+        }
+        Ok(Operand::Local(sink))
     }
 
+    /// Inserts new basic block for the statements after the branch, returns the reference
+    /// to the old (pre-branch) basic block.
+    ///
+    /// The returned basic block should be finalized by the subsequent `visit_*()` call.
     fn mark_branch_point(&mut self) -> Self::Label {
-        todo!()
+        let old_ref = self.current_basic_block_ref();
+        self.code.basic_blocks.push(BasicBlock::empty());
+        old_ref
     }
 }
 
@@ -276,6 +314,8 @@ enum ExpressionError {
     IntegerOverflow,
     #[error("type resolution failed: {0}")]
     TypeResolution(#[from] TypeMapError),
+    #[error("condition must be of bool type, but got: {0}")]
+    IncompatibleConditionType(String),
     #[error("operation '{0}' on incompatible types: {1} and {2}")]
     OperationOnIncompatibleTypes(String, String, String),
     #[error("operation '{0}' on undetermined type: {1}")]
@@ -468,10 +508,12 @@ mod tests {
     impl<'a> RefSpace<'a> for Context<'a> {
         fn get_ref(&self, name: &str) -> Option<Result<RefKind<'a>, TypeMapError>> {
             match name {
-                "foo" => match self.type_space.get_type("Foo").unwrap().unwrap() {
-                    NamedType::Class(cls) => Some(Ok(RefKind::Object(cls))),
-                    _ => panic!("Foo must be of class type"),
-                },
+                "foo" | "foo2" | "foo3" | "foo4" => {
+                    match self.type_space.get_type("Foo").unwrap().unwrap() {
+                        NamedType::Class(cls) => Some(Ok(RefKind::Object(cls))),
+                        _ => panic!("Foo must be of class type"),
+                    }
+                }
                 "qsTr" => Some(Ok(RefKind::BuiltinFunction(BuiltinFunctionKind::Tr))),
                 _ => self.type_space.get_ref(name),
             }
@@ -549,6 +591,219 @@ mod tests {
             %0 = read_property [foo]: Foo*, "text"
             %1 = binary_arith_op '+', "Hello ": QString, %0: QString
             return %1: QString
+        "###);
+    }
+
+    #[test]
+    fn ternary_simple() {
+        insta::assert_snapshot!(dump("foo.checked ? 1 : 2"), @r###"
+            %0: bool
+            %1: int
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .2
+        .1:
+            %1 = copy 1: integer
+            br .3
+        .2:
+            %1 = copy 2: integer
+            br .3
+        .3:
+            return %1: int
+        "###);
+    }
+
+    #[test]
+    fn ternary_string_literal() {
+        insta::assert_snapshot!(dump("foo.checked ? 'yes' : 'no'"), @r###"
+            %0: bool
+            %1: QString
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .2
+        .1:
+            %1 = copy "yes": QString
+            br .3
+        .2:
+            %1 = copy "no": QString
+            br .3
+        .3:
+            return %1: QString
+        "###);
+    }
+
+    #[test]
+    fn ternary_dynamic_result() {
+        insta::assert_snapshot!(dump("foo.checked ? foo.text : foo2.text"), @r###"
+            %0: bool
+            %1: QString
+            %2: QString
+            %3: QString
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .2
+        .1:
+            %1 = read_property [foo]: Foo*, "text"
+            %3 = copy %1: QString
+            br .3
+        .2:
+            %2 = read_property [foo2]: Foo*, "text"
+            %3 = copy %2: QString
+            br .3
+        .3:
+            return %3: QString
+        "###);
+    }
+
+    #[test]
+    fn ternary_nested_condition() {
+        insta::assert_snapshot!(
+            dump("(foo.checked ? foo2.checked : foo3.checked) ? foo2.text : foo3.text"), @r###"
+            %0: bool
+            %1: bool
+            %2: bool
+            %3: bool
+            %4: QString
+            %5: QString
+            %6: QString
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .2
+        .1:
+            %1 = read_property [foo2]: Foo*, "checked"
+            %3 = copy %1: bool
+            br .3
+        .2:
+            %2 = read_property [foo3]: Foo*, "checked"
+            %3 = copy %2: bool
+            br .3
+        .3:
+            br_cond %3: bool, .4, .5
+        .4:
+            %4 = read_property [foo2]: Foo*, "text"
+            %6 = copy %4: QString
+            br .6
+        .5:
+            %5 = read_property [foo3]: Foo*, "text"
+            %6 = copy %5: QString
+            br .6
+        .6:
+            return %6: QString
+        "###);
+    }
+
+    #[test]
+    fn ternary_nested_consequence() {
+        insta::assert_snapshot!(
+            dump("foo.checked ? (foo2.checked ? foo.text : foo2.text) : foo3.text"), @r###"
+            %0: bool
+            %1: bool
+            %2: QString
+            %3: QString
+            %4: QString
+            %5: QString
+            %6: QString
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .5
+        .1:
+            %1 = read_property [foo2]: Foo*, "checked"
+            br_cond %1: bool, .2, .3
+        .2:
+            %2 = read_property [foo]: Foo*, "text"
+            %4 = copy %2: QString
+            br .4
+        .3:
+            %3 = read_property [foo2]: Foo*, "text"
+            %4 = copy %3: QString
+            br .4
+        .4:
+            %6 = copy %4: QString
+            br .6
+        .5:
+            %5 = read_property [foo3]: Foo*, "text"
+            %6 = copy %5: QString
+            br .6
+        .6:
+            return %6: QString
+        "###);
+    }
+
+    #[test]
+    fn ternary_nested_alternative() {
+        insta::assert_snapshot!(
+            dump("foo.checked ? foo.text : (foo2.checked ? foo2.text : foo3.text)"), @r###"
+            %0: bool
+            %1: QString
+            %2: bool
+            %3: QString
+            %4: QString
+            %5: QString
+            %6: QString
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .2
+        .1:
+            %1 = read_property [foo]: Foo*, "text"
+            %6 = copy %1: QString
+            br .6
+        .2:
+            %2 = read_property [foo2]: Foo*, "checked"
+            br_cond %2: bool, .3, .4
+        .3:
+            %3 = read_property [foo2]: Foo*, "text"
+            %5 = copy %3: QString
+            br .5
+        .4:
+            %4 = read_property [foo3]: Foo*, "text"
+            %5 = copy %4: QString
+            br .5
+        .5:
+            %6 = copy %5: QString
+            br .6
+        .6:
+            return %6: QString
+        "###);
+    }
+
+    #[test]
+    fn ternary_concatenation() {
+        insta::assert_snapshot!(
+            dump("(foo.checked ? foo.text : foo2.text) + (foo3.checked ? foo3.text : foo4.text)"), @r###"
+            %0: bool
+            %1: QString
+            %2: QString
+            %3: QString
+            %4: bool
+            %5: QString
+            %6: QString
+            %7: QString
+            %8: QString
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .2
+        .1:
+            %1 = read_property [foo]: Foo*, "text"
+            %3 = copy %1: QString
+            br .3
+        .2:
+            %2 = read_property [foo2]: Foo*, "text"
+            %3 = copy %2: QString
+            br .3
+        .3:
+            %4 = read_property [foo3]: Foo*, "checked"
+            br_cond %4: bool, .4, .5
+        .4:
+            %5 = read_property [foo3]: Foo*, "text"
+            %7 = copy %5: QString
+            br .6
+        .5:
+            %6 = read_property [foo4]: Foo*, "text"
+            %7 = copy %6: QString
+            br .6
+        .6:
+            %8 = binary_arith_op '+', %3: QString, %7: QString
+            return %8: QString
         "###);
     }
 }

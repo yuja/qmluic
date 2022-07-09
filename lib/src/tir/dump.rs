@@ -24,6 +24,10 @@ fn dump_basic_block<W: io::Write>(w: &mut W, block: &BasicBlock) -> io::Result<(
         dump_statement(w, s)?;
     }
     match block.terminator() {
+        Terminator::Br(x) => writeln!(w, "    br .{}", x.0),
+        Terminator::BrCond(x, y, z) => {
+            writeln!(w, "    br_cond {}, .{}, .{}", format_operand(x), y.0, z.0)
+        }
         Terminator::Return(x) => writeln!(w, "    return {}", format_operand(x)),
     }
 }
@@ -36,6 +40,7 @@ fn dump_statement<W: io::Write>(w: &mut W, stmt: &Statement) -> io::Result<()> {
 
 fn format_rvalue(rv: &Rvalue) -> String {
     match rv {
+        Rvalue::Copy(a) => format!("copy {}", format_operand(a)),
         Rvalue::BinaryArithOp(op, l, r) => format!(
             "binary_arith_op '{}', {}, {}",
             op,
