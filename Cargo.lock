@@ -561,6 +561,7 @@ name = "qmluic"
 version = "0.1.0"
 dependencies = [
  "camino",
+ "insta",
  "itertools",
  "log",
  "once_cell",
