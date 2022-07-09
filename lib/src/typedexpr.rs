@@ -22,19 +22,12 @@ pub enum TypeDesc<'a> {
 }
 
 impl<'a> TypeDesc<'a> {
-    pub const BOOL: Self =
-        TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::Bool)));
-    pub const DOUBLE: Self =
-        TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::Double)));
-    pub const INT: Self =
-        TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::Int)));
-    pub const UINT: Self =
-        TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::UInt)));
-    pub const STRING: Self =
-        TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::QString)));
-    pub const STRING_LIST: Self = TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(
-        PrimitiveType::QStringList,
-    )));
+    pub const BOOL: Self = TypeDesc::Concrete(TypeKind::BOOL);
+    pub const DOUBLE: Self = TypeDesc::Concrete(TypeKind::DOUBLE);
+    pub const INT: Self = TypeDesc::Concrete(TypeKind::INT);
+    pub const UINT: Self = TypeDesc::Concrete(TypeKind::UINT);
+    pub const STRING: Self = TypeDesc::Concrete(TypeKind::STRING);
+    pub const STRING_LIST: Self = TypeDesc::Concrete(TypeKind::STRING_LIST);
 
     pub fn qualified_name(&self) -> Cow<'_, str> {
         match self {

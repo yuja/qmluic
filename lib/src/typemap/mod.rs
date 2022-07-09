@@ -274,6 +274,13 @@ pub enum TypeKind<'a> {
 }
 
 impl TypeKind<'_> {
+    pub const BOOL: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::Bool));
+    pub const DOUBLE: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::Double));
+    pub const INT: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::Int));
+    pub const UINT: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::UInt));
+    pub const STRING: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::QString));
+    pub const STRING_LIST: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::QStringList));
+
     pub fn qualified_cxx_name(&self) -> Cow<'_, str> {
         match self {
             TypeKind::Just(ty) => ty.qualified_cxx_name(),
