@@ -58,6 +58,16 @@ impl<'a> BasicBlock<'a> {
     }
 }
 
+/// Basic block index.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct BasicBlockRef(pub usize);
+
+impl BasicBlockRef {
+    fn next(&self) -> Self {
+        BasicBlockRef(self.0 + 1)
+    }
+}
+
 /// Variant for statements.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement<'a> {
@@ -68,6 +78,10 @@ pub enum Statement<'a> {
 /// Last instruction to exit from `BasicBlock`.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Terminator<'a> {
+    /// `goto <block>`
+    Br(BasicBlockRef),
+    /// `goto (<cond> ? <block1> : <block2>)`
+    BrCond(Operand<'a>, BasicBlockRef, BasicBlockRef),
     /// `return <operand>`
     Return(Operand<'a>),
 }
@@ -159,6 +173,7 @@ pub struct NamedObjectRef(pub String);
 /// Variant for rvalue expressions.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Rvalue<'a> {
+    Copy(Operand<'a>),
     /// `<left>:<ty> <op> <right>:<ty> -> <ty>`
     BinaryArithOp(BinaryArithOp, Operand<'a>, Operand<'a>),
     /// `<obj> -> <read_property>()`
