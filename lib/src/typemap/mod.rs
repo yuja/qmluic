@@ -49,7 +49,7 @@ impl TypeMap {
             Int,
             QString,
             QStringList,
-            UInt,
+            Uint,
             Void,
         ]));
         builtins.push_alias("qreal", ModuleId::Builtins, "double");
@@ -231,7 +231,7 @@ pub enum PrimitiveType {
     Int,
     QString,
     QStringList,
-    UInt,
+    Uint,
     Void,
     // TODO: ...
 }
@@ -245,7 +245,7 @@ impl PrimitiveType {
             Int => "int",
             QString => "QString",
             QStringList => "QStringList",
-            UInt => "uint",
+            Uint => "uint",
             Void => "void",
         }
     }
@@ -277,7 +277,7 @@ impl TypeKind<'_> {
     pub const BOOL: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::Bool));
     pub const DOUBLE: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::Double));
     pub const INT: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::Int));
-    pub const UINT: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::UInt));
+    pub const UINT: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::Uint));
     pub const STRING: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::QString));
     pub const STRING_LIST: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::QStringList));
 

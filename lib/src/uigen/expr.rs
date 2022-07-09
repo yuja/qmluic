@@ -449,7 +449,7 @@ fn evaluate_as_primitive(
     let res = evaluate_expression(ctx, node, diagnostics)?;
     match (p, res) {
         (PrimitiveType::Bool, EvaluatedValue::Bool(v)) => Some(Value::Simple(SimpleValue::Bool(v))),
-        (PrimitiveType::Int | PrimitiveType::UInt, EvaluatedValue::Integer(v)) => {
+        (PrimitiveType::Int | PrimitiveType::Uint, EvaluatedValue::Integer(v)) => {
             Some(Value::Simple(SimpleValue::Number(v as f64))) // TODO: handle overflow
         }
         (PrimitiveType::Double, EvaluatedValue::Float(v)) => {
@@ -481,7 +481,7 @@ fn evaluate_as_primitive(
             | PrimitiveType::Int
             | PrimitiveType::QString
             | PrimitiveType::QStringList
-            | PrimitiveType::UInt
+            | PrimitiveType::Uint
             | PrimitiveType::Void,
             res,
         ) => {
@@ -1115,7 +1115,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
                         | PrimitiveType::Double
                         | PrimitiveType::Int
                         | PrimitiveType::QString
-                        | PrimitiveType::UInt,
+                        | PrimitiveType::Uint,
                     ))) => Ok((
                         TypeDesc::STRING,
                         format!(
@@ -1475,7 +1475,7 @@ fn take_expression_of_type(
     match (expected_k, actual_t) {
         (_, TypeDesc::Concrete(k)) if expected_k == k => Some(expr),
         (
-            TypeKind::Just(NamedType::Primitive(PrimitiveType::Int | PrimitiveType::UInt)),
+            TypeKind::Just(NamedType::Primitive(PrimitiveType::Int | PrimitiveType::Uint)),
             TypeDesc::ConstInteger,
         ) => Some(expr),
         (TypeKind::Just(NamedType::Primitive(PrimitiveType::QString)), TypeDesc::ConstString) => {
