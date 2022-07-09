@@ -344,7 +344,7 @@ where
         // simple value types
         TypeDesc::ConstInteger
         | TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(
-            PrimitiveType::Bool | PrimitiveType::Double | PrimitiveType::Int | PrimitiveType::UInt,
+            PrimitiveType::Bool | PrimitiveType::Double | PrimitiveType::Int | PrimitiveType::Uint,
         )))
         | TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(_))) => {
             diagnostics.push(not_found());
