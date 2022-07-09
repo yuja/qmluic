@@ -5,8 +5,10 @@ use crate::typemap::{Class, NamedType, Property, TypeKind};
 use std::fmt;
 
 mod builder;
+mod dump;
 
 pub use self::builder::build; // re-export
+pub use self::dump::dump_code_body; // re-export
 
 /// Container of type-checked IR code.
 #[derive(Clone, Debug)]
