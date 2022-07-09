@@ -382,7 +382,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::super::LocalRef;
     use super::*;
     use crate::metatype;
     use crate::qmlast::{UiObjectDefinition, UiProgram};
@@ -460,18 +459,6 @@ mod tests {
             let mut diagnostics = Diagnostics::new();
             super::build(&ctx, node, doc.source(), &mut diagnostics).ok_or(diagnostics)
         }
-
-        fn get_type(&self, name: &str) -> NamedType {
-            let module = self.type_map.get_module(&self.module_id).unwrap();
-            module.get_type(name).unwrap().unwrap()
-        }
-
-        fn get_class(&self, name: &str) -> Class {
-            match self.get_type(name) {
-                NamedType::Class(cls) => cls,
-                ty => panic!("not a class: {ty:?}"),
-            }
-        }
     }
 
     struct Context<'a> {
@@ -491,146 +478,77 @@ mod tests {
         }
     }
 
+    fn dump(expr_source: &str) -> String {
+        let env = Env::new();
+        let code = env.build(expr_source);
+        let mut buf = Vec::new();
+        super::super::dump_code_body(&mut buf, &code).unwrap();
+        String::from_utf8(buf).unwrap()
+    }
+
     #[test]
     fn string_literal() {
-        let env = Env::new();
-        assert_eq!(
-            env.build("'foo'").basic_blocks,
-            vec![BasicBlock {
-                statements: vec![],
-                terminator: Some(Terminator::Return(Operand::Constant(
-                    ConstantValue::CString("foo".to_owned())
-                ))),
-            },]
-        );
+        insta::assert_snapshot!(dump("'foo'"), @r###"
+        .0:
+            return "foo": string
+        "###);
     }
 
     #[test]
     fn named_object_ref() {
-        let env = Env::new();
-        assert_eq!(
-            env.build("foo").basic_blocks,
-            vec![BasicBlock {
-                statements: vec![],
-                terminator: Some(Terminator::Return(Operand::NamedObject(NamedObject::new(
-                    "foo",
-                    env.get_class("Foo")
-                )))),
-            },]
-        );
+        insta::assert_snapshot!(dump("foo"), @r###"
+        .0:
+            return [foo]: Foo*
+        "###);
     }
 
     #[test]
     fn read_object_property() {
-        let env = Env::new();
-        let cls = env.get_class("Foo");
-        assert_eq!(
-            env.build("foo.checked").basic_blocks,
-            vec![BasicBlock {
-                statements: vec![Statement::Assign(
-                    LocalRef(0),
-                    Rvalue::ReadProperty(
-                        Operand::NamedObject(NamedObject::new("foo", cls.clone())),
-                        cls.get_property("checked").unwrap().unwrap()
-                    )
-                )],
-                terminator: Some(Terminator::Return(Operand::Local(Local::new(
-                    0,
-                    TypeKind::BOOL
-                )))),
-            }]
-        );
+        insta::assert_snapshot!(dump("foo.checked"), @r###"
+            %0: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            return %0: bool
+        "###);
     }
 
     #[test]
     fn constant_integer_arithmetic() {
-        let env = Env::new();
-        assert_eq!(
-            env.build("(1 + 2 * 3) / 4").basic_blocks,
-            vec![BasicBlock {
-                statements: vec![],
-                terminator: Some(Terminator::Return(Operand::Constant(
-                    ConstantValue::Integer(1)
-                ))),
-            }]
-        );
+        insta::assert_snapshot!(dump("(1 + 2 * 3) / 4"), @r###"
+        .0:
+            return 1: integer
+        "###);
     }
 
     #[test]
     fn constant_string_concatenation() {
-        let env = Env::new();
-        assert_eq!(
-            env.build("'foo' + 'bar'").basic_blocks,
-            vec![BasicBlock {
-                statements: vec![],
-                terminator: Some(Terminator::Return(Operand::Constant(
-                    ConstantValue::CString("foobar".to_owned())
-                ))),
-            }]
-        );
+        insta::assert_snapshot!(dump("'foo' + 'bar'"), @r###"
+        .0:
+            return "foobar": string
+        "###);
     }
 
     #[test]
     fn dynamic_integer_arithmetic() {
-        let env = Env::new();
-        let cls = env.get_class("Foo");
-        assert_eq!(
-            env.build("foo.currentIndex + 1").basic_blocks,
-            vec![BasicBlock {
-                statements: vec![
-                    Statement::Assign(
-                        LocalRef(0),
-                        Rvalue::ReadProperty(
-                            Operand::NamedObject(NamedObject::new("foo", cls.clone())),
-                            cls.get_property("currentIndex").unwrap().unwrap()
-                        )
-                    ),
-                    Statement::Assign(
-                        LocalRef(1),
-                        Rvalue::BinaryArithOp(
-                            BinaryArithOp::Add,
-                            Operand::Local(Local::new(0, TypeKind::INT)),
-                            Operand::Constant(ConstantValue::Integer(1)),
-                        )
-                    ),
-                ],
-                terminator: Some(Terminator::Return(Operand::Local(Local::new(
-                    1,
-                    TypeKind::INT
-                )))),
-            }]
-        );
+        insta::assert_snapshot!(dump("foo.currentIndex + 1"), @r###"
+            %0: int
+            %1: int
+        .0:
+            %0 = read_property [foo]: Foo*, "currentIndex"
+            %1 = binary_arith_op '+', %0: int, 1: integer
+            return %1: int
+        "###);
     }
 
     #[test]
     fn dynamic_string_concatenation() {
-        let env = Env::new();
-        let cls = env.get_class("Foo");
-        assert_eq!(
-            env.build("'Hello ' + foo.text").basic_blocks,
-            vec![BasicBlock {
-                statements: vec![
-                    Statement::Assign(
-                        LocalRef(0),
-                        Rvalue::ReadProperty(
-                            Operand::NamedObject(NamedObject::new("foo", cls.clone())),
-                            cls.get_property("text").unwrap().unwrap()
-                        )
-                    ),
-                    Statement::Assign(
-                        LocalRef(1),
-                        Rvalue::BinaryArithOp(
-                            BinaryArithOp::Add,
-                            Operand::Constant(ConstantValue::QString("Hello ".to_owned())),
-                            Operand::Local(Local::new(0, TypeKind::STRING)),
-                        )
-                    ),
-                ],
-                terminator: Some(Terminator::Return(Operand::Local(Local::new(
-                    1,
-                    TypeKind::STRING
-                )))),
-            }]
-        );
+        insta::assert_snapshot!(dump("'Hello ' + foo.text"), @r###"
+            %0: QString
+            %1: QString
+        .0:
+            %0 = read_property [foo]: Foo*, "text"
+            %1 = binary_arith_op '+', "Hello ": QString, %0: QString
+            return %1: QString
+        "###);
     }
 }
