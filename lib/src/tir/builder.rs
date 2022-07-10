@@ -164,10 +164,30 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
 
     fn visit_builtin_call(
         &mut self,
-        _function: BuiltinFunctionKind,
-        _arguments: Vec<Self::Item>,
+        function: BuiltinFunctionKind,
+        arguments: Vec<Self::Item>,
     ) -> Result<Self::Item, Self::Error> {
-        todo!()
+        let ty = match function {
+            BuiltinFunctionKind::Tr => {
+                if arguments.len() == 1 {
+                    match arguments[0].type_desc() {
+                        TypeDesc::ConstString => Ok(TypeKind::STRING),
+                        t => Err(ExpressionError::InvalidArgument(t.qualified_name().into())),
+                    }
+                } else {
+                    Err(ExpressionError::InvalidArgument(format!(
+                        "expects 1 argument, but got {}",
+                        arguments.len()
+                    )))
+                }
+            }
+        }?;
+        let a = self.alloca(ty);
+        self.push_statement(Statement::Assign(
+            a.name,
+            Rvalue::CallBuiltinFunction(function, arguments),
+        ));
+        Ok(Operand::Local(a))
     }
 
     fn visit_unary_expression(
@@ -687,6 +707,22 @@ mod tests {
             %0 = call_builtin_method "Hello %1": QString, Arg, {"world": string}
             return %0: QString
         "###);
+    }
+
+    #[test]
+    fn call_tr_function() {
+        insta::assert_snapshot!(dump("qsTr('Hello')"), @r###"
+            %0: QString
+        .0:
+            %0 = call_builtin_function Tr, {"Hello": string}
+            return %0: QString
+        "###);
+    }
+
+    #[test]
+    fn call_tr_function_on_dynamic_string() {
+        let env = Env::new();
+        assert!(env.try_build("qsTr(foo.text)").is_err());
     }
 
     #[test]
