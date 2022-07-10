@@ -295,19 +295,12 @@ impl<'a> CodeBuilder<'a> {
         op: UnaryArithOp,
         argument: Operand<'a>,
     ) -> Result<Operand<'a>, ExpressionError> {
-        match argument {
+        let argument = match argument {
             Operand::Constant(a) => {
-                ceval::eval_unary_arith_expression(op, a).map(Operand::Constant)
+                return ceval::eval_unary_arith_expression(op, a).map(Operand::Constant);
             }
-            argument => self.emit_unary_arith_instruction(op, ensure_concrete_string(argument)),
-        }
-    }
-
-    fn emit_unary_arith_instruction(
-        &mut self,
-        op: UnaryArithOp,
-        argument: Operand<'a>,
-    ) -> Result<Operand<'a>, ExpressionError> {
+            argument => ensure_concrete_string(argument),
+        };
         let ty = to_concrete_type(op, argument.type_desc())?;
         match &ty {
             &TypeKind::INT | &TypeKind::UINT | &TypeKind::DOUBLE => Ok(()),
@@ -326,19 +319,12 @@ impl<'a> CodeBuilder<'a> {
         op: UnaryBitwiseOp,
         argument: Operand<'a>,
     ) -> Result<Operand<'a>, ExpressionError> {
-        match argument {
+        let argument = match argument {
             Operand::Constant(a) => {
-                ceval::eval_unary_bitwise_expression(op, a).map(Operand::Constant)
+                return ceval::eval_unary_bitwise_expression(op, a).map(Operand::Constant);
             }
-            argument => self.emit_unary_bitwise_instruction(op, ensure_concrete_string(argument)),
-        }
-    }
-
-    fn emit_unary_bitwise_instruction(
-        &mut self,
-        op: UnaryBitwiseOp,
-        argument: Operand<'a>,
-    ) -> Result<Operand<'a>, ExpressionError> {
+            argument => ensure_concrete_string(argument),
+        };
         let ty = to_concrete_type(op, argument.type_desc())?;
         match &ty {
             &TypeKind::INT | &TypeKind::UINT | TypeKind::Just(NamedType::Enum(_)) => Ok(()),
@@ -357,19 +343,12 @@ impl<'a> CodeBuilder<'a> {
         op: UnaryLogicalOp,
         argument: Operand<'a>,
     ) -> Result<Operand<'a>, ExpressionError> {
-        match argument {
+        let argument = match argument {
             Operand::Constant(a) => {
-                ceval::eval_unary_logical_expression(op, a).map(Operand::Constant)
+                return ceval::eval_unary_logical_expression(op, a).map(Operand::Constant);
             }
-            argument => self.emit_unary_logical_instruction(op, ensure_concrete_string(argument)),
-        }
-    }
-
-    fn emit_unary_logical_instruction(
-        &mut self,
-        op: UnaryLogicalOp,
-        argument: Operand<'a>,
-    ) -> Result<Operand<'a>, ExpressionError> {
+            argument => ensure_concrete_string(argument),
+        };
         match argument.type_desc() {
             TypeDesc::BOOL => Ok(()),
             _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
@@ -388,25 +367,13 @@ impl<'a> CodeBuilder<'a> {
         left: Operand<'a>,
         right: Operand<'a>,
     ) -> Result<Operand<'a>, ExpressionError> {
-        match (left, right) {
-            (Operand::Constant(l), Operand::Constant(r)) => {
-                ceval::eval_binary_arith_expression(op, l, r).map(Operand::Constant)
-            }
-            (left, right) => self.emit_binary_arith_instruction(
-                op,
-                ensure_concrete_string(left),
-                ensure_concrete_string(right),
-            ),
-        }
-    }
-
-    fn emit_binary_arith_instruction(
-        &mut self,
-        op: BinaryArithOp,
-        left: Operand<'a>,
-        right: Operand<'a>,
-    ) -> Result<Operand<'a>, ExpressionError> {
         use BinaryArithOp::*;
+        let (left, right) = match (left, right) {
+            (Operand::Constant(l), Operand::Constant(r)) => {
+                return ceval::eval_binary_arith_expression(op, l, r).map(Operand::Constant);
+            }
+            (left, right) => (ensure_concrete_string(left), ensure_concrete_string(right)),
+        };
         let ty = deduce_concrete_type(op, left.type_desc(), right.type_desc())?;
         match &ty {
             &TypeKind::INT | &TypeKind::UINT | &TypeKind::DOUBLE => Ok(()),
