@@ -6,7 +6,8 @@
 
 use super::builder::ExpressionError;
 use super::{
-    BinaryArithOp, BinaryBitwiseOp, ConstantValue, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp,
+    BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, ConstantValue, UnaryArithOp, UnaryBitwiseOp,
+    UnaryLogicalOp,
 };
 use crate::typedexpr::DescribeType;
 
@@ -162,5 +163,23 @@ pub(super) fn eval_binary_bitwise_expression(
             left.type_desc().qualified_name().into(),
             right.type_desc().qualified_name().into(),
         )),
+    }
+}
+
+pub(super) fn eval_binary_logical_expression(
+    op: BinaryLogicalOp,
+    left: ConstantValue,
+    right: ConstantValue,
+) -> Result<ConstantValue, ExpressionError> {
+    use BinaryLogicalOp::*;
+    match (left, right) {
+        (ConstantValue::Bool(l), ConstantValue::Bool(r)) => {
+            let a = match op {
+                And => l && r,
+                Or => l || r,
+            };
+            Ok(ConstantValue::Bool(a))
+        }
+        _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
     }
 }

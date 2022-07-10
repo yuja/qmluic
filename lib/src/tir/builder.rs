@@ -1,8 +1,8 @@
 use super::ceval;
 use super::{
-    BasicBlock, BasicBlockRef, BinaryArithOp, BinaryBitwiseOp, CodeBody, ConstantValue,
-    EnumVariant, Local, NamedObject, Operand, Rvalue, Statement, Terminator, UnaryArithOp,
-    UnaryBitwiseOp, UnaryLogicalOp,
+    BasicBlock, BasicBlockRef, BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, CodeBody,
+    ConstantValue, EnumVariant, Local, NamedObject, Operand, Rvalue, Statement, Terminator,
+    UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp,
 };
 use crate::diagnostic::Diagnostics;
 use crate::qmlast::{BinaryOperator, Node, UnaryOperator};
@@ -217,8 +217,8 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
     ) -> Result<Self::Item, Self::Error> {
         use BinaryOperator::*;
         match operator {
-            LogicalAnd => todo!(),
-            LogicalOr => todo!(),
+            LogicalAnd => self.visit_binary_logical_expression(BinaryLogicalOp::And, left, right),
+            LogicalOr => self.visit_binary_logical_expression(BinaryLogicalOp::Or, left, right),
             RightShift => {
                 self.visit_binary_bitwise_expression(BinaryBitwiseOp::RightShift, left, right)
             }
@@ -423,6 +423,30 @@ impl<'a> CodeBuilder<'a> {
         self.push_statement(Statement::Assign(
             a.name,
             Rvalue::BinaryBitwiseOp(op, left, right),
+        ));
+        Ok(Operand::Local(a))
+    }
+
+    fn visit_binary_logical_expression(
+        &mut self,
+        op: BinaryLogicalOp,
+        left: Operand<'a>,
+        right: Operand<'a>,
+    ) -> Result<Operand<'a>, ExpressionError> {
+        let (left, right) = match (left, right) {
+            (Operand::Constant(l), Operand::Constant(r)) => {
+                return ceval::eval_binary_logical_expression(op, l, r).map(Operand::Constant);
+            }
+            (left, right) => (ensure_concrete_string(left), ensure_concrete_string(right)),
+        };
+        match (left.type_desc(), right.type_desc()) {
+            (TypeDesc::BOOL, TypeDesc::BOOL) => Ok(()),
+            _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
+        }?;
+        let a = self.alloca(TypeKind::BOOL);
+        self.push_statement(Statement::Assign(
+            a.name,
+            Rvalue::BinaryLogicalOp(op, left, right),
         ));
         Ok(Operand::Local(a))
     }
@@ -896,7 +920,7 @@ mod tests {
 
     #[test]
     fn constant_bool_logical() {
-        insta::assert_snapshot!(dump("!true"), @r###"
+        insta::assert_snapshot!(dump("!true && true || false"), @r###"
         .0:
             return false: bool
         "###);
@@ -904,13 +928,21 @@ mod tests {
 
     #[test]
     fn dynamic_bool_logical() {
-        insta::assert_snapshot!(dump("!foo.checked"), @r###"
+        insta::assert_snapshot!(dump("!foo.checked && foo2.checked || foo3.checked"), @r###"
             %0: bool
             %1: bool
+            %2: bool
+            %3: bool
+            %4: bool
+            %5: bool
         .0:
             %0 = read_property [foo]: Foo*, "checked"
             %1 = unary_logical_op '!', %0: bool
-            return %1: bool
+            %2 = read_property [foo2]: Foo*, "checked"
+            %3 = binary_logical_op '&&', %1: bool, %2: bool
+            %4 = read_property [foo3]: Foo*, "checked"
+            %5 = binary_logical_op '||', %3: bool, %4: bool
+            return %5: bool
         "###);
     }
 
