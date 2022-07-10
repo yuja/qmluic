@@ -1,6 +1,6 @@
 use super::{
     BasicBlock, BasicBlockRef, BinaryArithOp, CodeBody, ConstantValue, EnumVariant, Local,
-    NamedObject, Operand, Rvalue, Statement, Terminator,
+    NamedObject, Operand, Rvalue, Statement, Terminator, UnaryArithOp,
 };
 use crate::diagnostic::Diagnostics;
 use crate::qmlast::{BinaryOperator, Node, UnaryOperator};
@@ -192,10 +192,19 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
 
     fn visit_unary_expression(
         &mut self,
-        _operator: UnaryOperator,
-        _argument: Self::Item,
+        operator: UnaryOperator,
+        argument: Self::Item,
     ) -> Result<Self::Item, Self::Error> {
-        todo!()
+        use UnaryOperator::*;
+        match operator {
+            LogicalNot => todo!(),
+            BitwiseNot => todo!(),
+            Minus => self.visit_unary_arith_expression(UnaryArithOp::Minus, argument),
+            Plus => self.visit_unary_arith_expression(UnaryArithOp::Plus, argument),
+            Typeof | Void | Delete => {
+                Err(ExpressionError::UnsupportedOperation(operator.to_string()))
+            }
+        }
     }
 
     fn visit_binary_expression(
@@ -279,6 +288,68 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
 }
 
 impl<'a> CodeBuilder<'a> {
+    fn visit_unary_arith_expression(
+        &mut self,
+        op: UnaryArithOp,
+        argument: Operand<'a>,
+    ) -> Result<Operand<'a>, ExpressionError> {
+        match argument {
+            Operand::Constant(a) => self
+                .eval_unary_arith_expression(op, a)
+                .map(Operand::Constant),
+            argument => self.emit_unary_arith_instruction(op, ensure_concrete_string(argument)),
+        }
+    }
+
+    fn emit_unary_arith_instruction(
+        &mut self,
+        op: UnaryArithOp,
+        argument: Operand<'a>,
+    ) -> Result<Operand<'a>, ExpressionError> {
+        let ty = to_concrete_type(op, argument.type_desc())?;
+        match &ty {
+            &TypeKind::INT | &TypeKind::UINT | &TypeKind::DOUBLE => Ok(()),
+            _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
+        }?;
+        let a = self.alloca(ty);
+        self.push_statement(Statement::Assign(
+            a.name,
+            Rvalue::UnaryArithOp(op, argument),
+        ));
+        Ok(Operand::Local(a))
+    }
+
+    fn eval_unary_arith_expression(
+        &self,
+        op: UnaryArithOp,
+        argument: ConstantValue,
+    ) -> Result<ConstantValue, ExpressionError> {
+        use UnaryArithOp::*;
+        match argument {
+            ConstantValue::Integer(v) => {
+                let a = match op {
+                    Plus => Some(v),
+                    Minus => v.checked_neg(),
+                };
+                a.map(ConstantValue::Integer)
+                    .ok_or(ExpressionError::IntegerOverflow)
+            }
+            ConstantValue::Float(v) => {
+                let a = match op {
+                    Plus => v,
+                    Minus => -v,
+                };
+                Ok(ConstantValue::Float(a))
+            }
+            ConstantValue::Bool(_)
+            | ConstantValue::CString(_)
+            | ConstantValue::QString(_)
+            | ConstantValue::EmptyList => {
+                Err(ExpressionError::UnsupportedOperation(op.to_string()))
+            }
+        }
+    }
+
     fn visit_binary_arith_expression(
         &mut self,
         op: BinaryArithOp,
@@ -726,10 +797,14 @@ mod tests {
     }
 
     #[test]
-    fn constant_integer_arithmetic() {
-        insta::assert_snapshot!(dump("(1 + 2 * 3) / 4"), @r###"
+    fn constant_number_arithmetic() {
+        insta::assert_snapshot!(dump("(-1 + 2 * 3) / +4"), @r###"
         .0:
             return 1: integer
+        "###);
+        insta::assert_snapshot!(dump("(-1. + 2. * 3.) / +4."), @r###"
+        .0:
+            return 1.25: double
         "###);
     }
 
@@ -743,13 +818,15 @@ mod tests {
 
     #[test]
     fn dynamic_integer_arithmetic() {
-        insta::assert_snapshot!(dump("foo.currentIndex + 1"), @r###"
+        insta::assert_snapshot!(dump("-foo.currentIndex + 1"), @r###"
             %0: int
             %1: int
+            %2: int
         .0:
             %0 = read_property [foo]: Foo*, "currentIndex"
-            %1 = binary_arith_op '+', %0: int, 1: integer
-            return %1: int
+            %1 = unary_arith_op '-', %0: int
+            %2 = binary_arith_op '+', %1: int, 1: integer
+            return %2: int
         "###);
     }
 
