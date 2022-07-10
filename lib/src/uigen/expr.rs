@@ -6,6 +6,7 @@ use super::{XmlResult, XmlWriter};
 use crate::color::Color;
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{BinaryOperator, Node, UiBindingValue, UnaryOperator};
+use crate::tir;
 use crate::typedexpr::{
     self, BuiltinFunctionKind, BuiltinMethodKind, DescribeType, ExpressionVisitor, TypeDesc,
 };
@@ -48,12 +49,15 @@ impl<'a, 't> PropertyValue<'a, 't> {
                     let mut formatter = ExpressionFormatter::new(ctx.doc_type_name);
                     let (res_t, res_expr, _) =
                         typedexpr::walk(ctx, *n, ctx.source, &mut formatter, diagnostics)?;
+                    // TODO: switch all to TIR path
+                    let code = tir::build(ctx, *n, ctx.source, diagnostics)?;
                     if formatter.property_deps.is_empty() && !formatter.has_method_call {
                         // constant expression can be mapped to .ui value type
                         parse_as_value_type(ctx, t, *n, res_t, res_expr, diagnostics)
                             .map(PropertyValue::Serializable)
                     } else if let Some(expr) = take_expression_of_type(ty, &res_t, res_expr) {
                         let dyn_expr = DynamicExpression {
+                            code,
                             expr,
                             property_deps: formatter.property_deps,
                         };
@@ -973,6 +977,8 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
 /// Property value expression to be evaluated at run time.
 #[derive(Clone, Debug)]
 pub(super) struct DynamicExpression<'a> {
+    // TODO: remove expr and property_deps
+    pub code: tir::CodeBody<'a>,
     /// Formatted expression.
     pub expr: String,
     /// List of `(obj_expr, property)` accessed from this expression.
