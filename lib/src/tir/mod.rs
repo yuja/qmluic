@@ -1,7 +1,7 @@
 //! Type-checked intermediate representation of expressions.
 
 use crate::typedexpr::{DescribeType, TypeDesc};
-use crate::typemap::{Class, NamedType, Property, TypeKind};
+use crate::typemap::{Class, Enum, NamedType, Property, TypeKind};
 use std::fmt;
 
 mod builder;
@@ -90,6 +90,7 @@ pub enum Terminator<'a> {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operand<'a> {
     Constant(ConstantValue),
+    EnumVariant(EnumVariant<'a>),
     Local(Local<'a>),
     NamedObject(NamedObject<'a>),
 }
@@ -98,6 +99,9 @@ impl<'a> DescribeType<'a> for Operand<'a> {
     fn type_desc(&self) -> TypeDesc<'a> {
         match &self {
             Operand::Constant(x) => x.type_desc(),
+            Operand::EnumVariant(x) => {
+                TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(x.ty.clone())))
+            }
             Operand::Local(x) => TypeDesc::Concrete(x.ty.clone()),
             Operand::NamedObject(x) => {
                 TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(x.cls.clone())))
@@ -127,6 +131,28 @@ impl DescribeType<'static> for ConstantValue {
             ConstantValue::CString(_) => TypeDesc::ConstString,
             ConstantValue::QString(_) => TypeDesc::STRING,
         }
+    }
+}
+
+/// Enum variant.
+///
+/// An enum variant is a constant, but the exact value is unknown.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EnumVariant<'a> {
+    pub ty: Enum<'a>,
+    pub variant: String,
+}
+
+impl<'a> EnumVariant<'a> {
+    fn new(ty: Enum<'a>, variant: impl Into<String>) -> Self {
+        EnumVariant {
+            ty,
+            variant: variant.into(),
+        }
+    }
+
+    pub fn cxx_expression(&self) -> String {
+        self.ty.qualify_cxx_variant_name(&self.variant)
     }
 }
 

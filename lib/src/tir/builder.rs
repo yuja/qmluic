@@ -1,6 +1,6 @@
 use super::{
-    BasicBlock, BasicBlockRef, BinaryArithOp, CodeBody, ConstantValue, Local, NamedObject, Operand,
-    Rvalue, Statement, Terminator,
+    BasicBlock, BasicBlockRef, BinaryArithOp, CodeBody, ConstantValue, EnumVariant, Local,
+    NamedObject, Operand, Rvalue, Statement, Terminator,
 };
 use crate::diagnostic::Diagnostics;
 use crate::qmlast::{BinaryOperator, Node, UnaryOperator};
@@ -73,12 +73,8 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         Ok(Operand::Constant(ConstantValue::Bool(value)))
     }
 
-    fn visit_enum(
-        &mut self,
-        _enum_ty: Enum<'a>,
-        _variant: &str,
-    ) -> Result<Self::Item, Self::Error> {
-        todo!()
+    fn visit_enum(&mut self, enum_ty: Enum<'a>, variant: &str) -> Result<Self::Item, Self::Error> {
+        Ok(Operand::EnumVariant(EnumVariant::new(enum_ty, variant)))
     }
 
     fn visit_array(&mut self, _elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
@@ -533,6 +529,14 @@ mod tests {
         insta::assert_snapshot!(dump("'foo'"), @r###"
         .0:
             return "foo": string
+        "###);
+    }
+
+    #[test]
+    fn enum_ref() {
+        insta::assert_snapshot!(dump("Foo.Bar0"), @r###"
+        .0:
+            return 'Foo::Bar0': Foo::Bar
         "###);
     }
 
