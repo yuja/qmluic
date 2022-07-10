@@ -1,5 +1,6 @@
 use super::{BasicBlock, CodeBody, ConstantValue, Local, Operand, Rvalue, Statement, Terminator};
 use crate::typedexpr::DescribeType;
+use itertools::Itertools as _;
 use std::io;
 
 /// Prints `CodeBody` in human-readable format.
@@ -50,6 +51,9 @@ fn format_rvalue(rv: &Rvalue) -> String {
         Rvalue::ReadProperty(obj, prop) => {
             format!("read_property {}, {:?}", format_operand(obj), prop.name())
         }
+        Rvalue::MakeList(xs) => {
+            format!("make_list {{{}}}", xs.iter().map(format_operand).join(", "))
+        }
     }
 }
 
@@ -61,6 +65,7 @@ fn format_operand(a: &Operand) -> String {
             ConstantValue::Float(v) => format!("{:?}: {}", v, a.type_desc().qualified_name()),
             ConstantValue::CString(v) => format!("{:?}: {}", v, a.type_desc().qualified_name()),
             ConstantValue::QString(v) => format!("{:?}: {}", v, a.type_desc().qualified_name()),
+            ConstantValue::EmptyList => format!("{{}}: {}", a.type_desc().qualified_name()),
         },
         Operand::EnumVariant(x) => format!(
             "'{}': {}",
