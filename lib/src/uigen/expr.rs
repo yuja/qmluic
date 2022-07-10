@@ -696,6 +696,7 @@ impl DescribeType<'_> for EvaluatedValue {
 
 impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
     type Item = EvaluatedValue;
+    type Label = ();
     type Error = ExpressionError;
 
     fn visit_integer(&mut self, value: u64) -> Result<Self::Item, Self::Error> {
@@ -950,6 +951,9 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
         condition: Self::Item,
         consequence: Self::Item,
         alternative: Self::Item,
+        _condition_label: Self::Label,
+        _consequence_label: Self::Label,
+        _alternative_label: Self::Label,
     ) -> Result<Self::Item, Self::Error> {
         match condition {
             EvaluatedValue::Bool(b) => Ok(if b { consequence } else { alternative }),
@@ -962,6 +966,8 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
             )),
         }
     }
+
+    fn mark_branch_point(&mut self) -> Self::Label {}
 }
 
 /// Property value expression to be evaluated at run time.
@@ -1005,6 +1011,7 @@ impl<'a> DescribeType<'a> for (TypeDesc<'a>, String, u32) {
 
 impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
     type Item = (TypeDesc<'a>, String, u32);
+    type Label = ();
     type Error = ExpressionError;
 
     fn visit_integer(&mut self, value: u64) -> Result<Self::Item, Self::Error> {
@@ -1385,6 +1392,9 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
         (condition_t, condition_expr, condition_prec): Self::Item,
         (consequence_t, consequence_expr, consequence_prec): Self::Item,
         (alternative_t, alternative_expr, alternative_prec): Self::Item,
+        _condition_label: Self::Label,
+        _consequence_label: Self::Label,
+        _alternative_label: Self::Label,
     ) -> Result<Self::Item, Self::Error> {
         if condition_t != TypeDesc::BOOL {
             return Err(ExpressionError::UnsupportedConditionType(
@@ -1404,6 +1414,8 @@ impl<'a> ExpressionVisitor<'a> for ExpressionFormatter<'a> {
         );
         Ok((res_t, res_expr, PREC_TERNARY))
     }
+
+    fn mark_branch_point(&mut self) -> Self::Label {}
 }
 
 fn is_compatible_enum(left_en: &Enum, right_en: &Enum) -> bool {
@@ -1615,6 +1627,7 @@ impl<'a> DescribeType<'a> for ObjectRef<'a> {
 
 impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
     type Item = ObjectRef<'a>;
+    type Label = ();
     type Error = ExpressionError;
 
     fn visit_integer(&mut self, _value: u64) -> Result<Self::Item, Self::Error> {
@@ -1732,9 +1745,14 @@ impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
         _condition: Self::Item,
         _consequence: Self::Item,
         _alternative: Self::Item,
+        _condition_label: Self::Label,
+        _consequence_label: Self::Label,
+        _alternative_label: Self::Label,
     ) -> Result<Self::Item, Self::Error> {
         Err(ExpressionError::UnsupportedTernaryExpression)
     }
+
+    fn mark_branch_point(&mut self) -> Self::Label {}
 }
 
 #[cfg(test)]
