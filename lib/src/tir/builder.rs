@@ -1,8 +1,8 @@
 use super::ceval;
 use super::{
-    BasicBlock, BasicBlockRef, BinaryArithOp, CodeBody, ConstantValue, EnumVariant, Local,
-    NamedObject, Operand, Rvalue, Statement, Terminator, UnaryArithOp, UnaryBitwiseOp,
-    UnaryLogicalOp,
+    BasicBlock, BasicBlockRef, BinaryArithOp, BinaryBitwiseOp, CodeBody, ConstantValue,
+    EnumVariant, Local, NamedObject, Operand, Rvalue, Statement, Terminator, UnaryArithOp,
+    UnaryBitwiseOp, UnaryLogicalOp,
 };
 use crate::diagnostic::Diagnostics;
 use crate::qmlast::{BinaryOperator, Node, UnaryOperator};
@@ -219,12 +219,16 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         match operator {
             LogicalAnd => todo!(),
             LogicalOr => todo!(),
-            RightShift => todo!(),
+            RightShift => {
+                self.visit_binary_bitwise_expression(BinaryBitwiseOp::RightShift, left, right)
+            }
             UnsignedRightShift => Err(ExpressionError::UnsupportedOperation(operator.to_string())),
-            LeftShift => todo!(),
-            BitwiseAnd => todo!(),
-            BitwiseXor => todo!(),
-            BitwiseOr => todo!(),
+            LeftShift => {
+                self.visit_binary_bitwise_expression(BinaryBitwiseOp::LeftShift, left, right)
+            }
+            BitwiseAnd => self.visit_binary_bitwise_expression(BinaryBitwiseOp::And, left, right),
+            BitwiseXor => self.visit_binary_bitwise_expression(BinaryBitwiseOp::Xor, left, right),
+            BitwiseOr => self.visit_binary_bitwise_expression(BinaryBitwiseOp::Or, left, right),
             Add => self.visit_binary_arith_expression(BinaryArithOp::Add, left, right),
             Sub => self.visit_binary_arith_expression(BinaryArithOp::Sub, left, right),
             Mul => self.visit_binary_arith_expression(BinaryArithOp::Mul, left, right),
@@ -390,6 +394,38 @@ impl<'a> CodeBuilder<'a> {
         ));
         Ok(Operand::Local(a))
     }
+
+    fn visit_binary_bitwise_expression(
+        &mut self,
+        op: BinaryBitwiseOp,
+        left: Operand<'a>,
+        right: Operand<'a>,
+    ) -> Result<Operand<'a>, ExpressionError> {
+        use BinaryBitwiseOp::*;
+        let (left, right) = match (left, right) {
+            (Operand::Constant(l), Operand::Constant(r)) => {
+                return ceval::eval_binary_bitwise_expression(op, l, r).map(Operand::Constant);
+            }
+            (left, right) => (ensure_concrete_string(left), ensure_concrete_string(right)),
+        };
+        let ty = deduce_concrete_type(op, left.type_desc(), right.type_desc())?;
+        match &ty {
+            &TypeKind::BOOL | TypeKind::Just(NamedType::Enum(_)) => match op {
+                RightShift | LeftShift => {
+                    Err(ExpressionError::UnsupportedOperation(op.to_string()))
+                }
+                And | Xor | Or => Ok(()),
+            },
+            &TypeKind::INT | &TypeKind::UINT => Ok(()),
+            _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
+        }?;
+        let a = self.alloca(ty);
+        self.push_statement(Statement::Assign(
+            a.name,
+            Rvalue::BinaryBitwiseOp(op, left, right),
+        ));
+        Ok(Operand::Local(a))
+    }
 }
 
 #[derive(Clone, Debug, Error)]
@@ -550,7 +586,10 @@ mod tests {
                 class_name: "Foo".to_owned(),
                 qualified_class_name: "Foo".to_owned(),
                 object: true,
-                enums: vec![metatype::Enum::with_values("Bar", ["Bar0", "Bar1", "Bar2"])],
+                enums: vec![metatype::Enum::with_values(
+                    "Bar",
+                    ["Bar0", "Bar1", "Bar2", "Bar3"],
+                )],
                 properties: vec![
                     metatype::Property {
                         name: "checked".to_owned(),
@@ -764,6 +803,32 @@ mod tests {
     }
 
     #[test]
+    fn constant_bool_bitwise() {
+        insta::assert_snapshot!(dump("false ^ true | false"), @r###"
+        .0:
+            return true: bool
+        "###);
+    }
+
+    #[test]
+    fn dynamic_bool_bitwise() {
+        insta::assert_snapshot!(dump("foo.checked ^ foo2.checked | foo3.checked"), @r###"
+            %0: bool
+            %1: bool
+            %2: bool
+            %3: bool
+            %4: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            %1 = read_property [foo2]: Foo*, "checked"
+            %2 = binary_bitwise_op '^', %0: bool, %1: bool
+            %3 = read_property [foo3]: Foo*, "checked"
+            %4 = binary_bitwise_op '|', %2: bool, %3: bool
+            return %4: bool
+        "###);
+    }
+
+    #[test]
     fn dynamic_integer_arithmetic() {
         insta::assert_snapshot!(dump("-foo.currentIndex + 1"), @r###"
             %0: int
@@ -791,31 +856,41 @@ mod tests {
 
     #[test]
     fn constant_integer_bitwise() {
-        insta::assert_snapshot!(dump("~0"), @r###"
+        insta::assert_snapshot!(dump("((1 ^ 3) | 4) & ~0"), @r###"
         .0:
-            return -1: integer
+            return 6: integer
         "###);
     }
 
     #[test]
     fn constant_enum_bitwise() {
-        insta::assert_snapshot!(dump("~Foo.Bar0"), @r###"
+        insta::assert_snapshot!(dump("(Foo.Bar0 ^ Foo.Bar1 | Foo.Bar2) & ~Foo.Bar3"), @r###"
             %0: Foo::Bar
+            %1: Foo::Bar
+            %2: Foo::Bar
+            %3: Foo::Bar
         .0:
-            %0 = unary_bitwise_op '~', 'Foo::Bar0': Foo::Bar
-            return %0: Foo::Bar
+            %0 = binary_bitwise_op '^', 'Foo::Bar0': Foo::Bar, 'Foo::Bar1': Foo::Bar
+            %1 = binary_bitwise_op '|', %0: Foo::Bar, 'Foo::Bar2': Foo::Bar
+            %2 = unary_bitwise_op '~', 'Foo::Bar3': Foo::Bar
+            %3 = binary_bitwise_op '&', %1: Foo::Bar, %2: Foo::Bar
+            return %3: Foo::Bar
         "###);
     }
 
     #[test]
     fn dynamic_integer_bitwise() {
-        insta::assert_snapshot!(dump("~foo.currentIndex"), @r###"
+        insta::assert_snapshot!(dump("~foo.currentIndex & foo2.currentIndex"), @r###"
             %0: int
             %1: int
+            %2: int
+            %3: int
         .0:
             %0 = read_property [foo]: Foo*, "currentIndex"
             %1 = unary_bitwise_op '~', %0: int
-            return %1: int
+            %2 = read_property [foo2]: Foo*, "currentIndex"
+            %3 = binary_bitwise_op '&', %1: int, %2: int
+            return %3: int
         "###);
     }
 

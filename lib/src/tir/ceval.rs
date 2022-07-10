@@ -5,7 +5,9 @@
 //! support translation.
 
 use super::builder::ExpressionError;
-use super::{BinaryArithOp, ConstantValue, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp};
+use super::{
+    BinaryArithOp, BinaryBitwiseOp, ConstantValue, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp,
+};
 use crate::typedexpr::DescribeType;
 
 pub(super) fn eval_unary_arith_expression(
@@ -112,6 +114,47 @@ pub(super) fn eval_binary_arith_expression(
             Sub | Mul | Div | Rem => Err(ExpressionError::UnsupportedOperation(op.to_string())),
         },
         (ConstantValue::QString(_), ConstantValue::QString(_)) => {
+            Err(ExpressionError::UnsupportedOperation(op.to_string()))
+        }
+        (left, right) => Err(ExpressionError::OperationOnIncompatibleTypes(
+            op.to_string(),
+            left.type_desc().qualified_name().into(),
+            right.type_desc().qualified_name().into(),
+        )),
+    }
+}
+
+pub(super) fn eval_binary_bitwise_expression(
+    op: BinaryBitwiseOp,
+    left: ConstantValue,
+    right: ConstantValue,
+) -> Result<ConstantValue, ExpressionError> {
+    use BinaryBitwiseOp::*;
+    match (left, right) {
+        (ConstantValue::Bool(l), ConstantValue::Bool(r)) => {
+            let a = match op {
+                RightShift | LeftShift => None,
+                And => Some(l & r),
+                Xor => Some(l ^ r),
+                Or => Some(l | r),
+            };
+            a.map(ConstantValue::Bool)
+                .ok_or_else(|| ExpressionError::UnsupportedOperation(op.to_string()))
+        }
+        (ConstantValue::Integer(l), ConstantValue::Integer(r)) => {
+            let a = match op {
+                RightShift => l.checked_shr(r.try_into()?),
+                LeftShift => l.checked_shl(r.try_into()?),
+                And => Some(l & r),
+                Xor => Some(l ^ r),
+                Or => Some(l | r),
+            };
+            a.map(ConstantValue::Integer)
+                .ok_or(ExpressionError::IntegerOverflow)
+        }
+        (ConstantValue::Float(_), ConstantValue::Float(_))
+        | (ConstantValue::CString(_), ConstantValue::CString(_))
+        | (ConstantValue::QString(_), ConstantValue::QString(_)) => {
             Err(ExpressionError::UnsupportedOperation(op.to_string()))
         }
         (left, right) => Err(ExpressionError::OperationOnIncompatibleTypes(
