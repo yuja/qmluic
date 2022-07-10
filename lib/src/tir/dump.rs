@@ -61,6 +61,12 @@ fn format_rvalue(rv: &Rvalue) -> String {
             format_operand(l),
             format_operand(r)
         ),
+        Rvalue::BinaryLogicalOp(op, l, r) => format!(
+            "binary_logical_op '{}', {}, {}",
+            op,
+            format_operand(l),
+            format_operand(r)
+        ),
         Rvalue::CallBuiltinFunction(f, args) => {
             format!(
                 "call_builtin_function {:?}, {{{}}}",

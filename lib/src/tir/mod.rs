@@ -214,6 +214,8 @@ pub enum Rvalue<'a> {
     BinaryArithOp(BinaryArithOp, Operand<'a>, Operand<'a>),
     /// `<left>:<ty> <op> <right>:<ty> -> <ty>`
     BinaryBitwiseOp(BinaryBitwiseOp, Operand<'a>, Operand<'a>),
+    /// `<left>:<ty> <op> <right>:<ty> -> bool`
+    BinaryLogicalOp(BinaryLogicalOp, Operand<'a>, Operand<'a>),
     /// `<function>(<args>)`
     CallBuiltinFunction(BuiltinFunctionKind, Vec<Operand<'a>>),
     /// `<obj> -> <method>(<args>)`
@@ -326,6 +328,25 @@ impl fmt::Display for BinaryBitwiseOp {
             BinaryBitwiseOp::And => "&",
             BinaryBitwiseOp::Xor => "^",
             BinaryBitwiseOp::Or => "|",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+/// Binary logical operator.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum BinaryLogicalOp {
+    /// `&&`
+    And,
+    /// `||`
+    Or,
+}
+
+impl fmt::Display for BinaryLogicalOp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match self {
+            BinaryLogicalOp::And => "&&",
+            BinaryLogicalOp::Or => "||",
         };
         write!(f, "{}", s)
     }
