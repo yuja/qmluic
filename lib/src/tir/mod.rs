@@ -5,6 +5,7 @@ use crate::typemap::{Class, Enum, NamedType, Property, TypeKind};
 use std::fmt;
 
 mod builder;
+mod ceval;
 mod dump;
 
 pub use self::builder::build; // re-export
