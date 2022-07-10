@@ -62,6 +62,11 @@ fn format_operand(a: &Operand) -> String {
             ConstantValue::CString(v) => format!("{:?}: {}", v, a.type_desc().qualified_name()),
             ConstantValue::QString(v) => format!("{:?}: {}", v, a.type_desc().qualified_name()),
         },
+        Operand::EnumVariant(x) => format!(
+            "'{}': {}",
+            x.cxx_expression(),
+            a.type_desc().qualified_name()
+        ),
         Operand::Local(x) => format!("%{}: {}", x.name.0, a.type_desc().qualified_name()),
         Operand::NamedObject(x) => format!("[{}]: {}", x.name.0, a.type_desc().qualified_name()),
     }
