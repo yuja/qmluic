@@ -216,6 +216,8 @@ pub enum Rvalue<'a> {
     BinaryBitwiseOp(BinaryBitwiseOp, Operand<'a>, Operand<'a>),
     /// `<left>:<ty> <op> <right>:<ty> -> bool`
     BinaryLogicalOp(BinaryLogicalOp, Operand<'a>, Operand<'a>),
+    /// `<left>:<ty> <op> <right>:<ty> -> bool`
+    ComparisonOp(ComparisonOp, Operand<'a>, Operand<'a>),
     /// `<function>(<args>)`
     CallBuiltinFunction(BuiltinFunctionKind, Vec<Operand<'a>>),
     /// `<obj> -> <method>(<args>)`
@@ -347,6 +349,37 @@ impl fmt::Display for BinaryLogicalOp {
         let s = match self {
             BinaryLogicalOp::And => "&&",
             BinaryLogicalOp::Or => "||",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+/// Comparison operator.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum ComparisonOp {
+    /// `==`
+    Equal,
+    /// `!=`
+    NotEqual,
+    /// `<`
+    LessThan,
+    /// `<=`
+    LessThanEqual,
+    /// `>`
+    GreaterThan,
+    /// `>=`
+    GreaterThanEqual,
+}
+
+impl fmt::Display for ComparisonOp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match self {
+            ComparisonOp::Equal => "==",
+            ComparisonOp::NotEqual => "!=",
+            ComparisonOp::LessThan => "<",
+            ComparisonOp::LessThanEqual => "<=",
+            ComparisonOp::GreaterThan => ">",
+            ComparisonOp::GreaterThanEqual => ">=",
         };
         write!(f, "{}", s)
     }

@@ -1,8 +1,8 @@
 use super::ceval;
 use super::{
     BasicBlock, BasicBlockRef, BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, CodeBody,
-    ConstantValue, EnumVariant, Local, NamedObject, Operand, Rvalue, Statement, Terminator,
-    UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp,
+    ComparisonOp, ConstantValue, EnumVariant, Local, NamedObject, Operand, Rvalue, Statement,
+    Terminator, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp,
 };
 use crate::diagnostic::Diagnostics;
 use crate::qmlast::{BinaryOperator, Node, UnaryOperator};
@@ -235,12 +235,20 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
             Div => self.visit_binary_arith_expression(BinaryArithOp::Div, left, right),
             Rem => self.visit_binary_arith_expression(BinaryArithOp::Rem, left, right),
             Exp => Err(ExpressionError::UnsupportedOperation(operator.to_string())),
-            Equal | StrictEqual => todo!(),
-            NotEqual | StrictNotEqual => todo!(),
-            LessThan => todo!(),
-            LessThanEqual => todo!(),
-            GreaterThan => todo!(),
-            GreaterThanEqual => todo!(),
+            Equal | StrictEqual => {
+                self.visit_comparison_expression(ComparisonOp::Equal, left, right)
+            }
+            NotEqual | StrictNotEqual => {
+                self.visit_comparison_expression(ComparisonOp::NotEqual, left, right)
+            }
+            LessThan => self.visit_comparison_expression(ComparisonOp::LessThan, left, right),
+            LessThanEqual => {
+                self.visit_comparison_expression(ComparisonOp::LessThanEqual, left, right)
+            }
+            GreaterThan => self.visit_comparison_expression(ComparisonOp::GreaterThan, left, right),
+            GreaterThanEqual => {
+                self.visit_comparison_expression(ComparisonOp::GreaterThanEqual, left, right)
+            }
             NullishCoalesce | Instanceof | In => {
                 Err(ExpressionError::UnsupportedOperation(operator.to_string()))
             }
@@ -447,6 +455,35 @@ impl<'a> CodeBuilder<'a> {
         self.push_statement(Statement::Assign(
             a.name,
             Rvalue::BinaryLogicalOp(op, left, right),
+        ));
+        Ok(Operand::Local(a))
+    }
+
+    fn visit_comparison_expression(
+        &mut self,
+        op: ComparisonOp,
+        left: Operand<'a>,
+        right: Operand<'a>,
+    ) -> Result<Operand<'a>, ExpressionError> {
+        let (left, right) = match (left, right) {
+            (Operand::Constant(l), Operand::Constant(r)) => {
+                return ceval::eval_comparison_expression(op, l, r).map(Operand::Constant);
+            }
+            (left, right) => (ensure_concrete_string(left), ensure_concrete_string(right)),
+        };
+        match deduce_concrete_type(op, left.type_desc(), right.type_desc())? {
+            TypeKind::BOOL
+            | TypeKind::INT
+            | TypeKind::UINT
+            | TypeKind::DOUBLE
+            | TypeKind::STRING
+            | TypeKind::Just(NamedType::Enum(_)) => Ok(()),
+            _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
+        }?;
+        let a = self.alloca(TypeKind::BOOL);
+        self.push_statement(Statement::Assign(
+            a.name,
+            Rvalue::ComparisonOp(op, left, right),
         ));
         Ok(Operand::Local(a))
     }
@@ -943,6 +980,56 @@ mod tests {
             %4 = read_property [foo3]: Foo*, "checked"
             %5 = binary_logical_op '||', %3: bool, %4: bool
             return %5: bool
+        "###);
+    }
+
+    #[test]
+    fn const_literal_comparison() {
+        insta::assert_snapshot!(dump("1 == 1"), @r###"
+        .0:
+            return true: bool
+        "###);
+        insta::assert_snapshot!(dump("1 > 2"), @r###"
+        .0:
+            return false: bool
+        "###);
+        insta::assert_snapshot!(dump("'bar' <= 'baz'"), @r###"
+        .0:
+            return true: bool
+        "###);
+    }
+
+    #[test]
+    fn const_enum_comparison() {
+        insta::assert_snapshot!(dump("Foo.Bar1 == Foo.Bar2"), @r###"
+            %0: bool
+        .0:
+            %0 = comparison_op '==', 'Foo::Bar1': Foo::Bar, 'Foo::Bar2': Foo::Bar
+            return %0: bool
+        "###);
+    }
+
+    #[test]
+    fn dynamic_integer_comparison() {
+        insta::assert_snapshot!(dump("foo.currentIndex > 0"), @r###"
+            %0: int
+            %1: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "currentIndex"
+            %1 = comparison_op '>', %0: int, 0: integer
+            return %1: bool
+        "###);
+    }
+
+    #[test]
+    fn dynamic_string_comparison() {
+        insta::assert_snapshot!(dump("'yoda' != foo.text"), @r###"
+            %0: QString
+            %1: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "text"
+            %1 = comparison_op '!=', "yoda": QString, %0: QString
+            return %1: bool
         "###);
     }
 
