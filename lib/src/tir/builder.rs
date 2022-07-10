@@ -1,6 +1,6 @@
 use super::{
     BasicBlock, BasicBlockRef, BinaryArithOp, CodeBody, ConstantValue, EnumVariant, Local,
-    NamedObject, Operand, Rvalue, Statement, Terminator, UnaryArithOp,
+    NamedObject, Operand, Rvalue, Statement, Terminator, UnaryArithOp, UnaryLogicalOp,
 };
 use crate::diagnostic::Diagnostics;
 use crate::qmlast::{BinaryOperator, Node, UnaryOperator};
@@ -197,7 +197,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
     ) -> Result<Self::Item, Self::Error> {
         use UnaryOperator::*;
         match operator {
-            LogicalNot => todo!(),
+            LogicalNot => self.visit_unary_logical_expression(UnaryLogicalOp::Not, argument),
             BitwiseNot => todo!(),
             Minus => self.visit_unary_arith_expression(UnaryArithOp::Minus, argument),
             Plus => self.visit_unary_arith_expression(UnaryArithOp::Plus, argument),
@@ -342,6 +342,59 @@ impl<'a> CodeBuilder<'a> {
                 Ok(ConstantValue::Float(a))
             }
             ConstantValue::Bool(_)
+            | ConstantValue::CString(_)
+            | ConstantValue::QString(_)
+            | ConstantValue::EmptyList => {
+                Err(ExpressionError::UnsupportedOperation(op.to_string()))
+            }
+        }
+    }
+
+    fn visit_unary_logical_expression(
+        &mut self,
+        op: UnaryLogicalOp,
+        argument: Operand<'a>,
+    ) -> Result<Operand<'a>, ExpressionError> {
+        match argument {
+            Operand::Constant(a) => self
+                .eval_unary_logical_expression(op, a)
+                .map(Operand::Constant),
+            argument => self.emit_unary_logical_instruction(op, ensure_concrete_string(argument)),
+        }
+    }
+
+    fn emit_unary_logical_instruction(
+        &mut self,
+        op: UnaryLogicalOp,
+        argument: Operand<'a>,
+    ) -> Result<Operand<'a>, ExpressionError> {
+        match argument.type_desc() {
+            TypeDesc::BOOL => Ok(()),
+            _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
+        }?;
+        let a = self.alloca(TypeKind::BOOL);
+        self.push_statement(Statement::Assign(
+            a.name,
+            Rvalue::UnaryLogicalOp(op, argument),
+        ));
+        Ok(Operand::Local(a))
+    }
+
+    fn eval_unary_logical_expression(
+        &self,
+        op: UnaryLogicalOp,
+        argument: ConstantValue,
+    ) -> Result<ConstantValue, ExpressionError> {
+        use UnaryLogicalOp::*;
+        match argument {
+            ConstantValue::Bool(v) => {
+                let a = match op {
+                    Not => !v,
+                };
+                Ok(ConstantValue::Bool(a))
+            }
+            ConstantValue::Integer(_)
+            | ConstantValue::Float(_)
             | ConstantValue::CString(_)
             | ConstantValue::QString(_)
             | ConstantValue::EmptyList => {
@@ -839,6 +892,26 @@ mod tests {
             %0 = read_property [foo]: Foo*, "text"
             %1 = binary_arith_op '+', "Hello ": QString, %0: QString
             return %1: QString
+        "###);
+    }
+
+    #[test]
+    fn constant_bool_logical() {
+        insta::assert_snapshot!(dump("!true"), @r###"
+        .0:
+            return false: bool
+        "###);
+    }
+
+    #[test]
+    fn dynamic_bool_logical() {
+        insta::assert_snapshot!(dump("!foo.checked"), @r###"
+            %0: bool
+            %1: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            %1 = unary_logical_op '!', %0: bool
+            return %1: bool
         "###);
     }
 

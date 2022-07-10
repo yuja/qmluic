@@ -205,6 +205,8 @@ pub enum Rvalue<'a> {
     Copy(Operand<'a>),
     /// `<op> <arg>:<ty> -> <ty>`
     UnaryArithOp(UnaryArithOp, Operand<'a>),
+    /// `<op> <arg>:<ty> -> bool`
+    UnaryLogicalOp(UnaryLogicalOp, Operand<'a>),
     /// `<left>:<ty> <op> <right>:<ty> -> <ty>`
     BinaryArithOp(BinaryArithOp, Operand<'a>, Operand<'a>),
     /// `<function>(<args>)`
@@ -231,6 +233,22 @@ impl fmt::Display for UnaryArithOp {
         let s = match self {
             UnaryArithOp::Minus => "-",
             UnaryArithOp::Plus => "+",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+/// Unary logical operator.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum UnaryLogicalOp {
+    /// `!`
+    Not,
+}
+
+impl fmt::Display for UnaryLogicalOp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match self {
+            UnaryLogicalOp::Not => "!",
         };
         write!(f, "{}", s)
     }
