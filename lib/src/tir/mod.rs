@@ -203,6 +203,8 @@ pub struct NamedObjectRef(pub String);
 #[derive(Clone, Debug, PartialEq)]
 pub enum Rvalue<'a> {
     Copy(Operand<'a>),
+    /// `<op> <arg>:<ty> -> <ty>`
+    UnaryArithOp(UnaryArithOp, Operand<'a>),
     /// `<left>:<ty> <op> <right>:<ty> -> <ty>`
     BinaryArithOp(BinaryArithOp, Operand<'a>, Operand<'a>),
     /// `<function>(<args>)`
@@ -213,6 +215,25 @@ pub enum Rvalue<'a> {
     ReadProperty(Operand<'a>, Property<'a>),
     /// `{<0>, <1>, ...}`
     MakeList(Vec<Operand<'a>>),
+}
+
+/// Unary arithmetic operator.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum UnaryArithOp {
+    /// `-`
+    Minus,
+    /// `+`
+    Plus,
+}
+
+impl fmt::Display for UnaryArithOp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match self {
+            UnaryArithOp::Minus => "-",
+            UnaryArithOp::Plus => "+",
+        };
+        write!(f, "{}", s)
+    }
 }
 
 /// Binary arithmetic operator.
