@@ -94,6 +94,7 @@ impl<'a, T: TypeSpace<'a>> RefSpace<'a> for T {
 /// Translates each expression node to [`Self::Item`].
 pub trait ExpressionVisitor<'a> {
     type Item: DescribeType<'a>; // TODO: do we want to check type error by walk()?
+    type Label;
     type Error: ToString;
 
     fn visit_integer(&mut self, value: u64) -> Result<Self::Item, Self::Error>;
@@ -138,7 +139,12 @@ pub trait ExpressionVisitor<'a> {
         condition: Self::Item,
         consequence: Self::Item,
         alternative: Self::Item,
+        condition_label: Self::Label,
+        consequence_label: Self::Label,
+        alternative_label: Self::Label,
     ) -> Result<Self::Item, Self::Error>;
+
+    fn mark_branch_point(&mut self) -> Self::Label;
 }
 
 #[derive(Debug)]
@@ -278,12 +284,22 @@ where
         }
         Expression::TernaryExpression(x) => {
             let condition = walk(ctx, x.condition, source, visitor, diagnostics)?;
+            let condition_label = visitor.mark_branch_point();
             let consequence = walk(ctx, x.consequence, source, visitor, diagnostics)?;
+            let consequence_label = visitor.mark_branch_point();
             let alternative = walk(ctx, x.alternative, source, visitor, diagnostics)?;
+            let alternative_label = visitor.mark_branch_point();
             diagnostics
                 .consume_node_err(
                     node,
-                    visitor.visit_ternary_expression(condition, consequence, alternative),
+                    visitor.visit_ternary_expression(
+                        condition,
+                        consequence,
+                        alternative,
+                        condition_label,
+                        consequence_label,
+                        alternative_label,
+                    ),
                 )
                 .map(Intermediate::Item)
         }
