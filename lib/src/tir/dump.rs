@@ -48,6 +48,14 @@ fn format_rvalue(rv: &Rvalue) -> String {
             format_operand(l),
             format_operand(r)
         ),
+        Rvalue::CallBuiltinMethod(obj, f, args) => {
+            format!(
+                "call_builtin_method {}, {:?}, {{{}}}",
+                format_operand(obj),
+                f,
+                args.iter().map(format_operand).join(", ")
+            )
+        }
         Rvalue::ReadProperty(obj, prop) => {
             format!("read_property {}, {:?}", format_operand(obj), prop.name())
         }

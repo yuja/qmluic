@@ -1,6 +1,6 @@
 //! Type-checked intermediate representation of expressions.
 
-use crate::typedexpr::{DescribeType, TypeDesc};
+use crate::typedexpr::{BuiltinMethodKind, DescribeType, TypeDesc};
 use crate::typemap::{Class, Enum, NamedType, Property, TypeKind};
 use std::fmt;
 
@@ -205,6 +205,8 @@ pub enum Rvalue<'a> {
     Copy(Operand<'a>),
     /// `<left>:<ty> <op> <right>:<ty> -> <ty>`
     BinaryArithOp(BinaryArithOp, Operand<'a>, Operand<'a>),
+    /// `<obj> -> <method>(<args>)`
+    CallBuiltinMethod(Operand<'a>, BuiltinMethodKind, Vec<Operand<'a>>),
     /// `<obj> -> <read_property>()`
     ReadProperty(Operand<'a>, Property<'a>),
     /// `{<0>, <1>, ...}`

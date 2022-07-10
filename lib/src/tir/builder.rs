@@ -8,7 +8,9 @@ use crate::typedexpr::{
     self, BuiltinFunctionKind, BuiltinMethodKind, DescribeType, ExpressionVisitor, RefSpace,
     TypeDesc,
 };
-use crate::typemap::{Class, Enum, NamedType, Property, TypeKind, TypeMapError, TypeSpace as _};
+use crate::typemap::{
+    Class, Enum, NamedType, PrimitiveType, Property, TypeKind, TypeMapError, TypeSpace as _,
+};
 use std::num::TryFromIntError;
 use thiserror::Error;
 
@@ -113,11 +115,51 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
 
     fn visit_object_builtin_method_call(
         &mut self,
-        _object: Self::Item,
-        _function: BuiltinMethodKind,
-        _arguments: Vec<Self::Item>,
+        object: Self::Item,
+        function: BuiltinMethodKind,
+        arguments: Vec<Self::Item>,
     ) -> Result<Self::Item, Self::Error> {
-        todo!()
+        let object = ensure_concrete_string(object);
+        let ty = match function {
+            BuiltinMethodKind::Arg => {
+                assert!(object.type_desc() == TypeDesc::STRING);
+                if arguments.len() == 1 {
+                    match arguments[0].type_desc() {
+                        TypeDesc::ConstInteger
+                        | TypeDesc::ConstString
+                        | TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(
+                            PrimitiveType::Bool
+                            | PrimitiveType::Double
+                            | PrimitiveType::Int
+                            | PrimitiveType::QString
+                            | PrimitiveType::Uint,
+                        ))) => Ok(TypeKind::STRING),
+                        t @ (TypeDesc::EmptyList
+                        | TypeDesc::Concrete(TypeKind::Just(
+                            NamedType::Class(_)
+                            | NamedType::Enum(_)
+                            | NamedType::Namespace(_)
+                            | NamedType::Primitive(PrimitiveType::QStringList | PrimitiveType::Void)
+                            | NamedType::QmlComponent(_),
+                        ))
+                        | TypeDesc::Concrete(
+                            TypeKind::Pointer(_) | TypeKind::PointerList(_),
+                        )) => Err(ExpressionError::InvalidArgument(t.qualified_name().into())),
+                    }
+                } else {
+                    Err(ExpressionError::InvalidArgument(format!(
+                        "expects 1 argument, but got {}",
+                        arguments.len()
+                    )))
+                }
+            }
+        }?;
+        let a = self.alloca(ty);
+        self.push_statement(Statement::Assign(
+            a.name,
+            Rvalue::CallBuiltinMethod(object, function, arguments),
+        ));
+        Ok(Operand::Local(a))
     }
 
     fn visit_builtin_call(
@@ -322,6 +364,8 @@ enum ExpressionError {
     TypeResolution(#[from] TypeMapError),
     #[error("condition must be of bool type, but got: {0}")]
     IncompatibleConditionType(String),
+    #[error("invalid argument: {0}")]
+    InvalidArgument(String),
     #[error("operation '{0}' on incompatible types: {1} and {2}")]
     OperationOnIncompatibleTypes(String, String, String),
     #[error("operation '{0}' on undetermined type: {1}")]
@@ -632,6 +676,16 @@ mod tests {
         .0:
             %0 = read_property [foo]: Foo*, "checked"
             return %0: bool
+        "###);
+    }
+
+    #[test]
+    fn call_string_arg_method() {
+        insta::assert_snapshot!(dump("'Hello %1'.arg('world')"), @r###"
+            %0: QString
+        .0:
+            %0 = call_builtin_method "Hello %1": QString, Arg, {"world": string}
+            return %0: QString
         "###);
     }
 
