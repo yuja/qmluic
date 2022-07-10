@@ -1,6 +1,7 @@
 use super::{
     BasicBlock, BasicBlockRef, BinaryArithOp, CodeBody, ConstantValue, EnumVariant, Local,
-    NamedObject, Operand, Rvalue, Statement, Terminator, UnaryArithOp, UnaryLogicalOp,
+    NamedObject, Operand, Rvalue, Statement, Terminator, UnaryArithOp, UnaryBitwiseOp,
+    UnaryLogicalOp,
 };
 use crate::diagnostic::Diagnostics;
 use crate::qmlast::{BinaryOperator, Node, UnaryOperator};
@@ -198,7 +199,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         use UnaryOperator::*;
         match operator {
             LogicalNot => self.visit_unary_logical_expression(UnaryLogicalOp::Not, argument),
-            BitwiseNot => todo!(),
+            BitwiseNot => self.visit_unary_bitwise_expression(UnaryBitwiseOp::Not, argument),
             Minus => self.visit_unary_arith_expression(UnaryArithOp::Minus, argument),
             Plus => self.visit_unary_arith_expression(UnaryArithOp::Plus, argument),
             Typeof | Void | Delete => {
@@ -342,6 +343,60 @@ impl<'a> CodeBuilder<'a> {
                 Ok(ConstantValue::Float(a))
             }
             ConstantValue::Bool(_)
+            | ConstantValue::CString(_)
+            | ConstantValue::QString(_)
+            | ConstantValue::EmptyList => {
+                Err(ExpressionError::UnsupportedOperation(op.to_string()))
+            }
+        }
+    }
+
+    fn visit_unary_bitwise_expression(
+        &mut self,
+        op: UnaryBitwiseOp,
+        argument: Operand<'a>,
+    ) -> Result<Operand<'a>, ExpressionError> {
+        match argument {
+            Operand::Constant(a) => self
+                .eval_unary_bitwise_expression(op, a)
+                .map(Operand::Constant),
+            argument => self.emit_unary_bitwise_instruction(op, ensure_concrete_string(argument)),
+        }
+    }
+
+    fn emit_unary_bitwise_instruction(
+        &mut self,
+        op: UnaryBitwiseOp,
+        argument: Operand<'a>,
+    ) -> Result<Operand<'a>, ExpressionError> {
+        let ty = to_concrete_type(op, argument.type_desc())?;
+        match &ty {
+            &TypeKind::INT | &TypeKind::UINT | TypeKind::Just(NamedType::Enum(_)) => Ok(()),
+            _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
+        }?;
+        let a = self.alloca(ty);
+        self.push_statement(Statement::Assign(
+            a.name,
+            Rvalue::UnaryBitwiseOp(op, argument),
+        ));
+        Ok(Operand::Local(a))
+    }
+
+    fn eval_unary_bitwise_expression(
+        &self,
+        op: UnaryBitwiseOp,
+        argument: ConstantValue,
+    ) -> Result<ConstantValue, ExpressionError> {
+        use UnaryBitwiseOp::*;
+        match argument {
+            ConstantValue::Integer(v) => {
+                let a = match op {
+                    Not => !v,
+                };
+                Ok(ConstantValue::Integer(a))
+            }
+            ConstantValue::Bool(_)
+            | ConstantValue::Float(_)
             | ConstantValue::CString(_)
             | ConstantValue::QString(_)
             | ConstantValue::EmptyList => {
@@ -892,6 +947,36 @@ mod tests {
             %0 = read_property [foo]: Foo*, "text"
             %1 = binary_arith_op '+', "Hello ": QString, %0: QString
             return %1: QString
+        "###);
+    }
+
+    #[test]
+    fn constant_integer_bitwise() {
+        insta::assert_snapshot!(dump("~0"), @r###"
+        .0:
+            return -1: integer
+        "###);
+    }
+
+    #[test]
+    fn constant_enum_bitwise() {
+        insta::assert_snapshot!(dump("~Foo.Bar0"), @r###"
+            %0: Foo::Bar
+        .0:
+            %0 = unary_bitwise_op '~', 'Foo::Bar0': Foo::Bar
+            return %0: Foo::Bar
+        "###);
+    }
+
+    #[test]
+    fn dynamic_integer_bitwise() {
+        insta::assert_snapshot!(dump("~foo.currentIndex"), @r###"
+            %0: int
+            %1: int
+        .0:
+            %0 = read_property [foo]: Foo*, "currentIndex"
+            %1 = unary_bitwise_op '~', %0: int
+            return %1: int
         "###);
     }
 
