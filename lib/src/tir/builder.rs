@@ -77,8 +77,18 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         Ok(Operand::EnumVariant(EnumVariant::new(enum_ty, variant)))
     }
 
-    fn visit_array(&mut self, _elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
-        todo!()
+    fn visit_array(&mut self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
+        let operands: Vec<_> = elements.into_iter().map(ensure_concrete_string).collect();
+        if let Some(mut elem_t) = operands.first().map(|a| a.type_desc()) {
+            for a in operands.iter().skip(1) {
+                elem_t = deduce_type("array", elem_t, a.type_desc())?;
+            }
+            let a = self.alloca(to_concrete_list_type("array", elem_t)?);
+            self.push_statement(Statement::Assign(a.name, Rvalue::MakeList(operands)));
+            Ok(Operand::Local(a))
+        } else {
+            Ok(Operand::Constant(ConstantValue::EmptyList))
+        }
     }
 
     fn visit_object_ref(&mut self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error> {
@@ -316,6 +326,8 @@ enum ExpressionError {
     OperationOnIncompatibleTypes(String, String, String),
     #[error("operation '{0}' on undetermined type: {1}")]
     OperationOnUndeterminedType(String, String),
+    #[error("operation '{0}' on unsupported type: {1}")]
+    OperationOnUnsupportedType(String, String),
     #[error("unsupported operation '{0}'")]
     UnsupportedOperation(String),
     #[error("not a readable property")]
@@ -339,15 +351,32 @@ fn deduce_concrete_type<'a>(
     left: TypeDesc<'a>,
     right: TypeDesc<'a>,
 ) -> Result<TypeKind<'a>, ExpressionError> {
-    match deduce_type(op_desc, left, right) {
-        Ok(TypeDesc::Concrete(ty)) => Ok(ty),
-        Ok(TypeDesc::ConstInteger) => Ok(TypeKind::INT), // fallback to default
-        Ok(TypeDesc::ConstString) => panic!("should have been converted to concrete string"),
-        Ok(t @ TypeDesc::EmptyList) => Err(ExpressionError::OperationOnUndeterminedType(
+    deduce_type(op_desc, left, right).and_then(|t| to_concrete_type(op_desc, t))
+}
+
+fn to_concrete_type(op_desc: impl ToString, t: TypeDesc) -> Result<TypeKind, ExpressionError> {
+    match t {
+        TypeDesc::Concrete(ty) => Ok(ty),
+        TypeDesc::ConstInteger => Ok(TypeKind::INT), // fallback to default
+        TypeDesc::ConstString => panic!("should have been converted to concrete string"),
+        t @ TypeDesc::EmptyList => Err(ExpressionError::OperationOnUndeterminedType(
             op_desc.to_string(),
             t.qualified_name().into(),
         )),
-        Err(e) => Err(e),
+    }
+}
+
+fn to_concrete_list_type(
+    op_desc: impl ToString + Copy,
+    elem_t: TypeDesc,
+) -> Result<TypeKind, ExpressionError> {
+    match to_concrete_type(op_desc, elem_t)? {
+        TypeKind::STRING => Ok(TypeKind::STRING_LIST),
+        TypeKind::Pointer(t) => Ok(TypeKind::PointerList(t)),
+        t => Err(ExpressionError::OperationOnUnsupportedType(
+            op_desc.to_string(),
+            t.qualified_cxx_name().into(),
+        )),
     }
 }
 
@@ -538,6 +567,54 @@ mod tests {
         .0:
             return 'Foo::Bar0': Foo::Bar
         "###);
+    }
+
+    #[test]
+    fn empty_array_literal() {
+        insta::assert_snapshot!(dump("[]"), @r###"
+        .0:
+            return {}: list
+        "###);
+    }
+
+    #[test]
+    fn string_array_literal() {
+        insta::assert_snapshot!(dump("['foo', 'bar']"), @r###"
+            %0: QStringList
+        .0:
+            %0 = make_list {"foo": QString, "bar": QString}
+            return %0: QStringList
+        "###);
+    }
+
+    #[test]
+    fn object_array_literal() {
+        insta::assert_snapshot!(dump("[foo, foo2]"), @r###"
+            %0: QList<Foo*>
+        .0:
+            %0 = make_list {[foo]: Foo*, [foo2]: Foo*}
+            return %0: QList<Foo*>
+        "###);
+    }
+
+    #[test]
+    fn dynamic_array_literal() {
+        insta::assert_snapshot!(dump("[foo.text, foo2.text]"), @r###"
+            %0: QString
+            %1: QString
+            %2: QStringList
+        .0:
+            %0 = read_property [foo]: Foo*, "text"
+            %1 = read_property [foo2]: Foo*, "text"
+            %2 = make_list {%0: QString, %1: QString}
+            return %2: QStringList
+        "###);
+    }
+
+    #[test]
+    fn incompatible_array_literal() {
+        let env = Env::new();
+        assert!(env.try_build("[foo, 'bar']").is_err());
     }
 
     #[test]

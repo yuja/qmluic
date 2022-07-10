@@ -120,6 +120,8 @@ pub enum ConstantValue {
     CString(String),
     /// `QStringLiteral("")`
     QString(String),
+    /// Empty list which element type is unknown.
+    EmptyList,
 }
 
 impl DescribeType<'static> for ConstantValue {
@@ -130,6 +132,7 @@ impl DescribeType<'static> for ConstantValue {
             ConstantValue::Float(_) => TypeDesc::DOUBLE,
             ConstantValue::CString(_) => TypeDesc::ConstString,
             ConstantValue::QString(_) => TypeDesc::STRING,
+            ConstantValue::EmptyList => TypeDesc::EmptyList,
         }
     }
 }
@@ -204,6 +207,8 @@ pub enum Rvalue<'a> {
     BinaryArithOp(BinaryArithOp, Operand<'a>, Operand<'a>),
     /// `<obj> -> <read_property>()`
     ReadProperty(Operand<'a>, Property<'a>),
+    /// `{<0>, <1>, ...}`
+    MakeList(Vec<Operand<'a>>),
 }
 
 /// Binary arithmetic operator.
