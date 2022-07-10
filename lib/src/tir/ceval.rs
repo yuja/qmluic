@@ -6,8 +6,8 @@
 
 use super::builder::ExpressionError;
 use super::{
-    BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, ConstantValue, UnaryArithOp, UnaryBitwiseOp,
-    UnaryLogicalOp,
+    BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, ComparisonOp, ConstantValue, UnaryArithOp,
+    UnaryBitwiseOp, UnaryLogicalOp,
 };
 use crate::typedexpr::DescribeType;
 
@@ -181,5 +181,66 @@ pub(super) fn eval_binary_logical_expression(
             Ok(ConstantValue::Bool(a))
         }
         _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
+    }
+}
+
+pub(super) fn eval_comparison_expression(
+    op: ComparisonOp,
+    left: ConstantValue,
+    right: ConstantValue,
+) -> Result<ConstantValue, ExpressionError> {
+    use ComparisonOp::*;
+    match (left, right) {
+        (ConstantValue::Bool(l), ConstantValue::Bool(r)) => {
+            #[allow(clippy::bool_comparison)]
+            let a = match op {
+                Equal => l == r,
+                NotEqual => l != r,
+                LessThan => l < r,
+                LessThanEqual => l <= r,
+                GreaterThan => l > r,
+                GreaterThanEqual => l >= r,
+            };
+            Ok(ConstantValue::Bool(a))
+        }
+        (ConstantValue::Integer(l), ConstantValue::Integer(r)) => {
+            let a = match op {
+                Equal => l == r,
+                NotEqual => l != r,
+                LessThan => l < r,
+                LessThanEqual => l <= r,
+                GreaterThan => l > r,
+                GreaterThanEqual => l >= r,
+            };
+            Ok(ConstantValue::Bool(a))
+        }
+        (ConstantValue::Float(l), ConstantValue::Float(r)) => {
+            let a = match op {
+                Equal => l == r,
+                NotEqual => l != r,
+                LessThan => l < r,
+                LessThanEqual => l <= r,
+                GreaterThan => l > r,
+                GreaterThanEqual => l >= r,
+            };
+            Ok(ConstantValue::Bool(a))
+        }
+        (ConstantValue::CString(l), ConstantValue::CString(r))
+        | (ConstantValue::QString(l), ConstantValue::QString(r)) => {
+            let a = match op {
+                Equal => l == r,
+                NotEqual => l != r,
+                LessThan => l < r,
+                LessThanEqual => l <= r,
+                GreaterThan => l > r,
+                GreaterThanEqual => l >= r,
+            };
+            Ok(ConstantValue::Bool(a))
+        }
+        (left, right) => Err(ExpressionError::OperationOnIncompatibleTypes(
+            op.to_string(),
+            left.type_desc().qualified_name().into(),
+            right.type_desc().qualified_name().into(),
+        )),
     }
 }
