@@ -53,7 +53,7 @@ impl<'a, 't> PropertyValue<'a, 't> {
                     let code = tir::build(ctx, *n, ctx.source, diagnostics)?;
                     if formatter.property_deps.is_empty() && !formatter.has_method_call {
                         // constant expression can be mapped to .ui value type
-                        parse_as_value_type(ctx, t, *n, res_t, res_expr, diagnostics)
+                        parse_as_value_type(ctx, t, *n, &code, res_t, res_expr, diagnostics)
                             .map(PropertyValue::Serializable)
                     } else {
                         match code.verify_return_type(ty) {
@@ -312,13 +312,14 @@ fn parse_as_value_type(
     ctx: &ObjectContext,
     ty: &NamedType,
     node: Node,
+    code: &tir::CodeBody,
     res_t: TypeDesc,
     res_expr: String,
     diagnostics: &mut Diagnostics,
 ) -> Option<Value> {
     match ty {
         NamedType::Class(cls) if cls == &ctx.classes.brush => {
-            let color = parse_color_value(ctx, node, diagnostics).map(Value::Gadget)?;
+            let color = parse_color_value(node, code, diagnostics).map(Value::Gadget)?;
             let style = SimpleValue::Enum("Qt::SolidPattern".to_owned());
             Some(Value::Gadget(Gadget {
                 kind: GadgetKind::Brush,
@@ -327,7 +328,7 @@ fn parse_as_value_type(
             }))
         }
         NamedType::Class(cls) if cls == &ctx.classes.color => {
-            parse_color_value(ctx, node, diagnostics).map(Value::Gadget)
+            parse_color_value(node, code, diagnostics).map(Value::Gadget)
         }
         NamedType::Class(cls) if cls == &ctx.classes.cursor => match &res_t {
             TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(res_en)))
@@ -362,7 +363,7 @@ fn parse_as_value_type(
                     }
                 }
                 TypeDesc::ConstString | &TypeDesc::STRING => {
-                    evaluate_as_primitive(ctx, PrimitiveType::QString, node, diagnostics)
+                    evaluate_as_primitive(PrimitiveType::QString, node, code, diagnostics)
                 }
                 _ => {
                     diagnostics.push(Diagnostic::error(
@@ -379,7 +380,7 @@ fn parse_as_value_type(
             }
         }
         NamedType::Class(cls) if cls == &ctx.classes.pixmap => {
-            let res = evaluate_expression(ctx, node, diagnostics)?;
+            let res = evaluate_code(code).expect("constant expression can be evaluated");
             match res {
                 EvaluatedValue::String(s, StringKind::NoTr) => {
                     Some(Value::Simple(SimpleValue::Pixmap(s)))
@@ -419,7 +420,7 @@ fn parse_as_value_type(
                 None
             }
         },
-        NamedType::Primitive(p) => evaluate_as_primitive(ctx, *p, node, diagnostics),
+        NamedType::Primitive(p) => evaluate_as_primitive(*p, node, code, diagnostics),
         NamedType::Class(_) | NamedType::QmlComponent(_) => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
@@ -444,12 +445,12 @@ fn parse_as_value_type(
 }
 
 fn evaluate_as_primitive(
-    ctx: &ObjectContext,
     p: PrimitiveType,
     node: Node,
+    code: &tir::CodeBody,
     diagnostics: &mut Diagnostics,
 ) -> Option<Value> {
-    let res = evaluate_expression(ctx, node, diagnostics)?;
+    let res = evaluate_code(code).expect("constant expression can be evaluated");
     match (p, res) {
         (PrimitiveType::Bool, EvaluatedValue::Bool(v)) => Some(Value::Simple(SimpleValue::Bool(v))),
         (PrimitiveType::Int | PrimitiveType::Uint, EvaluatedValue::Integer(v)) => {
@@ -601,12 +602,12 @@ fn tir_operands_to_evaluated_list(
 }
 
 fn parse_color_value(
-    ctx: &ObjectContext,
     node: Node,
+    code: &tir::CodeBody,
     diagnostics: &mut Diagnostics,
 ) -> Option<Gadget> {
     // TODO: handle Qt::GlobalColor enum
-    let res = evaluate_expression(ctx, node, diagnostics)?;
+    let res = evaluate_code(code).expect("constant expression can be evaluated");
     match res {
         EvaluatedValue::String(s, StringKind::NoTr) => match s.parse::<Color>() {
             Ok(c) => Some(c.into()),
