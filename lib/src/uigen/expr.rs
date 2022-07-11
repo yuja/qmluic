@@ -25,7 +25,7 @@ use thiserror::Error;
 pub(super) enum PropertyValue<'a, 't> {
     Serializable(Value),
     /// Value expression to be evaluated at run time.
-    Dynamic(DynamicExpression<'a>),
+    Dynamic(tir::CodeBody<'a>),
     /// List of static QComboBox/QAbstractItemView items.
     ItemModel(Vec<ModelItem>),
     /// List of identifiers referencing the objects.
@@ -56,8 +56,7 @@ impl<'a, 't> PropertyValue<'a, 't> {
                         parse_as_value_type(ctx, t, *n, res_t, res_expr, diagnostics)
                             .map(PropertyValue::Serializable)
                     } else if take_expression_of_type(ty, &res_t, res_expr).is_some() {
-                        let dyn_expr = DynamicExpression { code };
-                        Some(PropertyValue::Dynamic(dyn_expr))
+                        Some(PropertyValue::Dynamic(code))
                     } else {
                         diagnostics.push(Diagnostic::error(
                             n.byte_range(),
@@ -968,12 +967,6 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
     }
 
     fn mark_branch_point(&mut self) -> Self::Label {}
-}
-
-/// Property value expression to be evaluated at run time.
-#[derive(Clone, Debug)]
-pub(super) struct DynamicExpression<'a> {
-    pub code: tir::CodeBody<'a>,
 }
 
 /// Formats expression tree as arbitrary constant value expression.

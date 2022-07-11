@@ -135,7 +135,7 @@ impl BindingCode {
         let update_function_name =
             format!("update_{}_{}", obj_node.name(), prop.data().desc.name());
         let eval_function_name = format!("eval_{}_{}", obj_node.name(), prop.data().desc.name());
-        let sender_signals = match code_translator.collect_sender_signals(&prop.data().value.code) {
+        let sender_signals = match code_translator.collect_sender_signals(&prop.data().code) {
             Ok(xs) => xs,
             Err(es) => {
                 for e in es {
@@ -171,7 +171,7 @@ impl BindingCode {
         };
         let mut eval_function_body = Vec::new();
         code_translator
-            .translate(&mut eval_function_body, &prop.data().value.code)
+            .translate(&mut eval_function_body, &prop.data().code)
             .expect("write to bytes shouldn't fail");
         Some(BindingCode {
             setup_function_name,
