@@ -1,5 +1,6 @@
 //! Type-checked intermediate representation of expressions.
 
+use super::typeutil::{self, TypeError};
 use crate::typedexpr::{BuiltinFunctionKind, BuiltinMethodKind, DescribeType, TypeDesc};
 use crate::typemap::{Class, Enum, NamedType, Property, TypeKind};
 use std::fmt;
@@ -17,6 +18,18 @@ impl CodeBody<'_> {
             basic_blocks: vec![BasicBlock::empty()],
             locals: vec![],
         }
+    }
+
+    /// Checks if the return type is compatible with the given type.
+    ///
+    /// If not compatible, `TypeError::IncompatibleTypes(expected, actual)` will be returned.
+    pub fn verify_return_type(&self, expected: &TypeKind) -> Result<(), TypeError> {
+        for b in self.basic_blocks.iter() {
+            if let Terminator::Return(a) = b.terminator() {
+                typeutil::verify_concrete_type(expected, &a.type_desc())?;
+            }
+        }
+        Ok(())
     }
 }
 

@@ -55,18 +55,22 @@ impl<'a, 't> PropertyValue<'a, 't> {
                         // constant expression can be mapped to .ui value type
                         parse_as_value_type(ctx, t, *n, res_t, res_expr, diagnostics)
                             .map(PropertyValue::Serializable)
-                    } else if take_expression_of_type(ty, &res_t, res_expr).is_some() {
-                        Some(PropertyValue::Dynamic(code))
                     } else {
-                        diagnostics.push(Diagnostic::error(
-                            n.byte_range(),
-                            format!(
-                                "expression type mismatch (expected: {}, actual: {})",
-                                ty.qualified_cxx_name(),
-                                res_t.qualified_name()
-                            ),
-                        ));
-                        None
+                        match code.verify_return_type(ty) {
+                            Ok(()) => Some(PropertyValue::Dynamic(code)),
+                            Err(tir::TypeError::IncompatibleTypes(expected, actual)) => {
+                                diagnostics.push(Diagnostic::error(
+                                n.byte_range(),
+                                format!("expression type mismatch (expected: {expected}, actual: {actual})")
+                            ));
+                                None
+                            }
+                            Err(err) => {
+                                diagnostics
+                                    .push(Diagnostic::error(n.byte_range(), err.to_string()));
+                                None
+                            }
+                        }
                     }
                 }
                 TypeKind::Pointer(NamedType::Class(cls))
@@ -1466,37 +1470,6 @@ fn ensure_concrete_string(t: TypeDesc, expr: String, prec: u32) -> (TypeDesc, St
             PREC_CALL,
         ),
         t => (t, expr, prec),
-    }
-}
-
-fn take_expression_of_type(
-    expected_k: &TypeKind,
-    actual_t: &TypeDesc,
-    expr: String,
-) -> Option<String> {
-    match (expected_k, actual_t) {
-        (_, TypeDesc::Concrete(k)) if expected_k == k => Some(expr),
-        (
-            TypeKind::Just(NamedType::Primitive(PrimitiveType::Int | PrimitiveType::Uint)),
-            TypeDesc::ConstInteger,
-        ) => Some(expr),
-        (TypeKind::Just(NamedType::Primitive(PrimitiveType::QString)), TypeDesc::ConstString) => {
-            Some(format!("QStringLiteral({})", expr))
-        }
-        (
-            TypeKind::Just(NamedType::Enum(e)),
-            TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(a))),
-        ) if is_compatible_enum(e, a) => Some(expr),
-        (
-            TypeKind::Pointer(NamedType::Class(e)),
-            TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(a))),
-        ) if a.is_derived_from(e) => Some(expr),
-        (
-            TypeKind::Just(NamedType::Primitive(PrimitiveType::QStringList))
-            | TypeKind::PointerList(_),
-            TypeDesc::EmptyList,
-        ) => Some(expr),
-        _ => None,
     }
 }
 

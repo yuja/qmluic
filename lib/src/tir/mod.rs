@@ -9,3 +9,4 @@ mod typeutil;
 pub use self::builder::build; // re-export
 pub use self::core::*; // re-export
 pub use self::dump::dump_code_body; // re-export
+pub use self::typeutil::TypeError; // re-export
