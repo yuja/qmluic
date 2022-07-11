@@ -90,7 +90,7 @@ fn test_assign_float_to_int() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
     QSpinBox { value: 1.0 }
-    "###).unwrap_err(), @"<unknown>:2:19: error: evaluated type mismatch (expected: int, actual: double)");
+    "###).unwrap_err(), @"<unknown>:2:19: error: expression type mismatch (expected: int, actual: double)");
 }
 
 #[test]

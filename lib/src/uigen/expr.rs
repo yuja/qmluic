@@ -369,22 +369,20 @@ fn parse_as_value_type(
             }
         }
         NamedType::Class(cls) if cls == &ctx.classes.pixmap => {
+            verify_code_return_type(node, code, &TypeKind::STRING, diagnostics)?;
             let res = evaluate_code(code).expect("constant expression can be evaluated");
             match res {
                 EvaluatedValue::String(s, StringKind::NoTr) => {
                     Some(Value::Simple(SimpleValue::Pixmap(s)))
                 }
-                _ => {
+                EvaluatedValue::String(_, StringKind::Tr) => {
                     diagnostics.push(Diagnostic::error(
                         node.byte_range(),
-                        format!(
-                            "evaluated type mismatch (expected: {}, actual: {})",
-                            ty.qualified_cxx_name(),
-                            res.type_desc().qualified_name()
-                        ),
+                        "pixmap path must be a static string",
                     ));
                     None
                 }
+                _ => panic!("evaluated value must be string"),
             }
         }
         NamedType::Enum(en) => match &res_t {
@@ -439,6 +437,12 @@ fn evaluate_as_primitive(
     code: &tir::CodeBody,
     diagnostics: &mut Diagnostics,
 ) -> Option<Value> {
+    verify_code_return_type(
+        node,
+        code,
+        &TypeKind::Just(NamedType::Primitive(p)),
+        diagnostics,
+    )?;
     let res = evaluate_code(code).expect("constant expression can be evaluated");
     match (p, res) {
         (PrimitiveType::Bool, EvaluatedValue::Bool(v)) => Some(Value::Simple(SimpleValue::Bool(v))),
@@ -476,18 +480,8 @@ fn evaluate_as_primitive(
             | PrimitiveType::QStringList
             | PrimitiveType::Uint
             | PrimitiveType::Void,
-            res,
-        ) => {
-            diagnostics.push(Diagnostic::error(
-                node.byte_range(),
-                format!(
-                    "evaluated type mismatch (expected: {}, actual: {})",
-                    p.name(),
-                    res.type_desc().qualified_name()
-                ),
-            ));
-            None
-        }
+            _,
+        ) => panic!("evaluated type must be of {p:?} type"),
     }
 }
 
@@ -611,6 +605,7 @@ fn parse_color_value(
     diagnostics: &mut Diagnostics,
 ) -> Option<Gadget> {
     // TODO: handle Qt::GlobalColor enum
+    verify_code_return_type(node, code, &TypeKind::STRING, diagnostics)?;
     let res = evaluate_code(code).expect("constant expression can be evaluated");
     match res {
         EvaluatedValue::String(s, StringKind::NoTr) => match s.parse::<Color>() {
@@ -620,16 +615,14 @@ fn parse_color_value(
                 None
             }
         },
-        _ => {
+        EvaluatedValue::String(_, StringKind::Tr) => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
-                format!(
-                    "evaluated type mismatch (expected: color, actual: {})",
-                    res.type_desc().qualified_name()
-                ),
+                "color must be a static string",
             ));
             None
         }
+        _ => panic!("evaluated value must be string"),
     }
 }
 
@@ -639,6 +632,7 @@ fn parse_item_model(
     code: &tir::CodeBody,
     diagnostics: &mut Diagnostics,
 ) -> Option<Vec<ModelItem>> {
+    verify_code_return_type(node, code, &TypeKind::STRING_LIST, diagnostics)?;
     let res = match evaluate_code(code) {
         Some(v) => v,
         None => {
@@ -658,16 +652,7 @@ fn parse_item_model(
             Some(items)
         }
         EvaluatedValue::EmptyList => Some(vec![]),
-        _ => {
-            diagnostics.push(Diagnostic::error(
-                node.byte_range(),
-                format!(
-                    "evaluated type mismatch (expected: list, actual: {})",
-                    res.type_desc().qualified_name()
-                ),
-            ));
-            None
-        }
+        _ => panic!("evaluated value must be string list"),
     }
 }
 
@@ -776,20 +761,6 @@ enum EvaluatedValue {
     String(String, StringKind),
     StringList(Vec<(String, StringKind)>),
     EmptyList,
-}
-
-impl DescribeType<'_> for EvaluatedValue {
-    fn type_desc(&self) -> TypeDesc<'static> {
-        match self {
-            EvaluatedValue::Bool(_) => TypeDesc::BOOL,
-            EvaluatedValue::Integer(_) => TypeDesc::ConstInteger,
-            EvaluatedValue::Float(_) => TypeDesc::DOUBLE,
-            EvaluatedValue::String(_, StringKind::NoTr) => TypeDesc::ConstString,
-            EvaluatedValue::String(_, StringKind::Tr) => TypeDesc::STRING,
-            EvaluatedValue::StringList(_) => TypeDesc::STRING_LIST,
-            EvaluatedValue::EmptyList => TypeDesc::EmptyList,
-        }
-    }
 }
 
 /// Formats expression tree as arbitrary constant value expression.
