@@ -50,11 +50,10 @@ impl<'a, 't> PropertyValue<'a, 't> {
                     TypeKind::Just(t) => {
                         // detect type error and dynamic expression first
                         let mut formatter = ExpressionFormatter::new(ctx.doc_type_name);
-                        let (res_t, res_expr, _) =
-                            typedexpr::walk(ctx, *n, ctx.source, &mut formatter, diagnostics)?;
+                        let _ = typedexpr::walk(ctx, *n, ctx.source, &mut formatter, diagnostics)?;
                         if formatter.property_deps.is_empty() && !formatter.has_method_call {
                             // constant expression can be mapped to .ui value type
-                            parse_as_value_type(ctx, t, *n, &code, res_t, res_expr, diagnostics)
+                            parse_as_value_type(ctx, t, *n, &code, diagnostics)
                                 .map(PropertyValue::Serializable)
                         } else {
                             verify_code_return_type(*n, &code, ty, diagnostics)?;
@@ -302,8 +301,6 @@ fn parse_as_value_type(
     ty: &NamedType,
     node: Node,
     code: &tir::CodeBody,
-    res_t: TypeDesc,
-    res_expr: String,
     diagnostics: &mut Diagnostics,
 ) -> Option<Value> {
     match ty {
@@ -319,51 +316,69 @@ fn parse_as_value_type(
         NamedType::Class(cls) if cls == &ctx.classes.color => {
             parse_color_value(node, code, diagnostics).map(Value::Gadget)
         }
-        NamedType::Class(cls) if cls == &ctx.classes.cursor => match &res_t {
-            TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(res_en)))
-                if is_compatible_enum(res_en, &ctx.classes.cursor_shape) =>
-            {
-                Some(Value::Simple(SimpleValue::CursorShape(
-                    strip_enum_prefix(&res_expr).to_owned(),
-                )))
-            }
-            _ => {
-                diagnostics.push(Diagnostic::error(
-                    node.byte_range(),
-                    format!(
-                        "expression type mismatch (expected: {}, actual: {})",
-                        ctx.classes.cursor_shape.qualified_cxx_name(),
-                        res_t.qualified_name()
-                    ),
-                ));
-                None
-            }
-        },
+        NamedType::Class(cls) if cls == &ctx.classes.cursor => {
+            verify_code_return_type(
+                node,
+                code,
+                &TypeKind::Just(NamedType::Enum(ctx.classes.cursor_shape.clone())),
+                diagnostics,
+            )?;
+            let res = match evaluate_code(code) {
+                Some(v) => v,
+                None => {
+                    diagnostics.push(Diagnostic::error(
+                        node.byte_range(),
+                        "unsupported static enum expression",
+                    ));
+                    return None;
+                }
+            };
+            let expr = res.unwrap_enum_set().join("|");
+            Some(Value::Simple(SimpleValue::CursorShape(
+                strip_enum_prefix(&expr).to_owned(),
+            )))
+        }
         NamedType::Class(cls) if cls == &ctx.classes.key_sequence => {
             let standard_key_en = &ctx.classes.key_sequence_standard_key;
-            match &res_t {
-                TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(res_en)))
-                    if is_compatible_enum(res_en, standard_key_en) =>
-                {
+            match (
+                code.verify_return_type(&TypeKind::Just(NamedType::Enum(standard_key_en.clone()))),
+                code.verify_return_type(&TypeKind::STRING),
+            ) {
+                (Ok(()), _) => {
+                    let res = match evaluate_code(code) {
+                        Some(v) => v,
+                        None => {
+                            diagnostics.push(Diagnostic::error(
+                                node.byte_range(),
+                                "unsupported static enum expression",
+                            ));
+                            return None;
+                        }
+                    };
+                    let expr = res.unwrap_enum_set().join("|");
                     if standard_key_en.is_flag() {
-                        Some(Value::Simple(SimpleValue::Set(res_expr)))
+                        Some(Value::Simple(SimpleValue::Set(expr)))
                     } else {
-                        Some(Value::Simple(SimpleValue::Enum(res_expr)))
+                        Some(Value::Simple(SimpleValue::Enum(expr)))
                     }
                 }
-                TypeDesc::ConstString | &TypeDesc::STRING => {
+                (_, Ok(())) => {
                     evaluate_as_primitive(PrimitiveType::QString, node, code, diagnostics)
                 }
-                _ => {
+                (
+                    Err(tir::TypeError::IncompatibleTypes(expected1, actual)),
+                    Err(tir::TypeError::IncompatibleTypes(expected2, _)),
+                ) => {
                     diagnostics.push(Diagnostic::error(
                         node.byte_range(),
                         format!(
-                            "expression type mismatch (expected: {} | {}, actual: {})",
-                            standard_key_en.qualified_cxx_name(),
-                            PrimitiveType::QString.name(),
-                            res_t.qualified_name()
+                            "expression type mismatch (expected: {expected1} | {expected2}, actual: {actual})"
                         ),
                     ));
+                    None
+                }
+                (Err(err), Err(_)) => {
+                    diagnostics.push(Diagnostic::error(node.byte_range(), err.to_string()));
                     None
                 }
             }
@@ -385,28 +400,25 @@ fn parse_as_value_type(
                 _ => panic!("evaluated value must be string"),
             }
         }
-        NamedType::Enum(en) => match &res_t {
-            TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(res_en)))
-                if is_compatible_enum(res_en, en) =>
-            {
-                if en.is_flag() {
-                    Some(Value::Simple(SimpleValue::Set(res_expr)))
-                } else {
-                    Some(Value::Simple(SimpleValue::Enum(res_expr)))
+        NamedType::Enum(en) => {
+            verify_code_return_type(node, code, &TypeKind::Just(ty.clone()), diagnostics)?;
+            let res = match evaluate_code(code) {
+                Some(v) => v,
+                None => {
+                    diagnostics.push(Diagnostic::error(
+                        node.byte_range(),
+                        "unsupported static enum expression",
+                    ));
+                    return None;
                 }
+            };
+            let expr = res.unwrap_enum_set().join("|");
+            if en.is_flag() {
+                Some(Value::Simple(SimpleValue::Set(expr)))
+            } else {
+                Some(Value::Simple(SimpleValue::Enum(expr)))
             }
-            _ => {
-                diagnostics.push(Diagnostic::error(
-                    node.byte_range(),
-                    format!(
-                        "expression type mismatch (expected: {}, actual: {})",
-                        ty.qualified_cxx_name(),
-                        res_t.qualified_name()
-                    ),
-                ));
-                None
-            }
-        },
+        }
         NamedType::Primitive(p) => evaluate_as_primitive(*p, node, code, diagnostics),
         NamedType::Class(_) | NamedType::QmlComponent(_) => {
             diagnostics.push(Diagnostic::error(
@@ -487,7 +499,7 @@ fn evaluate_as_primitive(
 
 /// Evaluates TIR code to constant value.
 fn evaluate_code(code: &tir::CodeBody) -> Option<EvaluatedValue> {
-    use tir::{BasicBlockRef, Operand, Rvalue, Statement, Terminator};
+    use tir::{BasicBlockRef, BinaryBitwiseOp, Operand, Rvalue, Statement, Terminator};
 
     // fast path for simple constant expression
     if let Terminator::Return(a @ Operand::Constant(_)) = code.basic_blocks[0].terminator() {
@@ -513,6 +525,9 @@ fn evaluate_code(code: &tir::CodeBody) -> Option<EvaluatedValue> {
                     locals[l.0] = match r {
                         Rvalue::Copy(a) => {
                             tir_operand_to_evaluated_value(&locals, a, StringKind::NoTr)
+                        }
+                        Rvalue::BinaryBitwiseOp(BinaryBitwiseOp::Or, l, r) => {
+                            tir_operands_to_evaluated_enum_set(&locals, l, r)
                         }
                         Rvalue::CallBuiltinFunction(BuiltinFunctionKind::Tr, args) => {
                             tir_operand_to_evaluated_value(&locals, &args[0], StringKind::Tr)
@@ -551,7 +566,7 @@ fn tir_operand_to_evaluated_value(
             ConstantValue::QString(v) => Some(EvaluatedValue::String(v.clone(), k)),
             ConstantValue::EmptyList => Some(EvaluatedValue::EmptyList),
         },
-        Operand::EnumVariant(_) => None,
+        Operand::EnumVariant(x) => Some(EvaluatedValue::EnumSet(vec![x.cxx_expression()])),
         Operand::Local(x) => locals[x.name.0].clone(),
         Operand::NamedObject(x) => Some(EvaluatedValue::ObjectRef(x.name.0.clone())),
     }
@@ -589,6 +604,23 @@ fn tir_operands_to_evaluated_list(
                 })
                 .collect::<Option<Vec<_>>>()?;
             Some(EvaluatedValue::ObjectRefList(ss))
+        }
+        _ => None,
+    }
+}
+
+fn tir_operands_to_evaluated_enum_set(
+    locals: &[Option<EvaluatedValue>],
+    left: &tir::Operand,
+    right: &tir::Operand,
+) -> Option<EvaluatedValue> {
+    match (
+        tir_operand_to_evaluated_value(locals, left, StringKind::NoTr)?,
+        tir_operand_to_evaluated_value(locals, right, StringKind::NoTr)?,
+    ) {
+        (EvaluatedValue::EnumSet(mut ls), EvaluatedValue::EnumSet(rs)) => {
+            ls.extend(rs);
+            Some(EvaluatedValue::EnumSet(ls))
         }
         _ => None,
     }
@@ -750,9 +782,19 @@ enum EvaluatedValue {
     Float(f64),
     String(String, StringKind),
     StringList(Vec<(String, StringKind)>),
+    EnumSet(Vec<String>),
     ObjectRef(String),
     ObjectRefList(Vec<String>),
     EmptyList,
+}
+
+impl EvaluatedValue {
+    fn unwrap_enum_set(self) -> Vec<String> {
+        match self {
+            EvaluatedValue::EnumSet(es) => es,
+            _ => panic!("evaluated value must be enum set"),
+        }
+    }
 }
 
 /// Formats expression tree as arbitrary constant value expression.
