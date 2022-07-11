@@ -20,10 +20,8 @@ public:
 private:
     void setup_dialog_windowTitle()
     {
-        auto *const combo = this->ui_->combo;
-
-        QObject::connect(combo, &QComboBox::currentIndexChanged, root_, [this]() { this->update_dialog_windowTitle(); });
-        QObject::connect(combo, &QComboBox::currentTextChanged, root_, [this]() { this->update_dialog_windowTitle(); });
+        QObject::connect(this->ui_->combo, &QComboBox::currentIndexChanged, root_, [this]() { this->update_dialog_windowTitle(); });
+        QObject::connect(this->ui_->combo, &QComboBox::currentTextChanged, root_, [this]() { this->update_dialog_windowTitle(); });
     }
 
     void update_dialog_windowTitle()

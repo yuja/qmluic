@@ -33,9 +33,7 @@ impl UiSupportCode {
         for (obj_node, properties_map) in object_tree.flat_iter().zip(object_properties) {
             // TODO: exclude pseudo node like QActionSeparator
             bindings.extend(properties_map.iter().sorted_by_key(|&(k, _)| k).filter_map(
-                |(_, v)| {
-                    BindingCode::build(&code_translator, object_tree, obj_node, v, diagnostics)
-                },
+                |(_, v)| BindingCode::build(&code_translator, obj_node, v, diagnostics),
             ));
         }
 
@@ -120,7 +118,7 @@ struct BindingCode {
     update_function_name: String,
     eval_function_name: String,
     value_type: String,
-    sender_signals: Vec<(CxxFieldRef, String)>,
+    sender_signals: Vec<(String, String)>,
     write_expr: String,
     eval_function_body: Vec<u8>,
 }
@@ -128,7 +126,6 @@ struct BindingCode {
 impl BindingCode {
     fn build(
         code_translator: &CxxCodeBodyTranslator,
-        object_tree: &ObjectTree,
         obj_node: ObjectNode,
         prop: &WithNode<PropertyDescDynamicExpression>,
         diagnostics: &mut Diagnostics,
@@ -138,26 +135,15 @@ impl BindingCode {
         let update_function_name =
             format!("update_{}_{}", obj_node.name(), prop.data().desc.name());
         let eval_function_name = format!("eval_{}_{}", obj_node.name(), prop.data().desc.name());
-        let sender_signals = prop
-            .data()
-            .value
-            .property_deps
-            .iter()
-            .filter_map(|(o, p)| {
-                if let Some(f) = p.notify_signal_name() {
-                    // TODO: 'o' is theoretically an expression, but we do need a name
-                    let sender = CxxFieldRef::build(object_tree, o);
-                    let signal = format!("{}::{}", p.object_class().qualified_cxx_name(), f);
-                    Some((sender, signal))
-                } else {
-                    diagnostics.push(Diagnostic::error(
-                        prop.node().byte_range(),
-                        format!("unobservable property: {}.{}", o, p.name()),
-                    ));
-                    None
+        let sender_signals = match code_translator.collect_sender_signals(&prop.data().value.code) {
+            Ok(xs) => xs,
+            Err(es) => {
+                for e in es {
+                    diagnostics.push(Diagnostic::error(prop.node().byte_range(), e));
                 }
-            })
-            .collect();
+                return None;
+            }
+        };
         let write_expr = if let Some(f) = prop.data().desc.write_func_name() {
             format!(
                 "{}->{}(this->{}())",
@@ -201,18 +187,11 @@ impl BindingCode {
     fn write_setup_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
         writeln!(writer, "{indent}void {}()", self.setup_function_name)?;
         writeln!(writer, "{indent}{{")?;
-        let indent_body = indent.to_owned() + "    ";
-        for field in self.sender_signals.iter().map(|(s, _)| s).unique() {
-            field.write_local_variable(writer, &indent_body)?;
-        }
-        writeln!(writer)?;
         for (sender, signal) in self.sender_signals.iter().unique() {
             writeln!(
                 writer,
-                "{indent_body}QObject::connect({}, &{}, root_, [this]() {{ this->{}(); }});",
-                sender.name(),
-                signal,
-                self.update_function_name
+                "{indent}    QObject::connect({}, &{}, root_, [this]() {{ this->{}(); }});",
+                sender, signal, self.update_function_name
             )?;
         }
         writeln!(writer, "{indent}}}")?;
@@ -238,40 +217,6 @@ impl BindingCode {
         writer.write_all(&self.eval_function_body)?;
         writeln!(writer, "{indent}}}")?;
         writeln!(writer)
-    }
-}
-
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-enum CxxFieldRef {
-    /// Root object: `{name} = this->root_`
-    Root(String),
-    /// Ui field: `{name} = this->ui_->{name}`
-    Ui(String),
-}
-
-impl CxxFieldRef {
-    fn build(object_tree: &ObjectTree, name: &str) -> CxxFieldRef {
-        if name == object_tree.root().name() {
-            CxxFieldRef::Root(name.to_owned())
-        } else {
-            CxxFieldRef::Ui(name.to_owned())
-        }
-    }
-
-    fn name(&self) -> &str {
-        use CxxFieldRef::*;
-        match self {
-            Root(name) => name,
-            Ui(name) => name,
-        }
-    }
-
-    fn write_local_variable<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
-        use CxxFieldRef::*;
-        match self {
-            Root(name) => writeln!(writer, "{indent}auto *const {name} = this->root_;"),
-            Ui(name) => writeln!(writer, "{indent}auto *const {name} = this->ui_->{name};"),
-        }
     }
 }
 
@@ -305,6 +250,56 @@ impl CxxCodeBodyTranslator {
             self.write_basic_block(w, b)?;
         }
         Ok(())
+    }
+
+    fn collect_sender_signals(
+        &self,
+        code: &tir::CodeBody,
+    ) -> Result<Vec<(String, String)>, Vec<String>> {
+        use tir::{Operand, Rvalue, Statement};
+        let mut sender_signals = Vec::new();
+        let mut errors = Vec::new();
+        for s in code.basic_blocks.iter().flat_map(|b| &b.statements) {
+            match s {
+                Statement::Assign(_, r) => {
+                    if let Rvalue::ReadProperty(a, prop) = r {
+                        match a {
+                            Operand::NamedObject(obj) => {
+                                if let Some(f) = prop.notify_signal_name() {
+                                    let sender = self.format_named_object_ref(&obj.name);
+                                    let signal = format!(
+                                        "{}::{}",
+                                        prop.object_class().qualified_cxx_name(),
+                                        f
+                                    );
+                                    sender_signals.push((sender, signal));
+                                } else {
+                                    errors.push(format!(
+                                        "unobservable property: {}.{}",
+                                        obj.name.0,
+                                        prop.name()
+                                    ));
+                                }
+                            }
+                            Operand::Local(_) => {
+                                errors.push(format!(
+                                    "chained object property is not supported: {}",
+                                    prop.name()
+                                ));
+                            }
+                            Operand::Constant(_) | Operand::EnumVariant(_) => {
+                                panic!("invald read_property: {r:?}");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if errors.is_empty() {
+            Ok(sender_signals)
+        } else {
+            Err(errors)
+        }
     }
 
     fn write_locals<W: io::Write>(&self, w: &mut W, locals: &[tir::Local]) -> io::Result<()> {
