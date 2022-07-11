@@ -1,4 +1,6 @@
-use super::{BasicBlock, CodeBody, ConstantValue, Local, Operand, Rvalue, Statement, Terminator};
+use super::core::{
+    BasicBlock, CodeBody, ConstantValue, Local, Operand, Rvalue, Statement, Terminator,
+};
 use crate::typedexpr::DescribeType;
 use itertools::Itertools as _;
 use std::io;

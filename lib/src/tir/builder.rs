@@ -1,5 +1,5 @@
 use super::ceval;
-use super::{
+use super::core::{
     BasicBlock, BasicBlockRef, BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, CodeBody,
     ComparisonOp, ConstantValue, EnumVariant, Local, NamedObject, Operand, Rvalue, Statement,
     Terminator, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp,
