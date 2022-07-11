@@ -5,7 +5,7 @@
 //! support translation.
 
 use super::builder::ExpressionError;
-use super::{
+use super::core::{
     BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, ComparisonOp, ConstantValue, UnaryArithOp,
     UnaryBitwiseOp, UnaryLogicalOp,
 };
