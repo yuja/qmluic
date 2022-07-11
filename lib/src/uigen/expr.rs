@@ -77,7 +77,7 @@ impl<'a, 't> PropertyValue<'a, 't> {
                     TypeKind::Pointer(NamedType::Class(cls))
                         if cls.is_derived_from(&ctx.classes.abstract_item_model) =>
                     {
-                        parse_item_model(ctx, *n, diagnostics).map(PropertyValue::ItemModel)
+                        parse_item_model(*n, &code, diagnostics).map(PropertyValue::ItemModel)
                     }
                     TypeKind::Pointer(NamedType::Class(cls)) => {
                         parse_object_reference(ctx, cls, *n, diagnostics)
@@ -633,11 +633,20 @@ fn parse_color_value(
 
 /// Parses string list as a static item model.
 fn parse_item_model(
-    ctx: &ObjectContext,
     node: Node,
+    code: &tir::CodeBody,
     diagnostics: &mut Diagnostics,
 ) -> Option<Vec<ModelItem>> {
-    let res = evaluate_expression(ctx, node, diagnostics)?;
+    let res = match evaluate_code(code) {
+        Some(v) => v,
+        None => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                "unsupported dynamic binding",
+            ));
+            return None;
+        }
+    };
     match res {
         EvaluatedValue::StringList(xs) => {
             let items = xs
