@@ -77,6 +77,14 @@ pub(super) fn deduce_type<'a>(
                     r.qualified_cxx_name().into(),
                 )
             }),
+        (
+            l @ (TypeDesc::STRING_LIST | TypeDesc::Concrete(TypeKind::PointerList(_))),
+            TypeDesc::EmptyList,
+        ) => Ok(l),
+        (
+            TypeDesc::EmptyList,
+            r @ (TypeDesc::STRING_LIST | TypeDesc::Concrete(TypeKind::PointerList(_))),
+        ) => Ok(r),
         (left, right) => Err(TypeError::IncompatibleTypes(
             left.qualified_name().into(),
             right.qualified_name().into(),
