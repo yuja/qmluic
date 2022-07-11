@@ -574,11 +574,10 @@ where
     C: RefSpace<'a>,
 {
     let mut builder = CodeBuilder::new();
-    // TODO: pass return value via local? ensure concrete type?
     let a = typedexpr::walk(ctx, node, source, &mut builder, diagnostics)?;
     builder
         .current_basic_block_mut()
-        .finalize(Terminator::Return(a));
+        .finalize(Terminator::Return(ensure_concrete_string(a)));
     Some(builder.code)
 }
 
@@ -697,7 +696,7 @@ mod tests {
     fn string_literal() {
         insta::assert_snapshot!(dump("'foo'"), @r###"
         .0:
-            return "foo": string
+            return "foo": QString
         "###);
     }
 
@@ -817,7 +816,7 @@ mod tests {
     fn constant_string_concatenation() {
         insta::assert_snapshot!(dump("'foo' + 'bar'"), @r###"
         .0:
-            return "foobar": string
+            return "foobar": QString
         "###);
     }
 
