@@ -28,10 +28,7 @@ private:
 
     void update_dialog_windowTitle()
     {
-        auto *const dialog = this->root_;
-        auto *const combo = this->ui_->combo;
-
-        dialog->setWindowTitle(combo->currentIndex()==0 ? QStringLiteral("-") : combo->currentText());
+        this->root_->setWindowTitle(this->eval_dialog_windowTitle());
     }
 
     QString eval_dialog_windowTitle() const

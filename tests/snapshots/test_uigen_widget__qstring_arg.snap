@@ -29,10 +29,7 @@ private:
 
     void update_label_text()
     {
-        auto *const label = this->ui_->label;
-        auto *const combo = this->ui_->combo;
-
-        label->setText(QStringLiteral("dynamic %1").arg(combo->currentIndex()));
+        this->ui_->label->setText(this->eval_label_text());
     }
 
     QString eval_label_text() const
@@ -52,9 +49,7 @@ private:
 
     void update_label1_text()
     {
-        auto *const label1 = this->ui_->label1;
-
-        label1->setText(QStringLiteral("static %1").arg(1));
+        this->ui_->label1->setText(this->eval_label1_text());
     }
 
     QString eval_label1_text() const

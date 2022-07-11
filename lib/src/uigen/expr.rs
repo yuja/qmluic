@@ -55,10 +55,9 @@ impl<'a, 't> PropertyValue<'a, 't> {
                         // constant expression can be mapped to .ui value type
                         parse_as_value_type(ctx, t, *n, res_t, res_expr, diagnostics)
                             .map(PropertyValue::Serializable)
-                    } else if let Some(expr) = take_expression_of_type(ty, &res_t, res_expr) {
+                    } else if take_expression_of_type(ty, &res_t, res_expr).is_some() {
                         let dyn_expr = DynamicExpression {
                             code,
-                            expr,
                             property_deps: formatter.property_deps,
                         };
                         Some(PropertyValue::Dynamic(dyn_expr))
@@ -979,8 +978,6 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
 pub(super) struct DynamicExpression<'a> {
     // TODO: remove expr and property_deps
     pub code: tir::CodeBody<'a>,
-    /// Formatted expression.
-    pub expr: String,
     /// List of `(obj_expr, property)` accessed from this expression.
     pub property_deps: Vec<(String, Property<'a>)>,
 }
