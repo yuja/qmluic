@@ -22,9 +22,7 @@ public:
 private:
     void setup_formStack_currentIndex()
     {
-        auto *const fileNameEdit = this->ui_->fileNameEdit;
-
-        QObject::connect(fileNameEdit, &QComboBox::currentIndexChanged, root_, [this]() { this->update_formStack_currentIndex(); });
+        QObject::connect(this->ui_->fileNameEdit, &QComboBox::currentIndexChanged, root_, [this]() { this->update_formStack_currentIndex(); });
     }
 
     void update_formStack_currentIndex()
@@ -42,10 +40,8 @@ private:
 
     void setup_mainWindow_windowTitle()
     {
-        auto *const fileNameEdit = this->ui_->fileNameEdit;
-
-        QObject::connect(fileNameEdit, &QComboBox::currentIndexChanged, root_, [this]() { this->update_mainWindow_windowTitle(); });
-        QObject::connect(fileNameEdit, &QComboBox::currentTextChanged, root_, [this]() { this->update_mainWindow_windowTitle(); });
+        QObject::connect(this->ui_->fileNameEdit, &QComboBox::currentIndexChanged, root_, [this]() { this->update_mainWindow_windowTitle(); });
+        QObject::connect(this->ui_->fileNameEdit, &QComboBox::currentTextChanged, root_, [this]() { this->update_mainWindow_windowTitle(); });
     }
 
     void update_mainWindow_windowTitle()

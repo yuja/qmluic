@@ -20,9 +20,7 @@ public:
 private:
     void setup_edit_enabled()
     {
-        auto *const edit = this->root_;
-
-        QObject::connect(edit, &QLineEdit::textChanged, root_, [this]() { this->update_edit_enabled(); });
+        QObject::connect(this->root_, &QLineEdit::textChanged, root_, [this]() { this->update_edit_enabled(); });
     }
 
     void update_edit_enabled()

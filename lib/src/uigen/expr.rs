@@ -56,10 +56,7 @@ impl<'a, 't> PropertyValue<'a, 't> {
                         parse_as_value_type(ctx, t, *n, res_t, res_expr, diagnostics)
                             .map(PropertyValue::Serializable)
                     } else if take_expression_of_type(ty, &res_t, res_expr).is_some() {
-                        let dyn_expr = DynamicExpression {
-                            code,
-                            property_deps: formatter.property_deps,
-                        };
+                        let dyn_expr = DynamicExpression { code };
                         Some(PropertyValue::Dynamic(dyn_expr))
                     } else {
                         diagnostics.push(Diagnostic::error(
@@ -976,10 +973,7 @@ impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
 /// Property value expression to be evaluated at run time.
 #[derive(Clone, Debug)]
 pub(super) struct DynamicExpression<'a> {
-    // TODO: remove expr and property_deps
     pub code: tir::CodeBody<'a>,
-    /// List of `(obj_expr, property)` accessed from this expression.
-    pub property_deps: Vec<(String, Property<'a>)>,
 }
 
 /// Formats expression tree as arbitrary constant value expression.

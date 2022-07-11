@@ -20,9 +20,7 @@ public:
 private:
     void setup_widget_visible()
     {
-        auto *const source = this->ui_->source;
-
-        QObject::connect(source, &QAbstractButton::toggled, root_, [this]() { this->update_widget_visible(); });
+        QObject::connect(this->ui_->source, &QAbstractButton::toggled, root_, [this]() { this->update_widget_visible(); });
     }
 
     void update_widget_visible()
