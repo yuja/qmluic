@@ -35,6 +35,16 @@ private:
         label->setText(QStringLiteral("dynamic %1").arg(combo->currentIndex()));
     }
 
+    QString eval_label_text() const
+    {
+        int a0;
+        QString a1;
+    b0:
+        a0 = this->ui_->combo->currentIndex();
+        a1 = QStringLiteral("dynamic %1").arg(a0);
+        return a1;
+    }
+
     void setup_label1_text()
     {
 
@@ -45,6 +55,14 @@ private:
         auto *const label1 = this->ui_->label1;
 
         label1->setText(QStringLiteral("static %1").arg(1));
+    }
+
+    QString eval_label1_text() const
+    {
+        QString a0;
+    b0:
+        a0 = QStringLiteral("static %1").arg(1);
+        return a0;
     }
 
     QWidget *const root_;

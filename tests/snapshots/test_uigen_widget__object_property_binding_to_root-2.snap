@@ -33,6 +33,14 @@ private:
         dialog->setWindowTitle(edit->text());
     }
 
+    QString eval_dialog_windowTitle() const
+    {
+        QString a0;
+    b0:
+        a0 = this->ui_->edit->text();
+        return a0;
+    }
+
     QDialog *const root_;
     Ui::MyType *const ui_;
 

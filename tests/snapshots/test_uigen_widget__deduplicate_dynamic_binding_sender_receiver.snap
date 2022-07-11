@@ -32,6 +32,16 @@ private:
         edit->setEnabled(edit->text()==QStringLiteral(""));
     }
 
+    bool eval_edit_enabled() const
+    {
+        QString a0;
+        bool a1;
+    b0:
+        a0 = this->root_->text();
+        a1 = a0 == QStringLiteral("");
+        return a1;
+    }
+
     QLineEdit *const root_;
     Ui::MyType *const ui_;
 

@@ -34,6 +34,30 @@ private:
         dialog->setWindowTitle(combo->currentIndex()==0 ? QStringLiteral("-") : combo->currentText());
     }
 
+    QString eval_dialog_windowTitle() const
+    {
+        int a0;
+        bool a1;
+        QString a2;
+        QString a3;
+    b0:
+        a0 = this->ui_->combo->currentIndex();
+        a1 = a0 == 0;
+        if (a1)
+            goto b1;
+        else
+            goto b2;
+    b1:
+        a3 = QStringLiteral("-");
+        goto b3;
+    b2:
+        a2 = this->ui_->combo->currentText();
+        a3 = a2;
+        goto b3;
+    b3:
+        return a3;
+    }
+
     QDialog *const root_;
     Ui::MyType *const ui_;
 
