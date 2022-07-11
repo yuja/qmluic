@@ -43,60 +43,62 @@ impl<'a, 't> PropertyValue<'a, 't> {
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         match binding_value {
-            UiBindingValue::Node(n) => match ty {
-                TypeKind::Just(t) => {
-                    // detect type error and dynamic expression first
-                    let mut formatter = ExpressionFormatter::new(ctx.doc_type_name);
-                    let (res_t, res_expr, _) =
-                        typedexpr::walk(ctx, *n, ctx.source, &mut formatter, diagnostics)?;
-                    // TODO: switch all to TIR path
-                    let code = tir::build(ctx, *n, ctx.source, diagnostics)?;
-                    if formatter.property_deps.is_empty() && !formatter.has_method_call {
-                        // constant expression can be mapped to .ui value type
-                        parse_as_value_type(ctx, t, *n, &code, res_t, res_expr, diagnostics)
-                            .map(PropertyValue::Serializable)
-                    } else {
-                        match code.verify_return_type(ty) {
-                            Ok(()) => Some(PropertyValue::Dynamic(code)),
-                            Err(tir::TypeError::IncompatibleTypes(expected, actual)) => {
-                                diagnostics.push(Diagnostic::error(
+            UiBindingValue::Node(n) => {
+                // TODO: switch all to TIR path
+                let code = tir::build(ctx, *n, ctx.source, diagnostics)?;
+                match ty {
+                    TypeKind::Just(t) => {
+                        // detect type error and dynamic expression first
+                        let mut formatter = ExpressionFormatter::new(ctx.doc_type_name);
+                        let (res_t, res_expr, _) =
+                            typedexpr::walk(ctx, *n, ctx.source, &mut formatter, diagnostics)?;
+                        if formatter.property_deps.is_empty() && !formatter.has_method_call {
+                            // constant expression can be mapped to .ui value type
+                            parse_as_value_type(ctx, t, *n, &code, res_t, res_expr, diagnostics)
+                                .map(PropertyValue::Serializable)
+                        } else {
+                            match code.verify_return_type(ty) {
+                                Ok(()) => Some(PropertyValue::Dynamic(code)),
+                                Err(tir::TypeError::IncompatibleTypes(expected, actual)) => {
+                                    diagnostics.push(Diagnostic::error(
                                 n.byte_range(),
                                 format!("expression type mismatch (expected: {expected}, actual: {actual})")
                             ));
-                                None
-                            }
-                            Err(err) => {
-                                diagnostics
-                                    .push(Diagnostic::error(n.byte_range(), err.to_string()));
-                                None
+                                    None
+                                }
+                                Err(err) => {
+                                    diagnostics
+                                        .push(Diagnostic::error(n.byte_range(), err.to_string()));
+                                    None
+                                }
                             }
                         }
                     }
+                    TypeKind::Pointer(NamedType::Class(cls))
+                        if cls.is_derived_from(&ctx.classes.abstract_item_model) =>
+                    {
+                        parse_item_model(ctx, *n, diagnostics).map(PropertyValue::ItemModel)
+                    }
+                    TypeKind::Pointer(NamedType::Class(cls)) => {
+                        parse_object_reference(ctx, cls, *n, diagnostics)
+                            .map(|v| PropertyValue::Serializable(Value::Simple(v)))
+                    }
+                    TypeKind::PointerList(NamedType::Class(cls)) => {
+                        parse_object_reference_list(ctx, cls, *n, diagnostics)
+                            .map(PropertyValue::ObjectRefList)
+                    }
+                    TypeKind::Pointer(_) | TypeKind::PointerList(_) => {
+                        diagnostics.push(Diagnostic::error(
+                            n.byte_range(),
+                            format!(
+                                "unsupported value expression of type '{}'",
+                                ty.qualified_cxx_name(),
+                            ),
+                        ));
+                        None
+                    }
                 }
-                TypeKind::Pointer(NamedType::Class(cls))
-                    if cls.is_derived_from(&ctx.classes.abstract_item_model) =>
-                {
-                    parse_item_model(ctx, *n, diagnostics).map(PropertyValue::ItemModel)
-                }
-                TypeKind::Pointer(NamedType::Class(cls)) => {
-                    parse_object_reference(ctx, cls, *n, diagnostics)
-                        .map(|v| PropertyValue::Serializable(Value::Simple(v)))
-                }
-                TypeKind::PointerList(NamedType::Class(cls)) => {
-                    parse_object_reference_list(ctx, cls, *n, diagnostics)
-                        .map(PropertyValue::ObjectRefList)
-                }
-                TypeKind::Pointer(_) | TypeKind::PointerList(_) => {
-                    diagnostics.push(Diagnostic::error(
-                        n.byte_range(),
-                        format!(
-                            "unsupported value expression of type '{}'",
-                            ty.qualified_cxx_name(),
-                        ),
-                    ));
-                    None
-                }
-            },
+            }
             UiBindingValue::Map(n, m) => match ty {
                 TypeKind::Just(NamedType::Class(cls)) => {
                     let properties_map =
