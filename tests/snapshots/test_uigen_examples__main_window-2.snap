@@ -29,10 +29,7 @@ private:
 
     void update_formStack_currentIndex()
     {
-        auto *const formStack = this->ui_->formStack;
-        auto *const fileNameEdit = this->ui_->fileNameEdit;
-
-        formStack->setCurrentIndex(fileNameEdit->currentIndex());
+        this->ui_->formStack->setCurrentIndex(this->eval_formStack_currentIndex());
     }
 
     int eval_formStack_currentIndex() const
@@ -53,10 +50,7 @@ private:
 
     void update_mainWindow_windowTitle()
     {
-        auto *const mainWindow = this->root_;
-        auto *const fileNameEdit = this->ui_->fileNameEdit;
-
-        mainWindow->setWindowTitle(QCoreApplication::translate("MainWindow", "Qmluic Example: %1").arg(fileNameEdit->currentIndex()==0 ? QCoreApplication::translate("MainWindow", "*** Select Source ***") : fileNameEdit->currentText()));
+        this->root_->setWindowTitle(this->eval_mainWindow_windowTitle());
     }
 
     QString eval_mainWindow_windowTitle() const

@@ -27,9 +27,7 @@ private:
 
     void update_edit_enabled()
     {
-        auto *const edit = this->root_;
-
-        edit->setEnabled(edit->text()==QStringLiteral(""));
+        this->root_->setEnabled(this->eval_edit_enabled());
     }
 
     bool eval_edit_enabled() const

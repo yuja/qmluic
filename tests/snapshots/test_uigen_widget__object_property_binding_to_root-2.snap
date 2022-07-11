@@ -27,10 +27,7 @@ private:
 
     void update_dialog_windowTitle()
     {
-        auto *const dialog = this->root_;
-        auto *const edit = this->ui_->edit;
-
-        dialog->setWindowTitle(edit->text());
+        this->root_->setWindowTitle(this->eval_dialog_windowTitle());
     }
 
     QString eval_dialog_windowTitle() const

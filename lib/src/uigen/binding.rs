@@ -7,7 +7,6 @@ use crate::typedexpr::{BuiltinFunctionKind, BuiltinMethodKind};
 use crate::typemap::TypeSpace;
 use itertools::Itertools as _;
 use std::io;
-use std::iter;
 
 /// C++ code to set up dynamic property bindings.
 #[derive(Clone, Debug)]
@@ -121,7 +120,6 @@ struct BindingCode {
     update_function_name: String,
     eval_function_name: String,
     value_type: String,
-    receiver: CxxFieldRef,
     sender_signals: Vec<(CxxFieldRef, String)>,
     write_expr: String,
     eval_function_body: Vec<u8>,
@@ -140,7 +138,6 @@ impl BindingCode {
         let update_function_name =
             format!("update_{}_{}", obj_node.name(), prop.data().desc.name());
         let eval_function_name = format!("eval_{}_{}", obj_node.name(), prop.data().desc.name());
-        let receiver = CxxFieldRef::build(object_tree, obj_node.name());
         let sender_signals = prop
             .data()
             .value
@@ -162,7 +159,13 @@ impl BindingCode {
             })
             .collect();
         let write_expr = if let Some(f) = prop.data().desc.write_func_name() {
-            format!("{}->{}({})", obj_node.name(), f, prop.data().value.expr)
+            format!(
+                "{}->{}(this->{}())",
+                code_translator
+                    .format_named_object_ref(&tir::NamedObjectRef(obj_node.name().to_owned())),
+                f,
+                eval_function_name
+            )
         } else {
             diagnostics.push(Diagnostic::error(
                 prop.binding_node().byte_range(),
@@ -189,7 +192,6 @@ impl BindingCode {
             update_function_name,
             eval_function_name,
             value_type,
-            receiver,
             sender_signals,
             write_expr,
             eval_function_body,
@@ -220,16 +222,8 @@ impl BindingCode {
     fn write_update_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
         writeln!(writer, "{indent}void {}()", self.update_function_name)?;
         writeln!(writer, "{indent}{{")?;
-        let indent_body = indent.to_owned() + "    ";
         // TODO: insert cycle detector
-        for field in iter::once(&self.receiver)
-            .chain(self.sender_signals.iter().map(|(s, _)| s))
-            .unique()
-        {
-            field.write_local_variable(writer, &indent_body)?;
-        }
-        writeln!(writer)?;
-        writeln!(writer, "{indent_body}{};", self.write_expr)?;
+        writeln!(writer, "{indent}    {};", self.write_expr)?;
         writeln!(writer, "{indent}}}")?;
         writeln!(writer)
     }

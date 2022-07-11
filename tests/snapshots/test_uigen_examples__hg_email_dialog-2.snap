@@ -29,10 +29,7 @@ private:
 
     void update_writeIntroCheck_enabled()
     {
-        auto *const writeIntroCheck = this->ui_->writeIntroCheck;
-        auto *const bundleRadio = this->ui_->bundleRadio;
-
-        writeIntroCheck->setEnabled(!bundleRadio->isChecked());
+        this->ui_->writeIntroCheck->setEnabled(this->eval_writeIntroCheck_enabled());
     }
 
     bool eval_writeIntroCheck_enabled() const
@@ -56,11 +53,7 @@ private:
 
     void update_introBox_visible()
     {
-        auto *const introBox = this->ui_->introBox;
-        auto *const writeIntroCheck = this->ui_->writeIntroCheck;
-        auto *const bundleRadio = this->ui_->bundleRadio;
-
-        introBox->setVisible(writeIntroCheck->isChecked()||bundleRadio->isChecked());
+        this->ui_->introBox->setVisible(this->eval_introBox_visible());
     }
 
     bool eval_introBox_visible() const

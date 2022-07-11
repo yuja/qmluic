@@ -27,10 +27,7 @@ private:
 
     void update_widget_visible()
     {
-        auto *const widget = this->ui_->widget;
-        auto *const source = this->ui_->source;
-
-        widget->setVisible(source->isChecked());
+        this->ui_->widget->setVisible(this->eval_widget_visible());
     }
 
     bool eval_widget_visible() const
