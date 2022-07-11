@@ -66,12 +66,12 @@ impl<'a, 't> PropertyValue<'a, 't> {
                     {
                         parse_item_model(*n, &code, diagnostics).map(PropertyValue::ItemModel)
                     }
-                    TypeKind::Pointer(NamedType::Class(cls)) => {
-                        parse_object_reference(ctx, cls, *n, diagnostics)
+                    TypeKind::Pointer(NamedType::Class(_)) => {
+                        parse_object_reference(*n, &code, ty, diagnostics)
                             .map(|v| PropertyValue::Serializable(Value::Simple(v)))
                     }
-                    TypeKind::PointerList(NamedType::Class(cls)) => {
-                        parse_object_reference_list(ctx, cls, *n, diagnostics)
+                    TypeKind::PointerList(NamedType::Class(_)) => {
+                        parse_object_reference_list(*n, &code, ty, diagnostics)
                             .map(PropertyValue::ObjectRefList)
                     }
                     TypeKind::Pointer(_) | TypeKind::PointerList(_) => {
@@ -553,7 +553,7 @@ fn tir_operand_to_evaluated_value(
         },
         Operand::EnumVariant(_) => None,
         Operand::Local(x) => locals[x.name.0].clone(),
-        Operand::NamedObject(_) => None,
+        Operand::NamedObject(x) => Some(EvaluatedValue::ObjectRef(x.name.0.clone())),
     }
 }
 
@@ -561,19 +561,37 @@ fn tir_operands_to_evaluated_list(
     locals: &[Option<EvaluatedValue>],
     args: &[tir::Operand],
 ) -> Option<EvaluatedValue> {
-    let ss = args
+    let mut item_iter = args
         .iter()
-        .map(|a| {
-            if let Some(EvaluatedValue::String(s, k)) =
-                tir_operand_to_evaluated_value(locals, a, StringKind::NoTr)
-            {
-                Some((s, k))
-            } else {
-                None
-            }
-        })
-        .collect::<Option<Vec<_>>>()?;
-    Some(EvaluatedValue::StringList(ss))
+        .map(|a| tir_operand_to_evaluated_value(locals, a, StringKind::NoTr))
+        .peekable();
+    match item_iter.peek() {
+        Some(Some(EvaluatedValue::String(..))) => {
+            let ss = item_iter
+                .map(|v| {
+                    if let Some(EvaluatedValue::String(s, k)) = v {
+                        Some((s, k))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Option<Vec<_>>>()?;
+            Some(EvaluatedValue::StringList(ss))
+        }
+        Some(Some(EvaluatedValue::ObjectRef(..))) => {
+            let ss = item_iter
+                .map(|v| {
+                    if let Some(EvaluatedValue::ObjectRef(s)) = v {
+                        Some(s)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Option<Vec<_>>>()?;
+            Some(EvaluatedValue::ObjectRefList(ss))
+        }
+        _ => None,
+    }
 }
 
 #[must_use]
@@ -657,71 +675,49 @@ fn parse_item_model(
 }
 
 fn parse_object_reference(
-    ctx: &ObjectContext,
-    expected_cls: &Class,
     node: Node,
+    code: &tir::CodeBody,
+    expected: &TypeKind,
     diagnostics: &mut Diagnostics,
 ) -> Option<SimpleValue> {
-    let obj_ref = typedexpr::walk(ctx, node, ctx.source, &mut ObjectRefCollector, diagnostics)?;
-    match obj_ref {
-        ObjectRef::Just(res_cls, name) if res_cls.is_derived_from(expected_cls) => {
-            Some(SimpleValue::Cstring(name))
-        }
-        ObjectRef::Just(res_cls, _) => {
+    verify_code_return_type(node, code, expected, diagnostics)?;
+    let res = match evaluate_code(code) {
+        Some(v) => v,
+        None => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
-                format!(
-                    "reference type mismatch (expected: {}, actual: {})",
-                    expected_cls.qualified_cxx_name(),
-                    res_cls.qualified_cxx_name()
-                ),
+                "unsupported dynamic binding",
             ));
-            None
+            return None;
         }
-        ObjectRef::List(..) | ObjectRef::EmptyList => {
-            diagnostics.push(Diagnostic::error(
-                node.byte_range(),
-                format!(
-                    "reference type mismatch (expected: {}, actual: list)",
-                    expected_cls.qualified_cxx_name(),
-                ),
-            ));
-            None
-        }
+    };
+    match res {
+        EvaluatedValue::ObjectRef(name) => Some(SimpleValue::Cstring(name)),
+        _ => panic!("evaluated value must be object ref"),
     }
 }
 
 fn parse_object_reference_list(
-    ctx: &ObjectContext,
-    expected_cls: &Class,
     node: Node,
+    code: &tir::CodeBody,
+    expected: &TypeKind,
     diagnostics: &mut Diagnostics,
 ) -> Option<Vec<String>> {
-    let obj_ref = typedexpr::walk(ctx, node, ctx.source, &mut ObjectRefCollector, diagnostics)?;
-    match obj_ref {
-        ObjectRef::Just(res_cls, _) => {
+    verify_code_return_type(node, code, expected, diagnostics)?;
+    let res = match evaluate_code(code) {
+        Some(v) => v,
+        None => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
-                format!(
-                    "reference type mismatch (expected: list, actual: {})",
-                    res_cls.qualified_cxx_name(),
-                ),
+                "unsupported dynamic binding",
             ));
-            None
+            return None;
         }
-        ObjectRef::List(res_cls, names) if res_cls.is_derived_from(expected_cls) => Some(names),
-        ObjectRef::EmptyList => Some(vec![]),
-        ObjectRef::List(res_cls, _) => {
-            diagnostics.push(Diagnostic::error(
-                node.byte_range(),
-                format!(
-                    "element type mismatch (expected: {}, actual: {})",
-                    expected_cls.qualified_cxx_name(),
-                    res_cls.qualified_cxx_name()
-                ),
-            ));
-            None
-        }
+    };
+    match res {
+        EvaluatedValue::ObjectRefList(names) => Some(names),
+        EvaluatedValue::EmptyList => Some(vec![]),
+        _ => panic!("evaluated value must be object ref list"),
     }
 }
 
@@ -760,6 +756,8 @@ enum EvaluatedValue {
     Float(f64),
     String(String, StringKind),
     StringList(Vec<(String, StringKind)>),
+    ObjectRef(String),
+    ObjectRefList(Vec<String>),
     EmptyList,
 }
 
