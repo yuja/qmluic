@@ -107,6 +107,12 @@ pub(super) fn verify_concrete_type(
             TypeKind::Pointer(NamedType::Class(e)),
             TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(a))),
         ) if a.is_derived_from(e) => Ok(()),
+        // TODO: covariant type is allowed to support QList<QAction*|QMenu*>, but it
+        // should only work at list construction.
+        (
+            TypeKind::PointerList(NamedType::Class(e)),
+            TypeDesc::Concrete(TypeKind::PointerList(NamedType::Class(a))),
+        ) if a.is_derived_from(e) => Ok(()),
         (&TypeKind::STRING_LIST | TypeKind::PointerList(_), TypeDesc::EmptyList) => Ok(()),
         (expected, actual) => Err(TypeError::IncompatibleTypes(
             expected.qualified_cxx_name().into(),
