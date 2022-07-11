@@ -3,7 +3,7 @@ use crate::typemap::{Enum, NamedType, TypeKind, TypeMapError, TypeSpace as _};
 use thiserror::Error;
 
 #[derive(Clone, Debug, Error)]
-pub(super) enum TypeError {
+pub enum TypeError {
     #[error("type resolution failed: {0}")]
     TypeResolution(#[from] TypeMapError),
     #[error("incompatible types: {0} and {1}")]
@@ -88,6 +88,29 @@ pub(super) fn deduce_type<'a>(
         (left, right) => Err(TypeError::IncompatibleTypes(
             left.qualified_name().into(),
             right.qualified_name().into(),
+        )),
+    }
+}
+
+pub(super) fn verify_concrete_type(
+    expected: &TypeKind,
+    actual: &TypeDesc,
+) -> Result<(), TypeError> {
+    match (expected, actual) {
+        (expected, TypeDesc::Concrete(ty)) if expected == ty => Ok(()),
+        (&TypeKind::INT | &TypeKind::UINT, TypeDesc::ConstInteger) => Ok(()),
+        (
+            TypeKind::Just(NamedType::Enum(e)),
+            TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(a))),
+        ) if is_compatible_enum(e, a)? => Ok(()),
+        (
+            TypeKind::Pointer(NamedType::Class(e)),
+            TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(a))),
+        ) if a.is_derived_from(e) => Ok(()),
+        (&TypeKind::STRING_LIST | TypeKind::PointerList(_), TypeDesc::EmptyList) => Ok(()),
+        (expected, actual) => Err(TypeError::IncompatibleTypes(
+            expected.qualified_cxx_name().into(),
+            actual.qualified_name().into(),
         )),
     }
 }
