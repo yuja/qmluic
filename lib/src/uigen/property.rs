@@ -1,8 +1,9 @@
 use super::context::ObjectContext;
-use super::expr::{DynamicExpression, PropertyValue, SimpleValue, Value};
+use super::expr::{PropertyValue, SimpleValue, Value};
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
+use crate::tir;
 use crate::typemap::{Class, Property, TypeSpace};
 use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
@@ -28,7 +29,7 @@ impl<'a, 't> PropertyDescValue<'a, 't> {
         match &self.value {
             PropertyValue::Dynamic(x) => Some(PropertyDescDynamicExpression {
                 desc: self.desc.clone(),
-                value: x.clone(),
+                code: x.clone(),
             }),
             _ => None,
         }
@@ -39,7 +40,7 @@ impl<'a, 't> PropertyDescValue<'a, 't> {
 #[derive(Clone, Debug)]
 pub(super) struct PropertyDescDynamicExpression<'a> {
     pub desc: Property<'a>,
-    pub value: DynamicExpression<'a>,
+    pub code: tir::CodeBody<'a>,
 }
 
 /// Type of the property setter to be used by `uic`.
