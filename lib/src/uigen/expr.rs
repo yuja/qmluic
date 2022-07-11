@@ -509,6 +509,97 @@ fn evaluate_expression(
     typedexpr::walk(ctx, node, ctx.source, &mut ExpressionEvaluator, diagnostics)
 }
 
+/// Evaluates TIR code to constant value.
+fn evaluate_code(code: &tir::CodeBody) -> Option<EvaluatedValue> {
+    use tir::{BasicBlockRef, Operand, Rvalue, Statement, Terminator};
+
+    // fast path for simple constant expression
+    if let Terminator::Return(a @ Operand::Constant(_)) = code.basic_blocks[0].terminator() {
+        return tir_operand_to_evaluated_value(&[], a, StringKind::NoTr);
+    }
+
+    let mut visited_blocks = vec![false; code.basic_blocks.len()];
+    let mut visit_block = |r: BasicBlockRef| {
+        if visited_blocks[r.0] {
+            None // prevent infinite loop
+        } else {
+            visited_blocks[r.0] = true;
+            Some(&code.basic_blocks[r.0])
+        }
+    };
+
+    let mut block = visit_block(BasicBlockRef(0))?;
+    let mut locals: Vec<Option<EvaluatedValue>> = vec![None; code.locals.len()];
+    loop {
+        for stmt in &block.statements {
+            match stmt {
+                Statement::Assign(l, r) => {
+                    locals[l.0] = match r {
+                        Rvalue::Copy(a) => {
+                            tir_operand_to_evaluated_value(&locals, a, StringKind::NoTr)
+                        }
+                        Rvalue::CallBuiltinFunction(BuiltinFunctionKind::Tr, args) => {
+                            tir_operand_to_evaluated_value(&locals, &args[0], StringKind::Tr)
+                        }
+                        Rvalue::MakeList(args) => tir_operands_to_evaluated_list(&locals, args),
+                        // No need to support other operations since constants are evaluated
+                        // by TIR builder.
+                        _ => return None,
+                    }
+                }
+            }
+        }
+
+        match block.terminator() {
+            Terminator::Br(r) => block = visit_block(*r)?,
+            Terminator::BrCond(..) => return None, // unsupported
+            Terminator::Return(a) => {
+                return tir_operand_to_evaluated_value(&locals, a, StringKind::NoTr)
+            }
+        }
+    }
+}
+
+fn tir_operand_to_evaluated_value(
+    locals: &[Option<EvaluatedValue>],
+    a: &tir::Operand,
+    k: StringKind,
+) -> Option<EvaluatedValue> {
+    use tir::{ConstantValue, Operand};
+    match a {
+        Operand::Constant(x) => match x {
+            ConstantValue::Bool(v) => Some(EvaluatedValue::Bool(*v)),
+            ConstantValue::Integer(v) => Some(EvaluatedValue::Integer(*v)),
+            ConstantValue::Float(v) => Some(EvaluatedValue::Float(*v)),
+            ConstantValue::CString(v) => Some(EvaluatedValue::String(v.clone(), k)),
+            ConstantValue::QString(v) => Some(EvaluatedValue::String(v.clone(), k)),
+            ConstantValue::EmptyList => Some(EvaluatedValue::EmptyList),
+        },
+        Operand::EnumVariant(_) => None,
+        Operand::Local(x) => locals[x.name.0].clone(),
+        Operand::NamedObject(_) => None,
+    }
+}
+
+fn tir_operands_to_evaluated_list(
+    locals: &[Option<EvaluatedValue>],
+    args: &[tir::Operand],
+) -> Option<EvaluatedValue> {
+    let ss = args
+        .iter()
+        .map(|a| {
+            if let Some(EvaluatedValue::String(s, k)) =
+                tir_operand_to_evaluated_value(locals, a, StringKind::NoTr)
+            {
+                Some((s, k))
+            } else {
+                None
+            }
+        })
+        .collect::<Option<Vec<_>>>()?;
+    Some(EvaluatedValue::StringList(ss))
+}
+
 fn parse_color_value(
     ctx: &ObjectContext,
     node: Node,
