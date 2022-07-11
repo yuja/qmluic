@@ -57,21 +57,8 @@ impl<'a, 't> PropertyValue<'a, 't> {
                             parse_as_value_type(ctx, t, *n, &code, res_t, res_expr, diagnostics)
                                 .map(PropertyValue::Serializable)
                         } else {
-                            match code.verify_return_type(ty) {
-                                Ok(()) => Some(PropertyValue::Dynamic(code)),
-                                Err(tir::TypeError::IncompatibleTypes(expected, actual)) => {
-                                    diagnostics.push(Diagnostic::error(
-                                n.byte_range(),
-                                format!("expression type mismatch (expected: {expected}, actual: {actual})")
-                            ));
-                                    None
-                                }
-                                Err(err) => {
-                                    diagnostics
-                                        .push(Diagnostic::error(n.byte_range(), err.to_string()));
-                                    None
-                                }
-                            }
+                            verify_code_return_type(*n, &code, ty, diagnostics)?;
+                            Some(PropertyValue::Dynamic(code))
                         }
                     }
                     TypeKind::Pointer(NamedType::Class(cls))
@@ -593,6 +580,29 @@ fn tir_operands_to_evaluated_list(
         })
         .collect::<Option<Vec<_>>>()?;
     Some(EvaluatedValue::StringList(ss))
+}
+
+#[must_use]
+fn verify_code_return_type(
+    node: Node,
+    code: &tir::CodeBody,
+    expected: &TypeKind,
+    diagnostics: &mut Diagnostics,
+) -> Option<()> {
+    match code.verify_return_type(expected) {
+        Ok(()) => Some(()),
+        Err(tir::TypeError::IncompatibleTypes(expected, actual)) => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                format!("expression type mismatch (expected: {expected}, actual: {actual})"),
+            ));
+            None
+        }
+        Err(err) => {
+            diagnostics.push(Diagnostic::error(node.byte_range(), err.to_string()));
+            None
+        }
+    }
 }
 
 fn parse_color_value(
