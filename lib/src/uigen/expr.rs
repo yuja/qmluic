@@ -725,10 +725,6 @@ fn parse_object_reference_list(
 enum ExpressionError {
     #[error("unsupported type: {0}")]
     UnsupportedType(String),
-    #[error("unsupported literal: {0}")]
-    UnsupportedLiteral(&'static str),
-    #[error("unsupported object property resolution")]
-    UnsupportedObjectProperty,
     #[error("not a readable property")]
     UnreadableProperty,
     #[error("unsupported function call")]
@@ -737,8 +733,6 @@ enum ExpressionError {
     UnsupportedUnaryOperationOnType(UnaryOperator, String),
     #[error("unsupported binary operation on types: <{1}> {0} <{2}>")]
     UnsupportedBinaryOperationOnType(BinaryOperator, String, String),
-    #[error("unsupported ternary expression")]
-    UnsupportedTernaryExpression,
     #[error("condition must be of bool type, but got: {0}")]
     UnsupportedConditionType(String),
     #[error("cannot deduce type from '{0}' and '{1}'")]
@@ -1349,161 +1343,6 @@ fn binary_operator_str(operator: BinaryOperator) -> &'static str {
         GreaterThanEqual => ">=",
         NullishCoalesce | Instanceof | In => "/* unsupported */",
     }
-}
-
-/// Collects object references from identifier or array expression.
-#[derive(Debug)]
-struct ObjectRefCollector;
-
-#[derive(Clone, Debug)]
-enum ObjectRef<'a> {
-    Just(Class<'a>, String),
-    List(Class<'a>, Vec<String>),
-    EmptyList,
-}
-
-impl<'a> DescribeType<'a> for ObjectRef<'a> {
-    fn type_desc(&self) -> TypeDesc<'a> {
-        match self {
-            ObjectRef::Just(cls, _) => {
-                TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(cls.clone())))
-            }
-            ObjectRef::List(cls, _) => {
-                TypeDesc::Concrete(TypeKind::PointerList(NamedType::Class(cls.clone())))
-            }
-            ObjectRef::EmptyList => TypeDesc::EmptyList,
-        }
-    }
-}
-
-impl<'a> ExpressionVisitor<'a> for ObjectRefCollector {
-    type Item = ObjectRef<'a>;
-    type Label = ();
-    type Error = ExpressionError;
-
-    fn visit_integer(&mut self, _value: u64) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedLiteral("integer"))
-    }
-
-    fn visit_float(&mut self, _value: f64) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedLiteral("float"))
-    }
-
-    fn visit_string(&mut self, _value: String) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedLiteral("string"))
-    }
-
-    fn visit_bool(&mut self, _value: bool) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedLiteral("bool"))
-    }
-
-    fn visit_enum(
-        &mut self,
-        _enum_ty: Enum<'a>,
-        _variant: &str,
-    ) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedLiteral("enum"))
-    }
-
-    fn visit_array(&mut self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
-        let mut base_cls: Option<Class> = None;
-        let mut names = Vec::with_capacity(elements.len());
-        for r in elements {
-            match r {
-                ObjectRef::Just(cls, s) => {
-                    base_cls = match base_cls {
-                        Some(base) if base != cls => {
-                            Some(base.common_base_class(&cls).transpose()?.ok_or_else(|| {
-                                ExpressionError::CannotDeduceType(
-                                    base.qualified_cxx_name().into(),
-                                    cls.qualified_cxx_name().into(),
-                                )
-                            })?)
-                        }
-                        Some(_) => base_cls,
-                        None => Some(cls),
-                    };
-                    names.push(s);
-                }
-                ObjectRef::List(..) | ObjectRef::EmptyList => {
-                    return Err(ExpressionError::UnsupportedLiteral("nested array"));
-                }
-            }
-        }
-
-        if let Some(base) = base_cls {
-            Ok(ObjectRef::List(base, names))
-        } else {
-            Ok(ObjectRef::EmptyList)
-        }
-    }
-
-    fn visit_object_ref(&mut self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error> {
-        Ok(ObjectRef::Just(cls, name.to_owned()))
-    }
-
-    fn visit_object_property(
-        &mut self,
-        _object: Self::Item,
-        _property: Property<'a>,
-    ) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedObjectProperty)
-    }
-
-    fn visit_object_builtin_method_call(
-        &mut self,
-        _object: Self::Item,
-        _function: BuiltinMethodKind,
-        _arguments: Vec<Self::Item>,
-    ) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedFunctionCall)
-    }
-
-    fn visit_builtin_call(
-        &mut self,
-        _function: BuiltinFunctionKind,
-        _arguments: Vec<Self::Item>,
-    ) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedFunctionCall)
-    }
-
-    fn visit_unary_expression(
-        &mut self,
-        operator: UnaryOperator,
-        argument: Self::Item,
-    ) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedUnaryOperationOnType(
-            operator,
-            argument.type_desc().qualified_name().into(),
-        ))
-    }
-
-    fn visit_binary_expression(
-        &mut self,
-        operator: BinaryOperator,
-        left: Self::Item,
-        right: Self::Item,
-    ) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedBinaryOperationOnType(
-            operator,
-            left.type_desc().qualified_name().into(),
-            right.type_desc().qualified_name().into(),
-        ))
-    }
-
-    fn visit_ternary_expression(
-        &mut self,
-        _condition: Self::Item,
-        _consequence: Self::Item,
-        _alternative: Self::Item,
-        _condition_label: Self::Label,
-        _consequence_label: Self::Label,
-        _alternative_label: Self::Label,
-    ) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedTernaryExpression)
-    }
-
-    fn mark_branch_point(&mut self) -> Self::Label {}
 }
 
 #[cfg(test)]
