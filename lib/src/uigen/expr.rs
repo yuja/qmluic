@@ -504,14 +504,6 @@ fn evaluate_as_primitive(
     }
 }
 
-fn evaluate_expression(
-    ctx: &ObjectContext,
-    node: Node,
-    diagnostics: &mut Diagnostics,
-) -> Option<EvaluatedValue> {
-    typedexpr::walk(ctx, node, ctx.source, &mut ExpressionEvaluator, diagnostics)
-}
-
 /// Evaluates TIR code to constant value.
 fn evaluate_code(code: &tir::CodeBody) -> Option<EvaluatedValue> {
     use tir::{BasicBlockRef, Operand, Rvalue, Statement, Terminator};
@@ -744,8 +736,6 @@ enum ExpressionError {
     UnsupportedType(String),
     #[error("unsupported literal: {0}")]
     UnsupportedLiteral(&'static str),
-    #[error("unsupported reference")]
-    UnsupportedReference,
     #[error("unsupported object property resolution")]
     UnsupportedObjectProperty,
     #[error("not a readable property")]
@@ -760,8 +750,6 @@ enum ExpressionError {
     UnsupportedTernaryExpression,
     #[error("condition must be of bool type, but got: {0}")]
     UnsupportedConditionType(String),
-    #[error("cannot evaluate as constant")]
-    CannotEvaluateAsConstant,
     #[error("cannot deduce type from '{0}' and '{1}'")]
     CannotDeduceType(String, String),
     #[error("integer conversion failed")]
@@ -769,12 +757,6 @@ enum ExpressionError {
     #[error("type resolution failed: {0}")]
     TypeResolution(#[from] TypeMapError),
 }
-
-/// Evaluates expression tree as arbitrary constant value expression.
-///
-/// Here we don't follow the JavaScript language model, but try to be stricter.
-#[derive(Debug)]
-struct ExpressionEvaluator;
 
 #[derive(Clone, Debug, PartialEq)]
 enum EvaluatedValue {
@@ -798,282 +780,6 @@ impl DescribeType<'_> for EvaluatedValue {
             EvaluatedValue::EmptyList => TypeDesc::EmptyList,
         }
     }
-}
-
-impl<'a> ExpressionVisitor<'a> for ExpressionEvaluator {
-    type Item = EvaluatedValue;
-    type Label = ();
-    type Error = ExpressionError;
-
-    fn visit_integer(&mut self, value: u64) -> Result<Self::Item, Self::Error> {
-        Ok(EvaluatedValue::Integer(value.try_into()?))
-    }
-
-    fn visit_float(&mut self, value: f64) -> Result<Self::Item, Self::Error> {
-        Ok(EvaluatedValue::Float(value))
-    }
-
-    fn visit_string(&mut self, value: String) -> Result<Self::Item, Self::Error> {
-        Ok(EvaluatedValue::String(value, StringKind::NoTr))
-    }
-
-    fn visit_bool(&mut self, value: bool) -> Result<Self::Item, Self::Error> {
-        Ok(EvaluatedValue::Bool(value))
-    }
-
-    fn visit_enum(
-        &mut self,
-        _enum_ty: Enum<'a>,
-        _variant: &str,
-    ) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedLiteral("enum")) // enum value is unknown
-    }
-
-    fn visit_array(&mut self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
-        match elements.first() {
-            Some(EvaluatedValue::String(..)) => elements
-                .into_iter()
-                .map(|x| match x {
-                    EvaluatedValue::String(s, k) => Ok((s, k)),
-                    _ => Err(ExpressionError::CannotDeduceType(
-                        "string".to_owned(),
-                        x.type_desc().qualified_name().into(),
-                    )),
-                })
-                .collect::<Result<_, _>>()
-                .map(EvaluatedValue::StringList),
-            Some(_) => Err(ExpressionError::UnsupportedLiteral("non-string array")),
-            None => Ok(EvaluatedValue::EmptyList),
-        }
-    }
-
-    fn visit_object_ref(
-        &mut self,
-        _cls: Class<'a>,
-        _name: &str,
-    ) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedReference)
-    }
-
-    fn visit_object_property(
-        &mut self,
-        _object: Self::Item,
-        _property: Property<'a>,
-    ) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedObjectProperty)
-    }
-
-    fn visit_object_builtin_method_call(
-        &mut self,
-        _object: Self::Item,
-        _function: BuiltinMethodKind,
-        _arguments: Vec<Self::Item>,
-    ) -> Result<Self::Item, Self::Error> {
-        Err(ExpressionError::UnsupportedFunctionCall)
-    }
-
-    fn visit_builtin_call(
-        &mut self,
-        function: BuiltinFunctionKind,
-        mut arguments: Vec<Self::Item>,
-    ) -> Result<Self::Item, Self::Error> {
-        match function {
-            BuiltinFunctionKind::Tr if arguments.len() == 1 => match arguments.pop() {
-                Some(EvaluatedValue::String(a, StringKind::NoTr)) => {
-                    Ok(EvaluatedValue::String(a, StringKind::Tr))
-                }
-                _ => Err(ExpressionError::UnsupportedFunctionCall),
-            },
-            BuiltinFunctionKind::Tr => Err(ExpressionError::UnsupportedFunctionCall),
-        }
-    }
-
-    fn visit_unary_expression(
-        &mut self,
-        operator: UnaryOperator,
-        argument: Self::Item,
-    ) -> Result<Self::Item, Self::Error> {
-        use UnaryOperator::*;
-        let type_error = {
-            let arg_t = argument.type_desc();
-            move || {
-                ExpressionError::UnsupportedUnaryOperationOnType(
-                    operator,
-                    arg_t.qualified_name().into(),
-                )
-            }
-        };
-        match argument {
-            EvaluatedValue::Bool(a) => match operator {
-                LogicalNot => Ok(EvaluatedValue::Bool(!a)),
-                BitwiseNot => Err(type_error()),
-                Minus | Plus => Err(type_error()),
-                Typeof | Void | Delete => Err(type_error()),
-            },
-            EvaluatedValue::Integer(a) => match operator {
-                // TODO: handle overflow, etc.
-                LogicalNot => Err(type_error()),
-                BitwiseNot => Ok(EvaluatedValue::Integer(!a)),
-                Minus => Ok(EvaluatedValue::Integer(-a)),
-                Plus => Ok(EvaluatedValue::Integer(a)),
-                Typeof | Void | Delete => Err(type_error()),
-            },
-            EvaluatedValue::Float(a) => match operator {
-                // TODO: handle overflow, etc.
-                LogicalNot => Err(type_error()),
-                BitwiseNot => Err(type_error()),
-                Minus => Ok(EvaluatedValue::Float(-a)),
-                Plus => Ok(EvaluatedValue::Float(a)),
-                Typeof | Void | Delete => Err(type_error()),
-            },
-            EvaluatedValue::String(_, StringKind::NoTr) => Err(type_error()),
-            EvaluatedValue::String(_, StringKind::Tr) => {
-                Err(ExpressionError::CannotEvaluateAsConstant)
-            }
-            EvaluatedValue::StringList(_) | EvaluatedValue::EmptyList => Err(type_error()),
-        }
-    }
-
-    fn visit_binary_expression(
-        &mut self,
-        operator: BinaryOperator,
-        left: Self::Item,
-        right: Self::Item,
-    ) -> Result<Self::Item, Self::Error> {
-        use BinaryOperator::*;
-        let type_error = {
-            let left_t = left.type_desc();
-            let right_t = right.type_desc();
-            move || {
-                ExpressionError::UnsupportedBinaryOperationOnType(
-                    operator,
-                    left_t.qualified_name().into(),
-                    right_t.qualified_name().into(),
-                )
-            }
-        };
-        match (left, right) {
-            #[allow(clippy::bool_comparison)]
-            (EvaluatedValue::Bool(l), EvaluatedValue::Bool(r)) => match operator {
-                LogicalAnd => Ok(EvaluatedValue::Bool(l && r)),
-                LogicalOr => Ok(EvaluatedValue::Bool(l || r)),
-                RightShift | UnsignedRightShift | LeftShift => Err(type_error()),
-                BitwiseAnd => Ok(EvaluatedValue::Bool(l & r)),
-                BitwiseXor => Ok(EvaluatedValue::Bool(l ^ r)),
-                BitwiseOr => Ok(EvaluatedValue::Bool(l | r)),
-                Add | Sub | Mul | Div | Rem | Exp => Err(type_error()),
-                Equal => Ok(EvaluatedValue::Bool(l == r)),
-                StrictEqual => Ok(EvaluatedValue::Bool(l == r)),
-                NotEqual => Ok(EvaluatedValue::Bool(l != r)),
-                StrictNotEqual => Ok(EvaluatedValue::Bool(l != r)),
-                LessThan => Ok(EvaluatedValue::Bool(l < r)),
-                LessThanEqual => Ok(EvaluatedValue::Bool(l <= r)),
-                GreaterThan => Ok(EvaluatedValue::Bool(l > r)),
-                GreaterThanEqual => Ok(EvaluatedValue::Bool(l >= r)),
-                NullishCoalesce | Instanceof | In => Err(type_error()),
-            },
-            (EvaluatedValue::Integer(l), EvaluatedValue::Integer(r)) => match operator {
-                // TODO: handle overflow, etc.
-                LogicalAnd | LogicalOr => Err(type_error()),
-                // TODO: >>, (unsigned)>>, <<
-                RightShift => Err(type_error()),
-                UnsignedRightShift => Err(type_error()),
-                LeftShift => Err(type_error()),
-                BitwiseAnd => Ok(EvaluatedValue::Integer(l & r)),
-                BitwiseXor => Ok(EvaluatedValue::Integer(l ^ r)),
-                BitwiseOr => Ok(EvaluatedValue::Integer(l | r)),
-                Add => Ok(EvaluatedValue::Integer(l + r)),
-                Sub => Ok(EvaluatedValue::Integer(l - r)),
-                Mul => Ok(EvaluatedValue::Integer(l * r)),
-                Div => Ok(EvaluatedValue::Integer(l / r)),
-                Rem => Ok(EvaluatedValue::Integer(l % r)),
-                Exp => Ok(EvaluatedValue::Integer(l.pow(r.try_into()?))),
-                Equal => Ok(EvaluatedValue::Bool(l == r)),
-                StrictEqual => Ok(EvaluatedValue::Bool(l == r)),
-                NotEqual => Ok(EvaluatedValue::Bool(l != r)),
-                StrictNotEqual => Ok(EvaluatedValue::Bool(l != r)),
-                LessThan => Ok(EvaluatedValue::Bool(l < r)),
-                LessThanEqual => Ok(EvaluatedValue::Bool(l <= r)),
-                GreaterThan => Ok(EvaluatedValue::Bool(l > r)),
-                GreaterThanEqual => Ok(EvaluatedValue::Bool(l >= r)),
-                NullishCoalesce => Err(type_error()),
-                Instanceof => Err(type_error()),
-                In => Err(type_error()),
-            },
-            (EvaluatedValue::Float(l), EvaluatedValue::Float(r)) => match operator {
-                // TODO: handle overflow, etc.
-                LogicalAnd | LogicalOr => Err(type_error()),
-                RightShift | UnsignedRightShift | LeftShift => Err(type_error()),
-                BitwiseAnd | BitwiseXor | BitwiseOr => Err(type_error()),
-                Add => Ok(EvaluatedValue::Float(l + r)),
-                Sub => Ok(EvaluatedValue::Float(l - r)),
-                Mul => Ok(EvaluatedValue::Float(l * r)),
-                Div => Ok(EvaluatedValue::Float(l / r)),
-                Rem => Ok(EvaluatedValue::Float(l % r)),
-                Exp => Ok(EvaluatedValue::Float(l.powf(r))),
-                Equal => Ok(EvaluatedValue::Bool(l == r)),
-                StrictEqual => Ok(EvaluatedValue::Bool(l == r)),
-                NotEqual => Ok(EvaluatedValue::Bool(l != r)),
-                StrictNotEqual => Ok(EvaluatedValue::Bool(l != r)),
-                LessThan => Ok(EvaluatedValue::Bool(l < r)),
-                LessThanEqual => Ok(EvaluatedValue::Bool(l <= r)),
-                GreaterThan => Ok(EvaluatedValue::Bool(l > r)),
-                GreaterThanEqual => Ok(EvaluatedValue::Bool(l >= r)),
-                NullishCoalesce => Err(type_error()),
-                Instanceof => Err(type_error()),
-                In => Err(type_error()),
-            },
-            (
-                EvaluatedValue::String(l, StringKind::NoTr),
-                EvaluatedValue::String(r, StringKind::NoTr),
-            ) => match operator {
-                LogicalAnd | LogicalOr => Err(type_error()),
-                RightShift | UnsignedRightShift | LeftShift => Err(type_error()),
-                BitwiseAnd | BitwiseXor | BitwiseOr => Err(type_error()),
-                Add => Ok(EvaluatedValue::String(l + &r, StringKind::NoTr)),
-                Sub | Mul | Div | Rem | Exp => Err(type_error()),
-                Equal => Ok(EvaluatedValue::Bool(l == r)),
-                StrictEqual => Ok(EvaluatedValue::Bool(l == r)),
-                NotEqual => Ok(EvaluatedValue::Bool(l != r)),
-                StrictNotEqual => Ok(EvaluatedValue::Bool(l != r)),
-                LessThan => Ok(EvaluatedValue::Bool(l < r)),
-                LessThanEqual => Ok(EvaluatedValue::Bool(l <= r)),
-                GreaterThan => Ok(EvaluatedValue::Bool(l > r)),
-                GreaterThanEqual => Ok(EvaluatedValue::Bool(l >= r)),
-                NullishCoalesce => Err(type_error()),
-                Instanceof => Err(type_error()),
-                In => Err(type_error()),
-            },
-            (EvaluatedValue::String(_, StringKind::Tr), _)
-            | (_, EvaluatedValue::String(_, StringKind::Tr)) => {
-                Err(ExpressionError::CannotEvaluateAsConstant)
-            }
-            _ => Err(type_error()),
-        }
-    }
-
-    fn visit_ternary_expression(
-        &mut self,
-        condition: Self::Item,
-        consequence: Self::Item,
-        alternative: Self::Item,
-        _condition_label: Self::Label,
-        _consequence_label: Self::Label,
-        _alternative_label: Self::Label,
-    ) -> Result<Self::Item, Self::Error> {
-        match condition {
-            EvaluatedValue::Bool(b) => Ok(if b { consequence } else { alternative }),
-            EvaluatedValue::Integer(_)
-            | EvaluatedValue::Float(_)
-            | EvaluatedValue::String(..)
-            | EvaluatedValue::StringList(_)
-            | EvaluatedValue::EmptyList => Err(ExpressionError::UnsupportedConditionType(
-                condition.type_desc().qualified_name().into(),
-            )),
-        }
-    }
-
-    fn mark_branch_point(&mut self) -> Self::Label {}
 }
 
 /// Formats expression tree as arbitrary constant value expression.
@@ -1886,26 +1592,6 @@ mod tests {
             map.get("a").unwrap().get_node().unwrap()
         }
 
-        fn evaluate(&self) -> EvaluatedValue {
-            self.try_evaluate().unwrap()
-        }
-
-        fn try_evaluate(&self) -> Result<EvaluatedValue, Diagnostics> {
-            let mut diagnostics = Diagnostics::new();
-            let ctx = Context {
-                type_space: self.type_map.get_module(&self.module_id).unwrap(),
-            };
-            let node = self.node();
-            typedexpr::walk(
-                &ctx,
-                node,
-                self.doc.source(),
-                &mut ExpressionEvaluator,
-                &mut diagnostics,
-            )
-            .ok_or(diagnostics)
-        }
-
         fn format(&self) -> (TypeDesc, String, u32) {
             self.try_format().unwrap()
         }
@@ -1944,32 +1630,14 @@ mod tests {
         }
     }
 
-    fn evaluate_expr(expr_source: &str) -> EvaluatedValue {
-        Env::new(expr_source).evaluate()
-    }
-
     fn format_expr(expr_source: &str) -> String {
         let (_, expr, _) = Env::new(expr_source).format();
         expr
     }
 
     #[test]
-    fn evaluate_integer_bit_ops() {
-        assert_eq!(
-            evaluate_expr("((1 | 2) ^ 5) & ~0"),
-            EvaluatedValue::Integer(6)
-        );
-    }
-
-    #[test]
     fn format_integer_bit_ops() {
         assert_eq!(format_expr("((1 | 2) ^ 5) & ~0"), "((1|2)^5)&~0");
-    }
-
-    #[test]
-    fn evalute_number_division() {
-        assert_eq!(evaluate_expr("3 / 2 * 2"), EvaluatedValue::Integer(2));
-        assert_eq!(evaluate_expr("3. / 2. * 2."), EvaluatedValue::Float(3.));
     }
 
     #[test]
@@ -2061,12 +1729,6 @@ mod tests {
     #[test]
     fn format_object_property() {
         assert_eq!(format_expr("!foo.checked"), "!foo->isChecked()",);
-    }
-
-    #[test]
-    fn evalute_ternary() {
-        assert_eq!(evaluate_expr("true ? 1 : 2"), EvaluatedValue::Integer(1));
-        assert_eq!(evaluate_expr("false ? 1 : 2"), EvaluatedValue::Integer(2));
     }
 
     #[test]
