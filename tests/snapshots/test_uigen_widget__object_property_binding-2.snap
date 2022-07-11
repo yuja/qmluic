@@ -33,6 +33,14 @@ private:
         widget->setVisible(source->isChecked());
     }
 
+    bool eval_widget_visible() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->source->isChecked();
+        return a0;
+    }
+
     QWidget *const root_;
     Ui::MyType *const ui_;
 
