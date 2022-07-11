@@ -4,15 +4,14 @@ use super::core::{
     ComparisonOp, ConstantValue, EnumVariant, Local, NamedObject, Operand, Rvalue, Statement,
     Terminator, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp,
 };
+use super::typeutil::{self, TypeError};
 use crate::diagnostic::Diagnostics;
 use crate::qmlast::{BinaryOperator, Node, UnaryOperator};
 use crate::typedexpr::{
     self, BuiltinFunctionKind, BuiltinMethodKind, DescribeType, ExpressionVisitor, RefSpace,
     TypeDesc,
 };
-use crate::typemap::{
-    Class, Enum, NamedType, PrimitiveType, Property, TypeKind, TypeMapError, TypeSpace as _,
-};
+use crate::typemap::{Class, Enum, NamedType, PrimitiveType, Property, TypeKind, TypeMapError};
 use std::num::TryFromIntError;
 use thiserror::Error;
 
@@ -513,50 +512,38 @@ pub(super) enum ExpressionError {
     UnreadableProperty,
 }
 
-fn is_compatible_enum(left: &Enum, right: &Enum) -> Result<bool, TypeMapError> {
-    Ok(left == right
-        || left
-            .alias_enum()
-            .transpose()?
-            .map_or(false, |en| &en == right)
-        || right
-            .alias_enum()
-            .transpose()?
-            .map_or(false, |en| &en == left))
+fn to_operation_type_error(op_desc: impl ToString, err: TypeError) -> ExpressionError {
+    match err {
+        TypeError::TypeResolution(e) => ExpressionError::TypeResolution(e),
+        TypeError::IncompatibleTypes(l, r) => {
+            ExpressionError::OperationOnIncompatibleTypes(op_desc.to_string(), l, r)
+        }
+        TypeError::UndeterminedType(t) => {
+            ExpressionError::OperationOnUndeterminedType(op_desc.to_string(), t)
+        }
+        TypeError::UnsupportedType(t) => {
+            ExpressionError::OperationOnUnsupportedType(op_desc.to_string(), t)
+        }
+    }
 }
 
 fn deduce_concrete_type<'a>(
-    op_desc: impl ToString + Copy,
+    op_desc: impl ToString,
     left: TypeDesc<'a>,
     right: TypeDesc<'a>,
 ) -> Result<TypeKind<'a>, ExpressionError> {
-    deduce_type(op_desc, left, right).and_then(|t| to_concrete_type(op_desc, t))
+    typeutil::deduce_concrete_type(left, right).map_err(|e| to_operation_type_error(op_desc, e))
 }
 
 fn to_concrete_type(op_desc: impl ToString, t: TypeDesc) -> Result<TypeKind, ExpressionError> {
-    match t {
-        TypeDesc::Concrete(ty) => Ok(ty),
-        TypeDesc::ConstInteger => Ok(TypeKind::INT), // fallback to default
-        TypeDesc::ConstString => panic!("should have been converted to concrete string"),
-        t @ TypeDesc::EmptyList => Err(ExpressionError::OperationOnUndeterminedType(
-            op_desc.to_string(),
-            t.qualified_name().into(),
-        )),
-    }
+    typeutil::to_concrete_type(t).map_err(|e| to_operation_type_error(op_desc, e))
 }
 
 fn to_concrete_list_type(
-    op_desc: impl ToString + Copy,
+    op_desc: impl ToString,
     elem_t: TypeDesc,
 ) -> Result<TypeKind, ExpressionError> {
-    match to_concrete_type(op_desc, elem_t)? {
-        TypeKind::STRING => Ok(TypeKind::STRING_LIST),
-        TypeKind::Pointer(t) => Ok(TypeKind::PointerList(t)),
-        t => Err(ExpressionError::OperationOnUnsupportedType(
-            op_desc.to_string(),
-            t.qualified_cxx_name().into(),
-        )),
-    }
+    typeutil::to_concrete_list_type(elem_t).map_err(|e| to_operation_type_error(op_desc, e))
 }
 
 fn deduce_type<'a>(
@@ -564,36 +551,7 @@ fn deduce_type<'a>(
     left: TypeDesc<'a>,
     right: TypeDesc<'a>,
 ) -> Result<TypeDesc<'a>, ExpressionError> {
-    match (left, right) {
-        (left, right) if left == right => Ok(left),
-        (l @ (TypeDesc::INT | TypeDesc::UINT), TypeDesc::ConstInteger) => Ok(l),
-        (TypeDesc::ConstInteger, r @ (TypeDesc::INT | TypeDesc::UINT)) => Ok(r),
-        (
-            TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(l))),
-            TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(r))),
-        ) if is_compatible_enum(&l, &r)? => {
-            Ok(TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(l))))
-        }
-        (
-            TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(l))),
-            TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(r))),
-        ) => l
-            .common_base_class(&r)
-            .transpose()?
-            .map(|c| TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(c))))
-            .ok_or_else(|| {
-                ExpressionError::OperationOnIncompatibleTypes(
-                    op_desc.to_string(),
-                    l.qualified_cxx_name().into(),
-                    r.qualified_cxx_name().into(),
-                )
-            }),
-        (left, right) => Err(ExpressionError::OperationOnIncompatibleTypes(
-            op_desc.to_string(),
-            left.qualified_name().into(),
-            right.qualified_name().into(),
-        )),
-    }
+    typeutil::deduce_type(left, right).map_err(|e| to_operation_type_error(op_desc, e))
 }
 
 fn ensure_concrete_string(x: Operand) -> Operand {
@@ -631,7 +589,7 @@ mod tests {
     use crate::qmlast::{UiObjectDefinition, UiProgram};
     use crate::qmldoc::UiDocument;
     use crate::typedexpr::RefKind;
-    use crate::typemap::{ModuleData, ModuleId, Namespace, TypeMap, TypeMapError};
+    use crate::typemap::{ModuleData, ModuleId, Namespace, TypeMap, TypeMapError, TypeSpace as _};
 
     struct Env {
         type_map: TypeMap,

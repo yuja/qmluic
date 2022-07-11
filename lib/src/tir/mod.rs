@@ -4,6 +4,7 @@ mod builder;
 mod ceval;
 mod core;
 mod dump;
+mod typeutil;
 
 pub use self::builder::build; // re-export
 pub use self::core::*; // re-export
