@@ -49,16 +49,28 @@ impl<'a, 't> PropertyValue<'a, 't> {
                         TypeKind::Pointer(NamedType::Class(cls))
                             if cls.is_derived_from(&ctx.classes.abstract_item_model) =>
                         {
-                            parse_item_model(*n, &code, res, diagnostics)
-                                .map(PropertyValue::ItemModel)
+                            verify_code_return_type(
+                                *n,
+                                &code,
+                                &TypeKind::STRING_LIST,
+                                diagnostics,
+                            )?;
+                            let items = res
+                                .unwrap_string_list()
+                                .into_iter()
+                                .map(|(s, k)| ModelItem::with_text(s, k))
+                                .collect();
+                            Some(PropertyValue::ItemModel(items))
                         }
                         TypeKind::Pointer(NamedType::Class(_)) => {
-                            parse_object_reference(*n, &code, res, ty, diagnostics)
-                                .map(|v| PropertyValue::Serializable(Value::Simple(v)))
+                            verify_code_return_type(*n, &code, ty, diagnostics)?;
+                            Some(PropertyValue::Serializable(Value::Simple(
+                                SimpleValue::Cstring(res.unwrap_object_ref()),
+                            )))
                         }
                         TypeKind::PointerList(NamedType::Class(_)) => {
-                            parse_object_reference_list(*n, &code, res, ty, diagnostics)
-                                .map(PropertyValue::ObjectRefList)
+                            verify_code_return_type(*n, &code, ty, diagnostics)?;
+                            Some(PropertyValue::ObjectRefList(res.unwrap_object_ref_list()))
                         }
                         TypeKind::Pointer(_) | TypeKind::PointerList(_) => {
                             diagnostics.push(Diagnostic::error(
@@ -637,56 +649,6 @@ fn parse_color_value(
     }
 }
 
-/// Parses string list as a static item model.
-fn parse_item_model(
-    node: Node,
-    code: &tir::CodeBody,
-    res: EvaluatedValue,
-    diagnostics: &mut Diagnostics,
-) -> Option<Vec<ModelItem>> {
-    verify_code_return_type(node, code, &TypeKind::STRING_LIST, diagnostics)?;
-    match res {
-        EvaluatedValue::StringList(xs) => {
-            let items = xs
-                .into_iter()
-                .map(|(s, k)| ModelItem::with_text(s, k))
-                .collect();
-            Some(items)
-        }
-        EvaluatedValue::EmptyList => Some(vec![]),
-        _ => panic!("evaluated value must be string list"),
-    }
-}
-
-fn parse_object_reference(
-    node: Node,
-    code: &tir::CodeBody,
-    res: EvaluatedValue,
-    expected: &TypeKind,
-    diagnostics: &mut Diagnostics,
-) -> Option<SimpleValue> {
-    verify_code_return_type(node, code, expected, diagnostics)?;
-    match res {
-        EvaluatedValue::ObjectRef(name) => Some(SimpleValue::Cstring(name)),
-        _ => panic!("evaluated value must be object ref"),
-    }
-}
-
-fn parse_object_reference_list(
-    node: Node,
-    code: &tir::CodeBody,
-    res: EvaluatedValue,
-    expected: &TypeKind,
-    diagnostics: &mut Diagnostics,
-) -> Option<Vec<String>> {
-    verify_code_return_type(node, code, expected, diagnostics)?;
-    match res {
-        EvaluatedValue::ObjectRefList(names) => Some(names),
-        EvaluatedValue::EmptyList => Some(vec![]),
-        _ => panic!("evaluated value must be object ref list"),
-    }
-}
-
 #[derive(Clone, Debug, PartialEq)]
 enum EvaluatedValue {
     Bool(bool),
@@ -701,10 +663,33 @@ enum EvaluatedValue {
 }
 
 impl EvaluatedValue {
+    fn unwrap_string_list(self) -> Vec<(String, StringKind)> {
+        match self {
+            EvaluatedValue::StringList(xs) => xs,
+            EvaluatedValue::EmptyList => vec![],
+            _ => panic!("evaluated value must be string list"),
+        }
+    }
+
     fn unwrap_enum_set(self) -> Vec<String> {
         match self {
             EvaluatedValue::EnumSet(es) => es,
             _ => panic!("evaluated value must be enum set"),
+        }
+    }
+
+    fn unwrap_object_ref(self) -> String {
+        match self {
+            EvaluatedValue::ObjectRef(s) => s,
+            _ => panic!("evaluated value must be object ref"),
+        }
+    }
+
+    fn unwrap_object_ref_list(self) -> Vec<String> {
+        match self {
+            EvaluatedValue::ObjectRefList(ss) => ss,
+            EvaluatedValue::EmptyList => vec![],
+            _ => panic!("evaluated value must be object ref list"),
         }
     }
 }
