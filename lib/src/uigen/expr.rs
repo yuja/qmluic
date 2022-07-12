@@ -368,19 +368,8 @@ fn parse_as_value_type(
         }
         NamedType::Class(cls) if cls == &ctx.classes.pixmap => {
             verify_code_return_type(node, code, &TypeKind::STRING, diagnostics)?;
-            match res {
-                EvaluatedValue::String(s, StringKind::NoTr) => {
-                    Some(Value::Simple(SimpleValue::Pixmap(s)))
-                }
-                EvaluatedValue::String(_, StringKind::Tr) => {
-                    diagnostics.push(Diagnostic::error(
-                        node.byte_range(),
-                        "pixmap path must be a static string",
-                    ));
-                    None
-                }
-                _ => panic!("evaluated value must be string"),
-            }
+            extract_static_string(node, res, diagnostics)
+                .map(|s| Value::Simple(SimpleValue::Pixmap(s)))
         }
         NamedType::Enum(en) => {
             verify_code_return_type(node, code, expected_ty, diagnostics)?;
@@ -457,6 +446,13 @@ impl EvaluatedValue {
             EvaluatedValue::String(s, k) => SimpleValue::String(s, k),
             // enum can't be mapped to SimpleValue without type information
             _ => panic!("evaluated type must be simple value"),
+        }
+    }
+
+    fn unwrap_string(self) -> (String, StringKind) {
+        match self {
+            EvaluatedValue::String(s, k) => (s, k),
+            _ => panic!("evaluated value must be string"),
         }
     }
 
@@ -651,22 +647,28 @@ fn parse_color_value(
 ) -> Option<Gadget> {
     // TODO: handle Qt::GlobalColor enum
     verify_code_return_type(node, code, &TypeKind::STRING, diagnostics)?;
-    match res {
-        EvaluatedValue::String(s, StringKind::NoTr) => match s.parse::<Color>() {
-            Ok(c) => Some(c.into()),
-            Err(e) => {
-                diagnostics.push(Diagnostic::error(node.byte_range(), e.to_string()));
-                None
-            }
-        },
-        EvaluatedValue::String(_, StringKind::Tr) => {
-            diagnostics.push(Diagnostic::error(
-                node.byte_range(),
-                "color must be a static string",
-            ));
+    extract_static_string(node, res, diagnostics).and_then(|s| match s.parse::<Color>() {
+        Ok(c) => Some(c.into()),
+        Err(e) => {
+            diagnostics.push(Diagnostic::error(node.byte_range(), e.to_string()));
             None
         }
-        _ => panic!("evaluated value must be string"),
+    })
+}
+
+fn extract_static_string(
+    node: Node,
+    res: EvaluatedValue,
+    diagnostics: &mut Diagnostics,
+) -> Option<String> {
+    if let (s, StringKind::NoTr) = res.unwrap_string() {
+        Some(s)
+    } else {
+        diagnostics.push(Diagnostic::error(
+            node.byte_range(),
+            "must be a static string",
+        ));
+        None
     }
 }
 
