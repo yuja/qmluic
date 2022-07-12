@@ -470,6 +470,51 @@ fn evaluate_as_primitive(
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+enum EvaluatedValue {
+    Bool(bool),
+    Integer(i64),
+    Float(f64),
+    String(String, StringKind),
+    StringList(Vec<(String, StringKind)>),
+    EnumSet(Vec<String>),
+    ObjectRef(String),
+    ObjectRefList(Vec<String>),
+    EmptyList,
+}
+
+impl EvaluatedValue {
+    fn unwrap_string_list(self) -> Vec<(String, StringKind)> {
+        match self {
+            EvaluatedValue::StringList(xs) => xs,
+            EvaluatedValue::EmptyList => vec![],
+            _ => panic!("evaluated value must be string list"),
+        }
+    }
+
+    fn unwrap_enum_set(self) -> Vec<String> {
+        match self {
+            EvaluatedValue::EnumSet(es) => es,
+            _ => panic!("evaluated value must be enum set"),
+        }
+    }
+
+    fn unwrap_object_ref(self) -> String {
+        match self {
+            EvaluatedValue::ObjectRef(s) => s,
+            _ => panic!("evaluated value must be object ref"),
+        }
+    }
+
+    fn unwrap_object_ref_list(self) -> Vec<String> {
+        match self {
+            EvaluatedValue::ObjectRefList(ss) => ss,
+            EvaluatedValue::EmptyList => vec![],
+            _ => panic!("evaluated value must be object ref list"),
+        }
+    }
+}
+
 /// Evaluates TIR code to constant value.
 fn evaluate_code(code: &tir::CodeBody) -> Option<EvaluatedValue> {
     use tir::{BasicBlockRef, BinaryBitwiseOp, Operand, Rvalue, Statement, Terminator};
@@ -646,51 +691,6 @@ fn parse_color_value(
             None
         }
         _ => panic!("evaluated value must be string"),
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum EvaluatedValue {
-    Bool(bool),
-    Integer(i64),
-    Float(f64),
-    String(String, StringKind),
-    StringList(Vec<(String, StringKind)>),
-    EnumSet(Vec<String>),
-    ObjectRef(String),
-    ObjectRefList(Vec<String>),
-    EmptyList,
-}
-
-impl EvaluatedValue {
-    fn unwrap_string_list(self) -> Vec<(String, StringKind)> {
-        match self {
-            EvaluatedValue::StringList(xs) => xs,
-            EvaluatedValue::EmptyList => vec![],
-            _ => panic!("evaluated value must be string list"),
-        }
-    }
-
-    fn unwrap_enum_set(self) -> Vec<String> {
-        match self {
-            EvaluatedValue::EnumSet(es) => es,
-            _ => panic!("evaluated value must be enum set"),
-        }
-    }
-
-    fn unwrap_object_ref(self) -> String {
-        match self {
-            EvaluatedValue::ObjectRef(s) => s,
-            _ => panic!("evaluated value must be object ref"),
-        }
-    }
-
-    fn unwrap_object_ref_list(self) -> Vec<String> {
-        match self {
-            EvaluatedValue::ObjectRefList(ss) => ss,
-            EvaluatedValue::EmptyList => vec![],
-            _ => panic!("evaluated value must be object ref list"),
-        }
     }
 }
 
