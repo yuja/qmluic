@@ -42,7 +42,6 @@ pub(super) struct BuildDocContext<'a, 't, 's> {
 /// Context where expression is supposed to be evaluated.
 #[derive(Clone, Debug)]
 pub(super) struct ObjectContext<'a, 't, 's> {
-    pub doc_type_name: &'s str,
     pub source: &'s str,
     pub classes: &'s KnownClasses<'a>,
     pub type_space: &'s ImportedModuleSpace<'a>,
@@ -183,7 +182,6 @@ impl<'a, 't, 's> BuildDocContext<'a, 't, 's> {
 
     pub fn make_object_context(&self) -> ObjectContext<'a, 't, '_> {
         ObjectContext {
-            doc_type_name: self.type_name,
             source: self.source,
             classes: self.classes,
             type_space: self.type_space,
@@ -200,7 +198,6 @@ impl<'a, 't, 's> ObjectContext<'a, 't, 's> {
         base_ctx: &'s BuildContext<'a>,
     ) -> Self {
         ObjectContext {
-            doc_type_name: doc.type_name(),
             source: doc.source(),
             classes: &base_ctx.classes,
             type_space,
