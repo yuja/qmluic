@@ -44,45 +44,42 @@ impl<'a, 't> PropertyValue<'a, 't> {
     ) -> Option<Self> {
         match binding_value {
             UiBindingValue::Node(n) => {
-                // TODO: switch all to TIR path
                 let code = tir::build(ctx, *n, ctx.source, diagnostics)?;
-                match ty {
-                    TypeKind::Just(t) => {
-                        // detect type error and dynamic expression first
-                        let mut formatter = ExpressionFormatter::new(ctx.doc_type_name);
-                        let _ = typedexpr::walk(ctx, *n, ctx.source, &mut formatter, diagnostics)?;
-                        if formatter.property_deps.is_empty() && !formatter.has_method_call {
-                            // constant expression can be mapped to .ui value type
-                            parse_as_value_type(ctx, t, *n, &code, diagnostics)
+                if let Some(res) = evaluate_code(&code) {
+                    // constant expression can be mapped to .ui value type
+                    match ty {
+                        TypeKind::Just(t) => {
+                            parse_as_value_type(ctx, t, *n, &code, res, diagnostics)
                                 .map(PropertyValue::Serializable)
-                        } else {
-                            verify_code_return_type(*n, &code, ty, diagnostics)?;
-                            Some(PropertyValue::Dynamic(code))
+                        }
+                        TypeKind::Pointer(NamedType::Class(cls))
+                            if cls.is_derived_from(&ctx.classes.abstract_item_model) =>
+                        {
+                            parse_item_model(*n, &code, res, diagnostics)
+                                .map(PropertyValue::ItemModel)
+                        }
+                        TypeKind::Pointer(NamedType::Class(_)) => {
+                            parse_object_reference(*n, &code, res, ty, diagnostics)
+                                .map(|v| PropertyValue::Serializable(Value::Simple(v)))
+                        }
+                        TypeKind::PointerList(NamedType::Class(_)) => {
+                            parse_object_reference_list(*n, &code, res, ty, diagnostics)
+                                .map(PropertyValue::ObjectRefList)
+                        }
+                        TypeKind::Pointer(_) | TypeKind::PointerList(_) => {
+                            diagnostics.push(Diagnostic::error(
+                                n.byte_range(),
+                                format!(
+                                    "unsupported value expression of type '{}'",
+                                    ty.qualified_cxx_name(),
+                                ),
+                            ));
+                            None
                         }
                     }
-                    TypeKind::Pointer(NamedType::Class(cls))
-                        if cls.is_derived_from(&ctx.classes.abstract_item_model) =>
-                    {
-                        parse_item_model(*n, &code, diagnostics).map(PropertyValue::ItemModel)
-                    }
-                    TypeKind::Pointer(NamedType::Class(_)) => {
-                        parse_object_reference(*n, &code, ty, diagnostics)
-                            .map(|v| PropertyValue::Serializable(Value::Simple(v)))
-                    }
-                    TypeKind::PointerList(NamedType::Class(_)) => {
-                        parse_object_reference_list(*n, &code, ty, diagnostics)
-                            .map(PropertyValue::ObjectRefList)
-                    }
-                    TypeKind::Pointer(_) | TypeKind::PointerList(_) => {
-                        diagnostics.push(Diagnostic::error(
-                            n.byte_range(),
-                            format!(
-                                "unsupported value expression of type '{}'",
-                                ty.qualified_cxx_name(),
-                            ),
-                        ));
-                        None
-                    }
+                } else {
+                    verify_code_return_type(*n, &code, ty, diagnostics)?;
+                    Some(PropertyValue::Dynamic(code))
                 }
             }
             UiBindingValue::Map(n, m) => match ty {
@@ -301,11 +298,12 @@ fn parse_as_value_type(
     ty: &NamedType,
     node: Node,
     code: &tir::CodeBody,
+    res: EvaluatedValue,
     diagnostics: &mut Diagnostics,
 ) -> Option<Value> {
     match ty {
         NamedType::Class(cls) if cls == &ctx.classes.brush => {
-            let color = parse_color_value(node, code, diagnostics).map(Value::Gadget)?;
+            let color = parse_color_value(node, code, res, diagnostics).map(Value::Gadget)?;
             let style = SimpleValue::Enum("Qt::SolidPattern".to_owned());
             Some(Value::Gadget(Gadget {
                 kind: GadgetKind::Brush,
@@ -314,7 +312,7 @@ fn parse_as_value_type(
             }))
         }
         NamedType::Class(cls) if cls == &ctx.classes.color => {
-            parse_color_value(node, code, diagnostics).map(Value::Gadget)
+            parse_color_value(node, code, res, diagnostics).map(Value::Gadget)
         }
         NamedType::Class(cls) if cls == &ctx.classes.cursor => {
             verify_code_return_type(
@@ -323,16 +321,6 @@ fn parse_as_value_type(
                 &TypeKind::Just(NamedType::Enum(ctx.classes.cursor_shape.clone())),
                 diagnostics,
             )?;
-            let res = match evaluate_code(code) {
-                Some(v) => v,
-                None => {
-                    diagnostics.push(Diagnostic::error(
-                        node.byte_range(),
-                        "unsupported static enum expression",
-                    ));
-                    return None;
-                }
-            };
             let expr = res.unwrap_enum_set().join("|");
             Some(Value::Simple(SimpleValue::CursorShape(
                 strip_enum_prefix(&expr).to_owned(),
@@ -345,16 +333,6 @@ fn parse_as_value_type(
                 code.verify_return_type(&TypeKind::STRING),
             ) {
                 (Ok(()), _) => {
-                    let res = match evaluate_code(code) {
-                        Some(v) => v,
-                        None => {
-                            diagnostics.push(Diagnostic::error(
-                                node.byte_range(),
-                                "unsupported static enum expression",
-                            ));
-                            return None;
-                        }
-                    };
                     let expr = res.unwrap_enum_set().join("|");
                     if standard_key_en.is_flag() {
                         Some(Value::Simple(SimpleValue::Set(expr)))
@@ -363,7 +341,7 @@ fn parse_as_value_type(
                     }
                 }
                 (_, Ok(())) => {
-                    evaluate_as_primitive(PrimitiveType::QString, node, code, diagnostics)
+                    evaluate_as_primitive(PrimitiveType::QString, node, code, res, diagnostics)
                 }
                 (
                     Err(tir::TypeError::IncompatibleTypes(expected1, actual)),
@@ -385,7 +363,6 @@ fn parse_as_value_type(
         }
         NamedType::Class(cls) if cls == &ctx.classes.pixmap => {
             verify_code_return_type(node, code, &TypeKind::STRING, diagnostics)?;
-            let res = evaluate_code(code).expect("constant expression can be evaluated");
             match res {
                 EvaluatedValue::String(s, StringKind::NoTr) => {
                     Some(Value::Simple(SimpleValue::Pixmap(s)))
@@ -402,16 +379,6 @@ fn parse_as_value_type(
         }
         NamedType::Enum(en) => {
             verify_code_return_type(node, code, &TypeKind::Just(ty.clone()), diagnostics)?;
-            let res = match evaluate_code(code) {
-                Some(v) => v,
-                None => {
-                    diagnostics.push(Diagnostic::error(
-                        node.byte_range(),
-                        "unsupported static enum expression",
-                    ));
-                    return None;
-                }
-            };
             let expr = res.unwrap_enum_set().join("|");
             if en.is_flag() {
                 Some(Value::Simple(SimpleValue::Set(expr)))
@@ -419,7 +386,7 @@ fn parse_as_value_type(
                 Some(Value::Simple(SimpleValue::Enum(expr)))
             }
         }
-        NamedType::Primitive(p) => evaluate_as_primitive(*p, node, code, diagnostics),
+        NamedType::Primitive(p) => evaluate_as_primitive(*p, node, code, res, diagnostics),
         NamedType::Class(_) | NamedType::QmlComponent(_) => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
@@ -447,6 +414,7 @@ fn evaluate_as_primitive(
     p: PrimitiveType,
     node: Node,
     code: &tir::CodeBody,
+    res: EvaluatedValue,
     diagnostics: &mut Diagnostics,
 ) -> Option<Value> {
     verify_code_return_type(
@@ -455,7 +423,6 @@ fn evaluate_as_primitive(
         &TypeKind::Just(NamedType::Primitive(p)),
         diagnostics,
     )?;
-    let res = evaluate_code(code).expect("constant expression can be evaluated");
     match (p, res) {
         (PrimitiveType::Bool, EvaluatedValue::Bool(v)) => Some(Value::Simple(SimpleValue::Bool(v))),
         (PrimitiveType::Int | PrimitiveType::Uint, EvaluatedValue::Integer(v)) => {
@@ -652,11 +619,11 @@ fn verify_code_return_type(
 fn parse_color_value(
     node: Node,
     code: &tir::CodeBody,
+    res: EvaluatedValue,
     diagnostics: &mut Diagnostics,
 ) -> Option<Gadget> {
     // TODO: handle Qt::GlobalColor enum
     verify_code_return_type(node, code, &TypeKind::STRING, diagnostics)?;
-    let res = evaluate_code(code).expect("constant expression can be evaluated");
     match res {
         EvaluatedValue::String(s, StringKind::NoTr) => match s.parse::<Color>() {
             Ok(c) => Some(c.into()),
@@ -680,19 +647,10 @@ fn parse_color_value(
 fn parse_item_model(
     node: Node,
     code: &tir::CodeBody,
+    res: EvaluatedValue,
     diagnostics: &mut Diagnostics,
 ) -> Option<Vec<ModelItem>> {
     verify_code_return_type(node, code, &TypeKind::STRING_LIST, diagnostics)?;
-    let res = match evaluate_code(code) {
-        Some(v) => v,
-        None => {
-            diagnostics.push(Diagnostic::error(
-                node.byte_range(),
-                "unsupported dynamic binding",
-            ));
-            return None;
-        }
-    };
     match res {
         EvaluatedValue::StringList(xs) => {
             let items = xs
@@ -709,20 +667,11 @@ fn parse_item_model(
 fn parse_object_reference(
     node: Node,
     code: &tir::CodeBody,
+    res: EvaluatedValue,
     expected: &TypeKind,
     diagnostics: &mut Diagnostics,
 ) -> Option<SimpleValue> {
     verify_code_return_type(node, code, expected, diagnostics)?;
-    let res = match evaluate_code(code) {
-        Some(v) => v,
-        None => {
-            diagnostics.push(Diagnostic::error(
-                node.byte_range(),
-                "unsupported dynamic binding",
-            ));
-            return None;
-        }
-    };
     match res {
         EvaluatedValue::ObjectRef(name) => Some(SimpleValue::Cstring(name)),
         _ => panic!("evaluated value must be object ref"),
@@ -732,20 +681,11 @@ fn parse_object_reference(
 fn parse_object_reference_list(
     node: Node,
     code: &tir::CodeBody,
+    res: EvaluatedValue,
     expected: &TypeKind,
     diagnostics: &mut Diagnostics,
 ) -> Option<Vec<String>> {
     verify_code_return_type(node, code, expected, diagnostics)?;
-    let res = match evaluate_code(code) {
-        Some(v) => v,
-        None => {
-            diagnostics.push(Diagnostic::error(
-                node.byte_range(),
-                "unsupported dynamic binding",
-            ));
-            return None;
-        }
-    };
     match res {
         EvaluatedValue::ObjectRefList(names) => Some(names),
         EvaluatedValue::EmptyList => Some(vec![]),
