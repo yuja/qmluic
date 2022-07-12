@@ -53,6 +53,12 @@ impl<'a> CodeBuilder<'a> {
     fn push_statement(&mut self, stmt: Statement<'a>) {
         self.current_basic_block_mut().push_statement(stmt);
     }
+
+    fn emit_result(&mut self, ty: TypeKind<'a>, rv: Rvalue<'a>) -> Operand<'a> {
+        let a = self.alloca(ty);
+        self.push_statement(Statement::Assign(a.name, rv));
+        Operand::Local(a)
+    }
 }
 
 impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
@@ -86,9 +92,10 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
             for a in operands.iter().skip(1) {
                 elem_t = deduce_type("array", elem_t, a.type_desc())?;
             }
-            let a = self.alloca(to_concrete_list_type("array", elem_t)?);
-            self.push_statement(Statement::Assign(a.name, Rvalue::MakeList(operands)));
-            Ok(Operand::Local(a))
+            Ok(self.emit_result(
+                to_concrete_list_type("array", elem_t)?,
+                Rvalue::MakeList(operands),
+            ))
         } else {
             Ok(Operand::Constant(ConstantValue::EmptyList))
         }
@@ -106,12 +113,10 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         if !property.is_readable() {
             return Err(ExpressionError::UnreadableProperty);
         }
-        let a = self.alloca(property.value_type()?);
-        self.push_statement(Statement::Assign(
-            a.name,
+        Ok(self.emit_result(
+            property.value_type()?,
             Rvalue::ReadProperty(object, property),
-        ));
-        Ok(Operand::Local(a))
+        ))
     }
 
     fn visit_object_builtin_method_call(
@@ -155,12 +160,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
                 }
             }
         }?;
-        let a = self.alloca(ty);
-        self.push_statement(Statement::Assign(
-            a.name,
-            Rvalue::CallBuiltinMethod(object, function, arguments),
-        ));
-        Ok(Operand::Local(a))
+        Ok(self.emit_result(ty, Rvalue::CallBuiltinMethod(object, function, arguments)))
     }
 
     fn visit_builtin_call(
@@ -183,12 +183,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
                 }
             }
         }?;
-        let a = self.alloca(ty);
-        self.push_statement(Statement::Assign(
-            a.name,
-            Rvalue::CallBuiltinFunction(function, arguments),
-        ));
-        Ok(Operand::Local(a))
+        Ok(self.emit_result(ty, Rvalue::CallBuiltinFunction(function, arguments)))
     }
 
     fn visit_unary_expression(
@@ -317,12 +312,7 @@ impl<'a> CodeBuilder<'a> {
             &TypeKind::INT | &TypeKind::UINT | &TypeKind::DOUBLE => Ok(()),
             _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
         }?;
-        let a = self.alloca(ty);
-        self.push_statement(Statement::Assign(
-            a.name,
-            Rvalue::UnaryArithOp(op, argument),
-        ));
-        Ok(Operand::Local(a))
+        Ok(self.emit_result(ty, Rvalue::UnaryArithOp(op, argument)))
     }
 
     fn visit_unary_bitwise_expression(
@@ -341,12 +331,7 @@ impl<'a> CodeBuilder<'a> {
             &TypeKind::INT | &TypeKind::UINT | TypeKind::Just(NamedType::Enum(_)) => Ok(()),
             _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
         }?;
-        let a = self.alloca(ty);
-        self.push_statement(Statement::Assign(
-            a.name,
-            Rvalue::UnaryBitwiseOp(op, argument),
-        ));
-        Ok(Operand::Local(a))
+        Ok(self.emit_result(ty, Rvalue::UnaryBitwiseOp(op, argument)))
     }
 
     fn visit_unary_logical_expression(
@@ -364,12 +349,7 @@ impl<'a> CodeBuilder<'a> {
             TypeDesc::BOOL => Ok(()),
             _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
         }?;
-        let a = self.alloca(TypeKind::BOOL);
-        self.push_statement(Statement::Assign(
-            a.name,
-            Rvalue::UnaryLogicalOp(op, argument),
-        ));
-        Ok(Operand::Local(a))
+        Ok(self.emit_result(TypeKind::BOOL, Rvalue::UnaryLogicalOp(op, argument)))
     }
 
     fn visit_binary_arith_expression(
@@ -394,12 +374,7 @@ impl<'a> CodeBuilder<'a> {
             },
             _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
         }?;
-        let a = self.alloca(ty);
-        self.push_statement(Statement::Assign(
-            a.name,
-            Rvalue::BinaryArithOp(op, left, right),
-        ));
-        Ok(Operand::Local(a))
+        Ok(self.emit_result(ty, Rvalue::BinaryArithOp(op, left, right)))
     }
 
     fn visit_binary_bitwise_expression(
@@ -426,12 +401,7 @@ impl<'a> CodeBuilder<'a> {
             &TypeKind::INT | &TypeKind::UINT => Ok(()),
             _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
         }?;
-        let a = self.alloca(ty);
-        self.push_statement(Statement::Assign(
-            a.name,
-            Rvalue::BinaryBitwiseOp(op, left, right),
-        ));
-        Ok(Operand::Local(a))
+        Ok(self.emit_result(ty, Rvalue::BinaryBitwiseOp(op, left, right)))
     }
 
     fn visit_binary_logical_expression(
@@ -450,12 +420,7 @@ impl<'a> CodeBuilder<'a> {
             (TypeDesc::BOOL, TypeDesc::BOOL) => Ok(()),
             _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
         }?;
-        let a = self.alloca(TypeKind::BOOL);
-        self.push_statement(Statement::Assign(
-            a.name,
-            Rvalue::BinaryLogicalOp(op, left, right),
-        ));
-        Ok(Operand::Local(a))
+        Ok(self.emit_result(TypeKind::BOOL, Rvalue::BinaryLogicalOp(op, left, right)))
     }
 
     fn visit_comparison_expression(
@@ -479,12 +444,7 @@ impl<'a> CodeBuilder<'a> {
             | TypeKind::Just(NamedType::Enum(_)) => Ok(()),
             _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
         }?;
-        let a = self.alloca(TypeKind::BOOL);
-        self.push_statement(Statement::Assign(
-            a.name,
-            Rvalue::ComparisonOp(op, left, right),
-        ));
-        Ok(Operand::Local(a))
+        Ok(self.emit_result(TypeKind::BOOL, Rvalue::ComparisonOp(op, left, right)))
     }
 }
 
