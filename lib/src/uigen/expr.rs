@@ -43,7 +43,7 @@ impl<'a, 't> PropertyValue<'a, 't> {
                     // constant expression can be mapped to .ui value type
                     match ty {
                         TypeKind::Just(t) => {
-                            parse_as_value_type(ctx, t, *n, &code, res, diagnostics)
+                            parse_as_value_type(ctx, ty, t, *n, &code, res, diagnostics)
                                 .map(PropertyValue::Serializable)
                         }
                         TypeKind::Pointer(NamedType::Class(cls))
@@ -301,13 +301,14 @@ where
 
 fn parse_as_value_type(
     ctx: &ObjectContext,
-    ty: &NamedType,
+    expected_ty: &TypeKind,
+    expected_just_ty: &NamedType,
     node: Node,
     code: &tir::CodeBody,
     res: EvaluatedValue,
     diagnostics: &mut Diagnostics,
 ) -> Option<Value> {
-    match ty {
+    match expected_just_ty {
         NamedType::Class(cls) if cls == &ctx.classes.brush => {
             let color = parse_color_value(node, code, res, diagnostics).map(Value::Gadget)?;
             let style = SimpleValue::Enum("Qt::SolidPattern".to_owned());
@@ -346,9 +347,7 @@ fn parse_as_value_type(
                         Some(Value::Simple(SimpleValue::Enum(expr)))
                     }
                 }
-                (_, Ok(())) => {
-                    evaluate_as_primitive(PrimitiveType::QString, node, code, res, diagnostics)
-                }
+                (_, Ok(())) => Some(Value::Simple(res.unwrap_into_simple_value())),
                 (
                     Err(tir::TypeError::IncompatibleTypes(expected1, actual)),
                     Err(tir::TypeError::IncompatibleTypes(expected2, _)),
@@ -384,7 +383,7 @@ fn parse_as_value_type(
             }
         }
         NamedType::Enum(en) => {
-            verify_code_return_type(node, code, &TypeKind::Just(ty.clone()), diagnostics)?;
+            verify_code_return_type(node, code, expected_ty, diagnostics)?;
             let expr = res.unwrap_enum_set().join("|");
             if en.is_flag() {
                 Some(Value::Simple(SimpleValue::Set(expr)))
@@ -392,13 +391,33 @@ fn parse_as_value_type(
                 Some(Value::Simple(SimpleValue::Enum(expr)))
             }
         }
-        NamedType::Primitive(p) => evaluate_as_primitive(*p, node, code, res, diagnostics),
+        NamedType::Primitive(
+            PrimitiveType::Bool
+            | PrimitiveType::Int
+            | PrimitiveType::Uint
+            | PrimitiveType::Double
+            | PrimitiveType::QString,
+        ) => {
+            verify_code_return_type(node, code, expected_ty, diagnostics)?;
+            Some(Value::Simple(res.unwrap_into_simple_value()))
+        }
+        NamedType::Primitive(PrimitiveType::QStringList) => {
+            verify_code_return_type(node, code, expected_ty, diagnostics)?;
+            extract_string_list(node, res, diagnostics)
+        }
+        NamedType::Primitive(PrimitiveType::Void) => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                "invalid expression type: void",
+            ));
+            None
+        }
         NamedType::Class(_) | NamedType::QmlComponent(_) => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
                 format!(
                     "unsupported constant value expression: class '{}'",
-                    ty.qualified_cxx_name(),
+                    expected_ty.qualified_cxx_name(),
                 ),
             ));
             None
@@ -408,65 +427,11 @@ fn parse_as_value_type(
                 node.byte_range(),
                 format!(
                     "unsupported constant value expression: namespace '{}'",
-                    ty.qualified_cxx_name(),
+                    expected_ty.qualified_cxx_name(),
                 ),
             ));
             None
         }
-    }
-}
-
-fn evaluate_as_primitive(
-    p: PrimitiveType,
-    node: Node,
-    code: &tir::CodeBody,
-    res: EvaluatedValue,
-    diagnostics: &mut Diagnostics,
-) -> Option<Value> {
-    verify_code_return_type(
-        node,
-        code,
-        &TypeKind::Just(NamedType::Primitive(p)),
-        diagnostics,
-    )?;
-    match (p, res) {
-        (PrimitiveType::Bool, EvaluatedValue::Bool(v)) => Some(Value::Simple(SimpleValue::Bool(v))),
-        (PrimitiveType::Int | PrimitiveType::Uint, EvaluatedValue::Integer(v)) => {
-            Some(Value::Simple(SimpleValue::Number(v as f64))) // TODO: handle overflow
-        }
-        (PrimitiveType::Double, EvaluatedValue::Float(v)) => {
-            Some(Value::Simple(SimpleValue::Number(v)))
-        }
-        (PrimitiveType::QString, EvaluatedValue::String(s, k)) => {
-            Some(Value::Simple(SimpleValue::String(s, k)))
-        }
-        (PrimitiveType::QStringList, EvaluatedValue::StringList(xs)) => {
-            // unfortunately, notr attribute is list level
-            let kind = xs.first().map(|(_, k)| *k).unwrap_or(StringKind::NoTr);
-            if xs.iter().all(|(_, k)| *k == kind) {
-                let ss = xs.into_iter().map(|(s, _)| s).collect();
-                Some(Value::StringList(ss, kind))
-            } else {
-                diagnostics.push(Diagnostic::error(
-                    node.byte_range(),
-                    "cannot mix bare and translatable strings",
-                ));
-                None
-            }
-        }
-        (PrimitiveType::QStringList, EvaluatedValue::EmptyList) => {
-            Some(Value::StringList(vec![], StringKind::NoTr))
-        }
-        (
-            PrimitiveType::Bool
-            | PrimitiveType::Double
-            | PrimitiveType::Int
-            | PrimitiveType::QString
-            | PrimitiveType::QStringList
-            | PrimitiveType::Uint
-            | PrimitiveType::Void,
-            _,
-        ) => panic!("evaluated type must be of {p:?} type"),
     }
 }
 
@@ -484,6 +449,17 @@ enum EvaluatedValue {
 }
 
 impl EvaluatedValue {
+    fn unwrap_into_simple_value(self) -> SimpleValue {
+        match self {
+            EvaluatedValue::Bool(v) => SimpleValue::Bool(v),
+            EvaluatedValue::Integer(v) => SimpleValue::Number(v as f64),
+            EvaluatedValue::Float(v) => SimpleValue::Number(v),
+            EvaluatedValue::String(s, k) => SimpleValue::String(s, k),
+            // enum can't be mapped to SimpleValue without type information
+            _ => panic!("evaluated type must be simple value"),
+        }
+    }
+
     fn unwrap_string_list(self) -> Vec<(String, StringKind)> {
         match self {
             EvaluatedValue::StringList(xs) => xs,
@@ -691,6 +667,26 @@ fn parse_color_value(
             None
         }
         _ => panic!("evaluated value must be string"),
+    }
+}
+
+fn extract_string_list(
+    node: Node,
+    res: EvaluatedValue,
+    diagnostics: &mut Diagnostics,
+) -> Option<Value> {
+    let xs = res.unwrap_string_list();
+    // unfortunately, notr attribute is list level
+    let kind = xs.first().map(|(_, k)| *k).unwrap_or(StringKind::NoTr);
+    if xs.iter().all(|(_, k)| *k == kind) {
+        let ss = xs.into_iter().map(|(s, _)| s).collect();
+        Some(Value::StringList(ss, kind))
+    } else {
+        diagnostics.push(Diagnostic::error(
+            node.byte_range(),
+            "cannot mix bare and translatable strings",
+        ));
+        None
     }
 }
 
