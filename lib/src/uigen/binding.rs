@@ -428,7 +428,7 @@ impl CxxCodeBodyTranslator {
     fn format_operand(&self, a: &tir::Operand) -> String {
         use tir::{ConstantValue, Operand};
         match a {
-            Operand::Constant(x) => match x {
+            Operand::Constant(x) => match &x.value {
                 ConstantValue::Bool(v) => {
                     if *v {
                         "true".to_owned()

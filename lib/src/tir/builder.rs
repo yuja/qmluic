@@ -1,8 +1,8 @@
 use super::ceval;
 use super::core::{
     BasicBlock, BasicBlockRef, BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, BinaryOp, CodeBody,
-    ComparisonOp, ConstantValue, EnumVariant, Local, NamedObject, Operand, Rvalue, ShiftOp,
-    Statement, Terminator, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp, UnaryOp,
+    ComparisonOp, Constant, ConstantValue, EnumVariant, Local, NamedObject, Operand, Rvalue,
+    ShiftOp, Statement, Terminator, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp, UnaryOp,
 };
 use super::typeutil::{self, TypeError};
 use crate::diagnostic::Diagnostics;
@@ -67,19 +67,23 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
     type Error = ExpressionError;
 
     fn visit_integer(&mut self, value: u64) -> Result<Self::Item, Self::Error> {
-        Ok(Operand::Constant(ConstantValue::Integer(value.try_into()?)))
+        let v = ConstantValue::Integer(value.try_into()?);
+        Ok(Operand::Constant(Constant::new(v)))
     }
 
     fn visit_float(&mut self, value: f64) -> Result<Self::Item, Self::Error> {
-        Ok(Operand::Constant(ConstantValue::Float(value)))
+        let v = ConstantValue::Float(value);
+        Ok(Operand::Constant(Constant::new(v)))
     }
 
     fn visit_string(&mut self, value: String) -> Result<Self::Item, Self::Error> {
-        Ok(Operand::Constant(ConstantValue::CString(value)))
+        let v = ConstantValue::CString(value);
+        Ok(Operand::Constant(Constant::new(v)))
     }
 
     fn visit_bool(&mut self, value: bool) -> Result<Self::Item, Self::Error> {
-        Ok(Operand::Constant(ConstantValue::Bool(value)))
+        let v = ConstantValue::Bool(value);
+        Ok(Operand::Constant(Constant::new(v)))
     }
 
     fn visit_enum(&mut self, enum_ty: Enum<'a>, variant: &str) -> Result<Self::Item, Self::Error> {
@@ -97,7 +101,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
                 Rvalue::MakeList(operands),
             ))
         } else {
-            Ok(Operand::Constant(ConstantValue::EmptyList))
+            Ok(Operand::Constant(Constant::new(ConstantValue::EmptyList)))
         }
     }
 
@@ -194,11 +198,11 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         let unary = UnaryOp::try_from(operator)?;
         match argument {
             Operand::Constant(a) => match unary {
-                UnaryOp::Arith(op) => ceval::eval_unary_arith_expression(op, a),
-                UnaryOp::Bitwise(op) => ceval::eval_unary_bitwise_expression(op, a),
-                UnaryOp::Logical(op) => ceval::eval_unary_logical_expression(op, a),
+                UnaryOp::Arith(op) => ceval::eval_unary_arith_expression(op, a.value),
+                UnaryOp::Bitwise(op) => ceval::eval_unary_bitwise_expression(op, a.value),
+                UnaryOp::Logical(op) => ceval::eval_unary_logical_expression(op, a.value),
             }
-            .map(Operand::Constant),
+            .map(|v| Operand::Constant(Constant::new(v))),
             argument => self.emit_unary_expression(unary, argument),
         }
     }
@@ -212,13 +216,17 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         let binary = BinaryOp::try_from(operator)?;
         match (left, right) {
             (Operand::Constant(l), Operand::Constant(r)) => match binary {
-                BinaryOp::Arith(op) => ceval::eval_binary_arith_expression(op, l, r),
-                BinaryOp::Bitwise(op) => ceval::eval_binary_bitwise_expression(op, l, r),
-                BinaryOp::Shift(op) => ceval::eval_shift_expression(op, l, r),
-                BinaryOp::Logical(op) => ceval::eval_binary_logical_expression(op, l, r),
-                BinaryOp::Comparison(op) => ceval::eval_comparison_expression(op, l, r),
+                BinaryOp::Arith(op) => ceval::eval_binary_arith_expression(op, l.value, r.value),
+                BinaryOp::Bitwise(op) => {
+                    ceval::eval_binary_bitwise_expression(op, l.value, r.value)
+                }
+                BinaryOp::Shift(op) => ceval::eval_shift_expression(op, l.value, r.value),
+                BinaryOp::Logical(op) => {
+                    ceval::eval_binary_logical_expression(op, l.value, r.value)
+                }
+                BinaryOp::Comparison(op) => ceval::eval_comparison_expression(op, l.value, r.value),
             }
-            .map(Operand::Constant),
+            .map(|v| Operand::Constant(Constant::new(v))),
             (left, right) => self.emit_binary_expression(binary, left, right),
         }
     }
@@ -476,9 +484,11 @@ fn deduce_type<'a>(
 
 fn ensure_concrete_string(x: Operand) -> Operand {
     match x {
-        Operand::Constant(ConstantValue::CString(s)) => {
-            Operand::Constant(ConstantValue::QString(s))
-        }
+        Operand::Constant(Constant {
+            value: ConstantValue::CString(s),
+        }) => Operand::Constant(Constant {
+            value: ConstantValue::QString(s),
+        }),
         x => x,
     }
 }
