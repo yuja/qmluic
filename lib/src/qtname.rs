@@ -80,6 +80,18 @@ impl UniqueNameGenerator {
         UniqueNameGenerator::default()
     }
 
+    /// Generates unique name starting with the given `prefix`.
+    pub fn generate<S>(&mut self, prefix: S) -> String
+    where
+        S: AsRef<str>,
+    {
+        let prefix = prefix.as_ref();
+        let count = self.used_prefixes.entry(prefix.to_owned()).or_insert(0);
+        let id = concat_number_suffix(prefix, *count);
+        *count += 1;
+        id
+    }
+
     /// Generates unique name starting with the given `prefix`, and not listed in
     /// the reserved map.
     pub fn generate_with_reserved_map<S, V>(
