@@ -269,3 +269,24 @@ fn test_qstring_arg() {
     let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
     insta::assert_snapshot!(ui_support_h);
 }
+
+#[test]
+fn test_unique_binding_method_name() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QWidget {
+            id: main
+            windowTitle: edit1.text  // "main" + "WindowTitle"
+            QGroupBox {
+                id: mainWindow
+                title: edit2.text  // "mainWindow" + "Title"
+            }
+            QLineEdit { id: edit1 }
+            QLineEdit { id: edit2 }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
