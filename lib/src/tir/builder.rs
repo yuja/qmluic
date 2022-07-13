@@ -2,7 +2,7 @@ use super::ceval;
 use super::core::{
     BasicBlock, BasicBlockRef, BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, CodeBody,
     ComparisonOp, ConstantValue, EnumVariant, Local, NamedObject, Operand, Rvalue, Statement,
-    Terminator, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp,
+    Terminator, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp, UnaryOp,
 };
 use super::typeutil::{self, TypeError};
 use crate::diagnostic::Diagnostics;
@@ -191,15 +191,15 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         operator: UnaryOperator,
         argument: Self::Item,
     ) -> Result<Self::Item, Self::Error> {
-        use UnaryOperator::*;
-        match operator {
-            LogicalNot => self.visit_unary_logical_expression(UnaryLogicalOp::Not, argument),
-            BitwiseNot => self.visit_unary_bitwise_expression(UnaryBitwiseOp::Not, argument),
-            Minus => self.visit_unary_arith_expression(UnaryArithOp::Minus, argument),
-            Plus => self.visit_unary_arith_expression(UnaryArithOp::Plus, argument),
-            Typeof | Void | Delete => {
-                Err(ExpressionError::UnsupportedOperation(operator.to_string()))
+        let unary = UnaryOp::try_from(operator)?;
+        match argument {
+            Operand::Constant(a) => match unary {
+                UnaryOp::Arith(op) => ceval::eval_unary_arith_expression(op, a),
+                UnaryOp::Bitwise(op) => ceval::eval_unary_bitwise_expression(op, a),
+                UnaryOp::Logical(op) => ceval::eval_unary_logical_expression(op, a),
             }
+            .map(Operand::Constant),
+            argument => self.emit_unary_expression(unary, argument),
         }
     }
 
@@ -296,60 +296,38 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
 }
 
 impl<'a> CodeBuilder<'a> {
-    fn visit_unary_arith_expression(
+    fn emit_unary_expression(
         &mut self,
-        op: UnaryArithOp,
+        unary: UnaryOp,
         argument: Operand<'a>,
     ) -> Result<Operand<'a>, ExpressionError> {
-        let argument = match argument {
-            Operand::Constant(a) => {
-                return ceval::eval_unary_arith_expression(op, a).map(Operand::Constant);
+        let unsupported = || ExpressionError::UnsupportedOperation(unary.to_string());
+        let argument = ensure_concrete_string(argument);
+        match unary {
+            UnaryOp::Arith(op) => {
+                let ty = to_concrete_type(op, argument.type_desc())?;
+                match &ty {
+                    &TypeKind::INT | &TypeKind::UINT | &TypeKind::DOUBLE => Ok(()),
+                    _ => Err(unsupported()),
+                }?;
+                Ok(self.emit_result(ty, Rvalue::UnaryArithOp(op, argument)))
             }
-            argument => ensure_concrete_string(argument),
-        };
-        let ty = to_concrete_type(op, argument.type_desc())?;
-        match &ty {
-            &TypeKind::INT | &TypeKind::UINT | &TypeKind::DOUBLE => Ok(()),
-            _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
-        }?;
-        Ok(self.emit_result(ty, Rvalue::UnaryArithOp(op, argument)))
-    }
-
-    fn visit_unary_bitwise_expression(
-        &mut self,
-        op: UnaryBitwiseOp,
-        argument: Operand<'a>,
-    ) -> Result<Operand<'a>, ExpressionError> {
-        let argument = match argument {
-            Operand::Constant(a) => {
-                return ceval::eval_unary_bitwise_expression(op, a).map(Operand::Constant);
+            UnaryOp::Bitwise(op) => {
+                let ty = to_concrete_type(op, argument.type_desc())?;
+                match &ty {
+                    &TypeKind::INT | &TypeKind::UINT | TypeKind::Just(NamedType::Enum(_)) => Ok(()),
+                    _ => Err(unsupported()),
+                }?;
+                Ok(self.emit_result(ty, Rvalue::UnaryBitwiseOp(op, argument)))
             }
-            argument => ensure_concrete_string(argument),
-        };
-        let ty = to_concrete_type(op, argument.type_desc())?;
-        match &ty {
-            &TypeKind::INT | &TypeKind::UINT | TypeKind::Just(NamedType::Enum(_)) => Ok(()),
-            _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
-        }?;
-        Ok(self.emit_result(ty, Rvalue::UnaryBitwiseOp(op, argument)))
-    }
-
-    fn visit_unary_logical_expression(
-        &mut self,
-        op: UnaryLogicalOp,
-        argument: Operand<'a>,
-    ) -> Result<Operand<'a>, ExpressionError> {
-        let argument = match argument {
-            Operand::Constant(a) => {
-                return ceval::eval_unary_logical_expression(op, a).map(Operand::Constant);
+            UnaryOp::Logical(op) => {
+                match argument.type_desc() {
+                    TypeDesc::BOOL => Ok(()),
+                    _ => Err(unsupported()),
+                }?;
+                Ok(self.emit_result(TypeKind::BOOL, Rvalue::UnaryLogicalOp(op, argument)))
             }
-            argument => ensure_concrete_string(argument),
-        };
-        match argument.type_desc() {
-            TypeDesc::BOOL => Ok(()),
-            _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
-        }?;
-        Ok(self.emit_result(TypeKind::BOOL, Rvalue::UnaryLogicalOp(op, argument)))
+        }
     }
 
     fn visit_binary_arith_expression(
@@ -445,6 +423,23 @@ impl<'a> CodeBuilder<'a> {
             _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
         }?;
         Ok(self.emit_result(TypeKind::BOOL, Rvalue::ComparisonOp(op, left, right)))
+    }
+}
+
+impl TryFrom<UnaryOperator> for UnaryOp {
+    type Error = ExpressionError;
+
+    fn try_from(operator: UnaryOperator) -> Result<Self, Self::Error> {
+        use UnaryOperator::*;
+        match operator {
+            LogicalNot => Ok(UnaryOp::Logical(UnaryLogicalOp::Not)),
+            BitwiseNot => Ok(UnaryOp::Bitwise(UnaryBitwiseOp::Not)),
+            Minus => Ok(UnaryOp::Arith(UnaryArithOp::Minus)),
+            Plus => Ok(UnaryOp::Arith(UnaryArithOp::Plus)),
+            Typeof | Void | Delete => {
+                Err(ExpressionError::UnsupportedOperation(operator.to_string()))
+            }
+        }
     }
 }
 
