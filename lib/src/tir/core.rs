@@ -210,12 +210,8 @@ pub struct NamedObjectRef(pub String);
 #[derive(Clone, Debug, PartialEq)]
 pub enum Rvalue<'a> {
     Copy(Operand<'a>),
-    /// `<op> <arg>:<ty> -> <ty>`
-    UnaryArithOp(UnaryArithOp, Operand<'a>),
-    /// `<op> <arg>:<ty> -> <ty>`
-    UnaryBitwiseOp(UnaryBitwiseOp, Operand<'a>),
-    /// `<op> <arg>:<ty> -> bool`
-    UnaryLogicalOp(UnaryLogicalOp, Operand<'a>),
+    /// `<op> <arg>`
+    UnaryOp(UnaryOp, Operand<'a>),
     /// `<left>:<ty> <op> <right>:<ty> -> <ty>`
     BinaryArithOp(BinaryArithOp, Operand<'a>, Operand<'a>),
     /// `<left>:<ty> <op> <right>:<ty> -> <ty>`
@@ -234,8 +230,9 @@ pub enum Rvalue<'a> {
     MakeList(Vec<Operand<'a>>),
 }
 
+/// Unary operator.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub(super) enum UnaryOp {
+pub enum UnaryOp {
     Arith(UnaryArithOp),
     Bitwise(UnaryBitwiseOp),
     Logical(UnaryLogicalOp),

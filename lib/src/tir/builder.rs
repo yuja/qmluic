@@ -277,30 +277,26 @@ impl<'a> CodeBuilder<'a> {
         let unsupported = || ExpressionError::UnsupportedOperation(unary.to_string());
         let argument = ensure_concrete_string(argument);
         match unary {
-            UnaryOp::Arith(op) => {
-                let ty = to_concrete_type(op, argument.type_desc())?;
+            UnaryOp::Arith(_) => {
+                let ty = to_concrete_type(unary, argument.type_desc())?;
                 match &ty {
-                    &TypeKind::INT | &TypeKind::UINT | &TypeKind::DOUBLE => Ok(()),
+                    &TypeKind::INT | &TypeKind::UINT | &TypeKind::DOUBLE => Ok(ty),
                     _ => Err(unsupported()),
-                }?;
-                Ok(self.emit_result(ty, Rvalue::UnaryArithOp(op, argument)))
+                }
             }
-            UnaryOp::Bitwise(op) => {
-                let ty = to_concrete_type(op, argument.type_desc())?;
+            UnaryOp::Bitwise(_) => {
+                let ty = to_concrete_type(unary, argument.type_desc())?;
                 match &ty {
-                    &TypeKind::INT | &TypeKind::UINT | TypeKind::Just(NamedType::Enum(_)) => Ok(()),
+                    &TypeKind::INT | &TypeKind::UINT | TypeKind::Just(NamedType::Enum(_)) => Ok(ty),
                     _ => Err(unsupported()),
-                }?;
-                Ok(self.emit_result(ty, Rvalue::UnaryBitwiseOp(op, argument)))
+                }
             }
-            UnaryOp::Logical(op) => {
-                match argument.type_desc() {
-                    TypeDesc::BOOL => Ok(()),
-                    _ => Err(unsupported()),
-                }?;
-                Ok(self.emit_result(TypeKind::BOOL, Rvalue::UnaryLogicalOp(op, argument)))
-            }
+            UnaryOp::Logical(_) => match argument.type_desc() {
+                TypeDesc::BOOL => Ok(TypeKind::BOOL),
+                _ => Err(unsupported()),
+            },
         }
+        .map(|ty| self.emit_result(ty, Rvalue::UnaryOp(unary, argument)))
     }
 
     fn emit_binary_expression(
@@ -362,10 +358,8 @@ impl<'a> CodeBuilder<'a> {
     }
 }
 
-impl TryFrom<UnaryOperator> for UnaryOp {
-    type Error = ExpressionError;
-
-    fn try_from(operator: UnaryOperator) -> Result<Self, Self::Error> {
+impl UnaryOp {
+    fn try_from(operator: UnaryOperator) -> Result<Self, ExpressionError> {
         use UnaryOperator::*;
         match operator {
             LogicalNot => Ok(UnaryOp::Logical(UnaryLogicalOp::Not)),
@@ -778,7 +772,7 @@ mod tests {
             %2: int
         .0:
             %0 = read_property [foo]: Foo*, "currentIndex"
-            %1 = unary_arith_op '-', %0: int
+            %1 = unary_op '-', %0: int
             %2 = binary_arith_op '+', %1: int, 1: integer
             return %2: int
         "###);
@@ -814,7 +808,7 @@ mod tests {
         .0:
             %0 = binary_bitwise_op '^', 'Foo::Bar0': Foo::Bar, 'Foo::Bar1': Foo::Bar
             %1 = binary_bitwise_op '|', %0: Foo::Bar, 'Foo::Bar2': Foo::Bar
-            %2 = unary_bitwise_op '~', 'Foo::Bar3': Foo::Bar
+            %2 = unary_op '~', 'Foo::Bar3': Foo::Bar
             %3 = binary_bitwise_op '&', %1: Foo::Bar, %2: Foo::Bar
             return %3: Foo::Bar
         "###);
@@ -829,7 +823,7 @@ mod tests {
             %3: int
         .0:
             %0 = read_property [foo]: Foo*, "currentIndex"
-            %1 = unary_bitwise_op '~', %0: int
+            %1 = unary_op '~', %0: int
             %2 = read_property [foo2]: Foo*, "currentIndex"
             %3 = binary_bitwise_op '&', %1: int, %2: int
             return %3: int
@@ -855,7 +849,7 @@ mod tests {
             %5: bool
         .0:
             %0 = read_property [foo]: Foo*, "checked"
-            %1 = unary_logical_op '!', %0: bool
+            %1 = unary_op '!', %0: bool
             %2 = read_property [foo2]: Foo*, "checked"
             %3 = binary_logical_op '&&', %1: bool, %2: bool
             %4 = read_property [foo3]: Foo*, "checked"
