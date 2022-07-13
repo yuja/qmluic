@@ -1,0 +1,992 @@
+---
+source: tests/test_uigen_examples.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_bindingloop.h"
+
+namespace UiSupport {
+class BindingLoop
+{
+public:
+    BindingLoop(QWidget *root, Ui::BindingLoop *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+        this->setupCheck0Checked();
+        this->setupCheck1Checked();
+        this->setupCheck2Checked();
+        this->setupCheck3Checked();
+        this->setupCheck4Checked();
+        this->setupCheck5Checked();
+        this->setupCheck6Checked();
+        this->setupCheck7Checked();
+        this->setupCheck8Checked();
+        this->setupCheck9Checked();
+        this->setupCheck10Checked();
+        this->setupCheck11Checked();
+        this->setupCheck12Checked();
+        this->setupCheck13Checked();
+        this->setupCheck14Checked();
+        this->setupCheck15Checked();
+        this->setupCheck16Checked();
+        this->setupCheck17Checked();
+        this->setupCheck18Checked();
+        this->setupCheck19Checked();
+        this->setupCheck20Checked();
+        this->setupCheck21Checked();
+        this->setupCheck22Checked();
+        this->setupCheck23Checked();
+        this->setupCheck24Checked();
+        this->setupCheck25Checked();
+        this->setupCheck26Checked();
+        this->setupCheck27Checked();
+        this->setupCheck28Checked();
+        this->setupCheck29Checked();
+        this->setupCheck30Checked();
+        this->setupCheck31Checked();
+        this->setupCheck32Checked();
+        this->updateCheck0Checked();
+        this->updateCheck1Checked();
+        this->updateCheck2Checked();
+        this->updateCheck3Checked();
+        this->updateCheck4Checked();
+        this->updateCheck5Checked();
+        this->updateCheck6Checked();
+        this->updateCheck7Checked();
+        this->updateCheck8Checked();
+        this->updateCheck9Checked();
+        this->updateCheck10Checked();
+        this->updateCheck11Checked();
+        this->updateCheck12Checked();
+        this->updateCheck13Checked();
+        this->updateCheck14Checked();
+        this->updateCheck15Checked();
+        this->updateCheck16Checked();
+        this->updateCheck17Checked();
+        this->updateCheck18Checked();
+        this->updateCheck19Checked();
+        this->updateCheck20Checked();
+        this->updateCheck21Checked();
+        this->updateCheck22Checked();
+        this->updateCheck23Checked();
+        this->updateCheck24Checked();
+        this->updateCheck25Checked();
+        this->updateCheck26Checked();
+        this->updateCheck27Checked();
+        this->updateCheck28Checked();
+        this->updateCheck29Checked();
+        this->updateCheck30Checked();
+        this->updateCheck31Checked();
+        this->updateCheck32Checked();
+    }
+
+private:
+    enum class BindingIndex : unsigned {
+        Check0Checked,
+        Check1Checked,
+        Check2Checked,
+        Check3Checked,
+        Check4Checked,
+        Check5Checked,
+        Check6Checked,
+        Check7Checked,
+        Check8Checked,
+        Check9Checked,
+        Check10Checked,
+        Check11Checked,
+        Check12Checked,
+        Check13Checked,
+        Check14Checked,
+        Check15Checked,
+        Check16Checked,
+        Check17Checked,
+        Check18Checked,
+        Check19Checked,
+        Check20Checked,
+        Check21Checked,
+        Check22Checked,
+        Check23Checked,
+        Check24Checked,
+        Check25Checked,
+        Check26Checked,
+        Check27Checked,
+        Check28Checked,
+        Check29Checked,
+        Check30Checked,
+        Check31Checked,
+        Check32Checked,
+    };
+
+    void setupCheck0Checked()
+    {
+        QObject::connect(this->ui_->check32, &QAbstractButton::toggled, root_, [this]() { this->updateCheck0Checked(); });
+    }
+
+    void updateCheck0Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check0Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check0->setChecked(this->evalCheck0Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck0Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check32->isChecked();
+        return a0;
+    }
+
+    void setupCheck1Checked()
+    {
+        QObject::connect(this->ui_->check0, &QAbstractButton::toggled, root_, [this]() { this->updateCheck1Checked(); });
+    }
+
+    void updateCheck1Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check1Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check1->setChecked(this->evalCheck1Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck1Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check0->isChecked();
+        return a0;
+    }
+
+    void setupCheck2Checked()
+    {
+        QObject::connect(this->ui_->check1, &QAbstractButton::toggled, root_, [this]() { this->updateCheck2Checked(); });
+    }
+
+    void updateCheck2Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check2Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check2->setChecked(this->evalCheck2Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck2Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check1->isChecked();
+        return a0;
+    }
+
+    void setupCheck3Checked()
+    {
+        QObject::connect(this->ui_->check2, &QAbstractButton::toggled, root_, [this]() { this->updateCheck3Checked(); });
+    }
+
+    void updateCheck3Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check3Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check3->setChecked(this->evalCheck3Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck3Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check2->isChecked();
+        return a0;
+    }
+
+    void setupCheck4Checked()
+    {
+        QObject::connect(this->ui_->check3, &QAbstractButton::toggled, root_, [this]() { this->updateCheck4Checked(); });
+    }
+
+    void updateCheck4Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check4Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check4->setChecked(this->evalCheck4Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck4Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check3->isChecked();
+        return a0;
+    }
+
+    void setupCheck5Checked()
+    {
+        QObject::connect(this->ui_->check4, &QAbstractButton::toggled, root_, [this]() { this->updateCheck5Checked(); });
+    }
+
+    void updateCheck5Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check5Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check5->setChecked(this->evalCheck5Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck5Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check4->isChecked();
+        return a0;
+    }
+
+    void setupCheck6Checked()
+    {
+        QObject::connect(this->ui_->check5, &QAbstractButton::toggled, root_, [this]() { this->updateCheck6Checked(); });
+    }
+
+    void updateCheck6Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check6Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check6->setChecked(this->evalCheck6Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck6Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check5->isChecked();
+        return a0;
+    }
+
+    void setupCheck7Checked()
+    {
+        QObject::connect(this->ui_->check6, &QAbstractButton::toggled, root_, [this]() { this->updateCheck7Checked(); });
+    }
+
+    void updateCheck7Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check7Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check7->setChecked(this->evalCheck7Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck7Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check6->isChecked();
+        return a0;
+    }
+
+    void setupCheck8Checked()
+    {
+        QObject::connect(this->ui_->check7, &QAbstractButton::toggled, root_, [this]() { this->updateCheck8Checked(); });
+    }
+
+    void updateCheck8Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check8Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check8->setChecked(this->evalCheck8Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck8Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check7->isChecked();
+        return a0;
+    }
+
+    void setupCheck9Checked()
+    {
+        QObject::connect(this->ui_->check8, &QAbstractButton::toggled, root_, [this]() { this->updateCheck9Checked(); });
+    }
+
+    void updateCheck9Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check9Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check9->setChecked(this->evalCheck9Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck9Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check8->isChecked();
+        return a0;
+    }
+
+    void setupCheck10Checked()
+    {
+        QObject::connect(this->ui_->check9, &QAbstractButton::toggled, root_, [this]() { this->updateCheck10Checked(); });
+    }
+
+    void updateCheck10Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check10Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check10->setChecked(this->evalCheck10Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck10Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check9->isChecked();
+        return a0;
+    }
+
+    void setupCheck11Checked()
+    {
+        QObject::connect(this->ui_->check10, &QAbstractButton::toggled, root_, [this]() { this->updateCheck11Checked(); });
+    }
+
+    void updateCheck11Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check11Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check11->setChecked(this->evalCheck11Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck11Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check10->isChecked();
+        return a0;
+    }
+
+    void setupCheck12Checked()
+    {
+        QObject::connect(this->ui_->check11, &QAbstractButton::toggled, root_, [this]() { this->updateCheck12Checked(); });
+    }
+
+    void updateCheck12Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check12Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check12->setChecked(this->evalCheck12Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck12Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check11->isChecked();
+        return a0;
+    }
+
+    void setupCheck13Checked()
+    {
+        QObject::connect(this->ui_->check12, &QAbstractButton::toggled, root_, [this]() { this->updateCheck13Checked(); });
+    }
+
+    void updateCheck13Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check13Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check13->setChecked(this->evalCheck13Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck13Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check12->isChecked();
+        return a0;
+    }
+
+    void setupCheck14Checked()
+    {
+        QObject::connect(this->ui_->check13, &QAbstractButton::toggled, root_, [this]() { this->updateCheck14Checked(); });
+    }
+
+    void updateCheck14Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check14Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check14->setChecked(this->evalCheck14Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck14Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check13->isChecked();
+        return a0;
+    }
+
+    void setupCheck15Checked()
+    {
+        QObject::connect(this->ui_->check14, &QAbstractButton::toggled, root_, [this]() { this->updateCheck15Checked(); });
+    }
+
+    void updateCheck15Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check15Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check15->setChecked(this->evalCheck15Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck15Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check14->isChecked();
+        return a0;
+    }
+
+    void setupCheck16Checked()
+    {
+        QObject::connect(this->ui_->check15, &QAbstractButton::toggled, root_, [this]() { this->updateCheck16Checked(); });
+    }
+
+    void updateCheck16Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check16Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check16->setChecked(this->evalCheck16Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck16Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check15->isChecked();
+        return a0;
+    }
+
+    void setupCheck17Checked()
+    {
+        QObject::connect(this->ui_->check16, &QAbstractButton::toggled, root_, [this]() { this->updateCheck17Checked(); });
+    }
+
+    void updateCheck17Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check17Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check17->setChecked(this->evalCheck17Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck17Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check16->isChecked();
+        return a0;
+    }
+
+    void setupCheck18Checked()
+    {
+        QObject::connect(this->ui_->check17, &QAbstractButton::toggled, root_, [this]() { this->updateCheck18Checked(); });
+    }
+
+    void updateCheck18Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check18Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check18->setChecked(this->evalCheck18Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck18Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check17->isChecked();
+        return a0;
+    }
+
+    void setupCheck19Checked()
+    {
+        QObject::connect(this->ui_->check18, &QAbstractButton::toggled, root_, [this]() { this->updateCheck19Checked(); });
+    }
+
+    void updateCheck19Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check19Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check19->setChecked(this->evalCheck19Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck19Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check18->isChecked();
+        return a0;
+    }
+
+    void setupCheck20Checked()
+    {
+        QObject::connect(this->ui_->check19, &QAbstractButton::toggled, root_, [this]() { this->updateCheck20Checked(); });
+    }
+
+    void updateCheck20Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check20Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check20->setChecked(this->evalCheck20Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck20Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check19->isChecked();
+        return a0;
+    }
+
+    void setupCheck21Checked()
+    {
+        QObject::connect(this->ui_->check20, &QAbstractButton::toggled, root_, [this]() { this->updateCheck21Checked(); });
+    }
+
+    void updateCheck21Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check21Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check21->setChecked(this->evalCheck21Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck21Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check20->isChecked();
+        return a0;
+    }
+
+    void setupCheck22Checked()
+    {
+        QObject::connect(this->ui_->check21, &QAbstractButton::toggled, root_, [this]() { this->updateCheck22Checked(); });
+    }
+
+    void updateCheck22Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check22Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check22->setChecked(this->evalCheck22Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck22Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check21->isChecked();
+        return a0;
+    }
+
+    void setupCheck23Checked()
+    {
+        QObject::connect(this->ui_->check22, &QAbstractButton::toggled, root_, [this]() { this->updateCheck23Checked(); });
+    }
+
+    void updateCheck23Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check23Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check23->setChecked(this->evalCheck23Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck23Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check22->isChecked();
+        return a0;
+    }
+
+    void setupCheck24Checked()
+    {
+        QObject::connect(this->ui_->check23, &QAbstractButton::toggled, root_, [this]() { this->updateCheck24Checked(); });
+    }
+
+    void updateCheck24Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check24Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check24->setChecked(this->evalCheck24Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck24Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check23->isChecked();
+        return a0;
+    }
+
+    void setupCheck25Checked()
+    {
+        QObject::connect(this->ui_->check24, &QAbstractButton::toggled, root_, [this]() { this->updateCheck25Checked(); });
+    }
+
+    void updateCheck25Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check25Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check25->setChecked(this->evalCheck25Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck25Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check24->isChecked();
+        return a0;
+    }
+
+    void setupCheck26Checked()
+    {
+        QObject::connect(this->ui_->check25, &QAbstractButton::toggled, root_, [this]() { this->updateCheck26Checked(); });
+    }
+
+    void updateCheck26Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check26Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check26->setChecked(this->evalCheck26Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck26Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check25->isChecked();
+        return a0;
+    }
+
+    void setupCheck27Checked()
+    {
+        QObject::connect(this->ui_->check26, &QAbstractButton::toggled, root_, [this]() { this->updateCheck27Checked(); });
+    }
+
+    void updateCheck27Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check27Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check27->setChecked(this->evalCheck27Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck27Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check26->isChecked();
+        return a0;
+    }
+
+    void setupCheck28Checked()
+    {
+        QObject::connect(this->ui_->check27, &QAbstractButton::toggled, root_, [this]() { this->updateCheck28Checked(); });
+    }
+
+    void updateCheck28Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check28Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check28->setChecked(this->evalCheck28Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck28Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check27->isChecked();
+        return a0;
+    }
+
+    void setupCheck29Checked()
+    {
+        QObject::connect(this->ui_->check28, &QAbstractButton::toggled, root_, [this]() { this->updateCheck29Checked(); });
+    }
+
+    void updateCheck29Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check29Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check29->setChecked(this->evalCheck29Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck29Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check28->isChecked();
+        return a0;
+    }
+
+    void setupCheck30Checked()
+    {
+        QObject::connect(this->ui_->check29, &QAbstractButton::toggled, root_, [this]() { this->updateCheck30Checked(); });
+    }
+
+    void updateCheck30Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check30Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check30->setChecked(this->evalCheck30Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck30Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check29->isChecked();
+        return a0;
+    }
+
+    void setupCheck31Checked()
+    {
+        QObject::connect(this->ui_->check30, &QAbstractButton::toggled, root_, [this]() { this->updateCheck31Checked(); });
+    }
+
+    void updateCheck31Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check31Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check31->setChecked(this->evalCheck31Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck31Checked() const
+    {
+        bool a0;
+    b0:
+        a0 = this->ui_->check30->isChecked();
+        return a0;
+    }
+
+    void setupCheck32Checked()
+    {
+        QObject::connect(this->ui_->check31, &QAbstractButton::toggled, root_, [this]() { this->updateCheck32Checked(); });
+        QObject::connect(this->ui_->trig, &QAbstractButton::toggled, root_, [this]() { this->updateCheck32Checked(); });
+    }
+
+    void updateCheck32Checked()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Check32Checked);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->check32->setChecked(this->evalCheck32Checked());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    bool evalCheck32Checked() const
+    {
+        bool a0;
+        bool a1;
+        bool a2;
+    b0:
+        a0 = this->ui_->check31->isChecked();
+        a1 = this->ui_->trig->isChecked();
+        a2 = a0 ^ a1;
+        return a2;
+    }
+
+    QWidget *const root_;
+    Ui::BindingLoop *const ui_;
+#ifndef QT_NO_DEBUG
+    quint32 bindingGuard_[2] = {0};
+#endif
+
+};
+} // namespace UiSupport
+

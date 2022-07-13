@@ -1,6 +1,13 @@
 pub mod common;
 
 #[test]
+fn test_binding_loop() {
+    let (ui_xml, ui_support_h) = common::translate_file("examples/BindingLoop.qml").unwrap();
+    insta::assert_snapshot!(ui_xml);
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
 fn test_hg_email_dialog() {
     let (ui_xml, ui_support_h) = common::translate_file("examples/HgEmailDialog.qml").unwrap();
     insta::assert_snapshot!(ui_xml);
