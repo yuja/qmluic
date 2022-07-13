@@ -52,6 +52,22 @@ fn test_dynamic_width_is_readonly() {
 }
 
 #[test]
+fn test_unobservable_property() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QWidget {
+             id: root
+             QLabel { text: "width: %1".arg(root.width) }
+        }
+        "###,
+    );
+    insta::assert_snapshot!(
+        common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap_err(),
+        @"<unknown>:4:37: error: unobservable property: width");
+}
+
+#[test]
 fn test_assign_double() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
