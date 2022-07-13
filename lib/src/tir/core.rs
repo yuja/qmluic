@@ -234,6 +234,23 @@ pub enum Rvalue<'a> {
     MakeList(Vec<Operand<'a>>),
 }
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub(super) enum UnaryOp {
+    Arith(UnaryArithOp),
+    Bitwise(UnaryBitwiseOp),
+    Logical(UnaryLogicalOp),
+}
+
+impl fmt::Display for UnaryOp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            UnaryOp::Arith(op) => op.fmt(f),
+            UnaryOp::Bitwise(op) => op.fmt(f),
+            UnaryOp::Logical(op) => op.fmt(f),
+        }
+    }
+}
+
 /// Unary arithmetic operator.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UnaryArithOp {
