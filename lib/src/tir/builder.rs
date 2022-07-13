@@ -13,6 +13,7 @@ use crate::typedexpr::{
 };
 use crate::typemap::{Class, Enum, NamedType, PrimitiveType, Property, TypeKind, TypeMapError};
 use std::num::TryFromIntError;
+use std::ops::Range;
 use thiserror::Error;
 
 /// Translates AST to type-checked IR.
@@ -66,31 +67,56 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
     type Label = BasicBlockRef;
     type Error = ExpressionError;
 
-    fn visit_integer(&mut self, value: u64) -> Result<Self::Item, Self::Error> {
+    fn visit_integer(
+        &mut self,
+        value: u64,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error> {
         let v = ConstantValue::Integer(value.try_into()?);
         Ok(Operand::Constant(Constant::new(v)))
     }
 
-    fn visit_float(&mut self, value: f64) -> Result<Self::Item, Self::Error> {
+    fn visit_float(
+        &mut self,
+        value: f64,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error> {
         let v = ConstantValue::Float(value);
         Ok(Operand::Constant(Constant::new(v)))
     }
 
-    fn visit_string(&mut self, value: String) -> Result<Self::Item, Self::Error> {
+    fn visit_string(
+        &mut self,
+        value: String,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error> {
         let v = ConstantValue::CString(value);
         Ok(Operand::Constant(Constant::new(v)))
     }
 
-    fn visit_bool(&mut self, value: bool) -> Result<Self::Item, Self::Error> {
+    fn visit_bool(
+        &mut self,
+        value: bool,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error> {
         let v = ConstantValue::Bool(value);
         Ok(Operand::Constant(Constant::new(v)))
     }
 
-    fn visit_enum(&mut self, enum_ty: Enum<'a>, variant: &str) -> Result<Self::Item, Self::Error> {
+    fn visit_enum(
+        &mut self,
+        enum_ty: Enum<'a>,
+        variant: &str,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error> {
         Ok(Operand::EnumVariant(EnumVariant::new(enum_ty, variant)))
     }
 
-    fn visit_array(&mut self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error> {
+    fn visit_array(
+        &mut self,
+        elements: Vec<Self::Item>,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error> {
         let operands: Vec<_> = elements.into_iter().map(ensure_concrete_string).collect();
         if let Some(mut elem_t) = operands.first().map(|a| a.type_desc()) {
             for a in operands.iter().skip(1) {
@@ -105,7 +131,12 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         }
     }
 
-    fn visit_object_ref(&mut self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error> {
+    fn visit_object_ref(
+        &mut self,
+        cls: Class<'a>,
+        name: &str,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error> {
         Ok(Operand::NamedObject(NamedObject::new(name, cls)))
     }
 
@@ -113,6 +144,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         &mut self,
         object: Self::Item,
         property: Property<'a>,
+        byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
         if !property.is_readable() {
             return Err(ExpressionError::UnreadableProperty);
@@ -128,6 +160,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         object: Self::Item,
         function: BuiltinMethodKind,
         arguments: Vec<Self::Item>,
+        byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
         let object = ensure_concrete_string(object);
         let ty = match function {
@@ -171,6 +204,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         &mut self,
         function: BuiltinFunctionKind,
         arguments: Vec<Self::Item>,
+        byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
         let ty = match function {
             BuiltinFunctionKind::Tr => {
@@ -194,6 +228,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         &mut self,
         operator: UnaryOperator,
         argument: Self::Item,
+        byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
         let unary = UnaryOp::try_from(operator)?;
         match argument {
@@ -203,7 +238,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
                 UnaryOp::Logical(op) => ceval::eval_unary_logical_expression(op, a.value),
             }
             .map(|v| Operand::Constant(Constant::new(v))),
-            argument => self.emit_unary_expression(unary, argument),
+            argument => self.emit_unary_expression(unary, argument, byte_range),
         }
     }
 
@@ -212,6 +247,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         operator: BinaryOperator,
         left: Self::Item,
         right: Self::Item,
+        byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
         let binary = BinaryOp::try_from(operator)?;
         match (left, right) {
@@ -227,7 +263,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
                 BinaryOp::Comparison(op) => ceval::eval_comparison_expression(op, l.value, r.value),
             }
             .map(|v| Operand::Constant(Constant::new(v))),
-            (left, right) => self.emit_binary_expression(binary, left, right),
+            (left, right) => self.emit_binary_expression(binary, left, right, byte_range),
         }
     }
 
@@ -239,6 +275,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         condition_ref: Self::Label,
         consequence_ref: Self::Label,
         alternative_ref: Self::Label,
+        byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
         if condition.type_desc() != TypeDesc::BOOL {
             return Err(ExpressionError::IncompatibleConditionType(
@@ -282,6 +319,7 @@ impl<'a> CodeBuilder<'a> {
         &mut self,
         unary: UnaryOp,
         argument: Operand<'a>,
+        byte_range: Range<usize>,
     ) -> Result<Operand<'a>, ExpressionError> {
         let unsupported = || ExpressionError::UnsupportedOperation(unary.to_string());
         let argument = ensure_concrete_string(argument);
@@ -313,6 +351,7 @@ impl<'a> CodeBuilder<'a> {
         binary: BinaryOp,
         left: Operand<'a>,
         right: Operand<'a>,
+        byte_range: Range<usize>,
     ) -> Result<Operand<'a>, ExpressionError> {
         let unsupported = || ExpressionError::UnsupportedOperation(binary.to_string());
         let left = ensure_concrete_string(left);
