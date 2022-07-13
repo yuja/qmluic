@@ -117,7 +117,7 @@ impl Operand<'_> {
 
 impl<'a> DescribeType<'a> for Operand<'a> {
     fn type_desc(&self) -> TypeDesc<'a> {
-        match &self {
+        match self {
             Operand::Constant(x) => x.value.type_desc(),
             Operand::EnumVariant(x) => {
                 TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(x.ty.clone())))
