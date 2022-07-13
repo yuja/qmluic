@@ -20,6 +20,11 @@ public:
     }
 
 private:
+    enum class BindingIndex : unsigned {
+        MainWindowTitle,
+        MainWindowTitle1,
+    };
+
     void setupMainWindowTitle()
     {
         QObject::connect(this->ui_->edit2, &QLineEdit::textChanged, root_, [this]() { this->updateMainWindowTitle(); });
@@ -27,7 +32,15 @@ private:
 
     void updateMainWindowTitle()
     {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::MainWindowTitle);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
         this->ui_->mainWindow->setTitle(this->evalMainWindowTitle());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
     }
 
     QString evalMainWindowTitle() const
@@ -45,7 +58,15 @@ private:
 
     void updateMainWindowTitle1()
     {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::MainWindowTitle1);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
         this->root_->setWindowTitle(this->evalMainWindowTitle1());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
     }
 
     QString evalMainWindowTitle1() const
@@ -58,6 +79,9 @@ private:
 
     QWidget *const root_;
     Ui::MyType *const ui_;
+#ifndef QT_NO_DEBUG
+    quint32 bindingGuard_[1] = {0};
+#endif
 
 };
 } // namespace UiSupport

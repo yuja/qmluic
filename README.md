@@ -200,7 +200,7 @@ Major TODOs
   - [x] integer/floating point mess
   - [ ] implicit/explicit `this` property
   - [ ] gadget types
-  - [ ] cycle detection
+  - [x] cycle detection
   - [ ] `if` statement
   - [ ] `switch` statement
   - [ ] multiple statements

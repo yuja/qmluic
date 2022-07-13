@@ -20,6 +20,11 @@ public:
     }
 
 private:
+    enum class BindingIndex : unsigned {
+        FormStackCurrentIndex,
+        MainWindowWindowTitle,
+    };
+
     void setupFormStackCurrentIndex()
     {
         QObject::connect(this->ui_->fileNameEdit, &QComboBox::currentIndexChanged, root_, [this]() { this->updateFormStackCurrentIndex(); });
@@ -27,7 +32,15 @@ private:
 
     void updateFormStackCurrentIndex()
     {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::FormStackCurrentIndex);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
         this->ui_->formStack->setCurrentIndex(this->evalFormStackCurrentIndex());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
     }
 
     int evalFormStackCurrentIndex() const
@@ -46,7 +59,15 @@ private:
 
     void updateMainWindowWindowTitle()
     {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::MainWindowWindowTitle);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
         this->root_->setWindowTitle(this->evalMainWindowWindowTitle());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
     }
 
     QString evalMainWindowWindowTitle() const
@@ -81,6 +102,9 @@ private:
 
     QMainWindow *const root_;
     Ui::MainWindow *const ui_;
+#ifndef QT_NO_DEBUG
+    quint32 bindingGuard_[1] = {0};
+#endif
 
 };
 } // namespace UiSupport
