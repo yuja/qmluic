@@ -29,8 +29,8 @@ impl<'a> CodeBuilder<'a> {
         }
     }
 
-    fn alloca(&mut self, ty: TypeKind<'a>) -> Local<'a> {
-        let a = Local::new(self.code.locals.len(), ty);
+    fn alloca(&mut self, ty: TypeKind<'a>, byte_range: Range<usize>) -> Local<'a> {
+        let a = Local::new(self.code.locals.len(), ty, byte_range);
         self.code.locals.push(a.clone());
         a
     }
@@ -55,8 +55,13 @@ impl<'a> CodeBuilder<'a> {
         self.current_basic_block_mut().push_statement(stmt);
     }
 
-    fn emit_result(&mut self, ty: TypeKind<'a>, rv: Rvalue<'a>) -> Operand<'a> {
-        let a = self.alloca(ty);
+    fn emit_result(
+        &mut self,
+        ty: TypeKind<'a>,
+        rv: Rvalue<'a>,
+        byte_range: Range<usize>,
+    ) -> Operand<'a> {
+        let a = self.alloca(ty, byte_range);
         self.push_statement(Statement::Assign(a.name, rv));
         Operand::Local(a)
     }
@@ -73,7 +78,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
         let v = ConstantValue::Integer(value.try_into()?);
-        Ok(Operand::Constant(Constant::new(v)))
+        Ok(Operand::Constant(Constant::new(v, byte_range)))
     }
 
     fn visit_float(
@@ -82,7 +87,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
         let v = ConstantValue::Float(value);
-        Ok(Operand::Constant(Constant::new(v)))
+        Ok(Operand::Constant(Constant::new(v, byte_range)))
     }
 
     fn visit_string(
@@ -91,7 +96,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
         let v = ConstantValue::CString(value);
-        Ok(Operand::Constant(Constant::new(v)))
+        Ok(Operand::Constant(Constant::new(v, byte_range)))
     }
 
     fn visit_bool(
@@ -100,7 +105,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
         let v = ConstantValue::Bool(value);
-        Ok(Operand::Constant(Constant::new(v)))
+        Ok(Operand::Constant(Constant::new(v, byte_range)))
     }
 
     fn visit_enum(
@@ -109,7 +114,9 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         variant: &str,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
-        Ok(Operand::EnumVariant(EnumVariant::new(enum_ty, variant)))
+        Ok(Operand::EnumVariant(EnumVariant::new(
+            enum_ty, variant, byte_range,
+        )))
     }
 
     fn visit_array(
@@ -125,9 +132,13 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
             Ok(self.emit_result(
                 to_concrete_list_type("array", elem_t)?,
                 Rvalue::MakeList(operands),
+                byte_range,
             ))
         } else {
-            Ok(Operand::Constant(Constant::new(ConstantValue::EmptyList)))
+            Ok(Operand::Constant(Constant::new(
+                ConstantValue::EmptyList,
+                byte_range,
+            )))
         }
     }
 
@@ -137,7 +148,9 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         name: &str,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
-        Ok(Operand::NamedObject(NamedObject::new(name, cls)))
+        Ok(Operand::NamedObject(NamedObject::new(
+            name, cls, byte_range,
+        )))
     }
 
     fn visit_object_property(
@@ -152,6 +165,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         Ok(self.emit_result(
             property.value_type()?,
             Rvalue::ReadProperty(object, property),
+            byte_range,
         ))
     }
 
@@ -197,7 +211,11 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
                 }
             }
         }?;
-        Ok(self.emit_result(ty, Rvalue::CallBuiltinMethod(object, function, arguments)))
+        Ok(self.emit_result(
+            ty,
+            Rvalue::CallBuiltinMethod(object, function, arguments),
+            byte_range,
+        ))
     }
 
     fn visit_builtin_call(
@@ -221,7 +239,11 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
                 }
             }
         }?;
-        Ok(self.emit_result(ty, Rvalue::CallBuiltinFunction(function, arguments)))
+        Ok(self.emit_result(
+            ty,
+            Rvalue::CallBuiltinFunction(function, arguments),
+            byte_range,
+        ))
     }
 
     fn visit_unary_expression(
@@ -237,7 +259,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
                 UnaryOp::Bitwise(op) => ceval::eval_unary_bitwise_expression(op, a.value),
                 UnaryOp::Logical(op) => ceval::eval_unary_logical_expression(op, a.value),
             }
-            .map(|v| Operand::Constant(Constant::new(v))),
+            .map(|v| Operand::Constant(Constant::new(v, byte_range))),
             argument => self.emit_unary_expression(unary, argument, byte_range),
         }
     }
@@ -262,7 +284,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
                 }
                 BinaryOp::Comparison(op) => ceval::eval_comparison_expression(op, l.value, r.value),
             }
-            .map(|v| Operand::Constant(Constant::new(v))),
+            .map(|v| Operand::Constant(Constant::new(v, byte_range))),
             (left, right) => self.emit_binary_expression(binary, left, right, byte_range),
         }
     }
@@ -282,7 +304,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         let consequence = ensure_concrete_string(consequence);
         let alternative = ensure_concrete_string(alternative);
         let ty = deduce_concrete_type("ternary", consequence.type_desc(), alternative.type_desc())?;
-        let sink = self.alloca(ty);
+        let sink = self.alloca(ty, byte_range);
         self.get_basic_block_mut(condition_ref)
             .finalize(Terminator::BrCond(
                 condition,
@@ -340,7 +362,7 @@ impl<'a> CodeBuilder<'a> {
                 _ => Err(unsupported()),
             },
         }
-        .map(|ty| self.emit_result(ty, Rvalue::UnaryOp(unary, argument)))
+        .map(|ty| self.emit_result(ty, Rvalue::UnaryOp(unary, argument), byte_range))
     }
 
     fn emit_binary_expression(
@@ -402,7 +424,7 @@ impl<'a> CodeBuilder<'a> {
                 }
             }
         }
-        .map(|ty| self.emit_result(ty, Rvalue::BinaryOp(binary, left, right)))
+        .map(|ty| self.emit_result(ty, Rvalue::BinaryOp(binary, left, right), byte_range))
     }
 }
 
@@ -522,8 +544,10 @@ fn ensure_concrete_string(x: Operand) -> Operand {
     match x {
         Operand::Constant(Constant {
             value: ConstantValue::CString(s),
+            byte_range,
         }) => Operand::Constant(Constant {
             value: ConstantValue::QString(s),
+            byte_range,
         }),
         x => x,
     }
