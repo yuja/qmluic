@@ -135,15 +135,7 @@ impl BindingCode {
         let update_function_name =
             format!("update_{}_{}", obj_node.name(), prop.data().desc.name());
         let eval_function_name = format!("eval_{}_{}", obj_node.name(), prop.data().desc.name());
-        let sender_signals = match code_translator.collect_sender_signals(&prop.data().code) {
-            Ok(xs) => xs,
-            Err(es) => {
-                for e in es {
-                    diagnostics.push(Diagnostic::error(prop.node().byte_range(), e));
-                }
-                return None;
-            }
-        };
+        let sender_signals = code_translator.collect_sender_signals(&prop.data().code, diagnostics);
         let write_expr = if let Some(f) = prop.data().desc.write_func_name() {
             format!(
                 "{}->{}(this->{}())",
@@ -255,10 +247,10 @@ impl CxxCodeBodyTranslator {
     fn collect_sender_signals(
         &self,
         code: &tir::CodeBody,
-    ) -> Result<Vec<(String, String)>, Vec<String>> {
+        diagnostics: &mut Diagnostics,
+    ) -> Vec<(String, String)> {
         use tir::{Operand, Rvalue, Statement};
         let mut sender_signals = Vec::new();
-        let mut errors = Vec::new();
         for s in code.basic_blocks.iter().flat_map(|b| &b.statements) {
             match s {
                 Statement::Assign(_, r) => {
@@ -274,17 +266,16 @@ impl CxxCodeBodyTranslator {
                                     );
                                     sender_signals.push((sender, signal));
                                 } else {
-                                    errors.push(format!(
-                                        "unobservable property: {}.{}",
-                                        obj.name.0,
-                                        prop.name()
+                                    diagnostics.push(Diagnostic::error(
+                                        a.byte_range(),
+                                        format!("unobservable property: {}", prop.name()),
                                     ));
                                 }
                             }
                             Operand::Local(_) => {
-                                errors.push(format!(
-                                    "chained object property is not supported: {}",
-                                    prop.name()
+                                diagnostics.push(Diagnostic::error(
+                                    a.byte_range(),
+                                    "chained object property is not supported",
                                 ));
                             }
                             Operand::Constant(_) | Operand::EnumVariant(_) => {
@@ -295,11 +286,7 @@ impl CxxCodeBodyTranslator {
                 }
             }
         }
-        if errors.is_empty() {
-            Ok(sender_signals)
-        } else {
-            Err(errors)
-        }
+        sender_signals
     }
 
     fn write_locals<W: io::Write>(&self, w: &mut W, locals: &[tir::Local]) -> io::Result<()> {
