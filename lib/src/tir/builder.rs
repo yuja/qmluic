@@ -313,14 +313,13 @@ impl<'a> CodeBuilder<'a> {
                 use BinaryArithOp::*;
                 let ty = deduce_concrete_type(op, left.type_desc(), right.type_desc())?;
                 match &ty {
-                    &TypeKind::INT | &TypeKind::UINT | &TypeKind::DOUBLE => Ok(()),
+                    &TypeKind::INT | &TypeKind::UINT | &TypeKind::DOUBLE => Ok(ty),
                     &TypeKind::STRING => match op {
-                        Add => Ok(()),
+                        Add => Ok(ty),
                         Sub | Mul | Div | Rem => Err(unsupported()),
                     },
                     _ => Err(unsupported()),
-                }?;
-                Ok(self.emit_result(ty, Rvalue::BinaryArithOp(op, left, right)))
+                }
             }
             BinaryOp::Bitwise(op) => {
                 use BinaryBitwiseOp::*;
@@ -328,20 +327,16 @@ impl<'a> CodeBuilder<'a> {
                 match &ty {
                     &TypeKind::BOOL | TypeKind::Just(NamedType::Enum(_)) => match op {
                         RightShift | LeftShift => Err(unsupported()),
-                        And | Xor | Or => Ok(()),
+                        And | Xor | Or => Ok(ty),
                     },
-                    &TypeKind::INT | &TypeKind::UINT => Ok(()),
+                    &TypeKind::INT | &TypeKind::UINT => Ok(ty),
                     _ => Err(unsupported()),
-                }?;
-                Ok(self.emit_result(ty, Rvalue::BinaryBitwiseOp(op, left, right)))
+                }
             }
-            BinaryOp::Logical(op) => {
-                match (left.type_desc(), right.type_desc()) {
-                    (TypeDesc::BOOL, TypeDesc::BOOL) => Ok(()),
-                    _ => Err(unsupported()),
-                }?;
-                Ok(self.emit_result(TypeKind::BOOL, Rvalue::BinaryLogicalOp(op, left, right)))
-            }
+            BinaryOp::Logical(_) => match (left.type_desc(), right.type_desc()) {
+                (TypeDesc::BOOL, TypeDesc::BOOL) => Ok(TypeKind::BOOL),
+                _ => Err(unsupported()),
+            },
             BinaryOp::Comparison(op) => {
                 match deduce_concrete_type(op, left.type_desc(), right.type_desc())? {
                     TypeKind::BOOL
@@ -349,12 +344,12 @@ impl<'a> CodeBuilder<'a> {
                     | TypeKind::UINT
                     | TypeKind::DOUBLE
                     | TypeKind::STRING
-                    | TypeKind::Just(NamedType::Enum(_)) => Ok(()),
+                    | TypeKind::Just(NamedType::Enum(_)) => Ok(TypeKind::BOOL),
                     _ => Err(unsupported()),
-                }?;
-                Ok(self.emit_result(TypeKind::BOOL, Rvalue::ComparisonOp(op, left, right)))
+                }
             }
         }
+        .map(|ty| self.emit_result(ty, Rvalue::BinaryOp(binary, left, right)))
     }
 }
 
@@ -373,10 +368,8 @@ impl UnaryOp {
     }
 }
 
-impl TryFrom<BinaryOperator> for BinaryOp {
-    type Error = ExpressionError;
-
-    fn try_from(operator: BinaryOperator) -> Result<Self, Self::Error> {
+impl BinaryOp {
+    fn try_from(operator: BinaryOperator) -> Result<Self, ExpressionError> {
         use BinaryOperator::*;
         match operator {
             LogicalAnd => Ok(BinaryOp::Logical(BinaryLogicalOp::And)),
@@ -757,9 +750,9 @@ mod tests {
         .0:
             %0 = read_property [foo]: Foo*, "checked"
             %1 = read_property [foo2]: Foo*, "checked"
-            %2 = binary_bitwise_op '^', %0: bool, %1: bool
+            %2 = binary_op '^', %0: bool, %1: bool
             %3 = read_property [foo3]: Foo*, "checked"
-            %4 = binary_bitwise_op '|', %2: bool, %3: bool
+            %4 = binary_op '|', %2: bool, %3: bool
             return %4: bool
         "###);
     }
@@ -773,7 +766,7 @@ mod tests {
         .0:
             %0 = read_property [foo]: Foo*, "currentIndex"
             %1 = unary_op '-', %0: int
-            %2 = binary_arith_op '+', %1: int, 1: integer
+            %2 = binary_op '+', %1: int, 1: integer
             return %2: int
         "###);
     }
@@ -785,7 +778,7 @@ mod tests {
             %1: QString
         .0:
             %0 = read_property [foo]: Foo*, "text"
-            %1 = binary_arith_op '+', "Hello ": QString, %0: QString
+            %1 = binary_op '+', "Hello ": QString, %0: QString
             return %1: QString
         "###);
     }
@@ -806,10 +799,10 @@ mod tests {
             %2: Foo::Bar
             %3: Foo::Bar
         .0:
-            %0 = binary_bitwise_op '^', 'Foo::Bar0': Foo::Bar, 'Foo::Bar1': Foo::Bar
-            %1 = binary_bitwise_op '|', %0: Foo::Bar, 'Foo::Bar2': Foo::Bar
+            %0 = binary_op '^', 'Foo::Bar0': Foo::Bar, 'Foo::Bar1': Foo::Bar
+            %1 = binary_op '|', %0: Foo::Bar, 'Foo::Bar2': Foo::Bar
             %2 = unary_op '~', 'Foo::Bar3': Foo::Bar
-            %3 = binary_bitwise_op '&', %1: Foo::Bar, %2: Foo::Bar
+            %3 = binary_op '&', %1: Foo::Bar, %2: Foo::Bar
             return %3: Foo::Bar
         "###);
     }
@@ -825,7 +818,7 @@ mod tests {
             %0 = read_property [foo]: Foo*, "currentIndex"
             %1 = unary_op '~', %0: int
             %2 = read_property [foo2]: Foo*, "currentIndex"
-            %3 = binary_bitwise_op '&', %1: int, %2: int
+            %3 = binary_op '&', %1: int, %2: int
             return %3: int
         "###);
     }
@@ -851,9 +844,9 @@ mod tests {
             %0 = read_property [foo]: Foo*, "checked"
             %1 = unary_op '!', %0: bool
             %2 = read_property [foo2]: Foo*, "checked"
-            %3 = binary_logical_op '&&', %1: bool, %2: bool
+            %3 = binary_op '&&', %1: bool, %2: bool
             %4 = read_property [foo3]: Foo*, "checked"
-            %5 = binary_logical_op '||', %3: bool, %4: bool
+            %5 = binary_op '||', %3: bool, %4: bool
             return %5: bool
         "###);
     }
@@ -879,7 +872,7 @@ mod tests {
         insta::assert_snapshot!(dump("Foo.Bar1 == Foo.Bar2"), @r###"
             %0: bool
         .0:
-            %0 = comparison_op '==', 'Foo::Bar1': Foo::Bar, 'Foo::Bar2': Foo::Bar
+            %0 = binary_op '==', 'Foo::Bar1': Foo::Bar, 'Foo::Bar2': Foo::Bar
             return %0: bool
         "###);
     }
@@ -891,7 +884,7 @@ mod tests {
             %1: bool
         .0:
             %0 = read_property [foo]: Foo*, "currentIndex"
-            %1 = comparison_op '>', %0: int, 0: integer
+            %1 = binary_op '>', %0: int, 0: integer
             return %1: bool
         "###);
     }
@@ -903,7 +896,7 @@ mod tests {
             %1: bool
         .0:
             %0 = read_property [foo]: Foo*, "text"
-            %1 = comparison_op '!=', "yoda": QString, %0: QString
+            %1 = binary_op '!=', "yoda": QString, %0: QString
             return %1: bool
         "###);
     }
@@ -1116,7 +1109,7 @@ mod tests {
             %7 = copy %6: QString
             br .6
         .6:
-            %8 = binary_arith_op '+', %3: QString, %7: QString
+            %8 = binary_op '+', %3: QString, %7: QString
             return %8: QString
         "###);
     }
