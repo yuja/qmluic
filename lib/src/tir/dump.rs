@@ -77,7 +77,7 @@ fn format_rvalue(rv: &Rvalue) -> String {
 
 fn format_operand(a: &Operand) -> String {
     match a {
-        Operand::Constant(x) => match x {
+        Operand::Constant(x) => match &x.value {
             ConstantValue::Bool(v) => format!("{:?}: {}", v, a.type_desc().qualified_name()),
             ConstantValue::Integer(v) => format!("{:?}: {}", v, a.type_desc().qualified_name()),
             ConstantValue::Float(v) => format!("{:?}: {}", v, a.type_desc().qualified_name()),

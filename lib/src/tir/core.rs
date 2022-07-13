@@ -96,7 +96,7 @@ pub enum Terminator<'a> {
 /// Variable or constant value.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operand<'a> {
-    Constant(ConstantValue),
+    Constant(Constant),
     EnumVariant(EnumVariant<'a>),
     Local(Local<'a>),
     NamedObject(NamedObject<'a>),
@@ -105,7 +105,7 @@ pub enum Operand<'a> {
 impl<'a> DescribeType<'a> for Operand<'a> {
     fn type_desc(&self) -> TypeDesc<'a> {
         match &self {
-            Operand::Constant(x) => x.type_desc(),
+            Operand::Constant(x) => x.value.type_desc(),
             Operand::EnumVariant(x) => {
                 TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(x.ty.clone())))
             }
@@ -118,6 +118,18 @@ impl<'a> DescribeType<'a> for Operand<'a> {
 }
 
 /// Constant value which concrete type might not be determined yet.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Constant {
+    pub value: ConstantValue,
+}
+
+impl Constant {
+    pub(super) fn new(value: ConstantValue) -> Self {
+        Constant { value }
+    }
+}
+
+/// Variant for constant values.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ConstantValue {
     Bool(bool),

@@ -548,7 +548,7 @@ fn tir_operand_to_evaluated_value(
 ) -> Option<EvaluatedValue> {
     use tir::{ConstantValue, Operand};
     match a {
-        Operand::Constant(x) => match x {
+        Operand::Constant(x) => match &x.value {
             ConstantValue::Bool(v) => Some(EvaluatedValue::Bool(*v)),
             ConstantValue::Integer(v) => Some(EvaluatedValue::Integer(*v)),
             ConstantValue::Float(v) => Some(EvaluatedValue::Float(*v)),
