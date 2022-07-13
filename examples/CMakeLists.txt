@@ -32,6 +32,8 @@ set(QML_IMPORT_PATH ${QMLUIC_QML_IMPORT_PATH} CACHE STRING "" FORCE)
 add_subdirectory(customwidget)
 
 add_executable(qmluic-examples
+  bindingloop.cpp
+  bindingloop.h
   hgemaildialog.cpp
   hgemaildialog.h
   itemviews.cpp
@@ -50,6 +52,7 @@ add_executable(qmluic-examples
 )
 
 qmluic_target_qml_sources(qmluic-examples
+  BindingLoop.qml
   HgEmailDialog.qml
   ItemViews.qml
   LayoutFlow.qml

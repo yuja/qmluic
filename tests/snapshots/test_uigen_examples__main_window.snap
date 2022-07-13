@@ -36,6 +36,11 @@ expression: ui_xml
         </item>
         <item>
          <property name="text">
+          <string notr="true">BindingLoop.qml</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
           <string notr="true">HgEmailDialog.qml</string>
          </property>
         </item>
@@ -92,6 +97,8 @@ expression: ui_xml
       </widget>
       <widget class="QStackedWidget" name="formStack">
        <widget class="QWidget" name="widget">
+       </widget>
+       <widget class="BindingLoop" name="bindingLoop">
        </widget>
        <widget class="HgEmailDialog" name="hgEmailDialog">
        </widget>
@@ -217,6 +224,11 @@ expression: ui_xml
   </action>
  </widget>
  <customwidgets>
+  <customwidget>
+   <class>BindingLoop</class>
+   <extends>QWidget</extends>
+   <header>bindingloop.h</header>
+  </customwidget>
   <customwidget>
    <class>HgEmailDialog</class>
    <extends>QDialog</extends>
