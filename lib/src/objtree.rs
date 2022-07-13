@@ -2,7 +2,7 @@
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiObjectDefinition};
-use crate::qtname;
+use crate::qtname::{self, UniqueNameGenerator};
 use crate::typemap::{Class, NamedType, TypeSpace};
 use std::collections::HashMap;
 use std::mem;
@@ -117,10 +117,10 @@ impl<'a, 't> ObjectTree<'a, 't> {
     }
 
     fn ensure_object_names(&mut self) {
-        let mut gen = ObjectIdGenerator::default();
+        let mut gen = UniqueNameGenerator::new();
         for data in self.nodes.iter_mut().filter(|d| d.name.is_none()) {
             let prefix = qtname::variable_name_for_type(data.class.name());
-            data.name = Some(gen.generate(prefix, &self.id_map));
+            data.name = Some(gen.generate_with_reserved_map(prefix, &self.id_map));
         }
     }
 
@@ -218,36 +218,6 @@ impl<'a, 't, 'b> ObjectNode<'a, 't, 'b> {
             .child_indices
             .iter()
             .map(|&i| ObjectNode::new(&self.tree.nodes[i], self.tree))
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-struct ObjectIdGenerator {
-    used_prefixes: HashMap<String, usize>, // prefix: next count
-}
-
-impl ObjectIdGenerator {
-    /// Generates unique name starting with the given `prefix`.
-    ///
-    /// The naming rule follows `Driver::unique()` defined in `qtbase/src/tools/uic/driver.cpp`.
-    pub fn generate(&mut self, prefix: String, id_map: &HashMap<String, usize>) -> String {
-        let count = self.used_prefixes.entry(prefix.to_owned()).or_insert(0);
-        let (n, id) = (*count..=*count + id_map.len())
-            .find_map(|n| {
-                let id = if n == 0 {
-                    prefix.clone()
-                } else {
-                    format!("{prefix}{n}")
-                };
-                if id_map.contains_key(&id) {
-                    None
-                } else {
-                    Some((n, id))
-                }
-            })
-            .expect("unused id must be found within N+1 tries");
-        *count = n + 1;
-        id
     }
 }
 
