@@ -1,0 +1,64 @@
+---
+source: tests/test_uigen_widget.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_mytype.h"
+
+namespace UiSupport {
+class MyType
+{
+public:
+    MyType(QWidget *root, Ui::MyType *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+        this->setupMainWindowTitle();
+        this->setupMainWindowTitle1();
+        this->updateMainWindowTitle();
+        this->updateMainWindowTitle1();
+    }
+
+private:
+    void setupMainWindowTitle()
+    {
+        QObject::connect(this->ui_->edit2, &QLineEdit::textChanged, root_, [this]() { this->updateMainWindowTitle(); });
+    }
+
+    void updateMainWindowTitle()
+    {
+        this->ui_->mainWindow->setTitle(this->evalMainWindowTitle());
+    }
+
+    QString evalMainWindowTitle() const
+    {
+        QString a0;
+    b0:
+        a0 = this->ui_->edit2->text();
+        return a0;
+    }
+
+    void setupMainWindowTitle1()
+    {
+        QObject::connect(this->ui_->edit1, &QLineEdit::textChanged, root_, [this]() { this->updateMainWindowTitle1(); });
+    }
+
+    void updateMainWindowTitle1()
+    {
+        this->root_->setWindowTitle(this->evalMainWindowTitle1());
+    }
+
+    QString evalMainWindowTitle1() const
+    {
+        QString a0;
+    b0:
+        a0 = this->ui_->edit1->text();
+        return a0;
+    }
+
+    QWidget *const root_;
+    Ui::MyType *const ui_;
+
+};
+} // namespace UiSupport
+

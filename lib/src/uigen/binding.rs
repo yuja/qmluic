@@ -1,7 +1,7 @@
 use super::property::{DynamicPropertiesMap, PropertyDescDynamicExpression, WithNode};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::{ObjectNode, ObjectTree};
-use crate::qtname::{self, FileNameRules};
+use crate::qtname::{self, FileNameRules, UniqueNameGenerator};
 use crate::tir;
 use crate::typedexpr::{BuiltinFunctionKind, BuiltinMethodKind};
 use crate::typemap::TypeSpace;
@@ -28,14 +28,16 @@ impl UiSupportCode {
     ) -> Self {
         let quote_includes = vec![file_name_rules.type_name_to_ui_cxx_header_name(type_name)];
 
+        let mut name_gen = UniqueNameGenerator::new();
         let code_translator = CxxCodeBodyTranslator::new(object_tree.root().name(), type_name);
         let mut bindings = Vec::new();
         for (obj_node, properties_map) in object_tree.flat_iter().zip(object_properties) {
             // TODO: exclude pseudo node like QActionSeparator
             bindings.extend(properties_map.iter().sorted_by_key(|&(k, _)| k).filter_map(
                 |(_, v)| {
-                    let name = qtname::to_ascii_capitalized(obj_node.name())
+                    let prefix = qtname::to_ascii_capitalized(obj_node.name())
                         + &qtname::to_ascii_capitalized(v.data().desc.name());
+                    let name = name_gen.generate(&prefix);
                     BindingCode::build(&code_translator, name, obj_node, v, diagnostics)
                 },
             ));
@@ -133,7 +135,6 @@ impl BindingCode {
         prop: &WithNode<PropertyDescDynamicExpression>,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        // TODO: get around name conflicts
         let sender_signals = code_translator.collect_sender_signals(&prop.data().code, diagnostics);
         let write_method = if let Some(f) = prop.data().desc.write_func_name() {
             format!(
