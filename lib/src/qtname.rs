@@ -1,5 +1,7 @@
 //! Utility for Qt naming convention.
 
+use std::collections::HashMap;
+
 /// File naming rules.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FileNameRules {
@@ -62,6 +64,54 @@ impl Default for FileNameRules {
             cxx_header_suffix: "h".to_owned(),
             lowercase: true,
         }
+    }
+}
+
+/// Generates unique name with string prefixes.
+///
+/// The naming rule follows `Driver::unique()` defined in `qtbase/src/tools/uic/driver.cpp`.
+#[derive(Clone, Debug, Default)]
+pub struct UniqueNameGenerator {
+    used_prefixes: HashMap<String, usize>, // prefix: next count
+}
+
+impl UniqueNameGenerator {
+    pub fn new() -> Self {
+        UniqueNameGenerator::default()
+    }
+
+    /// Generates unique name starting with the given `prefix`, and not listed in
+    /// the reserved map.
+    pub fn generate_with_reserved_map<S, V>(
+        &mut self,
+        prefix: S,
+        reserved_map: &HashMap<String, V>,
+    ) -> String
+    where
+        S: AsRef<str>,
+    {
+        let prefix = prefix.as_ref();
+        let count = self.used_prefixes.entry(prefix.to_owned()).or_insert(0);
+        let (n, id) = (*count..=*count + reserved_map.len())
+            .find_map(|n| {
+                let id = concat_number_suffix(prefix, n);
+                if reserved_map.contains_key(&id) {
+                    None
+                } else {
+                    Some((n, id))
+                }
+            })
+            .expect("unused id must be found within N+1 tries");
+        *count = n + 1;
+        id
+    }
+}
+
+fn concat_number_suffix(prefix: &str, n: usize) -> String {
+    if n == 0 {
+        prefix.to_owned()
+    } else {
+        format!("{prefix}{n}")
     }
 }
 
