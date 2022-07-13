@@ -20,6 +20,11 @@ public:
     }
 
 private:
+    enum class BindingIndex : unsigned {
+        LabelText,
+        Label1Text,
+    };
+
     void setupLabelText()
     {
         QObject::connect(this->ui_->combo, &QComboBox::currentIndexChanged, root_, [this]() { this->updateLabelText(); });
@@ -27,7 +32,15 @@ private:
 
     void updateLabelText()
     {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::LabelText);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
         this->ui_->label->setText(this->evalLabelText());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
     }
 
     QString evalLabelText() const
@@ -46,7 +59,15 @@ private:
 
     void updateLabel1Text()
     {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Label1Text);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
         this->ui_->label1->setText(this->evalLabel1Text());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
     }
 
     QString evalLabel1Text() const
@@ -59,6 +80,9 @@ private:
 
     QWidget *const root_;
     Ui::MyType *const ui_;
+#ifndef QT_NO_DEBUG
+    quint32 bindingGuard_[1] = {0};
+#endif
 
 };
 } // namespace UiSupport

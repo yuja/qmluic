@@ -18,6 +18,10 @@ public:
     }
 
 private:
+    enum class BindingIndex : unsigned {
+        EditEnabled,
+    };
+
     void setupEditEnabled()
     {
         QObject::connect(this->root_, &QLineEdit::textChanged, root_, [this]() { this->updateEditEnabled(); });
@@ -25,7 +29,15 @@ private:
 
     void updateEditEnabled()
     {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::EditEnabled);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
         this->root_->setEnabled(this->evalEditEnabled());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
     }
 
     bool evalEditEnabled() const
@@ -40,6 +52,9 @@ private:
 
     QLineEdit *const root_;
     Ui::MyType *const ui_;
+#ifndef QT_NO_DEBUG
+    quint32 bindingGuard_[1] = {0};
+#endif
 
 };
 } // namespace UiSupport

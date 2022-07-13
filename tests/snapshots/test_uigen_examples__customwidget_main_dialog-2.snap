@@ -16,6 +16,9 @@ public:
     }
 
 private:
+    enum class BindingIndex : unsigned {
+    };
+
     QDialog *const root_;
     Ui::MainDialog *const ui_;
 

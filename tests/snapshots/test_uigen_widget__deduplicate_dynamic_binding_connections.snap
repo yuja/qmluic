@@ -18,6 +18,10 @@ public:
     }
 
 private:
+    enum class BindingIndex : unsigned {
+        DialogWindowTitle,
+    };
+
     void setupDialogWindowTitle()
     {
         QObject::connect(this->ui_->edit, &QLineEdit::textChanged, root_, [this]() { this->updateDialogWindowTitle(); });
@@ -25,7 +29,15 @@ private:
 
     void updateDialogWindowTitle()
     {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::DialogWindowTitle);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
         this->root_->setWindowTitle(this->evalDialogWindowTitle());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
     }
 
     QString evalDialogWindowTitle() const
@@ -42,6 +54,9 @@ private:
 
     QDialog *const root_;
     Ui::MyType *const ui_;
+#ifndef QT_NO_DEBUG
+    quint32 bindingGuard_[1] = {0};
+#endif
 
 };
 } // namespace UiSupport

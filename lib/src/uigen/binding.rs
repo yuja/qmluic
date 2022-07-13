@@ -68,6 +68,7 @@ impl UiSupportCode {
         self.write_constructor(writer, "    ")?;
         self.write_setup_function(writer, "    ")?;
         writeln!(writer, "private:")?;
+        self.write_binding_index(writer, "    ")?;
         self.write_binding_functions(writer, "    ")?;
         self.write_fields(writer, "    ")?;
         writeln!(writer, "}};")?;
@@ -97,6 +98,15 @@ impl UiSupportCode {
         writeln!(writer)
     }
 
+    fn write_binding_index<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+        writeln!(writer, "{indent}enum class BindingIndex : unsigned {{")?;
+        for b in &self.bindings {
+            writeln!(writer, "{indent}    {},", b.name())?;
+        }
+        writeln!(writer, "{indent}}};")?;
+        writeln!(writer)
+    }
+
     fn write_binding_functions<W: io::Write>(
         &self,
         writer: &mut W,
@@ -113,6 +123,16 @@ impl UiSupportCode {
     fn write_fields<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
         writeln!(writer, "{indent}{} *const root_;", self.root_class)?;
         writeln!(writer, "{indent}{} *const ui_;", self.ui_class)?;
+        if !self.bindings.is_empty() {
+            // don't emit 0-sized array
+            writeln!(writer, "#ifndef QT_NO_DEBUG")?;
+            writeln!(
+                writer,
+                "{indent}quint32 bindingGuard_[{}] = {{0}};",
+                (self.bindings.len() + 31) / 32
+            )?;
+            writeln!(writer, "#endif")?;
+        }
         writeln!(writer)
     }
 }
@@ -173,6 +193,10 @@ impl BindingCode {
         })
     }
 
+    fn name(&self) -> &str {
+        &self.function_name_suffix
+    }
+
     fn setup_function_name(&self) -> String {
         format!("setup{}", self.function_name_suffix)
     }
@@ -202,15 +226,29 @@ impl BindingCode {
     }
 
     fn write_update_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+        let index = format!("static_cast<unsigned>(BindingIndex::{})", self.name());
+        let guard = "this->bindingGuard_[index >> 5]";
+        let mask = "(1U << (index & 0x1f))";
         writeln!(writer, "{indent}void {}()", self.update_function_name())?;
         writeln!(writer, "{indent}{{")?;
-        // TODO: insert cycle detector
+        writeln!(writer, "#ifndef QT_NO_DEBUG")?;
+        writeln!(writer, "{indent}    constexpr unsigned index = {index};")?;
+        writeln!(
+            writer,
+            "{indent}    Q_ASSERT_X(!({guard} & {mask}), __func__, {what:?});",
+            what = "binding loop detected"
+        )?;
+        writeln!(writer, "{indent}    {guard} |= {mask};")?;
+        writeln!(writer, "#endif")?;
         writeln!(
             writer,
             "{indent}    {}(this->{}());",
             self.write_method,
             self.eval_function_name()
         )?;
+        writeln!(writer, "#ifndef QT_NO_DEBUG")?;
+        writeln!(writer, "{indent}    {guard} &= ~{mask};")?;
+        writeln!(writer, "#endif")?;
         writeln!(writer, "{indent}}}")?;
         writeln!(writer)
     }

@@ -16,6 +16,9 @@ public:
     }
 
 private:
+    enum class BindingIndex : unsigned {
+    };
+
     QDialogButtonBox *const root_;
     Ui::MyDialogButtonBox *const ui_;
 

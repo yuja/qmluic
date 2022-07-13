@@ -18,6 +18,10 @@ public:
     }
 
 private:
+    enum class BindingIndex : unsigned {
+        WidgetVisible,
+    };
+
     void setupWidgetVisible()
     {
         QObject::connect(this->ui_->source, &QAbstractButton::toggled, root_, [this]() { this->updateWidgetVisible(); });
@@ -25,7 +29,15 @@ private:
 
     void updateWidgetVisible()
     {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::WidgetVisible);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
         this->ui_->widget->setVisible(this->evalWidgetVisible());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
     }
 
     bool evalWidgetVisible() const
@@ -38,6 +50,9 @@ private:
 
     QWidget *const root_;
     Ui::MyType *const ui_;
+#ifndef QT_NO_DEBUG
+    quint32 bindingGuard_[1] = {0};
+#endif
 
 };
 } // namespace UiSupport

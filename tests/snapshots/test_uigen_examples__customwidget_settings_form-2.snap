@@ -16,6 +16,9 @@ public:
     }
 
 private:
+    enum class BindingIndex : unsigned {
+    };
+
     QWidget *const root_;
     Ui::SettingsForm *const ui_;
 
