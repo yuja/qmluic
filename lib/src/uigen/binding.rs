@@ -1,7 +1,7 @@
 use super::property::{DynamicPropertiesMap, PropertyDescDynamicExpression, WithNode};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::{ObjectNode, ObjectTree};
-use crate::qtname::FileNameRules;
+use crate::qtname::{self, FileNameRules};
 use crate::tir;
 use crate::typedexpr::{BuiltinFunctionKind, BuiltinMethodKind};
 use crate::typemap::TypeSpace;
@@ -33,7 +33,11 @@ impl UiSupportCode {
         for (obj_node, properties_map) in object_tree.flat_iter().zip(object_properties) {
             // TODO: exclude pseudo node like QActionSeparator
             bindings.extend(properties_map.iter().sorted_by_key(|&(k, _)| k).filter_map(
-                |(_, v)| BindingCode::build(&code_translator, obj_node, v, diagnostics),
+                |(_, v)| {
+                    let name = qtname::to_ascii_capitalized(obj_node.name())
+                        + &qtname::to_ascii_capitalized(v.data().desc.name());
+                    BindingCode::build(&code_translator, name, obj_node, v, diagnostics)
+                },
             ));
         }
 
@@ -82,10 +86,10 @@ impl UiSupportCode {
         writeln!(writer, "{indent}void setup()")?;
         writeln!(writer, "{indent}{{")?;
         for b in &self.bindings {
-            writeln!(writer, "{indent}    this->{}();", b.setup_function_name)?;
+            writeln!(writer, "{indent}    this->{}();", b.setup_function_name())?;
         }
         for b in &self.bindings {
-            writeln!(writer, "{indent}    this->{}();", b.update_function_name)?;
+            writeln!(writer, "{indent}    this->{}();", b.update_function_name())?;
         }
         writeln!(writer, "{indent}}}")?;
         writeln!(writer)
@@ -114,35 +118,29 @@ impl UiSupportCode {
 /// C++ function and statements for dynamic property binding.
 #[derive(Clone, Debug)]
 struct BindingCode {
-    setup_function_name: String,
-    update_function_name: String,
-    eval_function_name: String,
+    function_name_suffix: String,
     value_type: String,
     sender_signals: Vec<(String, String)>,
-    write_expr: String,
+    write_method: String,
     eval_function_body: Vec<u8>,
 }
 
 impl BindingCode {
     fn build(
         code_translator: &CxxCodeBodyTranslator,
+        function_name_suffix: String,
         obj_node: ObjectNode,
         prop: &WithNode<PropertyDescDynamicExpression>,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         // TODO: get around name conflicts
-        let setup_function_name = format!("setup_{}_{}", obj_node.name(), prop.data().desc.name());
-        let update_function_name =
-            format!("update_{}_{}", obj_node.name(), prop.data().desc.name());
-        let eval_function_name = format!("eval_{}_{}", obj_node.name(), prop.data().desc.name());
         let sender_signals = code_translator.collect_sender_signals(&prop.data().code, diagnostics);
-        let write_expr = if let Some(f) = prop.data().desc.write_func_name() {
+        let write_method = if let Some(f) = prop.data().desc.write_func_name() {
             format!(
-                "{}->{}(this->{}())",
+                "{}->{}",
                 code_translator
                     .format_named_object_ref(&tir::NamedObjectRef(obj_node.name().to_owned())),
                 f,
-                eval_function_name
             )
         } else {
             diagnostics.push(Diagnostic::error(
@@ -166,24 +164,36 @@ impl BindingCode {
             .translate(&mut eval_function_body, &prop.data().code)
             .expect("write to bytes shouldn't fail");
         Some(BindingCode {
-            setup_function_name,
-            update_function_name,
-            eval_function_name,
+            function_name_suffix,
             value_type,
             sender_signals,
-            write_expr,
+            write_method,
             eval_function_body,
         })
     }
 
+    fn setup_function_name(&self) -> String {
+        format!("setup{}", self.function_name_suffix)
+    }
+
+    fn update_function_name(&self) -> String {
+        format!("update{}", self.function_name_suffix)
+    }
+
+    fn eval_function_name(&self) -> String {
+        format!("eval{}", self.function_name_suffix)
+    }
+
     fn write_setup_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
-        writeln!(writer, "{indent}void {}()", self.setup_function_name)?;
+        writeln!(writer, "{indent}void {}()", self.setup_function_name())?;
         writeln!(writer, "{indent}{{")?;
         for (sender, signal) in self.sender_signals.iter().unique() {
             writeln!(
                 writer,
                 "{indent}    QObject::connect({}, &{}, root_, [this]() {{ this->{}(); }});",
-                sender, signal, self.update_function_name
+                sender,
+                signal,
+                self.update_function_name()
             )?;
         }
         writeln!(writer, "{indent}}}")?;
@@ -191,10 +201,15 @@ impl BindingCode {
     }
 
     fn write_update_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
-        writeln!(writer, "{indent}void {}()", self.update_function_name)?;
+        writeln!(writer, "{indent}void {}()", self.update_function_name())?;
         writeln!(writer, "{indent}{{")?;
         // TODO: insert cycle detector
-        writeln!(writer, "{indent}    {};", self.write_expr)?;
+        writeln!(
+            writer,
+            "{indent}    {}(this->{}());",
+            self.write_method,
+            self.eval_function_name()
+        )?;
         writeln!(writer, "{indent}}}")?;
         writeln!(writer)
     }
@@ -203,7 +218,8 @@ impl BindingCode {
         writeln!(
             writer,
             "{indent}{} {}() const",
-            self.value_type, self.eval_function_name
+            self.value_type,
+            self.eval_function_name()
         )?;
         writeln!(writer, "{indent}{{")?;
         writer.write_all(&self.eval_function_body)?;

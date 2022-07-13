@@ -13,24 +13,24 @@ public:
 
     void setup()
     {
-        this->setup_writeIntroCheck_enabled();
-        this->setup_introBox_visible();
-        this->update_writeIntroCheck_enabled();
-        this->update_introBox_visible();
+        this->setupWriteIntroCheckEnabled();
+        this->setupIntroBoxVisible();
+        this->updateWriteIntroCheckEnabled();
+        this->updateIntroBoxVisible();
     }
 
 private:
-    void setup_writeIntroCheck_enabled()
+    void setupWriteIntroCheckEnabled()
     {
-        QObject::connect(this->ui_->bundleRadio, &QAbstractButton::toggled, root_, [this]() { this->update_writeIntroCheck_enabled(); });
+        QObject::connect(this->ui_->bundleRadio, &QAbstractButton::toggled, root_, [this]() { this->updateWriteIntroCheckEnabled(); });
     }
 
-    void update_writeIntroCheck_enabled()
+    void updateWriteIntroCheckEnabled()
     {
-        this->ui_->writeIntroCheck->setEnabled(this->eval_writeIntroCheck_enabled());
+        this->ui_->writeIntroCheck->setEnabled(this->evalWriteIntroCheckEnabled());
     }
 
-    bool eval_writeIntroCheck_enabled() const
+    bool evalWriteIntroCheckEnabled() const
     {
         bool a0;
         bool a1;
@@ -40,18 +40,18 @@ private:
         return a1;
     }
 
-    void setup_introBox_visible()
+    void setupIntroBoxVisible()
     {
-        QObject::connect(this->ui_->writeIntroCheck, &QAbstractButton::toggled, root_, [this]() { this->update_introBox_visible(); });
-        QObject::connect(this->ui_->bundleRadio, &QAbstractButton::toggled, root_, [this]() { this->update_introBox_visible(); });
+        QObject::connect(this->ui_->writeIntroCheck, &QAbstractButton::toggled, root_, [this]() { this->updateIntroBoxVisible(); });
+        QObject::connect(this->ui_->bundleRadio, &QAbstractButton::toggled, root_, [this]() { this->updateIntroBoxVisible(); });
     }
 
-    void update_introBox_visible()
+    void updateIntroBoxVisible()
     {
-        this->ui_->introBox->setVisible(this->eval_introBox_visible());
+        this->ui_->introBox->setVisible(this->evalIntroBoxVisible());
     }
 
-    bool eval_introBox_visible() const
+    bool evalIntroBoxVisible() const
     {
         bool a0;
         bool a1;
