@@ -1,6 +1,6 @@
 use super::ceval;
 use super::core::{
-    BasicBlock, BasicBlockRef, BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, CodeBody,
+    BasicBlock, BasicBlockRef, BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, BinaryOp, CodeBody,
     ComparisonOp, ConstantValue, EnumVariant, Local, NamedObject, Operand, Rvalue, Statement,
     Terminator, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp, UnaryOp,
 };
@@ -209,43 +209,16 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         left: Self::Item,
         right: Self::Item,
     ) -> Result<Self::Item, Self::Error> {
-        use BinaryOperator::*;
-        match operator {
-            LogicalAnd => self.visit_binary_logical_expression(BinaryLogicalOp::And, left, right),
-            LogicalOr => self.visit_binary_logical_expression(BinaryLogicalOp::Or, left, right),
-            RightShift => {
-                self.visit_binary_bitwise_expression(BinaryBitwiseOp::RightShift, left, right)
+        let binary = BinaryOp::try_from(operator)?;
+        match (left, right) {
+            (Operand::Constant(l), Operand::Constant(r)) => match binary {
+                BinaryOp::Arith(op) => ceval::eval_binary_arith_expression(op, l, r),
+                BinaryOp::Bitwise(op) => ceval::eval_binary_bitwise_expression(op, l, r),
+                BinaryOp::Logical(op) => ceval::eval_binary_logical_expression(op, l, r),
+                BinaryOp::Comparison(op) => ceval::eval_comparison_expression(op, l, r),
             }
-            UnsignedRightShift => Err(ExpressionError::UnsupportedOperation(operator.to_string())),
-            LeftShift => {
-                self.visit_binary_bitwise_expression(BinaryBitwiseOp::LeftShift, left, right)
-            }
-            BitwiseAnd => self.visit_binary_bitwise_expression(BinaryBitwiseOp::And, left, right),
-            BitwiseXor => self.visit_binary_bitwise_expression(BinaryBitwiseOp::Xor, left, right),
-            BitwiseOr => self.visit_binary_bitwise_expression(BinaryBitwiseOp::Or, left, right),
-            Add => self.visit_binary_arith_expression(BinaryArithOp::Add, left, right),
-            Sub => self.visit_binary_arith_expression(BinaryArithOp::Sub, left, right),
-            Mul => self.visit_binary_arith_expression(BinaryArithOp::Mul, left, right),
-            Div => self.visit_binary_arith_expression(BinaryArithOp::Div, left, right),
-            Rem => self.visit_binary_arith_expression(BinaryArithOp::Rem, left, right),
-            Exp => Err(ExpressionError::UnsupportedOperation(operator.to_string())),
-            Equal | StrictEqual => {
-                self.visit_comparison_expression(ComparisonOp::Equal, left, right)
-            }
-            NotEqual | StrictNotEqual => {
-                self.visit_comparison_expression(ComparisonOp::NotEqual, left, right)
-            }
-            LessThan => self.visit_comparison_expression(ComparisonOp::LessThan, left, right),
-            LessThanEqual => {
-                self.visit_comparison_expression(ComparisonOp::LessThanEqual, left, right)
-            }
-            GreaterThan => self.visit_comparison_expression(ComparisonOp::GreaterThan, left, right),
-            GreaterThanEqual => {
-                self.visit_comparison_expression(ComparisonOp::GreaterThanEqual, left, right)
-            }
-            NullishCoalesce | Instanceof | In => {
-                Err(ExpressionError::UnsupportedOperation(operator.to_string()))
-            }
+            .map(Operand::Constant),
+            (left, right) => self.emit_binary_expression(binary, left, right),
         }
     }
 
@@ -330,99 +303,62 @@ impl<'a> CodeBuilder<'a> {
         }
     }
 
-    fn visit_binary_arith_expression(
+    fn emit_binary_expression(
         &mut self,
-        op: BinaryArithOp,
+        binary: BinaryOp,
         left: Operand<'a>,
         right: Operand<'a>,
     ) -> Result<Operand<'a>, ExpressionError> {
-        use BinaryArithOp::*;
-        let (left, right) = match (left, right) {
-            (Operand::Constant(l), Operand::Constant(r)) => {
-                return ceval::eval_binary_arith_expression(op, l, r).map(Operand::Constant);
+        let unsupported = || ExpressionError::UnsupportedOperation(binary.to_string());
+        let left = ensure_concrete_string(left);
+        let right = ensure_concrete_string(right);
+        match binary {
+            BinaryOp::Arith(op) => {
+                use BinaryArithOp::*;
+                let ty = deduce_concrete_type(op, left.type_desc(), right.type_desc())?;
+                match &ty {
+                    &TypeKind::INT | &TypeKind::UINT | &TypeKind::DOUBLE => Ok(()),
+                    &TypeKind::STRING => match op {
+                        Add => Ok(()),
+                        Sub | Mul | Div | Rem => Err(unsupported()),
+                    },
+                    _ => Err(unsupported()),
+                }?;
+                Ok(self.emit_result(ty, Rvalue::BinaryArithOp(op, left, right)))
             }
-            (left, right) => (ensure_concrete_string(left), ensure_concrete_string(right)),
-        };
-        let ty = deduce_concrete_type(op, left.type_desc(), right.type_desc())?;
-        match &ty {
-            &TypeKind::INT | &TypeKind::UINT | &TypeKind::DOUBLE => Ok(()),
-            &TypeKind::STRING => match op {
-                Add => Ok(()),
-                Sub | Mul | Div | Rem => Err(ExpressionError::UnsupportedOperation(op.to_string())),
-            },
-            _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
-        }?;
-        Ok(self.emit_result(ty, Rvalue::BinaryArithOp(op, left, right)))
-    }
-
-    fn visit_binary_bitwise_expression(
-        &mut self,
-        op: BinaryBitwiseOp,
-        left: Operand<'a>,
-        right: Operand<'a>,
-    ) -> Result<Operand<'a>, ExpressionError> {
-        use BinaryBitwiseOp::*;
-        let (left, right) = match (left, right) {
-            (Operand::Constant(l), Operand::Constant(r)) => {
-                return ceval::eval_binary_bitwise_expression(op, l, r).map(Operand::Constant);
+            BinaryOp::Bitwise(op) => {
+                use BinaryBitwiseOp::*;
+                let ty = deduce_concrete_type(op, left.type_desc(), right.type_desc())?;
+                match &ty {
+                    &TypeKind::BOOL | TypeKind::Just(NamedType::Enum(_)) => match op {
+                        RightShift | LeftShift => Err(unsupported()),
+                        And | Xor | Or => Ok(()),
+                    },
+                    &TypeKind::INT | &TypeKind::UINT => Ok(()),
+                    _ => Err(unsupported()),
+                }?;
+                Ok(self.emit_result(ty, Rvalue::BinaryBitwiseOp(op, left, right)))
             }
-            (left, right) => (ensure_concrete_string(left), ensure_concrete_string(right)),
-        };
-        let ty = deduce_concrete_type(op, left.type_desc(), right.type_desc())?;
-        match &ty {
-            &TypeKind::BOOL | TypeKind::Just(NamedType::Enum(_)) => match op {
-                RightShift | LeftShift => {
-                    Err(ExpressionError::UnsupportedOperation(op.to_string()))
-                }
-                And | Xor | Or => Ok(()),
-            },
-            &TypeKind::INT | &TypeKind::UINT => Ok(()),
-            _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
-        }?;
-        Ok(self.emit_result(ty, Rvalue::BinaryBitwiseOp(op, left, right)))
-    }
-
-    fn visit_binary_logical_expression(
-        &mut self,
-        op: BinaryLogicalOp,
-        left: Operand<'a>,
-        right: Operand<'a>,
-    ) -> Result<Operand<'a>, ExpressionError> {
-        let (left, right) = match (left, right) {
-            (Operand::Constant(l), Operand::Constant(r)) => {
-                return ceval::eval_binary_logical_expression(op, l, r).map(Operand::Constant);
+            BinaryOp::Logical(op) => {
+                match (left.type_desc(), right.type_desc()) {
+                    (TypeDesc::BOOL, TypeDesc::BOOL) => Ok(()),
+                    _ => Err(unsupported()),
+                }?;
+                Ok(self.emit_result(TypeKind::BOOL, Rvalue::BinaryLogicalOp(op, left, right)))
             }
-            (left, right) => (ensure_concrete_string(left), ensure_concrete_string(right)),
-        };
-        match (left.type_desc(), right.type_desc()) {
-            (TypeDesc::BOOL, TypeDesc::BOOL) => Ok(()),
-            _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
-        }?;
-        Ok(self.emit_result(TypeKind::BOOL, Rvalue::BinaryLogicalOp(op, left, right)))
-    }
-
-    fn visit_comparison_expression(
-        &mut self,
-        op: ComparisonOp,
-        left: Operand<'a>,
-        right: Operand<'a>,
-    ) -> Result<Operand<'a>, ExpressionError> {
-        let (left, right) = match (left, right) {
-            (Operand::Constant(l), Operand::Constant(r)) => {
-                return ceval::eval_comparison_expression(op, l, r).map(Operand::Constant);
+            BinaryOp::Comparison(op) => {
+                match deduce_concrete_type(op, left.type_desc(), right.type_desc())? {
+                    TypeKind::BOOL
+                    | TypeKind::INT
+                    | TypeKind::UINT
+                    | TypeKind::DOUBLE
+                    | TypeKind::STRING
+                    | TypeKind::Just(NamedType::Enum(_)) => Ok(()),
+                    _ => Err(unsupported()),
+                }?;
+                Ok(self.emit_result(TypeKind::BOOL, Rvalue::ComparisonOp(op, left, right)))
             }
-            (left, right) => (ensure_concrete_string(left), ensure_concrete_string(right)),
-        };
-        match deduce_concrete_type(op, left.type_desc(), right.type_desc())? {
-            TypeKind::BOOL
-            | TypeKind::INT
-            | TypeKind::UINT
-            | TypeKind::DOUBLE
-            | TypeKind::STRING
-            | TypeKind::Just(NamedType::Enum(_)) => Ok(()),
-            _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
-        }?;
-        Ok(self.emit_result(TypeKind::BOOL, Rvalue::ComparisonOp(op, left, right)))
+        }
     }
 }
 
@@ -437,6 +373,39 @@ impl TryFrom<UnaryOperator> for UnaryOp {
             Minus => Ok(UnaryOp::Arith(UnaryArithOp::Minus)),
             Plus => Ok(UnaryOp::Arith(UnaryArithOp::Plus)),
             Typeof | Void | Delete => {
+                Err(ExpressionError::UnsupportedOperation(operator.to_string()))
+            }
+        }
+    }
+}
+
+impl TryFrom<BinaryOperator> for BinaryOp {
+    type Error = ExpressionError;
+
+    fn try_from(operator: BinaryOperator) -> Result<Self, Self::Error> {
+        use BinaryOperator::*;
+        match operator {
+            LogicalAnd => Ok(BinaryOp::Logical(BinaryLogicalOp::And)),
+            LogicalOr => Ok(BinaryOp::Logical(BinaryLogicalOp::Or)),
+            RightShift => Ok(BinaryOp::Bitwise(BinaryBitwiseOp::RightShift)),
+            UnsignedRightShift => Err(ExpressionError::UnsupportedOperation(operator.to_string())),
+            LeftShift => Ok(BinaryOp::Bitwise(BinaryBitwiseOp::LeftShift)),
+            BitwiseAnd => Ok(BinaryOp::Bitwise(BinaryBitwiseOp::And)),
+            BitwiseXor => Ok(BinaryOp::Bitwise(BinaryBitwiseOp::Xor)),
+            BitwiseOr => Ok(BinaryOp::Bitwise(BinaryBitwiseOp::Or)),
+            Add => Ok(BinaryOp::Arith(BinaryArithOp::Add)),
+            Sub => Ok(BinaryOp::Arith(BinaryArithOp::Sub)),
+            Mul => Ok(BinaryOp::Arith(BinaryArithOp::Mul)),
+            Div => Ok(BinaryOp::Arith(BinaryArithOp::Div)),
+            Rem => Ok(BinaryOp::Arith(BinaryArithOp::Rem)),
+            Exp => Err(ExpressionError::UnsupportedOperation(operator.to_string())),
+            Equal | StrictEqual => Ok(BinaryOp::Comparison(ComparisonOp::Equal)),
+            NotEqual | StrictNotEqual => Ok(BinaryOp::Comparison(ComparisonOp::NotEqual)),
+            LessThan => Ok(BinaryOp::Comparison(ComparisonOp::LessThan)),
+            LessThanEqual => Ok(BinaryOp::Comparison(ComparisonOp::LessThanEqual)),
+            GreaterThan => Ok(BinaryOp::Comparison(ComparisonOp::GreaterThan)),
+            GreaterThanEqual => Ok(BinaryOp::Comparison(ComparisonOp::GreaterThanEqual)),
+            NullishCoalesce | Instanceof | In => {
                 Err(ExpressionError::UnsupportedOperation(operator.to_string()))
             }
         }
