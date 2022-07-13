@@ -13,22 +13,22 @@ public:
 
     void setup()
     {
-        this->setup_dialog_windowTitle();
-        this->update_dialog_windowTitle();
+        this->setupDialogWindowTitle();
+        this->updateDialogWindowTitle();
     }
 
 private:
-    void setup_dialog_windowTitle()
+    void setupDialogWindowTitle()
     {
-        QObject::connect(this->ui_->edit, &QLineEdit::textChanged, root_, [this]() { this->update_dialog_windowTitle(); });
+        QObject::connect(this->ui_->edit, &QLineEdit::textChanged, root_, [this]() { this->updateDialogWindowTitle(); });
     }
 
-    void update_dialog_windowTitle()
+    void updateDialogWindowTitle()
     {
-        this->root_->setWindowTitle(this->eval_dialog_windowTitle());
+        this->root_->setWindowTitle(this->evalDialogWindowTitle());
     }
 
-    QString eval_dialog_windowTitle() const
+    QString evalDialogWindowTitle() const
     {
         QString a0;
     b0:

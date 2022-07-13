@@ -13,24 +13,24 @@ public:
 
     void setup()
     {
-        this->setup_formStack_currentIndex();
-        this->setup_mainWindow_windowTitle();
-        this->update_formStack_currentIndex();
-        this->update_mainWindow_windowTitle();
+        this->setupFormStackCurrentIndex();
+        this->setupMainWindowWindowTitle();
+        this->updateFormStackCurrentIndex();
+        this->updateMainWindowWindowTitle();
     }
 
 private:
-    void setup_formStack_currentIndex()
+    void setupFormStackCurrentIndex()
     {
-        QObject::connect(this->ui_->fileNameEdit, &QComboBox::currentIndexChanged, root_, [this]() { this->update_formStack_currentIndex(); });
+        QObject::connect(this->ui_->fileNameEdit, &QComboBox::currentIndexChanged, root_, [this]() { this->updateFormStackCurrentIndex(); });
     }
 
-    void update_formStack_currentIndex()
+    void updateFormStackCurrentIndex()
     {
-        this->ui_->formStack->setCurrentIndex(this->eval_formStack_currentIndex());
+        this->ui_->formStack->setCurrentIndex(this->evalFormStackCurrentIndex());
     }
 
-    int eval_formStack_currentIndex() const
+    int evalFormStackCurrentIndex() const
     {
         int a0;
     b0:
@@ -38,18 +38,18 @@ private:
         return a0;
     }
 
-    void setup_mainWindow_windowTitle()
+    void setupMainWindowWindowTitle()
     {
-        QObject::connect(this->ui_->fileNameEdit, &QComboBox::currentIndexChanged, root_, [this]() { this->update_mainWindow_windowTitle(); });
-        QObject::connect(this->ui_->fileNameEdit, &QComboBox::currentTextChanged, root_, [this]() { this->update_mainWindow_windowTitle(); });
+        QObject::connect(this->ui_->fileNameEdit, &QComboBox::currentIndexChanged, root_, [this]() { this->updateMainWindowWindowTitle(); });
+        QObject::connect(this->ui_->fileNameEdit, &QComboBox::currentTextChanged, root_, [this]() { this->updateMainWindowWindowTitle(); });
     }
 
-    void update_mainWindow_windowTitle()
+    void updateMainWindowWindowTitle()
     {
-        this->root_->setWindowTitle(this->eval_mainWindow_windowTitle());
+        this->root_->setWindowTitle(this->evalMainWindowWindowTitle());
     }
 
-    QString eval_mainWindow_windowTitle() const
+    QString evalMainWindowWindowTitle() const
     {
         int a0;
         bool a1;

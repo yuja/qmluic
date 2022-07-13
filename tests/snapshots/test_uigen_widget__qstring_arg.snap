@@ -13,24 +13,24 @@ public:
 
     void setup()
     {
-        this->setup_label_text();
-        this->setup_label1_text();
-        this->update_label_text();
-        this->update_label1_text();
+        this->setupLabelText();
+        this->setupLabel1Text();
+        this->updateLabelText();
+        this->updateLabel1Text();
     }
 
 private:
-    void setup_label_text()
+    void setupLabelText()
     {
-        QObject::connect(this->ui_->combo, &QComboBox::currentIndexChanged, root_, [this]() { this->update_label_text(); });
+        QObject::connect(this->ui_->combo, &QComboBox::currentIndexChanged, root_, [this]() { this->updateLabelText(); });
     }
 
-    void update_label_text()
+    void updateLabelText()
     {
-        this->ui_->label->setText(this->eval_label_text());
+        this->ui_->label->setText(this->evalLabelText());
     }
 
-    QString eval_label_text() const
+    QString evalLabelText() const
     {
         int a0;
         QString a1;
@@ -40,16 +40,16 @@ private:
         return a1;
     }
 
-    void setup_label1_text()
+    void setupLabel1Text()
     {
     }
 
-    void update_label1_text()
+    void updateLabel1Text()
     {
-        this->ui_->label1->setText(this->eval_label1_text());
+        this->ui_->label1->setText(this->evalLabel1Text());
     }
 
-    QString eval_label1_text() const
+    QString evalLabel1Text() const
     {
         QString a0;
     b0:

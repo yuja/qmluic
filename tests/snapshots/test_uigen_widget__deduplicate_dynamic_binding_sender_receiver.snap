@@ -13,22 +13,22 @@ public:
 
     void setup()
     {
-        this->setup_edit_enabled();
-        this->update_edit_enabled();
+        this->setupEditEnabled();
+        this->updateEditEnabled();
     }
 
 private:
-    void setup_edit_enabled()
+    void setupEditEnabled()
     {
-        QObject::connect(this->root_, &QLineEdit::textChanged, root_, [this]() { this->update_edit_enabled(); });
+        QObject::connect(this->root_, &QLineEdit::textChanged, root_, [this]() { this->updateEditEnabled(); });
     }
 
-    void update_edit_enabled()
+    void updateEditEnabled()
     {
-        this->root_->setEnabled(this->eval_edit_enabled());
+        this->root_->setEnabled(this->evalEditEnabled());
     }
 
-    bool eval_edit_enabled() const
+    bool evalEditEnabled() const
     {
         QString a0;
         bool a1;

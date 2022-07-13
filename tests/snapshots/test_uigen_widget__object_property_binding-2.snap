@@ -13,22 +13,22 @@ public:
 
     void setup()
     {
-        this->setup_widget_visible();
-        this->update_widget_visible();
+        this->setupWidgetVisible();
+        this->updateWidgetVisible();
     }
 
 private:
-    void setup_widget_visible()
+    void setupWidgetVisible()
     {
-        QObject::connect(this->ui_->source, &QAbstractButton::toggled, root_, [this]() { this->update_widget_visible(); });
+        QObject::connect(this->ui_->source, &QAbstractButton::toggled, root_, [this]() { this->updateWidgetVisible(); });
     }
 
-    void update_widget_visible()
+    void updateWidgetVisible()
     {
-        this->ui_->widget->setVisible(this->eval_widget_visible());
+        this->ui_->widget->setVisible(this->evalWidgetVisible());
     }
 
-    bool eval_widget_visible() const
+    bool evalWidgetVisible() const
     {
         bool a0;
     b0:
