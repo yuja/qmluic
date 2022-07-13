@@ -44,13 +44,7 @@ fn dump_statement<W: io::Write>(w: &mut W, stmt: &Statement) -> io::Result<()> {
 fn format_rvalue(rv: &Rvalue) -> String {
     match rv {
         Rvalue::Copy(a) => format!("copy {}", format_operand(a)),
-        Rvalue::UnaryArithOp(op, a) => format!("unary_arith_op '{}', {}", op, format_operand(a)),
-        Rvalue::UnaryBitwiseOp(op, a) => {
-            format!("unary_bitwise_op '{}', {}", op, format_operand(a))
-        }
-        Rvalue::UnaryLogicalOp(op, a) => {
-            format!("unary_logical_op '{}', {}", op, format_operand(a))
-        }
+        Rvalue::UnaryOp(op, a) => format!("unary_op '{}', {}", op, format_operand(a)),
         Rvalue::BinaryArithOp(op, l, r) => format!(
             "binary_arith_op '{}', {}, {}",
             op,

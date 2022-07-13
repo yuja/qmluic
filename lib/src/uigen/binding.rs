@@ -387,9 +387,7 @@ impl CxxCodeBodyTranslator {
         use tir::Rvalue;
         match rv {
             Rvalue::Copy(a) => self.format_operand(a),
-            Rvalue::UnaryArithOp(op, a) => format!("{}{}", op, self.format_operand(a)),
-            Rvalue::UnaryBitwiseOp(op, a) => format!("{}{}", op, self.format_operand(a)),
-            Rvalue::UnaryLogicalOp(op, a) => format!("{}{}", op, self.format_operand(a)),
+            Rvalue::UnaryOp(op, a) => format!("{}{}", op, self.format_operand(a)),
             Rvalue::BinaryArithOp(op, l, r) => format!(
                 "{} {} {}",
                 self.format_operand(l),
