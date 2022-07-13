@@ -7,6 +7,7 @@ use crate::typemap::{
 };
 use std::borrow::Cow;
 use std::fmt::Debug;
+use std::ops::Range;
 
 /// Expression type.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -97,42 +98,77 @@ pub trait ExpressionVisitor<'a> {
     type Label;
     type Error: ToString;
 
-    fn visit_integer(&mut self, value: u64) -> Result<Self::Item, Self::Error>;
-    fn visit_float(&mut self, value: f64) -> Result<Self::Item, Self::Error>;
-    fn visit_string(&mut self, value: String) -> Result<Self::Item, Self::Error>;
-    fn visit_bool(&mut self, value: bool) -> Result<Self::Item, Self::Error>;
-    fn visit_enum(&mut self, enum_ty: Enum<'a>, variant: &str) -> Result<Self::Item, Self::Error>;
+    fn visit_integer(
+        &mut self,
+        value: u64,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error>;
+    fn visit_float(
+        &mut self,
+        value: f64,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error>;
+    fn visit_string(
+        &mut self,
+        value: String,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error>;
+    fn visit_bool(
+        &mut self,
+        value: bool,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error>;
+    fn visit_enum(
+        &mut self,
+        enum_ty: Enum<'a>,
+        variant: &str,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error>;
 
-    fn visit_array(&mut self, elements: Vec<Self::Item>) -> Result<Self::Item, Self::Error>;
+    fn visit_array(
+        &mut self,
+        elements: Vec<Self::Item>,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error>;
 
-    fn visit_object_ref(&mut self, cls: Class<'a>, name: &str) -> Result<Self::Item, Self::Error>;
+    fn visit_object_ref(
+        &mut self,
+        cls: Class<'a>,
+        name: &str,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error>;
     fn visit_object_property(
         &mut self,
         object: Self::Item,
         property: Property<'a>,
+        byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error>;
     fn visit_object_builtin_method_call(
         &mut self,
         object: Self::Item,
         function: BuiltinMethodKind,
         arguments: Vec<Self::Item>,
+        byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error>;
 
     fn visit_builtin_call(
         &mut self,
         function: BuiltinFunctionKind,
         arguments: Vec<Self::Item>,
+        byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error>;
     fn visit_unary_expression(
         &mut self,
         operator: UnaryOperator,
         argument: Self::Item,
+        byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error>;
     fn visit_binary_expression(
         &mut self,
         operator: BinaryOperator,
         left: Self::Item,
         right: Self::Item,
+        byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error>;
     fn visit_ternary_expression(
         &mut self,
@@ -142,6 +178,7 @@ pub trait ExpressionVisitor<'a> {
         condition_label: Self::Label,
         consequence_label: Self::Label,
         alternative_label: Self::Label,
+        byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error>;
 
     fn mark_branch_point(&mut self) -> Self::Label;
@@ -199,16 +236,16 @@ where
     match diagnostics.consume_err(Expression::from_node(node, source))? {
         Expression::Identifier(x) => process_identifier(ctx, x, source, visitor, diagnostics),
         Expression::Integer(v) => diagnostics
-            .consume_node_err(node, visitor.visit_integer(v))
+            .consume_node_err(node, visitor.visit_integer(v, node.byte_range()))
             .map(Intermediate::Item),
         Expression::Float(v) => diagnostics
-            .consume_node_err(node, visitor.visit_float(v))
+            .consume_node_err(node, visitor.visit_float(v, node.byte_range()))
             .map(Intermediate::Item),
         Expression::String(v) => diagnostics
-            .consume_node_err(node, visitor.visit_string(v))
+            .consume_node_err(node, visitor.visit_string(v, node.byte_range()))
             .map(Intermediate::Item),
         Expression::Bool(v) => diagnostics
-            .consume_node_err(node, visitor.visit_bool(v))
+            .consume_node_err(node, visitor.visit_bool(v, node.byte_range()))
             .map(Intermediate::Item),
         Expression::Array(ns) => {
             let elements = ns
@@ -216,7 +253,7 @@ where
                 .map(|&n| walk(ctx, n, source, visitor, diagnostics))
                 .collect::<Option<Vec<_>>>()?;
             diagnostics
-                .consume_node_err(node, visitor.visit_array(elements))
+                .consume_node_err(node, visitor.visit_array(elements, node.byte_range()))
                 .map(Intermediate::Item)
         }
         Expression::MemberExpression(x) => {
@@ -248,14 +285,22 @@ where
                     diagnostics
                         .consume_node_err(
                             node,
-                            visitor.visit_object_builtin_method_call(it, f, arguments),
+                            visitor.visit_object_builtin_method_call(
+                                it,
+                                f,
+                                arguments,
+                                node.byte_range(),
+                            ),
                         )
                         .map(Intermediate::Item)
                 }
                 Intermediate::BuiltinFunction(f) => {
                     // TODO: confine type error?
                     diagnostics
-                        .consume_node_err(node, visitor.visit_builtin_call(f, arguments))
+                        .consume_node_err(
+                            node,
+                            visitor.visit_builtin_call(f, arguments, node.byte_range()),
+                        )
                         .map(Intermediate::Item)
                 }
                 Intermediate::Item(_) | Intermediate::Type(_) => {
@@ -268,7 +313,10 @@ where
             let argument = walk(ctx, x.argument, source, visitor, diagnostics)?;
             // TODO: confine type error?
             diagnostics
-                .consume_node_err(node, visitor.visit_unary_expression(x.operator, argument))
+                .consume_node_err(
+                    node,
+                    visitor.visit_unary_expression(x.operator, argument, node.byte_range()),
+                )
                 .map(Intermediate::Item)
         }
         Expression::BinaryExpression(x) => {
@@ -278,7 +326,7 @@ where
             diagnostics
                 .consume_node_err(
                     node,
-                    visitor.visit_binary_expression(x.operator, left, right),
+                    visitor.visit_binary_expression(x.operator, left, right, node.byte_range()),
                 )
                 .map(Intermediate::Item)
         }
@@ -299,6 +347,7 @@ where
                         condition_label,
                         consequence_label,
                         alternative_label,
+                        node.byte_range(),
                     ),
                 )
                 .map(Intermediate::Item)
@@ -322,10 +371,16 @@ where
         Some(Ok(RefKind::BuiltinFunction(f))) => Some(Intermediate::BuiltinFunction(f)),
         Some(Ok(RefKind::Type(ty))) => Some(Intermediate::Type(ty)),
         Some(Ok(RefKind::EnumVariant(en))) => diagnostics
-            .consume_node_err(id.node(), visitor.visit_enum(en, name))
+            .consume_node_err(
+                id.node(),
+                visitor.visit_enum(en, name, id.node().byte_range()),
+            )
             .map(Intermediate::Item),
         Some(Ok(RefKind::Object(cls))) => diagnostics
-            .consume_node_err(id.node(), visitor.visit_object_ref(cls, name))
+            .consume_node_err(
+                id.node(),
+                visitor.visit_object_ref(cls, name, id.node().byte_range()),
+            )
             .map(Intermediate::Item),
         Some(Err(e)) => {
             diagnostics.push(Diagnostic::error(
@@ -385,7 +440,10 @@ where
         TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(cls))) => {
             match cls.get_property(name) {
                 Some(Ok(p)) => diagnostics
-                    .consume_node_err(id.node(), visitor.visit_object_property(item, p))
+                    .consume_node_err(
+                        id.node(),
+                        visitor.visit_object_property(item, p, id.node().byte_range()),
+                    )
                     .map(Intermediate::Item),
                 Some(Err(e)) => {
                     diagnostics.push(Diagnostic::error(
