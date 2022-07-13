@@ -4,6 +4,7 @@ use super::typeutil::{self, TypeError};
 use crate::typedexpr::{BuiltinFunctionKind, BuiltinMethodKind, DescribeType, TypeDesc};
 use crate::typemap::{Class, Enum, NamedType, Property, TypeKind};
 use std::fmt;
+use std::ops::Range;
 
 /// Container of type-checked IR code.
 #[derive(Clone, Debug)]
@@ -102,6 +103,18 @@ pub enum Operand<'a> {
     NamedObject(NamedObject<'a>),
 }
 
+impl Operand<'_> {
+    /// Source code location of the expression that this operand represents.
+    pub fn byte_range(&self) -> Range<usize> {
+        match self {
+            Operand::Constant(x) => x.byte_range.clone(),
+            Operand::EnumVariant(x) => x.byte_range.clone(),
+            Operand::Local(x) => x.byte_range.clone(),
+            Operand::NamedObject(x) => x.byte_range.clone(),
+        }
+    }
+}
+
 impl<'a> DescribeType<'a> for Operand<'a> {
     fn type_desc(&self) -> TypeDesc<'a> {
         match &self {
@@ -121,11 +134,12 @@ impl<'a> DescribeType<'a> for Operand<'a> {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Constant {
     pub value: ConstantValue,
+    pub byte_range: Range<usize>,
 }
 
 impl Constant {
-    pub(super) fn new(value: ConstantValue) -> Self {
-        Constant { value }
+    pub(super) fn new(value: ConstantValue, byte_range: Range<usize>) -> Self {
+        Constant { value, byte_range }
     }
 }
 
@@ -163,13 +177,15 @@ impl DescribeType<'static> for ConstantValue {
 pub struct EnumVariant<'a> {
     pub ty: Enum<'a>,
     pub variant: String,
+    pub byte_range: Range<usize>,
 }
 
 impl<'a> EnumVariant<'a> {
-    pub(super) fn new(ty: Enum<'a>, variant: impl Into<String>) -> Self {
+    pub(super) fn new(ty: Enum<'a>, variant: impl Into<String>, byte_range: Range<usize>) -> Self {
         EnumVariant {
             ty,
             variant: variant.into(),
+            byte_range,
         }
     }
 
@@ -183,13 +199,16 @@ impl<'a> EnumVariant<'a> {
 pub struct Local<'a> {
     pub name: LocalRef,
     pub ty: TypeKind<'a>,
+    /// Source code location of the value expression that this variable holds.
+    pub byte_range: Range<usize>,
 }
 
 impl<'a> Local<'a> {
-    pub(super) fn new(name: usize, ty: TypeKind<'a>) -> Self {
+    pub(super) fn new(name: usize, ty: TypeKind<'a>, byte_range: Range<usize>) -> Self {
         Local {
             name: LocalRef(name),
             ty,
+            byte_range,
         }
     }
 }
@@ -203,13 +222,15 @@ pub struct LocalRef(pub usize);
 pub struct NamedObject<'a> {
     pub name: NamedObjectRef,
     pub cls: Class<'a>,
+    pub byte_range: Range<usize>,
 }
 
 impl<'a> NamedObject<'a> {
-    pub(super) fn new(name: impl Into<String>, cls: Class<'a>) -> Self {
+    pub(super) fn new(name: impl Into<String>, cls: Class<'a>, byte_range: Range<usize>) -> Self {
         NamedObject {
             name: NamedObjectRef(name.into()),
             cls,
+            byte_range,
         }
     }
 }
