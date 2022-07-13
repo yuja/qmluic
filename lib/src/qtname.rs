@@ -127,6 +127,19 @@ fn concat_number_suffix(prefix: &str, n: usize) -> String {
     }
 }
 
+/// Creates a copy of the given string which the first character is turned into ASCII upper case.
+pub fn to_ascii_capitalized(name: &str) -> String {
+    if name.starts_with(|c: char| c.is_ascii_lowercase()) {
+        let src_bytes = name.as_bytes();
+        let mut capitalized = Vec::with_capacity(src_bytes.len());
+        capitalized.push(src_bytes[0].to_ascii_uppercase());
+        capitalized.extend_from_slice(&src_bytes[1..]);
+        String::from_utf8(capitalized).expect("changing ASCII letter should not invalidate UTF-8")
+    } else {
+        name.to_owned()
+    }
+}
+
 /// Checks if the property name follows the standard setter function naming convention.
 ///
 /// See `PropertyDef::stdCppSet()` in `qtbase/src/tools/moc/moc.h` for details.
