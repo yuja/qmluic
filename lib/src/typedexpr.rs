@@ -172,12 +172,9 @@ pub trait ExpressionVisitor<'a> {
     ) -> Result<Self::Item, Self::Error>;
     fn visit_ternary_expression(
         &mut self,
-        condition: Self::Item,
-        consequence: Self::Item,
-        alternative: Self::Item,
-        condition_label: Self::Label,
-        consequence_label: Self::Label,
-        alternative_label: Self::Label,
+        condition: (Self::Item, Self::Label),
+        consequence: (Self::Item, Self::Label),
+        alternative: (Self::Item, Self::Label),
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error>;
 
@@ -341,12 +338,9 @@ where
                 .consume_node_err(
                     node,
                     visitor.visit_ternary_expression(
-                        condition,
-                        consequence,
-                        alternative,
-                        condition_label,
-                        consequence_label,
-                        alternative_label,
+                        (condition, condition_label),
+                        (consequence, consequence_label),
+                        (alternative, alternative_label),
                         node.byte_range(),
                     ),
                 )

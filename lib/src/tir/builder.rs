@@ -269,12 +269,9 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
 
     fn visit_ternary_expression(
         &mut self,
-        condition: Self::Item,
-        consequence: Self::Item,
-        alternative: Self::Item,
-        condition_ref: Self::Label,
-        consequence_ref: Self::Label,
-        alternative_ref: Self::Label,
+        (condition, condition_ref): (Self::Item, Self::Label),
+        (consequence, consequence_ref): (Self::Item, Self::Label),
+        (alternative, alternative_ref): (Self::Item, Self::Label),
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
         if condition.type_desc() != TypeDesc::BOOL {
