@@ -45,26 +45,8 @@ fn format_rvalue(rv: &Rvalue) -> String {
     match rv {
         Rvalue::Copy(a) => format!("copy {}", format_operand(a)),
         Rvalue::UnaryOp(op, a) => format!("unary_op '{}', {}", op, format_operand(a)),
-        Rvalue::BinaryArithOp(op, l, r) => format!(
-            "binary_arith_op '{}', {}, {}",
-            op,
-            format_operand(l),
-            format_operand(r)
-        ),
-        Rvalue::BinaryBitwiseOp(op, l, r) => format!(
-            "binary_bitwise_op '{}', {}, {}",
-            op,
-            format_operand(l),
-            format_operand(r)
-        ),
-        Rvalue::BinaryLogicalOp(op, l, r) => format!(
-            "binary_logical_op '{}', {}, {}",
-            op,
-            format_operand(l),
-            format_operand(r)
-        ),
-        Rvalue::ComparisonOp(op, l, r) => format!(
-            "comparison_op '{}', {}, {}",
+        Rvalue::BinaryOp(op, l, r) => format!(
+            "binary_op '{}', {}, {}",
             op,
             format_operand(l),
             format_operand(r)

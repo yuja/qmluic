@@ -388,25 +388,7 @@ impl CxxCodeBodyTranslator {
         match rv {
             Rvalue::Copy(a) => self.format_operand(a),
             Rvalue::UnaryOp(op, a) => format!("{}{}", op, self.format_operand(a)),
-            Rvalue::BinaryArithOp(op, l, r) => format!(
-                "{} {} {}",
-                self.format_operand(l),
-                op,
-                self.format_operand(r)
-            ),
-            Rvalue::BinaryBitwiseOp(op, l, r) => format!(
-                "{} {} {}",
-                self.format_operand(l),
-                op,
-                self.format_operand(r)
-            ),
-            Rvalue::BinaryLogicalOp(op, l, r) => format!(
-                "{} {} {}",
-                self.format_operand(l),
-                op,
-                self.format_operand(r)
-            ),
-            Rvalue::ComparisonOp(op, l, r) => format!(
+            Rvalue::BinaryOp(op, l, r) => format!(
                 "{} {} {}",
                 self.format_operand(l),
                 op,

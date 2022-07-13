@@ -212,14 +212,8 @@ pub enum Rvalue<'a> {
     Copy(Operand<'a>),
     /// `<op> <arg>`
     UnaryOp(UnaryOp, Operand<'a>),
-    /// `<left>:<ty> <op> <right>:<ty> -> <ty>`
-    BinaryArithOp(BinaryArithOp, Operand<'a>, Operand<'a>),
-    /// `<left>:<ty> <op> <right>:<ty> -> <ty>`
-    BinaryBitwiseOp(BinaryBitwiseOp, Operand<'a>, Operand<'a>),
-    /// `<left>:<ty> <op> <right>:<ty> -> bool`
-    BinaryLogicalOp(BinaryLogicalOp, Operand<'a>, Operand<'a>),
-    /// `<left>:<ty> <op> <right>:<ty> -> bool`
-    ComparisonOp(ComparisonOp, Operand<'a>, Operand<'a>),
+    /// `<left> <op> <right>`
+    BinaryOp(BinaryOp, Operand<'a>, Operand<'a>),
     /// `<function>(<args>)`
     CallBuiltinFunction(BuiltinFunctionKind, Vec<Operand<'a>>),
     /// `<obj> -> <method>(<args>)`
@@ -299,8 +293,9 @@ impl fmt::Display for UnaryLogicalOp {
     }
 }
 
+/// Binary operator.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub(super) enum BinaryOp {
+pub enum BinaryOp {
     Arith(BinaryArithOp),
     Bitwise(BinaryBitwiseOp),
     Logical(BinaryLogicalOp),

@@ -489,7 +489,7 @@ impl EvaluatedValue {
 
 /// Evaluates TIR code to constant value.
 fn evaluate_code(code: &tir::CodeBody) -> Option<EvaluatedValue> {
-    use tir::{BasicBlockRef, BinaryBitwiseOp, Operand, Rvalue, Statement, Terminator};
+    use tir::{BasicBlockRef, BinaryBitwiseOp, BinaryOp, Operand, Rvalue, Statement, Terminator};
 
     // fast path for simple constant expression
     if let Terminator::Return(a @ Operand::Constant(_)) = code.basic_blocks[0].terminator() {
@@ -516,7 +516,7 @@ fn evaluate_code(code: &tir::CodeBody) -> Option<EvaluatedValue> {
                         Rvalue::Copy(a) => {
                             tir_operand_to_evaluated_value(&locals, a, StringKind::NoTr)
                         }
-                        Rvalue::BinaryBitwiseOp(BinaryBitwiseOp::Or, l, r) => {
+                        Rvalue::BinaryOp(BinaryOp::Bitwise(BinaryBitwiseOp::Or), l, r) => {
                             tir_operands_to_evaluated_enum_set(&locals, l, r)
                         }
                         Rvalue::CallBuiltinFunction(BuiltinFunctionKind::Tr, args) => {
