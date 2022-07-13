@@ -302,6 +302,25 @@ impl fmt::Display for UnaryLogicalOp {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub(super) enum BinaryOp {
+    Arith(BinaryArithOp),
+    Bitwise(BinaryBitwiseOp),
+    Logical(BinaryLogicalOp),
+    Comparison(ComparisonOp),
+}
+
+impl fmt::Display for BinaryOp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            BinaryOp::Arith(op) => op.fmt(f),
+            BinaryOp::Bitwise(op) => op.fmt(f),
+            BinaryOp::Logical(op) => op.fmt(f),
+            BinaryOp::Comparison(op) => op.fmt(f),
+        }
+    }
+}
+
 /// Binary arithmetic operator.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum BinaryArithOp {
