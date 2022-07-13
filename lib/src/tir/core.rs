@@ -298,6 +298,7 @@ impl fmt::Display for UnaryLogicalOp {
 pub enum BinaryOp {
     Arith(BinaryArithOp),
     Bitwise(BinaryBitwiseOp),
+    Shift(ShiftOp),
     Logical(BinaryLogicalOp),
     Comparison(ComparisonOp),
 }
@@ -307,6 +308,7 @@ impl fmt::Display for BinaryOp {
         match self {
             BinaryOp::Arith(op) => op.fmt(f),
             BinaryOp::Bitwise(op) => op.fmt(f),
+            BinaryOp::Shift(op) => op.fmt(f),
             BinaryOp::Logical(op) => op.fmt(f),
             BinaryOp::Comparison(op) => op.fmt(f),
         }
@@ -344,10 +346,6 @@ impl fmt::Display for BinaryArithOp {
 /// Binary bitwise operator.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum BinaryBitwiseOp {
-    /// `>>`
-    RightShift,
-    /// `<<`
-    LeftShift,
     /// `&`
     And,
     /// `^`
@@ -359,11 +357,28 @@ pub enum BinaryBitwiseOp {
 impl fmt::Display for BinaryBitwiseOp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = match self {
-            BinaryBitwiseOp::RightShift => ">>",
-            BinaryBitwiseOp::LeftShift => "<<",
             BinaryBitwiseOp::And => "&",
             BinaryBitwiseOp::Xor => "^",
             BinaryBitwiseOp::Or => "|",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+/// Shift operator.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum ShiftOp {
+    /// `>>`
+    RightShift,
+    /// `<<`
+    LeftShift,
+}
+
+impl fmt::Display for ShiftOp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match self {
+            ShiftOp::RightShift => ">>",
+            ShiftOp::LeftShift => "<<",
         };
         write!(f, "{}", s)
     }

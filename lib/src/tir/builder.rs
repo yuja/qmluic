@@ -1,8 +1,8 @@
 use super::ceval;
 use super::core::{
     BasicBlock, BasicBlockRef, BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, BinaryOp, CodeBody,
-    ComparisonOp, ConstantValue, EnumVariant, Local, NamedObject, Operand, Rvalue, Statement,
-    Terminator, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp, UnaryOp,
+    ComparisonOp, ConstantValue, EnumVariant, Local, NamedObject, Operand, Rvalue, ShiftOp,
+    Statement, Terminator, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp, UnaryOp,
 };
 use super::typeutil::{self, TypeError};
 use crate::diagnostic::Diagnostics;
@@ -214,6 +214,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
             (Operand::Constant(l), Operand::Constant(r)) => match binary {
                 BinaryOp::Arith(op) => ceval::eval_binary_arith_expression(op, l, r),
                 BinaryOp::Bitwise(op) => ceval::eval_binary_bitwise_expression(op, l, r),
+                BinaryOp::Shift(op) => ceval::eval_shift_expression(op, l, r),
                 BinaryOp::Logical(op) => ceval::eval_binary_logical_expression(op, l, r),
                 BinaryOp::Comparison(op) => ceval::eval_comparison_expression(op, l, r),
             }
@@ -322,14 +323,22 @@ impl<'a> CodeBuilder<'a> {
                 }
             }
             BinaryOp::Bitwise(op) => {
-                use BinaryBitwiseOp::*;
                 let ty = deduce_concrete_type(op, left.type_desc(), right.type_desc())?;
                 match &ty {
-                    &TypeKind::BOOL | TypeKind::Just(NamedType::Enum(_)) => match op {
-                        RightShift | LeftShift => Err(unsupported()),
-                        And | Xor | Or => Ok(ty),
-                    },
-                    &TypeKind::INT | &TypeKind::UINT => Ok(ty),
+                    &TypeKind::BOOL
+                    | &TypeKind::INT
+                    | &TypeKind::UINT
+                    | TypeKind::Just(NamedType::Enum(_)) => Ok(ty),
+                    _ => Err(unsupported()),
+                }
+            }
+            BinaryOp::Shift(op) => {
+                let lty = to_concrete_type(op, left.type_desc())?;
+                match (&lty, right.type_desc()) {
+                    (
+                        &TypeKind::INT | &TypeKind::UINT,
+                        TypeDesc::ConstInteger | TypeDesc::INT | TypeDesc::UINT,
+                    ) => Ok(lty),
                     _ => Err(unsupported()),
                 }
             }
@@ -374,9 +383,9 @@ impl BinaryOp {
         match operator {
             LogicalAnd => Ok(BinaryOp::Logical(BinaryLogicalOp::And)),
             LogicalOr => Ok(BinaryOp::Logical(BinaryLogicalOp::Or)),
-            RightShift => Ok(BinaryOp::Bitwise(BinaryBitwiseOp::RightShift)),
+            RightShift => Ok(BinaryOp::Shift(ShiftOp::RightShift)),
             UnsignedRightShift => Err(ExpressionError::UnsupportedOperation(operator.to_string())),
-            LeftShift => Ok(BinaryOp::Bitwise(BinaryBitwiseOp::LeftShift)),
+            LeftShift => Ok(BinaryOp::Shift(ShiftOp::LeftShift)),
             BitwiseAnd => Ok(BinaryOp::Bitwise(BinaryBitwiseOp::And)),
             BitwiseXor => Ok(BinaryOp::Bitwise(BinaryBitwiseOp::Xor)),
             BitwiseOr => Ok(BinaryOp::Bitwise(BinaryBitwiseOp::Or)),

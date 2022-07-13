@@ -6,8 +6,8 @@
 
 use super::builder::ExpressionError;
 use super::core::{
-    BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, ComparisonOp, ConstantValue, UnaryArithOp,
-    UnaryBitwiseOp, UnaryLogicalOp,
+    BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, ComparisonOp, ConstantValue, ShiftOp,
+    UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp,
 };
 use crate::typedexpr::DescribeType;
 
@@ -134,24 +134,19 @@ pub(super) fn eval_binary_bitwise_expression(
     match (left, right) {
         (ConstantValue::Bool(l), ConstantValue::Bool(r)) => {
             let a = match op {
-                RightShift | LeftShift => None,
-                And => Some(l & r),
-                Xor => Some(l ^ r),
-                Or => Some(l | r),
+                And => l & r,
+                Xor => l ^ r,
+                Or => l | r,
             };
-            a.map(ConstantValue::Bool)
-                .ok_or_else(|| ExpressionError::UnsupportedOperation(op.to_string()))
+            Ok(ConstantValue::Bool(a))
         }
         (ConstantValue::Integer(l), ConstantValue::Integer(r)) => {
             let a = match op {
-                RightShift => l.checked_shr(r.try_into()?),
-                LeftShift => l.checked_shl(r.try_into()?),
-                And => Some(l & r),
-                Xor => Some(l ^ r),
-                Or => Some(l | r),
+                And => l & r,
+                Xor => l ^ r,
+                Or => l | r,
             };
-            a.map(ConstantValue::Integer)
-                .ok_or(ExpressionError::IntegerOverflow)
+            Ok(ConstantValue::Integer(a))
         }
         (ConstantValue::Float(_), ConstantValue::Float(_))
         | (ConstantValue::CString(_), ConstantValue::CString(_))
@@ -163,6 +158,25 @@ pub(super) fn eval_binary_bitwise_expression(
             left.type_desc().qualified_name().into(),
             right.type_desc().qualified_name().into(),
         )),
+    }
+}
+
+pub(super) fn eval_shift_expression(
+    op: ShiftOp,
+    left: ConstantValue,
+    right: ConstantValue,
+) -> Result<ConstantValue, ExpressionError> {
+    use ShiftOp::*;
+    match (left, right) {
+        (ConstantValue::Integer(l), ConstantValue::Integer(r)) => {
+            let a = match op {
+                RightShift => l.checked_shr(r.try_into()?),
+                LeftShift => l.checked_shl(r.try_into()?),
+            };
+            a.map(ConstantValue::Integer)
+                .ok_or(ExpressionError::IntegerOverflow)
+        }
+        _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
     }
 }
 
