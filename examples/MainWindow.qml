@@ -30,6 +30,7 @@ QMainWindow {
                     id: fileNameEdit
                     model: [
                         "MainWindow.qml",
+                        "BindingLoop.qml",
                         "HgEmailDialog.qml",
                         "ItemViews.qml",
                         "LayoutFlow.qml",
@@ -63,6 +64,7 @@ QMainWindow {
                     currentIndex: fileNameEdit.currentIndex
 
                     QWidget {}  // placeholder for "MainWindow.qml"
+                    BindingLoop {}
                     HgEmailDialog {}
                     ItemViews {}
                     LayoutFlow {}
