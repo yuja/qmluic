@@ -12,7 +12,7 @@ class StaticItemModel : public QWidget
     Q_OBJECT
 
 public:
-    StaticItemModel(QWidget *parent = nullptr);
+    explicit StaticItemModel(QWidget *parent = nullptr);
     ~StaticItemModel() override;
 
 private:

@@ -14,7 +14,7 @@ class ItemViews : public QWidget
     Q_OBJECT
 
 public:
-    ItemViews(QWidget *parent = nullptr);
+    explicit ItemViews(QWidget *parent = nullptr);
     ~ItemViews() override;
 
 private:
