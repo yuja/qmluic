@@ -67,6 +67,6 @@ fn test_string_list_as_list_view_item() {
       ┌─ <unknown>:2:13
       │
     2 │ QListView { model: ["foo"] }
-      │             ^^^^^^^^^^^^^^ not a writable property
+      │             ^^^^^^^^^^^^^^
     "###);
 }

@@ -98,9 +98,59 @@ fn test_property_error() {
       ┌─ $BASE_PATH/PropError.qml:3:5
       │
     3 │     unknown: ""
-      │     ^^^^^^^^^^^ unknown property of class 'QDialog': unknown
+      │     ^^^^^^^^^^^
 
     "###);
 
     assert!(!env.join("properror.ui").exists());
+}
+
+#[test]
+fn test_syntax_error_general() {
+    let env = TestEnv::prepare();
+    env.write_dedent(
+        "SyntaxError.qml",
+        r###"
+        import qmluic.QtWidgets
+        QDialog { windowTitle: "what" "ever" }
+        "###,
+    );
+
+    let a = env.generate_ui_cmd(["SyntaxError.qml"]).assert().failure();
+    insta::assert_snapshot!(env.replace_base_path(str::from_utf8(&a.get_output().stderr).unwrap()), @r###"
+    processing SyntaxError.qml
+    error: syntax error
+      ┌─ $BASE_PATH/SyntaxError.qml:2:24
+      │
+    2 │ QDialog { windowTitle: "what" "ever" }
+      │                        ^^^^^^
+
+    "###);
+
+    assert!(!env.join("syntaxerror.ui").exists());
+}
+
+#[test]
+fn test_syntax_error_missing() {
+    let env = TestEnv::prepare();
+    env.write_dedent(
+        "SyntaxError.qml",
+        r###"
+        import qmluic.QtWidgets
+        QDialog { windowTitle: "what"
+        "###,
+    );
+
+    let a = env.generate_ui_cmd(["SyntaxError.qml"]).assert().failure();
+    insta::assert_snapshot!(env.replace_base_path(str::from_utf8(&a.get_output().stderr).unwrap()), @r###"
+    processing SyntaxError.qml
+    error: syntax error: missing }
+      ┌─ $BASE_PATH/SyntaxError.qml:2:30
+      │
+    2 │ QDialog { windowTitle: "what"
+      │                              ^ missing }
+
+    "###);
+
+    assert!(!env.join("syntaxerror.ui").exists());
 }

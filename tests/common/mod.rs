@@ -177,9 +177,7 @@ fn format_diagnostics(doc: &UiDocument, diagnostics: &Diagnostics) -> String {
         };
         let cdiag = codespan_reporting::diagnostic::Diagnostic::new(severity)
             .with_message(diag.message())
-            .with_labels(vec![
-                Label::primary((), diag.byte_range()).with_message(diag.message())
-            ]);
+            .with_labels(vec![Label::primary((), diag.byte_range())]);
         term::emit(&mut writer, &config, &files, &cdiag).unwrap();
     }
     str::from_utf8(&buf).unwrap().trim_end().to_owned()

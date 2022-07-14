@@ -2,7 +2,7 @@ use codespan_reporting::diagnostic::{Label, Severity};
 use codespan_reporting::files::SimpleFile;
 use codespan_reporting::term;
 use qmluic::diagnostic::{DiagnosticKind, Diagnostics};
-use qmluic::qmldoc::UiDocument;
+use qmluic::qmldoc::{SyntaxErrorKind, UiDocument};
 use termcolor::{ColorChoice, StandardStream};
 
 type ReportableDiagnostic = codespan_reporting::diagnostic::Diagnostic<()>;
@@ -12,11 +12,17 @@ pub fn print_syntax_errors(doc: &UiDocument) -> anyhow::Result<()> {
     print_reportable_diagnostics(
         doc,
         errors.iter().map(|e| {
-            ReportableDiagnostic::error()
-                .with_message("syntax error")
-                .with_labels(vec![
-                    Label::primary((), e.byte_range()).with_message(e.to_string())
-                ])
+            let d = ReportableDiagnostic::error();
+            match e.kind() {
+                SyntaxErrorKind::Error => d
+                    .with_message("syntax error")
+                    .with_labels(vec![Label::primary((), e.byte_range())]),
+                _ => d
+                    .with_message(format!("syntax error: {}", e))
+                    .with_labels(vec![
+                        Label::primary((), e.byte_range()).with_message(e.to_string())
+                    ]),
+            }
         }),
     )
 }
@@ -30,9 +36,7 @@ pub fn print_diagnostics(doc: &UiDocument, diagnostics: &Diagnostics) -> anyhow:
             };
             ReportableDiagnostic::new(severity)
                 .with_message(diag.message())
-                .with_labels(vec![
-                    Label::primary((), diag.byte_range()).with_message(diag.message())
-                ])
+                .with_labels(vec![Label::primary((), diag.byte_range())])
         }),
     )
 }

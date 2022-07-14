@@ -12,7 +12,7 @@ fn test_root_must_be_widget() {
       ┌─ <unknown>:2:1
       │
     2 │ QVBoxLayout {}
-      │ ^^^^^^^^^^^^^^ class 'QVBoxLayout' is not a QWidget
+      │ ^^^^^^^^^^^^^^
     "###);
 }
 
@@ -43,7 +43,7 @@ fn test_width_is_readonly() {
       ┌─ <unknown>:2:11
       │
     2 │ QWidget { width: 100 }
-      │           ^^^^^^^^^^ not a writable property
+      │           ^^^^^^^^^^
     "###);
 }
 
@@ -65,7 +65,7 @@ fn test_dynamic_width_is_readonly() {
       ┌─ <unknown>:3:5
       │
     3 │     width: spinBox.value
-      │     ^^^^^^^^^^^^^^^^^^^^ not a writable property
+      │     ^^^^^^^^^^^^^^^^^^^^
     "###);
 }
 
@@ -87,7 +87,7 @@ fn test_unobservable_property() {
       ┌─ <unknown>:4:37
       │
     4 │      QLabel { text: "width: %1".arg(root.width) }
-      │                                     ^^^^ unobservable property: width
+      │                                     ^^^^
     "###);
 }
 
@@ -135,7 +135,7 @@ fn test_assign_float_to_int() {
       ┌─ <unknown>:2:19
       │
     2 │ QSpinBox { value: 1.0 }
-      │                   ^^^ expression type mismatch (expected: int, actual: double)
+      │                   ^^^
     "###);
 }
 
@@ -186,7 +186,7 @@ fn test_object_property_binding_unsupported() {
       ┌─ <unknown>:4:25
       │
     4 │      QWidget { visible: source.checked }
-      │                         ^^^^^^^^^^^^^^ unsupported dynamic binding
+      │                         ^^^^^^^^^^^^^^
     "###);
 }
 
@@ -200,7 +200,7 @@ fn test_self_property_binding_unsupported() {
       ┌─ <unknown>:2:22
       │
     2 │ QCheckBox { checked: enabled }
-      │                      ^^^^^^^ undefined reference
+      │                      ^^^^^^^
     "###);
 }
 
@@ -217,7 +217,7 @@ fn test_dynamic_binding_type_mismatch() {
       ┌─ <unknown>:3:19
       │
     3 │      windowTitle: source.checked
-      │                   ^^^^^^^^^^^^^^ expression type mismatch (expected: QString, actual: bool)
+      │                   ^^^^^^^^^^^^^^
     "###);
 }
 
@@ -304,7 +304,7 @@ fn test_ternary_expression_type_mismatch() {
       ┌─ <unknown>:3:19
       │
     3 │      windowTitle: source.checked ? 1 : "whatever"
-      │                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ operation 'ternary' on incompatible types: integer and QString
+      │                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     "###);
 }
 

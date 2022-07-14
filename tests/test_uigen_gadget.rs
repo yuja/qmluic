@@ -103,7 +103,7 @@ fn test_invalid_color() {
       ┌─ <unknown>:2:30
       │
     2 │ QColorDialog { currentColor: "#wtf" }
-      │                              ^^^^^^ invalid hex color
+      │                              ^^^^^^
     "###);
 }
 
@@ -373,7 +373,7 @@ fn test_unpaired_size_policy() {
       ┌─ <unknown>:3:5
       │
     3 │     sizePolicy.horizontalPolicy: QSizePolicy.Expanding
-      │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ both horizontal and vertical policies must be specified
+      │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     "###);
 }
 
@@ -389,7 +389,7 @@ fn test_stretch_without_size_policy() {
       ┌─ <unknown>:3:5
       │
     3 │     sizePolicy.horizontalStretch: 2
-      │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ cannot specify stretch without horizontal and vertical policies
+      │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     "###);
 }
 
@@ -461,6 +461,6 @@ fn test_string_list_mixed() {
       ┌─ <unknown>:2:29
       │
     2 │ QTextBrowser { searchPaths: [qsTr("a"), "b"] }
-      │                             ^^^^^^^^^^^^^^^^ cannot mix bare and translatable strings
+      │                             ^^^^^^^^^^^^^^^^
     "###);
 }
