@@ -163,10 +163,7 @@ fn load_metatypes() -> Vec<metatype::Class> {
 fn format_diagnostics(doc: &UiDocument, diagnostics: &Diagnostics) -> String {
     let mut buf = Vec::new();
     let mut writer = NoColor::new(&mut buf);
-    let config = term::Config {
-        display_style: term::DisplayStyle::Short,
-        ..Default::default()
-    };
+    let config = term::Config::default();
     let files = SimpleFile::new(
         doc.path()
             .and_then(|p| p.file_name())

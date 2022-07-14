@@ -7,7 +7,13 @@ fn test_root_must_be_widget() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
     QVBoxLayout {}
-    "###).unwrap_err(), @"<unknown>:2:1: error: class 'QVBoxLayout' is not a QWidget");
+    "###).unwrap_err(), @r###"
+    error: class 'QVBoxLayout' is not a QWidget
+      ┌─ <unknown>:2:1
+      │
+    2 │ QVBoxLayout {}
+      │ ^^^^^^^^^^^^^^ class 'QVBoxLayout' is not a QWidget
+    "###);
 }
 
 #[test]
@@ -32,7 +38,13 @@ fn test_width_is_readonly() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
     QWidget { width: 100 }
-    "###).unwrap_err(), @"<unknown>:2:11: error: not a writable property");
+    "###).unwrap_err(), @r###"
+    error: not a writable property
+      ┌─ <unknown>:2:11
+      │
+    2 │ QWidget { width: 100 }
+      │           ^^^^^^^^^^ not a writable property
+    "###);
 }
 
 #[test]
@@ -48,7 +60,13 @@ fn test_dynamic_width_is_readonly() {
     );
     insta::assert_snapshot!(
         common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap_err(),
-        @"<unknown>:3:5: error: not a writable property");
+        @r###"
+    error: not a writable property
+      ┌─ <unknown>:3:5
+      │
+    3 │     width: spinBox.value
+      │     ^^^^^^^^^^^^^^^^^^^^ not a writable property
+    "###);
 }
 
 #[test]
@@ -64,7 +82,13 @@ fn test_unobservable_property() {
     );
     insta::assert_snapshot!(
         common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap_err(),
-        @"<unknown>:4:37: error: unobservable property: width");
+        @r###"
+    error: unobservable property: width
+      ┌─ <unknown>:4:37
+      │
+    4 │      QLabel { text: "width: %1".arg(root.width) }
+      │                                     ^^^^ unobservable property: width
+    "###);
 }
 
 #[test]
@@ -106,7 +130,13 @@ fn test_assign_float_to_int() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
     QSpinBox { value: 1.0 }
-    "###).unwrap_err(), @"<unknown>:2:19: error: expression type mismatch (expected: int, actual: double)");
+    "###).unwrap_err(), @r###"
+    error: expression type mismatch (expected: int, actual: double)
+      ┌─ <unknown>:2:19
+      │
+    2 │ QSpinBox { value: 1.0 }
+      │                   ^^^ expression type mismatch (expected: int, actual: double)
+    "###);
 }
 
 #[test]
@@ -151,7 +181,13 @@ fn test_object_property_binding_unsupported() {
          QCheckBox { id: source }
          QWidget { visible: source.checked }
     }
-    "###).unwrap_err(), @"<unknown>:4:25: error: unsupported dynamic binding");
+    "###).unwrap_err(), @r###"
+    error: unsupported dynamic binding
+      ┌─ <unknown>:4:25
+      │
+    4 │      QWidget { visible: source.checked }
+      │                         ^^^^^^^^^^^^^^ unsupported dynamic binding
+    "###);
 }
 
 #[test]
@@ -159,7 +195,13 @@ fn test_self_property_binding_unsupported() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
     QCheckBox { checked: enabled }
-    "###).unwrap_err(), @"<unknown>:2:22: error: undefined reference");
+    "###).unwrap_err(), @r###"
+    error: undefined reference
+      ┌─ <unknown>:2:22
+      │
+    2 │ QCheckBox { checked: enabled }
+      │                      ^^^^^^^ undefined reference
+    "###);
 }
 
 #[test]
@@ -170,7 +212,13 @@ fn test_dynamic_binding_type_mismatch() {
          windowTitle: source.checked
          QCheckBox { id: source }
     }
-    "###).unwrap_err(), @"<unknown>:3:19: error: expression type mismatch (expected: QString, actual: bool)");
+    "###).unwrap_err(), @r###"
+    error: expression type mismatch (expected: QString, actual: bool)
+      ┌─ <unknown>:3:19
+      │
+    3 │      windowTitle: source.checked
+      │                   ^^^^^^^^^^^^^^ expression type mismatch (expected: QString, actual: bool)
+    "###);
 }
 
 #[test]
@@ -251,7 +299,13 @@ fn test_ternary_expression_type_mismatch() {
          windowTitle: source.checked ? 1 : "whatever"
          QCheckBox { id: source }
     }
-    "###).unwrap_err(), @"<unknown>:3:19: error: operation 'ternary' on incompatible types: integer and QString");
+    "###).unwrap_err(), @r###"
+    error: operation 'ternary' on incompatible types: integer and QString
+      ┌─ <unknown>:3:19
+      │
+    3 │      windowTitle: source.checked ? 1 : "whatever"
+      │                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ operation 'ternary' on incompatible types: integer and QString
+    "###);
 }
 
 #[test]

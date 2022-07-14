@@ -62,5 +62,11 @@ fn test_string_list_as_list_view_item() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
     QListView { model: ["foo"] }
-    "###).unwrap_err(), @"<unknown>:2:13: error: not a writable property");
+    "###).unwrap_err(), @r###"
+    error: not a writable property
+      ┌─ <unknown>:2:13
+      │
+    2 │ QListView { model: ["foo"] }
+      │             ^^^^^^^^^^^^^^ not a writable property
+    "###);
 }

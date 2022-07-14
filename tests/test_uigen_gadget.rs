@@ -98,7 +98,13 @@ fn test_invalid_color() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
     QColorDialog { currentColor: "#wtf" }
-    "###).unwrap_err(), @"<unknown>:2:30: error: invalid hex color");
+    "###).unwrap_err(), @r###"
+    error: invalid hex color
+      ┌─ <unknown>:2:30
+      │
+    2 │ QColorDialog { currentColor: "#wtf" }
+      │                              ^^^^^^ invalid hex color
+    "###);
 }
 
 #[test]
@@ -362,7 +368,13 @@ fn test_unpaired_size_policy() {
     QWidget {
         sizePolicy.horizontalPolicy: QSizePolicy.Expanding
     }
-    "###).unwrap_err(), @"<unknown>:3:5: error: both horizontal and vertical policies must be specified");
+    "###).unwrap_err(), @r###"
+    error: both horizontal and vertical policies must be specified
+      ┌─ <unknown>:3:5
+      │
+    3 │     sizePolicy.horizontalPolicy: QSizePolicy.Expanding
+      │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ both horizontal and vertical policies must be specified
+    "###);
 }
 
 #[test]
@@ -372,7 +384,13 @@ fn test_stretch_without_size_policy() {
     QWidget {
         sizePolicy.horizontalStretch: 2
     }
-    "###).unwrap_err(), @"<unknown>:3:5: error: cannot specify stretch without horizontal and vertical policies");
+    "###).unwrap_err(), @r###"
+    error: cannot specify stretch without horizontal and vertical policies
+      ┌─ <unknown>:3:5
+      │
+    3 │     sizePolicy.horizontalStretch: 2
+      │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ cannot specify stretch without horizontal and vertical policies
+    "###);
 }
 
 #[test]
@@ -438,5 +456,11 @@ fn test_string_list_mixed() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
     QTextBrowser { searchPaths: [qsTr("a"), "b"] }
-    "###).unwrap_err(), @"<unknown>:2:29: error: cannot mix bare and translatable strings");
+    "###).unwrap_err(), @r###"
+    error: cannot mix bare and translatable strings
+      ┌─ <unknown>:2:29
+      │
+    2 │ QTextBrowser { searchPaths: [qsTr("a"), "b"] }
+      │                             ^^^^^^^^^^^^^^^^ cannot mix bare and translatable strings
+    "###);
 }
