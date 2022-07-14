@@ -12,7 +12,7 @@ class LayoutFlow : public QWidget
     Q_OBJECT
 
 public:
-    LayoutFlow(QWidget *parent = nullptr);
+    explicit LayoutFlow(QWidget *parent = nullptr);
     ~LayoutFlow() override;
 
 private:

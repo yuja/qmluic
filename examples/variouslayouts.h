@@ -12,7 +12,7 @@ class VariousLayouts : public QWidget
     Q_OBJECT
 
 public:
-    VariousLayouts(QWidget *parent = nullptr);
+    explicit VariousLayouts(QWidget *parent = nullptr);
     ~VariousLayouts() override;
 
 private:

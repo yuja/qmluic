@@ -16,7 +16,7 @@ class HgEmailDialog : public QDialog
     Q_OBJECT
 
 public:
-    HgEmailDialog(QWidget *parent = nullptr);
+    explicit HgEmailDialog(QWidget *parent = nullptr);
     ~HgEmailDialog() override;
 
 private:
