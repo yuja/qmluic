@@ -3,7 +3,7 @@ qmluic - Write QtWidgets UI in QML
 
 *A .qml-to-.ui transpiler.*
 
-Write static UI in QML:
+Write UI in QML:
 ```qml
 import qmluic.QtWidgets
 
@@ -20,9 +20,9 @@ Run live preview and polish the UI:
 $ qmluic preview HelloDialog.qml
 ```
 
-Transpile to `*.ui`/`ui_*.h`:
+Transpile to `*.ui`/`ui_*.h`/`uisupport_*.h`:
 ```
-$ qmluic generate-ui --no-dynamic-binding HelloDialog.qml
+$ qmluic generate-ui HelloDialog.qml
 $ uic hellodialog.ui -o ui_hellodialog.h
 ```
 
@@ -31,8 +31,10 @@ See [examples/](examples/) directory for details.
 Usage
 -----
 
-`qmluic generate-ui` command translates `.qml` file to `.ui` XML file, which
-can then be processed by Qt User Interface Compiler `uic` command.
+`qmluic generate-ui` command translates `.qml` file to `.ui` XML file and
+`uisupport_*.h` C++ code. `.ui` can then be processed by Qt User Interface
+Compiler `uic` command. See [Dynamic Binding](#dynamic-binding) for
+`uisupport_*.h`.
 
 By default, `qmluic generate-ui` loads type information from the
 `QT_INSTALL_LIBS/metatypes` directory. Use `--qmake` or `--foreign-types`
@@ -115,11 +117,11 @@ welcome.
 
 ### Dynamic Binding
 
-*THIS IS STILL EXPERIMENTAL.*
+(To turn off this feature, set `--no-dynamic-binding` or `NO_DYNAMIC_BINDING`
+option in CMake.)
 
-`qmluic generate-ui` (without `--no-dynamic-binding`) generates
-a `uisupport_*.h` file in addition to `*.ui`, which sets up signal/slot
-connections for the dynamic binding expressions.
+`qmluic generate-ui` generates a `uisupport_*.h` file in addition to `*.ui`,
+which sets up signal/slot connections for the dynamic binding expressions.
 
 ```qml
 import qmluic.QtWidgets
@@ -133,7 +135,7 @@ QDialog {
 }
 ```
 
-In this example, `visible: checkBox.checked` is basically translated to the
+In this example, `visible: checkBox.checked` is conceptually translated to the
 following code:
 
 ```c++
@@ -142,6 +144,9 @@ void UiSupport::MainWindow::setup() {
             [this]() { label->setVisible(checkBox->isChecked()); });
 }
 ```
+
+(The generated code would be more verbose since QML/JS expression is first
+transformed to basic intermediate representation.)
 
 Syntax of supported binding expressions is quite limited right now. See
 the "Major TODOs" section for details.
