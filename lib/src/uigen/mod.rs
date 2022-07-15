@@ -14,6 +14,7 @@ mod expr;
 mod form;
 mod gadget;
 mod layout;
+mod objcode;
 mod object;
 mod property;
 mod xmlutil;
