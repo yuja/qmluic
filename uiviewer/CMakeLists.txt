@@ -21,6 +21,7 @@ add_executable(qmluic-uiviewer
 qmluic_target_qml_sources(qmluic-uiviewer
   UiViewerDialog.qml
   OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  NO_DYNAMIC_BINDING
 )
 
 target_compile_definitions(qmluic-uiviewer
