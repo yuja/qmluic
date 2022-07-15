@@ -2,13 +2,16 @@
 #include <QFileSystemModel>
 #include "itemviews.h"
 #include "ui_itemviews.h"
+#include "uisupport_itemviews.h"
 
 ItemViews::ItemViews(QWidget *parent)
     : QWidget(parent),
       ui_(std::make_unique<Ui::ItemViews>()),
+      uiSupport_(std::make_unique<UiSupport::ItemViews>(this, ui_.get())),
       fsModel_(std::make_unique<QFileSystemModel>())
 {
     ui_->setupUi(this);
+    uiSupport_->setup();
 
     // Install a model to render views. Here we use QFileSystemModel because it's easy.
     ui_->treeView->setModel(fsModel_.get());

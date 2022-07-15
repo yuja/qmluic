@@ -7,6 +7,10 @@ namespace Ui {
 class SettingsDialog;
 }
 
+namespace UiSupport {
+class SettingsDialog;
+}
+
 class SettingsDialog : public QDialog
 {
     Q_OBJECT
@@ -17,4 +21,5 @@ public:
 
 private:
     std::unique_ptr<Ui::SettingsDialog> ui_;
+    std::unique_ptr<UiSupport::SettingsDialog> uiSupport_;
 };

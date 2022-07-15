@@ -7,6 +7,10 @@ namespace Ui {
 class VariousLayouts;
 }
 
+namespace UiSupport {
+class VariousLayouts;
+}
+
 class VariousLayouts : public QWidget
 {
     Q_OBJECT
@@ -17,4 +21,5 @@ public:
 
 private:
     std::unique_ptr<Ui::VariousLayouts> ui_;
+    std::unique_ptr<UiSupport::VariousLayouts> uiSupport_;
 };
