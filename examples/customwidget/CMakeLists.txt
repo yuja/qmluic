@@ -22,6 +22,7 @@ qmluic_target_qml_sources(qmluic-examples-customwidget
   common/MyDialogButtonBox.qml
   MainDialog.qml
   SettingsForm.qml
+  NO_DYNAMIC_BINDING
 )
 
 target_compile_definitions(qmluic-examples-customwidget

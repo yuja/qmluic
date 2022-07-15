@@ -22,7 +22,7 @@ $ qmluic preview HelloDialog.qml
 
 Transpile to `*.ui`/`ui_*.h`:
 ```
-$ qmluic generate-ui HelloDialog.qml
+$ qmluic generate-ui --no-dynamic-binding HelloDialog.qml
 $ uic hellodialog.ui -o ui_hellodialog.h
 ```
 
@@ -117,9 +117,9 @@ welcome.
 
 *THIS IS STILL EXPERIMENTAL.*
 
-`qmluic generate-ui --dynamic-binding` (or `DYNAMIC_BINDING` option in CMake)
-generates a `uisupport_*.h` file in addition to `*.ui`, which sets up
-signal/slot connections for the dynamic binding expressions.
+`qmluic generate-ui` (without `--no-dynamic-binding`) generates
+a `uisupport_*.h` file in addition to `*.ui`, which sets up signal/slot
+connections for the dynamic binding expressions.
 
 ```qml
 import qmluic.QtWidgets

@@ -264,9 +264,9 @@ struct GenerateUiArgs {
     /// By default, qt${major}core/gui/widgets_*.json will be loaded from the
     /// QT_INSTALL_LIBS/metatypes directory.
     foreign_types: Vec<Utf8PathBuf>,
-    /// Generate C++ code to set up dynamic bindings
+    /// Do not generate C++ code to set up dynamic bindings
     #[clap(long, action)]
-    dynamic_binding: bool,
+    no_dynamic_binding: bool,
     /// Do not convert output file names to lowercase
     #[clap(long, action)]
     no_lowercase_file_name: bool,
@@ -302,10 +302,10 @@ fn generate_ui(helper: &CommandHelper, args: &GenerateUiArgs) -> Result<(), Comm
         lowercase: !args.no_lowercase_file_name,
         ..Default::default()
     };
-    let dynamic_binding_handling = if args.dynamic_binding {
-        DynamicBindingHandling::Generate
-    } else {
+    let dynamic_binding_handling = if args.no_dynamic_binding {
         DynamicBindingHandling::Reject
+    } else {
+        DynamicBindingHandling::Generate
     };
     let ctx = BuildContext::prepare(&type_map, file_name_rules, dynamic_binding_handling)
         .map_err(anyhow::Error::from)?;

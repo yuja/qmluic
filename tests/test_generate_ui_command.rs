@@ -14,7 +14,10 @@ fn test_simple_file() {
         "###,
     );
 
-    let a = env.generate_ui_cmd(["Simple.qml"]).assert().success();
+    let a = env
+        .generate_ui_cmd(["--no-dynamic-binding", "Simple.qml"])
+        .assert()
+        .success();
     insta::assert_snapshot!(str::from_utf8(&a.get_output().stderr).unwrap(), @r###"
     processing Simple.qml
     "###);
@@ -35,15 +38,9 @@ fn test_output_directory() {
     env.write_dedent("Base.qml", "import qmluic.QtWidgets; QWidget {}");
     env.write_dedent("dir/Nested.qml", "import qmluic.QtWidgets; QWidget {}");
 
-    env.generate_ui_cmd([
-        "-O",
-        "out/put",
-        "--dynamic-binding",
-        "Base.qml",
-        "dir/Nested.qml",
-    ])
-    .assert()
-    .success();
+    env.generate_ui_cmd(["-O", "out/put", "Base.qml", "dir/Nested.qml"])
+        .assert()
+        .success();
     assert!(env.join("out/put/base.ui").exists());
     assert!(env.join("out/put/uisupport_base.h").exists());
     assert!(env.join("out/put/dir/nested.ui").exists());
