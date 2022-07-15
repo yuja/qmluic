@@ -1,5 +1,6 @@
 use super::context::ObjectContext;
 use super::expr::{PropertyValue, SimpleValue, Value};
+use super::objcode::PropertyCode;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
@@ -210,7 +211,7 @@ pub(super) fn collect_properties(
 }
 
 pub(super) fn collect_properties_with_node<'a, 't>(
-    ctx: &ObjectContext<'a, '_, '_>,
+    ctx: &ObjectContext<'a, 't, '_>,
     cls: &Class<'a>,
     binding_map: &UiBindingMap<'t, '_>,
     diagnostics: &mut Diagnostics,
@@ -219,7 +220,7 @@ pub(super) fn collect_properties_with_node<'a, 't>(
 }
 
 fn resolve_properties<'a, 't, 's, B, F>(
-    ctx: &ObjectContext<'a, '_, '_>,
+    ctx: &ObjectContext<'a, 't, '_>,
     cls: &Class<'a>,
     binding_map: &UiBindingMap<'t, 's>,
     diagnostics: &mut Diagnostics,
@@ -232,17 +233,11 @@ where
         .iter()
         .filter_map(|(&name, value)| {
             match cls.get_property(name) {
-                Some(Ok(desc)) => match desc.value_type() {
-                    Ok(ty) => PropertyValue::from_binding_value(ctx, &ty, value, diagnostics)
-                        .map(|v| PropertyDescValue::new(desc, v)),
-                    Err(e) => {
-                        diagnostics.push(Diagnostic::error(
-                            value.binding_node().byte_range(),
-                            format!("unresolved property type: {}", e),
-                        ));
-                        None
-                    }
-                },
+                Some(Ok(desc)) => {
+                    let property_code = PropertyCode::build(ctx, desc, value, diagnostics)?;
+                    let value = PropertyValue::build(ctx, &property_code, diagnostics)?;
+                    Some(PropertyDescValue::new(property_code.desc().clone(), value))
+                }
                 Some(Err(e)) => {
                     diagnostics.push(Diagnostic::error(
                         value.binding_node().byte_range(),
@@ -265,6 +260,23 @@ where
             .and_then(|x| {
                 make_value(WithNode::new(value, x), diagnostics).map(|v| (name.to_owned(), v))
             })
+        })
+        .collect()
+}
+
+// TODO: remove after migrating to ObjectCodeMap
+pub(super) fn make_properties_from_code_map<'a, 't>(
+    ctx: &ObjectContext<'a, '_, '_>,
+    properties_code_map: &HashMap<&str, PropertyCode<'a, 't, '_>>,
+    diagnostics: &mut Diagnostics,
+) -> PropertiesMap<'a, 't> {
+    properties_code_map
+        .iter()
+        .filter_map(|(&name, property_code)| {
+            let node = property_code.node();
+            let value = PropertyValue::build(ctx, property_code, diagnostics)?;
+            let data = PropertyDescValue::new(property_code.desc().clone(), value);
+            Some((name.to_owned(), WithNode { node, data }))
         })
         .collect()
 }
