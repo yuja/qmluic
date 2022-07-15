@@ -222,7 +222,7 @@ struct LayoutItemAttached<'t> {
 
 impl<'t> LayoutItemAttached<'t> {
     fn from_object_node(
-        ctx: &BuildDocContext,
+        ctx: &BuildDocContext<'_, 't, '_>,
         obj_node: ObjectNode<'_, 't, '_>,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
@@ -477,7 +477,7 @@ fn process_grid_layout_children(
 }
 
 fn make_layout_item_pair<'t>(
-    ctx: &BuildDocContext,
+    ctx: &BuildDocContext<'_, 't, '_>,
     obj_node: ObjectNode<'_, 't, '_>,
     diagnostics: &mut Diagnostics,
 ) -> (LayoutItemAttached<'t>, LayoutItemContent) {

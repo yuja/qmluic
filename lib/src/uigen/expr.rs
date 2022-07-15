@@ -1,11 +1,12 @@
 use super::context::ObjectContext;
 use super::gadget::{Gadget, GadgetKind, ModelItem, PaletteColorGroup};
+use super::objcode::{PropertyCode, PropertyCodeKind};
 use super::property::{self, PropertiesMap};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
 use crate::color::Color;
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::qmlast::{Node, UiBindingValue};
+use crate::qmlast::Node;
 use crate::tir;
 use crate::typedexpr::BuiltinFunctionKind;
 use crate::typemap::{NamedType, PrimitiveType, TypeKind, TypeSpace};
@@ -29,29 +30,27 @@ pub(super) enum PropertyValue<'a, 't> {
 }
 
 impl<'a, 't> PropertyValue<'a, 't> {
-    /// Generates constant expression of `ty` type from the given `binding_value`.
-    pub(super) fn from_binding_value(
+    pub(super) fn build(
         ctx: &ObjectContext<'a, '_, '_>,
-        ty: &TypeKind<'a>,
-        binding_value: &UiBindingValue<'t, '_>,
+        property_code: &PropertyCode<'a, 't, '_>,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        match binding_value {
-            UiBindingValue::Node(n) => {
-                let code = tir::build(ctx, *n, ctx.source, diagnostics)?;
-                if let Some(res) = evaluate_code(&code) {
+        let node = property_code.node();
+        match property_code.kind() {
+            PropertyCodeKind::Expr(ty, code) => {
+                if let Some(res) = evaluate_code(code) {
                     // constant expression can be mapped to .ui value type
                     match ty {
                         TypeKind::Just(t) => {
-                            parse_as_value_type(ctx, ty, t, *n, &code, res, diagnostics)
+                            parse_as_value_type(ctx, ty, t, node, code, res, diagnostics)
                                 .map(PropertyValue::Serializable)
                         }
                         TypeKind::Pointer(NamedType::Class(cls))
                             if cls.is_derived_from(&ctx.classes.abstract_item_model) =>
                         {
                             verify_code_return_type(
-                                *n,
-                                &code,
+                                node,
+                                code,
                                 &TypeKind::STRING_LIST,
                                 diagnostics,
                             )?;
@@ -63,18 +62,18 @@ impl<'a, 't> PropertyValue<'a, 't> {
                             Some(PropertyValue::ItemModel(items))
                         }
                         TypeKind::Pointer(NamedType::Class(_)) => {
-                            verify_code_return_type(*n, &code, ty, diagnostics)?;
+                            verify_code_return_type(node, code, ty, diagnostics)?;
                             Some(PropertyValue::Serializable(Value::Simple(
                                 SimpleValue::Cstring(res.unwrap_object_ref()),
                             )))
                         }
                         TypeKind::PointerList(NamedType::Class(_)) => {
-                            verify_code_return_type(*n, &code, ty, diagnostics)?;
+                            verify_code_return_type(node, code, ty, diagnostics)?;
                             Some(PropertyValue::ObjectRefList(res.unwrap_object_ref_list()))
                         }
                         TypeKind::Pointer(_) | TypeKind::PointerList(_) => {
                             diagnostics.push(Diagnostic::error(
-                                n.byte_range(),
+                                node.byte_range(),
                                 format!(
                                     "unsupported value expression of type '{}'",
                                     ty.qualified_cxx_name(),
@@ -84,42 +83,30 @@ impl<'a, 't> PropertyValue<'a, 't> {
                         }
                     }
                 } else {
-                    verify_code_return_type(*n, &code, ty, diagnostics)?;
-                    Some(PropertyValue::Dynamic(code))
+                    verify_code_return_type(node, code, ty, diagnostics)?;
+                    Some(PropertyValue::Dynamic(code.clone()))
                 }
             }
-            UiBindingValue::Map(n, m) => match ty {
-                TypeKind::Just(NamedType::Class(cls)) => {
-                    let properties_map =
-                        property::collect_properties_with_node(ctx, cls, m, diagnostics);
-                    if let Some(kind) = GadgetKind::from_class(cls, ctx.classes) {
-                        let v = Gadget::new(kind, properties_map, diagnostics);
-                        Some(PropertyValue::Serializable(Value::Gadget(v)))
-                    } else if cls.name() == "QPaletteColorGroup" {
-                        let v = PaletteColorGroup::new(properties_map, diagnostics);
-                        Some(PropertyValue::Serializable(Value::PaletteColorGroup(v)))
-                    } else {
-                        diagnostics.push(Diagnostic::error(
-                            n.byte_range(),
-                            format!("unsupported gadget type: {}", cls.qualified_cxx_name()),
-                        ));
-                        None
-                    }
-                }
-                TypeKind::Pointer(NamedType::Class(cls)) => Some(PropertyValue::ObjectProperties(
-                    property::collect_properties_with_node(ctx, cls, m, diagnostics),
-                )),
-                _ => {
+            PropertyCodeKind::GadgetMap(cls, map) => {
+                let properties_map = property::make_properties_from_code_map(ctx, map, diagnostics);
+                if let Some(kind) = GadgetKind::from_class(cls, ctx.classes) {
+                    let v = Gadget::new(kind, properties_map, diagnostics);
+                    Some(PropertyValue::Serializable(Value::Gadget(v)))
+                } else if cls.name() == "QPaletteColorGroup" {
+                    let v = PaletteColorGroup::new(properties_map, diagnostics);
+                    Some(PropertyValue::Serializable(Value::PaletteColorGroup(v)))
+                } else {
                     diagnostics.push(Diagnostic::error(
-                        n.byte_range(),
-                        format!(
-                            "binding map cannot be parsed as non-class type '{}'",
-                            ty.qualified_cxx_name()
-                        ),
+                        node.byte_range(),
+                        format!("unsupported gadget type: {}", cls.qualified_cxx_name()),
                     ));
                     None
                 }
-            },
+            }
+            PropertyCodeKind::ObjectMap(_, map) => {
+                let properties_map = property::make_properties_from_code_map(ctx, map, diagnostics);
+                Some(PropertyValue::ObjectProperties(properties_map))
+            }
         }
     }
 }
