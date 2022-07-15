@@ -1,5 +1,6 @@
 //! Qt user interface XML (.ui) generator.
 
+use self::objcode::ObjectCodeMap;
 use self::property::PropertiesMap;
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectTree;
@@ -48,7 +49,7 @@ pub fn build(
         &type_space,
         diagnostics,
     )?;
-    let mut object_properties =
+    let (_object_code_maps, mut object_properties) =
         build_object_properties(doc, &type_space, &object_tree, base_ctx, diagnostics);
     let dynamic_object_properties: Vec<_> = object_properties
         .iter_mut()
@@ -133,22 +134,21 @@ fn make_doc_module_space<'a>(
     module_space
 }
 
-fn build_object_properties<'a, 't>(
-    doc: &UiDocument,
-    type_space: &ImportedModuleSpace<'a>,
-    object_tree: &ObjectTree<'a, 't>,
-    base_ctx: &BuildContext<'a>,
+fn build_object_properties<'a, 't, 's>(
+    doc: &'s UiDocument,
+    type_space: &'s ImportedModuleSpace<'a>,
+    object_tree: &'s ObjectTree<'a, 't>,
+    base_ctx: &'s BuildContext<'a>,
     diagnostics: &mut Diagnostics,
-) -> Vec<PropertiesMap<'a, 't>> {
+) -> (Vec<ObjectCodeMap<'a, 't, 's>>, Vec<PropertiesMap<'a, 't>>) {
     object_tree
         .flat_iter()
         .map(|obj_node| {
-            let cls = obj_node.class();
             let ctx = ObjectContext::new(doc, type_space, object_tree, base_ctx);
-            let binding_map = diagnostics
-                .consume_err(obj_node.obj().build_binding_map(ctx.source))
-                .unwrap_or_default();
-            property::collect_properties_with_node(&ctx, cls, &binding_map, diagnostics)
+            let code_map = ObjectCodeMap::build(&ctx, obj_node, diagnostics);
+            let properties =
+                property::make_properties_from_code_map(&ctx, code_map.properties(), diagnostics);
+            (code_map, properties)
         })
-        .collect()
+        .unzip()
 }
