@@ -7,6 +7,10 @@ namespace Ui {
 class StaticItemModel;
 }
 
+namespace UiSupport {
+class StaticItemModel;
+}
+
 class StaticItemModel : public QWidget
 {
     Q_OBJECT
@@ -17,4 +21,5 @@ public:
 
 private:
     std::unique_ptr<Ui::StaticItemModel> ui_;
+    std::unique_ptr<UiSupport::StaticItemModel> uiSupport_;
 };

@@ -7,6 +7,10 @@ namespace Ui {
 class LayoutFlow;
 }
 
+namespace UiSupport {
+class LayoutFlow;
+}
+
 class LayoutFlow : public QWidget
 {
     Q_OBJECT
@@ -17,4 +21,5 @@ public:
 
 private:
     std::unique_ptr<Ui::LayoutFlow> ui_;
+    std::unique_ptr<UiSupport::LayoutFlow> uiSupport_;
 };
