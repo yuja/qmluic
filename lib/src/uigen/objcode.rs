@@ -14,6 +14,8 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub(super) struct ObjectCodeMap<'a, 't, 's> {
     properties: HashMap<&'s str, PropertyCode<'a, 't, 's>>,
+    attached_properties:
+        HashMap<Class<'a>, (Class<'a>, HashMap<&'s str, PropertyCode<'a, 't, 's>>)>,
     // TODO: map of onSignal callbacks
 }
 
@@ -27,12 +29,38 @@ impl<'a, 't, 's> ObjectCodeMap<'a, 't, 's> {
             .consume_err(obj_node.obj().build_binding_map(ctx.source))
             .unwrap_or_default();
         let properties = build_properties_map(ctx, obj_node.class(), &binding_map, diagnostics);
-        ObjectCodeMap { properties }
+
+        let attached_type_map = diagnostics
+            .consume_err(obj_node.obj().build_attached_type_map(ctx.source))
+            .unwrap_or_default();
+        let attached_properties = attached_type_map
+            .iter()
+            .filter_map(|(names, (id, binding_map))| {
+                // TODO: look up qualified name without joining
+                let type_name = names.join("::");
+                let (cls, acls) = resolve_attached_class(ctx, id.node(), &type_name, diagnostics)?;
+                let props = build_properties_map(ctx, &acls, binding_map, diagnostics);
+                Some((cls, (acls, props)))
+            })
+            .collect();
+
+        ObjectCodeMap {
+            properties,
+            attached_properties,
+        }
     }
 
     /// Map of property name to binding code.
     pub fn properties(&self) -> &HashMap<&'s str, PropertyCode<'a, 't, 's>> {
         &self.properties
+    }
+
+    /// Looks up attached class and properties by the attaching class.
+    pub fn attached_properties(
+        &self,
+        cls: &Class<'a>,
+    ) -> Option<&(Class<'a>, HashMap<&'s str, PropertyCode<'a, 't, 's>>)> {
+        self.attached_properties.get(cls)
     }
 }
 
@@ -69,6 +97,57 @@ fn build_properties_map<'a, 't, 's>(
             .map(|code| (name, code))
         })
         .collect()
+}
+
+fn resolve_attached_class<'a>(
+    ctx: &ObjectContext<'a, '_, '_>,
+    node: Node,
+    type_name: &str,
+    diagnostics: &mut Diagnostics,
+) -> Option<(Class<'a>, Class<'a>)> {
+    let cls = match ctx.type_space.get_type_scoped(type_name) {
+        Some(Ok(NamedType::Class(cls))) => cls,
+        Some(Ok(NamedType::QmlComponent(ns))) => ns.into_class(),
+        Some(Ok(NamedType::Enum(_) | NamedType::Namespace(_) | NamedType::Primitive(_))) => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                format!("invalid attaching type: {type_name}"),
+            ));
+            return None;
+        }
+        Some(Err(e)) => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                format!("attaching type resolution failed: {e}"),
+            ));
+            return None;
+        }
+        None => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                format!("unknown attaching type: {type_name}"),
+            ));
+            return None;
+        }
+    };
+    let acls = match cls.attached_class() {
+        Some(Ok(cls)) => cls,
+        Some(Err(e)) => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                format!("attached type resolution failed: {e}"),
+            ));
+            return None;
+        }
+        None => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                format!("no attached type for type: {type_name}"),
+            ));
+            return None;
+        }
+    };
+    Some((cls, acls))
 }
 
 /// Property binding code or map with its description.

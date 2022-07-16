@@ -55,6 +55,8 @@ pub fn build(
     let ctx = BuildDocContext::new(doc, &type_space, &object_tree, &object_code_maps, base_ctx);
     let form = UiForm::build(&ctx, object_tree.root(), diagnostics);
 
+    // TODO: warn unused attached properties
+
     let ui_support = match base_ctx.dynamic_binding_handling {
         DynamicBindingHandling::Omit => None,
         DynamicBindingHandling::Generate => Some(UiSupportCode::build(
