@@ -1,11 +1,13 @@
 //! Code storage for UI object.
 
 use super::context::ObjectContext;
+use super::interpret::{self, EvaluatedValue};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectNode;
 use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
 use crate::tir::{self, CodeBody};
 use crate::typemap::{Class, NamedType, Property, TypeKind, TypeSpace as _};
+use once_cell::sync::OnceCell;
 use std::collections::HashMap;
 
 /// Stores codes found in UI object definition.
@@ -75,6 +77,7 @@ pub(super) struct PropertyCode<'a, 't, 's> {
     desc: Property<'a>,
     node: Node<'t>,
     kind: PropertyCodeKind<'a, 't, 's>,
+    evaluated_value: OnceCell<Option<EvaluatedValue>>,
 }
 
 impl<'a, 't, 's> PropertyCode<'a, 't, 's> {
@@ -84,7 +87,6 @@ impl<'a, 't, 's> PropertyCode<'a, 't, 's> {
         value: &UiBindingValue<'t, 's>,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let node = value.node();
         let kind = match desc.value_type() {
             Ok(ty) => PropertyCodeKind::build(ctx, ty, value, diagnostics)?,
             Err(e) => {
@@ -95,7 +97,12 @@ impl<'a, 't, 's> PropertyCode<'a, 't, 's> {
                 return None;
             }
         };
-        Some(PropertyCode { desc, node, kind })
+        Some(PropertyCode {
+            desc,
+            node: value.node(),
+            kind,
+            evaluated_value: OnceCell::new(),
+        })
     }
 
     pub fn desc(&self) -> &Property<'a> {
@@ -108,6 +115,38 @@ impl<'a, 't, 's> PropertyCode<'a, 't, 's> {
 
     pub fn kind(&self) -> &PropertyCodeKind<'a, 't, 's> {
         &self.kind
+    }
+
+    /// Whether or not this has been successfully evaluated to a constant value.
+    ///
+    /// If this is a map, returns true only if all descendant properties are constants.
+    pub fn is_evaluated_constant(&self) -> bool {
+        match &self.kind {
+            PropertyCodeKind::Expr(..) => self
+                .evaluated_value
+                .get()
+                .map(|v| v.is_some())
+                .unwrap_or(false),
+            PropertyCodeKind::GadgetMap(_, map) | PropertyCodeKind::ObjectMap(_, map) => {
+                map.values().all(|p| p.is_evaluated_constant())
+            }
+        }
+    }
+
+    /// Evaluates the code once as constant expression, caches the evaluated value.
+    ///
+    /// If this is a map, returns None.
+    pub fn evaluate(&self) -> Option<EvaluatedValue> {
+        self.evaluated_value
+            .get_or_init(|| self.evaluate_uncached())
+            .clone()
+    }
+
+    fn evaluate_uncached(&self) -> Option<EvaluatedValue> {
+        match &self.kind {
+            PropertyCodeKind::Expr(_, code) => interpret::evaluate_code(code),
+            PropertyCodeKind::GadgetMap(..) | PropertyCodeKind::ObjectMap(..) => None,
+        }
     }
 }
 
