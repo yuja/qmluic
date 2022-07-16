@@ -1,6 +1,6 @@
 ---
 source: tests/test_uigen_examples.rs
-expression: "common::translate_file(\"examples/HgEmailDialog.qml\").unwrap()"
+expression: ui_xml
 ---
 <ui version="4.0">
  <class>HgEmailDialog</class>
@@ -272,7 +272,7 @@ expression: "common::translate_file(\"examples/HgEmailDialog.qml\").unwrap()"
              </item>
              <item>
               <spacer name="spacerItem">
-               <property name="orientation" stdset="0">
+               <property name="orientation">
                 <enum>Qt::Horizontal</enum>
                </property>
               </spacer>
@@ -372,7 +372,7 @@ expression: "common::translate_file(\"examples/HgEmailDialog.qml\").unwrap()"
              </item>
              <item>
               <spacer name="spacerItem1">
-               <property name="orientation" stdset="0">
+               <property name="orientation">
                 <enum>Qt::Horizontal</enum>
                </property>
               </spacer>
@@ -415,7 +415,7 @@ expression: "common::translate_file(\"examples/HgEmailDialog.qml\").unwrap()"
      </item>
      <item>
       <spacer name="spacerItem2">
-       <property name="orientation" stdset="0">
+       <property name="orientation">
         <enum>Qt::Horizontal</enum>
        </property>
       </spacer>

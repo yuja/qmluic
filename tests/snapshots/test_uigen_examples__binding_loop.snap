@@ -258,7 +258,7 @@ expression: ui_xml
    </item>
    <item>
     <spacer name="spacerItem">
-     <property name="orientation" stdset="0">
+     <property name="orientation">
       <enum>Qt::Vertical</enum>
      </property>
     </spacer>
