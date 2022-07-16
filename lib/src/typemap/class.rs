@@ -22,6 +22,7 @@ pub struct Class<'a> {
 pub(super) struct ClassData {
     class_name: String,
     public_super_class_names: Vec<String>,
+    attached_class_name: Option<String>,
     inner_type_map: NamespaceData,
     property_map: HashMap<String, PropertyData>,
     // TODO
@@ -87,6 +88,14 @@ impl<'a> Class<'a> {
         })
     }
 
+    pub fn attached_class(&self) -> Option<Result<Class<'a>, TypeMapError>> {
+        self.data
+            .as_ref()
+            .attached_class_name
+            .as_ref()
+            .map(|n| resolve_class_scoped(&self.parent_space, n))
+    }
+
     fn get_type_no_super(&self, name: &str) -> Option<Result<NamedType<'a>, TypeMapError>> {
         self.data
             .as_ref()
@@ -143,6 +152,7 @@ impl ClassData {
         ClassData {
             class_name: name.into(),
             public_super_class_names: super_names.into_iter().map(Into::into).collect(),
+            attached_class_name: None,
             inner_type_map: NamespaceData::default(),
             property_map: HashMap::new(),
         }
@@ -161,6 +171,11 @@ impl ClassData {
             })
             .collect();
 
+        let attached_class_name = meta
+            .class_infos
+            .into_iter()
+            .find_map(|x| (x.name == "QML.Attached").then(|| x.value));
+
         let mut inner_type_map = NamespaceData::default();
         inner_type_map.extend_enums(meta.enums);
 
@@ -173,6 +188,7 @@ impl ClassData {
         ClassData {
             class_name: meta.class_name,
             public_super_class_names,
+            attached_class_name,
             inner_type_map,
             property_map,
         }
@@ -307,15 +323,7 @@ impl<'a> Iterator for SuperClasses<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.names_iter
             .next()
-            .map(|n| match self.parent_space.resolve_type_scoped(n) {
-                Some(Ok(NamedType::Class(x))) => Ok(x),
-                Some(Ok(NamedType::QmlComponent(ns))) => Ok(ns.into_class()),
-                Some(Ok(
-                    NamedType::Enum(_) | NamedType::Namespace(_) | NamedType::Primitive(_),
-                )) => Err(TypeMapError::InvalidSuperClassType(n.to_owned())),
-                Some(Err(e)) => Err(e),
-                None => Err(TypeMapError::InvalidTypeRef(n.to_owned())),
-            })
+            .map(|n| resolve_class_scoped(&self.parent_space, n))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -368,6 +376,22 @@ impl<'a> Iterator for BaseClasses<'a> {
 }
 
 impl<'a> FusedIterator for BaseClasses<'a> {}
+
+fn resolve_class_scoped<'a>(
+    parent_space: &ParentSpace<'a>,
+    scoped_name: &str,
+) -> Result<Class<'a>, TypeMapError> {
+    let ty = parent_space
+        .resolve_type_scoped(scoped_name)
+        .unwrap_or_else(|| Err(TypeMapError::InvalidTypeRef(scoped_name.to_owned())))?;
+    match ty {
+        NamedType::Class(x) => Ok(x),
+        NamedType::QmlComponent(ns) => Ok(ns.into_class()),
+        NamedType::Enum(_) | NamedType::Namespace(_) | NamedType::Primitive(_) => {
+            Err(TypeMapError::InvalidSuperClassType(scoped_name.to_owned()))
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -561,6 +585,32 @@ mod tests {
                 .unwrap()
                 .unwrap(),
             root2_class
+        );
+    }
+
+    #[test]
+    fn attached_class() {
+        let mut type_map = TypeMap::empty();
+        let module_id = ModuleId::Named("foo".into());
+        let mut module_data = ModuleData::default();
+        module_data.extend([
+            metatype::Class::new("FooAttached"),
+            metatype::Class {
+                class_name: "Foo".to_owned(),
+                qualified_class_name: "Foo".to_owned(),
+                class_infos: vec![metatype::ClassInfo::new("QML.Attached", "FooAttached")],
+                ..Default::default()
+            },
+        ]);
+        type_map.insert_module(module_id.clone(), module_data);
+
+        let module = type_map.get_module(module_id).unwrap();
+        let foo_class = unwrap_class(module.get_type("Foo"));
+        let foo_attached_class = unwrap_class(module.get_type("FooAttached"));
+
+        assert_eq!(
+            foo_class.attached_class().unwrap().unwrap(),
+            foo_attached_class
         );
     }
 
