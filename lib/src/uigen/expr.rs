@@ -122,12 +122,10 @@ impl Value {
                 }
             }
             PropertyCodeKind::GadgetMap(cls, map) => {
-                let properties_map = property::make_properties_from_code_map(ctx, map, diagnostics);
                 if let Some(kind) = GadgetKind::from_class(cls, ctx.classes) {
-                    let v = Gadget::new(kind, properties_map, diagnostics);
-                    Some(Value::Gadget(v))
+                    Some(Value::Gadget(Gadget::new(ctx, kind, map, diagnostics)))
                 } else if cls.name() == "QPaletteColorGroup" {
-                    let v = PaletteColorGroup::new(properties_map, diagnostics);
+                    let v = PaletteColorGroup::new(ctx, map, diagnostics);
                     Some(Value::PaletteColorGroup(v))
                 } else {
                     diagnostics.push(Diagnostic::error(

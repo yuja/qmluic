@@ -1,6 +1,7 @@
-use super::context::KnownClasses;
+use super::context::{KnownClasses, ObjectContext};
 use super::expr::{self, SimpleValue, StringKind, Value};
-use super::property::{self, PropertiesMap};
+use super::objcode::PropertyCode;
+use super::property;
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
 use crate::color::Color;
@@ -22,18 +23,19 @@ pub struct Gadget {
 
 impl Gadget {
     pub(super) fn new(
+        ctx: &ObjectContext,
         kind: GadgetKind,
-        properties_map: PropertiesMap,
+        map: &HashMap<&str, PropertyCode>,
         diagnostics: &mut Diagnostics,
     ) -> Self {
         let (attributes, properties) = match kind {
-            GadgetKind::Brush => make_brush_properties(properties_map, diagnostics),
-            GadgetKind::Icon => make_icon_properties(properties_map, diagnostics),
-            GadgetKind::Palette => make_palette_properties(properties_map, diagnostics),
-            GadgetKind::SizePolicy => make_size_policy_properties(properties_map, diagnostics),
+            GadgetKind::Brush => make_brush_properties(ctx, map, diagnostics),
+            GadgetKind::Icon => make_icon_properties(ctx, map, diagnostics),
+            GadgetKind::Palette => make_palette_properties(ctx, map, diagnostics),
+            GadgetKind::SizePolicy => make_size_policy_properties(ctx, map, diagnostics),
             _ => (
                 HashMap::new(),
-                property::make_gadget_properties(properties_map, diagnostics),
+                property::make_value_map(ctx, map, &[], diagnostics),
             ),
         };
         Gadget {
@@ -176,54 +178,51 @@ impl GadgetKind {
 }
 
 fn make_brush_properties(
-    mut properties_map: PropertiesMap,
+    ctx: &ObjectContext,
+    map: &HashMap<&str, PropertyCode>,
     diagnostics: &mut Diagnostics,
 ) -> (HashMap<String, SimpleValue>, HashMap<String, Value>) {
     let mut attributes = HashMap::new();
-    if let Some(s) = properties_map
-        .remove("style")
-        .and_then(|v| diagnostics.consume_err(v.into_simple()))
-    {
+    if let Some((_, s)) = property::get_simple_value(ctx, map, "style", diagnostics) {
         attributes.insert("brushstyle".to_owned(), s);
     }
 
-    let properties = property::make_gadget_properties(properties_map, diagnostics);
+    let properties = property::make_value_map(ctx, map, &["style"], diagnostics);
     (attributes, properties)
 }
 
 fn make_icon_properties(
-    mut properties_map: PropertiesMap,
+    ctx: &ObjectContext,
+    map: &HashMap<&str, PropertyCode>,
     diagnostics: &mut Diagnostics,
 ) -> (HashMap<String, SimpleValue>, HashMap<String, Value>) {
     let mut attributes = HashMap::new();
-    if let Some(s) = properties_map
-        .remove("name")
-        .and_then(|v| diagnostics.consume_err(v.into_simple()))
-    {
+    if let Some((_, s)) = property::get_simple_value(ctx, map, "name", diagnostics) {
         attributes.insert("theme".to_owned(), s);
     }
 
-    let properties = property::make_gadget_properties(properties_map, diagnostics);
+    let properties = property::make_value_map(ctx, map, &["name"], diagnostics);
     (attributes, properties)
 }
 
 fn make_palette_properties(
-    properties_map: PropertiesMap,
+    ctx: &ObjectContext,
+    map: &HashMap<&str, PropertyCode>,
     diagnostics: &mut Diagnostics,
 ) -> (HashMap<String, SimpleValue>, HashMap<String, Value>) {
     let mut color_groups = HashMap::from([
-        ("active".to_owned(), PaletteColorGroup::default()),
-        ("inactive".to_owned(), PaletteColorGroup::default()),
-        ("disabled".to_owned(), PaletteColorGroup::default()),
+        ("active", PaletteColorGroup::default()),
+        ("inactive", PaletteColorGroup::default()),
+        ("disabled", PaletteColorGroup::default()),
     ]);
     let mut default_roles = Vec::new();
-    for (k, v) in properties_map {
-        match diagnostics.consume_err(v.into_serializable()) {
+    for (k, p) in map {
+        match Value::build(ctx, p, diagnostics) {
             Some(Value::PaletteColorGroup(g)) => {
                 color_groups.insert(k, g);
             }
             Some(x) => {
-                default_roles.push((qtname::to_ascii_capitalized(&k), x));
+                default_roles.push((qtname::to_ascii_capitalized(k), x));
             }
             None => {}
         }
@@ -236,32 +235,28 @@ fn make_palette_properties(
     let attributes = HashMap::new();
     let properties = color_groups
         .into_iter()
-        .map(|(k, g)| (k, Value::PaletteColorGroup(g)))
+        .map(|(k, g)| (k.to_owned(), Value::PaletteColorGroup(g)))
         .collect();
     (attributes, properties)
 }
 
 fn make_size_policy_properties(
-    mut properties_map: PropertiesMap,
+    ctx: &ObjectContext,
+    map: &HashMap<&str, PropertyCode>,
     diagnostics: &mut Diagnostics,
 ) -> (HashMap<String, SimpleValue>, HashMap<String, Value>) {
     let mut attributes = HashMap::new();
     match (
-        properties_map.remove("horizontalPolicy"),
-        properties_map.remove("verticalPolicy"),
+        property::get_simple_value(ctx, map, "horizontalPolicy", diagnostics),
+        property::get_simple_value(ctx, map, "verticalPolicy", diagnostics),
     ) {
-        (Some(h), Some(v)) => {
-            if let (Some(s), Some(t)) = (
-                diagnostics.consume_err(h.into_simple()),
-                diagnostics.consume_err(v.into_simple()),
-            ) {
-                attributes.insert("hsizetype".to_owned(), s);
-                attributes.insert("vsizetype".to_owned(), t);
-            }
+        (Some((_, h)), Some((_, v))) => {
+            attributes.insert("hsizetype".to_owned(), h);
+            attributes.insert("vsizetype".to_owned(), v);
         }
-        (Some(x), None) | (None, Some(x)) => {
+        (Some((p, _)), None) | (None, Some((p, _))) => {
             diagnostics.push(Diagnostic::error(
-                x.binding_node().byte_range(),
+                p.binding_node().byte_range(),
                 "both horizontal and vertical policies must be specified",
             ));
         }
@@ -273,24 +268,36 @@ fn make_size_policy_properties(
         ("horizontalStretch", "horstretch"),
         ("verticalStretch", "verstretch"),
     ] {
-        if let Some(x) = properties_map.remove(k0) {
+        if let Some((p, v)) = map
+            .get(k0)
+            .and_then(|p| Value::build(ctx, p, diagnostics).map(|v| (p, v)))
+        {
             if attributes.is_empty() {
                 // uic would otherwise generate invalid code, which might look correct but is
                 // actually parsed as a function declaration:
                 //     QSizePolicy sizePolicy();
                 diagnostics.push(Diagnostic::error(
-                    x.binding_node().byte_range(),
+                    p.binding_node().byte_range(),
                     "cannot specify stretch without horizontal and vertical policies",
                 ));
-            } else if let Some(s) = diagnostics.consume_err(x.into_serializable()) {
-                properties.insert(k1.to_owned(), s);
+            } else {
+                properties.insert(k1.to_owned(), v);
             }
         }
     }
 
-    for x in properties_map.values() {
+    let known_property_names = [
+        "horizontalPolicy",
+        "verticalPolicy",
+        "horizontalStretch",
+        "verticalStretch",
+    ];
+    for (_, p) in map
+        .iter()
+        .filter(|(n, _)| !known_property_names.contains(n))
+    {
         diagnostics.push(Diagnostic::error(
-            x.binding_node().byte_range(),
+            p.binding_node().byte_range(),
             "unknown property of size policy",
         ));
     }
@@ -345,13 +352,16 @@ pub struct PaletteColorGroup {
 }
 
 impl PaletteColorGroup {
-    pub(super) fn new(properties_map: PropertiesMap, diagnostics: &mut Diagnostics) -> Self {
-        let roles = properties_map
-            .into_iter()
-            .filter_map(|(k, v)| {
-                diagnostics
-                    .consume_err(v.into_serializable())
-                    .map(|v| (qtname::to_ascii_capitalized(&k), v))
+    pub(super) fn new(
+        ctx: &ObjectContext,
+        map: &HashMap<&str, PropertyCode>,
+        diagnostics: &mut Diagnostics,
+    ) -> Self {
+        let roles = map
+            .iter()
+            .filter_map(|(&k, p)| {
+                let v = Value::build(ctx, p, diagnostics)?;
+                Some((qtname::to_ascii_capitalized(k), v))
             })
             .collect();
         PaletteColorGroup { roles }
