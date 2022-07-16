@@ -15,13 +15,13 @@ use thiserror::Error;
 
 /// Property value with its description.
 #[derive(Clone, Debug)]
-pub(super) struct PropertyDescValue<'a, 't> {
+pub(super) struct PropertyDescValue<'a> {
     pub desc: Property<'a>,
-    pub value: PropertyValue<'a, 't>,
+    pub value: PropertyValue,
 }
 
-impl<'a, 't> PropertyDescValue<'a, 't> {
-    pub fn new(desc: Property<'a>, value: PropertyValue<'a, 't>) -> Self {
+impl<'a> PropertyDescValue<'a> {
+    pub fn new(desc: Property<'a>, value: PropertyValue) -> Self {
         PropertyDescValue { desc, value }
     }
 }
@@ -91,7 +91,7 @@ impl<'t, V> WithNode<'t, V> {
     }
 }
 
-impl<'t> WithNode<'t, PropertyDescValue<'_, '_>> {
+impl<'t> WithNode<'t, PropertyDescValue<'_>> {
     pub fn to_enum(&self) -> Result<&str, ValueTypeError<'t>> {
         self.as_serializable()
             .and_then(|v| v.as_enum())
@@ -162,7 +162,7 @@ impl From<ValueTypeError<'_>> for Diagnostic {
 }
 
 /// Hash map of property values that may or may not be serialized to UI XML.
-pub(super) type PropertiesMap<'a, 't> = HashMap<String, WithNode<'t, PropertyDescValue<'a, 't>>>;
+pub(super) type PropertiesMap<'a, 't> = HashMap<String, WithNode<'t, PropertyDescValue<'a>>>;
 
 /// Parses the given `binding_map` into a map of constant expressions.
 ///
@@ -199,7 +199,7 @@ fn resolve_properties<'a, 't, 's, B, F>(
     mut make_value: F,
 ) -> HashMap<String, B>
 where
-    F: FnMut(WithNode<'t, PropertyDescValue<'a, 't>>, &mut Diagnostics) -> Option<B>,
+    F: FnMut(WithNode<'t, PropertyDescValue<'a>>, &mut Diagnostics) -> Option<B>,
 {
     binding_map
         .iter()
