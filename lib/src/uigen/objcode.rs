@@ -11,7 +11,7 @@ use once_cell::sync::OnceCell;
 use std::collections::HashMap;
 
 /// Stores codes found in UI object definition.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub(super) struct ObjectCodeMap<'a, 't, 's> {
     properties: HashMap<&'s str, PropertyCode<'a, 't, 's>>,
     // TODO: map of onSignal callbacks
@@ -72,7 +72,10 @@ fn build_properties_map<'a, 't, 's>(
 }
 
 /// Property binding code or map with its description.
-#[derive(Clone, Debug)]
+///
+/// This keeps track of constant evaluation state, which shouldn't be updated after
+/// cloning the `PropertyCode` storage. Therefore, it does not implement `Clone`.
+#[derive(Debug)]
 pub(super) struct PropertyCode<'a, 't, 's> {
     desc: Property<'a>,
     node: Node<'t>,
@@ -151,7 +154,7 @@ impl<'a, 't, 's> PropertyCode<'a, 't, 's> {
 }
 
 /// Variant for property binding codes.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub(super) enum PropertyCodeKind<'a, 't, 's> {
     /// Value expression.
     ///
