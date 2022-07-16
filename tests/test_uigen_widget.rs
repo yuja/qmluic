@@ -206,13 +206,17 @@ fn test_self_property_binding_unsupported() {
 
 #[test]
 fn test_dynamic_binding_type_mismatch() {
-    insta::assert_snapshot!(common::translate_str(r###"
-    import qmluic.QtWidgets
-    QWidget {
-         windowTitle: source.checked
-         QCheckBox { id: source }
-    }
-    "###).unwrap_err(), @r###"
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QWidget {
+             windowTitle: source.checked
+             QCheckBox { id: source }
+        }
+        "###,
+    );
+    insta::assert_snapshot!(
+        common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap_err(), @r###"
     error: expression type mismatch (expected: QString, actual: bool)
       ┌─ <unknown>:3:19
       │

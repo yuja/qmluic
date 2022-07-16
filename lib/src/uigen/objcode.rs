@@ -116,6 +116,13 @@ impl<'a, 't, 's> PropertyCode<'a, 't, 's> {
         self.node
     }
 
+    pub fn binding_node(&self) -> Node<'t> {
+        // see UiBindingValue::binding_node()
+        self.node
+            .parent()
+            .expect("binding value node should have parent")
+    }
+
     pub fn kind(&self) -> &PropertyCodeKind<'a, 't, 's> {
         &self.kind
     }
