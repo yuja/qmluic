@@ -1,6 +1,6 @@
 ---
 source: tests/test_uigen_examples.rs
-expression: "common::translate_file(\"examples/SettingsDialog.qml\").unwrap()"
+expression: ui_xml
 ---
 <ui version="4.0">
  <class>SettingsDialog</class>
@@ -83,10 +83,10 @@ expression: "common::translate_file(\"examples/SettingsDialog.qml\").unwrap()"
    </item>
    <item>
     <spacer name="verticalSpacer">
-     <property name="orientation" stdset="0">
+     <property name="orientation">
       <enum>Qt::Vertical</enum>
      </property>
-     <property name="sizeHint" stdset="0">
+     <property name="sizeHint">
       <size>
        <height>40</height>
        <width>20</width>

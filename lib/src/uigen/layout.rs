@@ -351,7 +351,12 @@ impl SpacerItem {
             BytesStart::borrowed_name(b"spacer").with_attributes([("name", self.name.as_ref())]);
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
-        property::serialize_properties_to_xml(writer, "property", &self.properties)?;
+        for (k, (v, _)) in self.properties.iter().sorted_by_key(|&(k, _)| k) {
+            let t = BytesStart::borrowed_name(b"property").with_attributes([("name", k.as_ref())]);
+            writer.write_event(Event::Start(t.to_borrowed()))?;
+            v.serialize_to_xml(writer)?;
+            writer.write_event(Event::End(t.to_end()))?;
+        }
 
         writer.write_event(Event::End(tag.to_end()))?;
         Ok(())
