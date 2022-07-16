@@ -46,12 +46,7 @@ impl UiObject {
             confine_children(obj_node, diagnostics);
             UiObject::ActionSeparator
         } else if cls.is_derived_from(&ctx.classes.layout) {
-            let properties_map = property::make_properties_from_code_map(
-                &ctx.make_object_context(),
-                ctx.code_map_for_object(obj_node).properties(),
-                diagnostics,
-            );
-            UiObject::Layout(Layout::build(ctx, obj_node, properties_map, diagnostics))
+            UiObject::Layout(Layout::build(ctx, obj_node, diagnostics))
         } else if cls.is_derived_from(&ctx.classes.menu) {
             UiObject::Menu(Widget::build(ctx, obj_node, diagnostics))
         } else if cls.is_derived_from(&ctx.classes.widget) {

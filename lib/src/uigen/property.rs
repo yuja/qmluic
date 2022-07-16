@@ -335,6 +335,42 @@ pub(super) fn get_simple_value<'a, 't, 's, 'm>(
     }
 }
 
+pub(super) fn get_enum<'a, 't, 's, 'm>(
+    ctx: &ObjectContext,
+    properties_code_map: &'m HashMap<&str, PropertyCode<'a, 't, 's>>,
+    name: impl AsRef<str>,
+    diagnostics: &mut Diagnostics,
+) -> Option<(&'m PropertyCode<'a, 't, 's>, String)> {
+    let (p, v) = get_simple_value(ctx, properties_code_map, name, diagnostics)?;
+    if let Some(s) = v.into_enum() {
+        Some((p, s))
+    } else {
+        diagnostics.push(Diagnostic::error(
+            p.node().byte_range(),
+            "unexpected value type",
+        ));
+        None
+    }
+}
+
+pub(super) fn get_i32<'a, 't, 's, 'm>(
+    ctx: &ObjectContext,
+    properties_code_map: &'m HashMap<&str, PropertyCode<'a, 't, 's>>,
+    name: impl AsRef<str>,
+    diagnostics: &mut Diagnostics,
+) -> Option<(&'m PropertyCode<'a, 't, 's>, i32)> {
+    let (p, v) = get_simple_value(ctx, properties_code_map, name, diagnostics)?;
+    if let Some(d) = v.as_number() {
+        Some((p, d as i32))
+    } else {
+        diagnostics.push(Diagnostic::error(
+            p.node().byte_range(),
+            "unexpected value type",
+        ));
+        None
+    }
+}
+
 /// Makes sure all properties are writable, removes if not.
 ///
 /// This should be called at the very last but before `make_serializable_properties()`

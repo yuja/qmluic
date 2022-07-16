@@ -262,6 +262,13 @@ impl SimpleValue {
             _ => None,
         }
     }
+
+    pub fn into_enum(self) -> Option<String> {
+        match self {
+            SimpleValue::Enum(x) | SimpleValue::Set(x) => Some(x),
+            _ => None,
+        }
+    }
 }
 
 impl fmt::Display for SimpleValue {

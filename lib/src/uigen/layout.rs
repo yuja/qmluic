@@ -1,7 +1,8 @@
-use super::context::BuildDocContext;
+use super::context::{BuildDocContext, ObjectContext};
 use super::expr::Value;
+use super::objcode::PropertyCode;
 use super::object::{self, Widget};
-use super::property::{self, PropertiesMap, PropertySetter, WithNode};
+use super::property::{self, PropertySetter, WithNode};
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectNode;
@@ -35,10 +36,10 @@ impl Layout {
     pub(super) fn build(
         ctx: &BuildDocContext,
         obj_node: ObjectNode,
-        mut properties_map: PropertiesMap,
         diagnostics: &mut Diagnostics,
     ) -> Self {
         let cls = obj_node.class();
+        let properties_code_map = ctx.code_map_for_object(obj_node).properties();
         let (attributes, children) = if cls.is_derived_from(&ctx.classes.vbox_layout) {
             process_vbox_layout_children(ctx, obj_node, diagnostics)
         } else if cls.is_derived_from(&ctx.classes.hbox_layout) {
@@ -46,7 +47,8 @@ impl Layout {
         } else if cls.is_derived_from(&ctx.classes.form_layout) {
             process_form_layout_children(ctx, obj_node, diagnostics)
         } else if cls.is_derived_from(&ctx.classes.grid_layout) {
-            let flow = LayoutFlow::parse(&mut properties_map, diagnostics);
+            let flow =
+                LayoutFlow::parse(&ctx.make_object_context(), properties_code_map, diagnostics);
             process_grid_layout_children(ctx, obj_node, flow, diagnostics)
         } else {
             diagnostics.push(Diagnostic::error(
@@ -58,25 +60,36 @@ impl Layout {
         };
 
         Self::new(
+            ctx,
             obj_node.class(),
             obj_node.name(),
             attributes,
-            properties_map,
+            properties_code_map,
             children,
             diagnostics,
         )
     }
 
     pub(super) fn new(
+        ctx: &BuildDocContext,
         class: &Class,
         name: impl Into<String>,
         attributes: LayoutAttributes,
-        mut properties_map: PropertiesMap,
+        properties_code_map: &HashMap<&str, PropertyCode>,
         children: Vec<LayoutItem>,
         diagnostics: &mut Diagnostics,
     ) -> Self {
-        property::reject_unwritable_properties(&mut properties_map, diagnostics);
-        let mut properties = property::make_serializable_properties(properties_map, diagnostics);
+        let pseudo_property_names = if class.is_derived_from(&ctx.classes.grid_layout) {
+            ["flow", "columns", "rows"].as_ref() // see LayoutFlow
+        } else {
+            [].as_ref()
+        };
+        let mut properties = property::make_serializable_map(
+            &ctx.make_object_context(),
+            properties_code_map,
+            pseudo_property_names,
+            diagnostics,
+        );
         // TODO: if metatypes were broken, contentsMargins could be of different type
         if let Some((Value::Gadget(m), s)) = properties.remove("contentsMargins") {
             // don't care the property setter since uic will anyway retranslate them
@@ -275,22 +288,13 @@ impl LayoutItemContent {
     fn build(ctx: &BuildDocContext, obj_node: ObjectNode, diagnostics: &mut Diagnostics) -> Self {
         let cls = obj_node.class();
         if cls.is_derived_from(&ctx.classes.layout) {
-            let properties_map = property::make_properties_from_code_map(
-                &ctx.make_object_context(),
-                ctx.code_map_for_object(obj_node).properties(),
-                diagnostics,
-            );
-            LayoutItemContent::Layout(Layout::build(ctx, obj_node, properties_map, diagnostics))
+            LayoutItemContent::Layout(Layout::build(ctx, obj_node, diagnostics))
         } else if cls.is_derived_from(&ctx.classes.spacer_item) {
-            let properties_map = property::make_properties_from_code_map(
-                &ctx.make_object_context(),
-                ctx.code_map_for_object(obj_node).properties(),
-                diagnostics,
-            );
             object::confine_children(obj_node, diagnostics);
             LayoutItemContent::SpacerItem(SpacerItem::new(
+                ctx,
                 obj_node.name(),
-                properties_map,
+                ctx.code_map_for_object(obj_node).properties(),
                 diagnostics,
             ))
         } else if cls.is_derived_from(&ctx.classes.widget) {
@@ -325,17 +329,24 @@ impl LayoutItemContent {
 #[derive(Clone, Debug)]
 pub struct SpacerItem {
     pub name: String,
-    pub properties: HashMap<String, (Value, PropertySetter)>,
+    pub properties: HashMap<String, Value>,
 }
 
 impl SpacerItem {
     pub(super) fn new(
+        ctx: &BuildDocContext,
         name: impl Into<String>,
-        properties_map: PropertiesMap,
+        properties_code_map: &HashMap<&str, PropertyCode>,
         diagnostics: &mut Diagnostics,
     ) -> Self {
         // no check for writable as all spacer properties are translated by uic
-        let properties = property::make_serializable_properties(properties_map, diagnostics);
+        let properties = property::make_value_map(
+            &ctx.make_object_context(),
+            properties_code_map,
+            &[],
+            diagnostics,
+        );
+
         SpacerItem {
             name: name.into(),
             properties,
@@ -351,7 +362,7 @@ impl SpacerItem {
             BytesStart::borrowed_name(b"spacer").with_attributes([("name", self.name.as_ref())]);
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
-        for (k, (v, _)) in self.properties.iter().sorted_by_key(|&(k, _)| k) {
+        for (k, v) in self.properties.iter().sorted_by_key(|&(k, _)| k) {
             let t = BytesStart::borrowed_name(b"property").with_attributes([("name", k.as_ref())]);
             writer.write_event(Event::Start(t.to_borrowed()))?;
             v.serialize_to_xml(writer)?;
@@ -583,20 +594,25 @@ impl LayoutIndexCounter {
 }
 
 impl LayoutFlow {
-    fn parse(properties_map: &mut PropertiesMap, diagnostics: &mut Diagnostics) -> Self {
+    fn parse(
+        ctx: &ObjectContext,
+        properties_code_map: &HashMap<&str, PropertyCode>,
+        diagnostics: &mut Diagnostics,
+    ) -> Self {
         // should be kept sync with QGridLayout definition in metatype_tweak.rs
-        let left_to_right = if let Some(v) = properties_map.remove("flow") {
-            match diagnostics.consume_err(v.to_enum()) {
-                Some("QGridLayout::LeftToRight") => true,
-                Some("QGridLayout::TopToBottom") => false,
-                Some(s) => {
+        let left_to_right = if let Some((p, s)) =
+            property::get_enum(ctx, properties_code_map, "flow", diagnostics)
+        {
+            match s.as_ref() {
+                "QGridLayout::LeftToRight" => true,
+                "QGridLayout::TopToBottom" => false,
+                s => {
                     diagnostics.push(Diagnostic::error(
-                        v.node().byte_range(),
+                        p.node().byte_range(),
                         format!("unsupported layout flow expression: {s}"),
                     ));
                     true // don't care
                 }
-                None => true, // don't care
             }
         } else {
             true // LeftToRight by default
@@ -604,19 +620,17 @@ impl LayoutFlow {
 
         const MAX_COUNT: i32 = 65536; // arbitrary value to avoid excessive allocation if any
         let mut pop_count_property = |name| {
-            properties_map
-                .remove(name)
-                .and_then(|v| {
-                    let c = diagnostics.consume_err(v.to_i32())?;
+            property::get_i32(ctx, properties_code_map, name, diagnostics)
+                .and_then(|(p, c)| {
                     if c <= 0 {
                         diagnostics.push(Diagnostic::error(
-                            v.node().byte_range(),
+                            p.node().byte_range(),
                             format!("negative or zero {name} is not allowed"),
                         ));
                         None
                     } else if c > MAX_COUNT {
                         diagnostics.push(Diagnostic::error(
-                            v.node().byte_range(),
+                            p.node().byte_range(),
                             format!("{name} is too large"),
                         ));
                         None
