@@ -70,10 +70,17 @@ pub fn build(
                 .flat_map(|m| m.properties().values())
                 .filter(|p| !p.is_evaluated_constant())
             {
-                diagnostics.push(Diagnostic::error(
-                    p.node().byte_range(),
-                    "unsupported dynamic binding",
-                ));
+                if p.desc().is_writable() {
+                    diagnostics.push(Diagnostic::error(
+                        p.node().byte_range(),
+                        "unsupported dynamic binding",
+                    ));
+                } else {
+                    diagnostics.push(Diagnostic::error(
+                        p.binding_node().byte_range(),
+                        "not a writable property",
+                    ));
+                }
             }
             None
         }
