@@ -4,7 +4,6 @@ use super::objcode::PropertyCode;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
-use crate::tir;
 use crate::typemap::{Class, Property, TypeSpace};
 use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
@@ -25,23 +24,6 @@ impl<'a, 't> PropertyDescValue<'a, 't> {
     pub fn new(desc: Property<'a>, value: PropertyValue<'a, 't>) -> Self {
         PropertyDescValue { desc, value }
     }
-
-    fn to_dynamic(&self) -> Option<PropertyDescDynamicExpression<'a>> {
-        match &self.value {
-            PropertyValue::Dynamic(x) => Some(PropertyDescDynamicExpression {
-                desc: self.desc.clone(),
-                code: x.clone(),
-            }),
-            _ => None,
-        }
-    }
-}
-
-/// Dynamic property value with its description.
-#[derive(Clone, Debug)]
-pub(super) struct PropertyDescDynamicExpression<'a> {
-    pub desc: Property<'a>,
-    pub code: tir::CodeBody<'a>,
 }
 
 /// Type of the property setter to be used by `uic`.
@@ -189,10 +171,6 @@ impl From<ValueTypeError<'_>> for Diagnostic {
 /// Hash map of property values that may or may not be serialized to UI XML.
 pub(super) type PropertiesMap<'a, 't> = HashMap<String, WithNode<'t, PropertyDescValue<'a, 't>>>;
 
-/// Hash map of dynamic property value expressions.
-pub(super) type DynamicPropertiesMap<'a, 't> =
-    HashMap<String, WithNode<'t, PropertyDescDynamicExpression<'a>>>;
-
 /// Parses the given `binding_map` into a map of constant expressions.
 ///
 /// Unparsable properties are excluded from the resulting map so as many diagnostic messages
@@ -236,9 +214,9 @@ where
             match cls.get_property(name) {
                 Some(Ok(desc)) => {
                     let property_code = PropertyCode::build(ctx, desc, value, diagnostics)?;
-                    let value = PropertyValue::build(ctx, &property_code, diagnostics)?;
+                    let value_opt = PropertyValue::build(ctx, &property_code, diagnostics);
                     if property_code.is_evaluated_constant() {
-                        Some(PropertyDescValue::new(property_code.desc().clone(), value))
+                        value_opt.map(|v| PropertyDescValue::new(property_code.desc().clone(), v))
                     } else {
                         diagnostics.push(Diagnostic::error(
                             property_code.node().byte_range(),
@@ -290,16 +268,6 @@ pub(super) fn make_properties_from_code_map<'a, 't>(
         .collect()
 }
 
-pub(super) fn make_constant_properties_from_code_map<'a, 't>(
-    ctx: &ObjectContext<'a, '_, '_>,
-    properties_code_map: &HashMap<&str, PropertyCode<'a, 't, '_>>,
-    diagnostics: &mut Diagnostics,
-) -> PropertiesMap<'a, 't> {
-    let mut properties = make_properties_from_code_map(ctx, properties_code_map, diagnostics);
-    extract_dynamic_properties(&mut properties);
-    properties
-}
-
 /// Makes sure all properties are writable, removes if not.
 ///
 /// This should be called at the very last but before `make_serializable_properties()`
@@ -318,22 +286,6 @@ pub(super) fn reject_unwritable_properties(
         }
         writable
     });
-}
-
-/// Extracts dynamic properties from the properties map.
-pub(super) fn extract_dynamic_properties<'a, 't>(
-    properties_map: &mut PropertiesMap<'a, 't>,
-) -> DynamicPropertiesMap<'a, 't> {
-    let mut dyn_properties_map = HashMap::new();
-    properties_map.retain(|k, v| {
-        if let Some(d) = v.data.to_dynamic() {
-            dyn_properties_map.insert(k.to_owned(), v.rewrap(d));
-            false
-        } else {
-            true
-        }
-    });
-    dyn_properties_map
 }
 
 pub(super) fn make_gadget_properties(

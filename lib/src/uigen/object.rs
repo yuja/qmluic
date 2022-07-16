@@ -32,7 +32,7 @@ impl UiObject {
         diagnostics: &mut Diagnostics,
     ) -> Self {
         let cls = obj_node.class();
-        let properties_map = property::make_constant_properties_from_code_map(
+        let properties_map = property::make_properties_from_code_map(
             &ctx.make_object_context(),
             ctx.code_map_for_object(obj_node).properties(),
             diagnostics,

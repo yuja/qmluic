@@ -19,8 +19,6 @@ use std::io;
 #[derive(Clone, Debug)]
 pub(super) enum PropertyValue<'a, 't> {
     Serializable(Value),
-    /// Value expression to be evaluated at run time.
-    Dynamic(tir::CodeBody<'a>),
     /// List of static QComboBox/QAbstractItemView items.
     ItemModel(Vec<ModelItem>),
     /// List of identifiers referencing the objects.
@@ -83,9 +81,8 @@ impl<'a, 't> PropertyValue<'a, 't> {
                         }
                     }
                 } else {
-                    // TODO: move to UiSupportCode::build()
-                    verify_code_return_type(node, code, ty, diagnostics)?;
-                    Some(PropertyValue::Dynamic(code.clone()))
+                    // no warning; to be processed by cxx binding generator
+                    None
                 }
             }
             PropertyCodeKind::GadgetMap(cls, map) => {
@@ -413,7 +410,7 @@ fn parse_as_value_type(
 }
 
 #[must_use]
-fn verify_code_return_type(
+pub(super) fn verify_code_return_type(
     node: Node,
     code: &tir::CodeBody,
     expected: &TypeKind,
