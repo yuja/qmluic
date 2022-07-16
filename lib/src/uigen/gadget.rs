@@ -5,6 +5,7 @@ use super::xmlutil;
 use super::{XmlResult, XmlWriter};
 use crate::color::Color;
 use crate::diagnostic::{Diagnostic, Diagnostics};
+use crate::qtname;
 use crate::typemap::Class;
 use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
@@ -222,7 +223,7 @@ fn make_palette_properties(
                 color_groups.insert(k, g);
             }
             Some(x) => {
-                default_roles.push((uppercase_first_char(&k), x));
+                default_roles.push((qtname::to_ascii_capitalized(&k), x));
             }
             None => {}
         }
@@ -350,7 +351,7 @@ impl PaletteColorGroup {
             .filter_map(|(k, v)| {
                 diagnostics
                     .consume_err(v.into_serializable())
-                    .map(|v| (uppercase_first_char(&k), v))
+                    .map(|v| (qtname::to_ascii_capitalized(&k), v))
             })
             .collect();
         PaletteColorGroup { roles }
@@ -391,14 +392,4 @@ impl PaletteColorGroup {
 
         writer.write_event(Event::End(group_tag.to_end()))
     }
-}
-
-fn uppercase_first_char(name: &str) -> String {
-    let mut chars = name.chars();
-    let mut upper_name = String::new();
-    if let Some(c) = chars.next() {
-        upper_name.push(c.to_ascii_uppercase());
-        upper_name.extend(chars);
-    }
-    upper_name
 }

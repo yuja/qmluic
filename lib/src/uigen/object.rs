@@ -7,6 +7,7 @@ use super::property::{self, PropertySetter};
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectNode;
+use crate::qtname;
 use crate::typemap::{Class, TypeSpace};
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
@@ -380,7 +381,7 @@ fn flatten_object_properties_into_attributes(
                 attributes.extend(props.into_iter().filter_map(|(k, v)| {
                     diagnostics
                         .consume_err(v.into_serializable_setter())
-                        .map(|x| (concat_camel_case_names(name, &k), x))
+                        .map(|x| (name.to_owned() + &qtname::to_ascii_capitalized(&k), x))
                 }));
             }
             Some(_) => {
@@ -392,16 +393,6 @@ fn flatten_object_properties_into_attributes(
             None => {}
         }
     }
-}
-
-fn concat_camel_case_names(head: &str, tail: &str) -> String {
-    let mut name = head.to_owned();
-    let mut chars = tail.chars();
-    if let Some(c) = chars.next() {
-        name.push(c.to_ascii_uppercase());
-        name.extend(chars);
-    }
-    name
 }
 
 pub(super) fn confine_children(obj_node: ObjectNode, diagnostics: &mut Diagnostics) {
