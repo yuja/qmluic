@@ -1,6 +1,6 @@
 use super::context::ObjectContext;
 use super::gadget::{Gadget, GadgetKind, ModelItem, PaletteColorGroup};
-use super::interpret::{self, EvaluatedValue};
+use super::interpret::EvaluatedValue;
 use super::objcode::{PropertyCode, PropertyCodeKind};
 use super::property::{self, PropertiesMap};
 use super::xmlutil;
@@ -38,7 +38,7 @@ impl<'a, 't> PropertyValue<'a, 't> {
         let node = property_code.node();
         match property_code.kind() {
             PropertyCodeKind::Expr(ty, code) => {
-                if let Some(res) = interpret::evaluate_code(code) {
+                if let Some(res) = property_code.evaluate() {
                     // constant expression can be mapped to .ui value type
                     match ty {
                         TypeKind::Just(t) => {
