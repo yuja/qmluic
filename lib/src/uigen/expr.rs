@@ -36,53 +36,43 @@ impl<'a, 't> PropertyValue<'a, 't> {
         let node = property_code.node();
         match property_code.kind() {
             PropertyCodeKind::Expr(ty, code) => {
-                if let Some(res) = property_code.evaluate() {
-                    // constant expression can be mapped to .ui value type
-                    match ty {
-                        TypeKind::Just(t) => {
-                            parse_as_value_type(ctx, ty, t, node, code, res, diagnostics)
-                                .map(PropertyValue::Serializable)
-                        }
-                        TypeKind::Pointer(NamedType::Class(cls))
-                            if cls.is_derived_from(&ctx.classes.abstract_item_model) =>
-                        {
-                            verify_code_return_type(
-                                node,
-                                code,
-                                &TypeKind::STRING_LIST,
-                                diagnostics,
-                            )?;
-                            let items = res
-                                .unwrap_string_list()
-                                .into_iter()
-                                .map(|(s, k)| ModelItem::with_text(s, k))
-                                .collect();
-                            Some(PropertyValue::ItemModel(items))
-                        }
-                        TypeKind::Pointer(NamedType::Class(_)) => {
-                            verify_code_return_type(node, code, ty, diagnostics)?;
-                            Some(PropertyValue::Serializable(Value::Simple(
-                                SimpleValue::Cstring(res.unwrap_object_ref()),
-                            )))
-                        }
-                        TypeKind::PointerList(NamedType::Class(_)) => {
-                            verify_code_return_type(node, code, ty, diagnostics)?;
-                            Some(PropertyValue::ObjectRefList(res.unwrap_object_ref_list()))
-                        }
-                        TypeKind::Pointer(_) | TypeKind::PointerList(_) => {
-                            diagnostics.push(Diagnostic::error(
-                                node.byte_range(),
-                                format!(
-                                    "unsupported value expression of type '{}'",
-                                    ty.qualified_cxx_name(),
-                                ),
-                            ));
-                            None
-                        }
+                let res = property_code.evaluate()?; // no warning; to be processed by cxx pass
+                match ty {
+                    TypeKind::Just(t) => {
+                        parse_as_value_type(ctx, ty, t, node, code, res, diagnostics)
+                            .map(PropertyValue::Serializable)
                     }
-                } else {
-                    // no warning; to be processed by cxx binding generator
-                    None
+                    TypeKind::Pointer(NamedType::Class(cls))
+                        if cls.is_derived_from(&ctx.classes.abstract_item_model) =>
+                    {
+                        verify_code_return_type(node, code, &TypeKind::STRING_LIST, diagnostics)?;
+                        let items = res
+                            .unwrap_string_list()
+                            .into_iter()
+                            .map(|(s, k)| ModelItem::with_text(s, k))
+                            .collect();
+                        Some(PropertyValue::ItemModel(items))
+                    }
+                    TypeKind::Pointer(NamedType::Class(_)) => {
+                        verify_code_return_type(node, code, ty, diagnostics)?;
+                        Some(PropertyValue::Serializable(Value::Simple(
+                            SimpleValue::Cstring(res.unwrap_object_ref()),
+                        )))
+                    }
+                    TypeKind::PointerList(NamedType::Class(_)) => {
+                        verify_code_return_type(node, code, ty, diagnostics)?;
+                        Some(PropertyValue::ObjectRefList(res.unwrap_object_ref_list()))
+                    }
+                    TypeKind::Pointer(_) | TypeKind::PointerList(_) => {
+                        diagnostics.push(Diagnostic::error(
+                            node.byte_range(),
+                            format!(
+                                "unsupported value expression of type '{}'",
+                                ty.qualified_cxx_name(),
+                            ),
+                        ));
+                        None
+                    }
                 }
             }
             PropertyCodeKind::GadgetMap(cls, map) => {
