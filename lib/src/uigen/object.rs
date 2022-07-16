@@ -2,7 +2,7 @@ use super::context::BuildDocContext;
 use super::expr::{PropertyValue, Value};
 use super::gadget::ModelItem;
 use super::layout::Layout;
-use super::objcode::PropertyCode;
+use super::objcode::{PropertyCode, PropertyCodeKind};
 use super::property::{self, PropertySetter};
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
@@ -375,22 +375,26 @@ fn flatten_object_properties_into_attributes(
     name: &str,
     diagnostics: &mut Diagnostics,
 ) {
-    if let Some(p) = properties_code_map.get(name) {
-        match PropertyValue::build(&ctx.make_object_context(), p, diagnostics) {
-            Some(PropertyValue::ObjectProperties(props)) => {
-                attributes.extend(props.into_iter().filter_map(|(k, v)| {
-                    diagnostics
-                        .consume_err(v.into_serializable_setter())
-                        .map(|x| (name.to_owned() + &qtname::to_ascii_capitalized(&k), x))
-                }));
+    if let Some(property_code) = properties_code_map.get(name) {
+        match property_code.kind() {
+            PropertyCodeKind::ObjectMap(_, map) => {
+                attributes.extend(
+                    property::make_serializable_map(
+                        &ctx.make_object_context(),
+                        map,
+                        &[],
+                        diagnostics,
+                    )
+                    .into_iter()
+                    .map(|(k, v)| (name.to_owned() + &qtname::to_ascii_capitalized(&k), v)),
+                );
             }
-            Some(_) => {
+            _ => {
                 diagnostics.push(Diagnostic::error(
-                    p.node().byte_range(),
+                    property_code.node().byte_range(),
                     "not a properties map",
                 ));
             }
-            None => {}
         }
     }
 }

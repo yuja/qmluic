@@ -2,7 +2,6 @@ use super::context::ObjectContext;
 use super::gadget::{Gadget, GadgetKind, ModelItem, PaletteColorGroup};
 use super::interpret::EvaluatedValue;
 use super::objcode::{PropertyCode, PropertyCodeKind};
-use super::property::{self, PropertiesMap};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
 use crate::color::Color;
@@ -17,20 +16,18 @@ use std::io;
 
 /// Variant for the property values that can or cannot be serialized to UI XML.
 #[derive(Clone, Debug)]
-pub(super) enum PropertyValue<'a, 't> {
+pub(super) enum PropertyValue {
     Serializable(Value),
     /// List of static QComboBox/QAbstractItemView items.
     ItemModel(Vec<ModelItem>),
     /// List of identifiers referencing the objects.
     ObjectRefList(Vec<String>),
-    /// Map of properties assigned to object pointer property.
-    ObjectProperties(PropertiesMap<'a, 't>),
 }
 
-impl<'a, 't> PropertyValue<'a, 't> {
+impl PropertyValue {
     pub(super) fn build(
-        ctx: &ObjectContext<'a, '_, '_>,
-        property_code: &PropertyCode<'a, 't, '_>,
+        ctx: &ObjectContext,
+        property_code: &PropertyCode,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let node = property_code.node();
@@ -74,9 +71,12 @@ impl<'a, 't> PropertyValue<'a, 't> {
             PropertyCodeKind::GadgetMap(..) => {
                 Value::build(ctx, property_code, diagnostics).map(PropertyValue::Serializable)
             }
-            PropertyCodeKind::ObjectMap(_, map) => {
-                let properties_map = property::make_properties_from_code_map(ctx, map, diagnostics);
-                Some(PropertyValue::ObjectProperties(properties_map))
+            PropertyCodeKind::ObjectMap(cls, _) => {
+                diagnostics.push(Diagnostic::error(
+                    property_code.node().byte_range(),
+                    format!("unexpected value type: {}", cls.qualified_cxx_name()),
+                ));
+                None
             }
         }
     }
@@ -138,7 +138,7 @@ impl Value {
             PropertyCodeKind::ObjectMap(cls, _) => {
                 diagnostics.push(Diagnostic::error(
                     node.byte_range(),
-                    format!("unexpected value type: {}", cls.qualified_cxx_name(),),
+                    format!("unexpected value type: {}", cls.qualified_cxx_name()),
                 ));
                 None
             }
