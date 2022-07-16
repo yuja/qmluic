@@ -135,13 +135,6 @@ impl<'t> WithNode<'t, PropertyDescValue<'_, '_>> {
         };
         self.into_serializable().map(|v| (v, s))
     }
-
-    pub fn into_simple(self) -> Result<SimpleValue, ValueTypeError<'t>> {
-        match self.data.value {
-            PropertyValue::Serializable(Value::Simple(v)) => Ok(v),
-            _ => Err(self.make_type_error()),
-        }
-    }
 }
 
 #[derive(Clone, Debug, Error)]
@@ -302,6 +295,46 @@ pub(super) fn make_serializable_map(
         .collect()
 }
 
+/// Creates a map of gadget properties from the given code map.
+///
+/// Unlike `make_serializable_map()`, this does not check for the property's setter
+/// availability since the gadget properties will be passed as constructor arguments.
+pub(super) fn make_value_map(
+    ctx: &ObjectContext,
+    properties_code_map: &HashMap<&str, PropertyCode>,
+    excludes: &[&str],
+    diagnostics: &mut Diagnostics,
+) -> HashMap<String, Value> {
+    properties_code_map
+        .iter()
+        .filter(|(name, _)| !excludes.contains(name))
+        .filter_map(|(&name, property_code)| {
+            let v = Value::build(ctx, property_code, diagnostics)?;
+            Some((name.to_owned(), v))
+        })
+        .collect()
+}
+
+pub(super) fn get_simple_value<'a, 't, 's, 'm>(
+    ctx: &ObjectContext,
+    properties_code_map: &'m HashMap<&str, PropertyCode<'a, 't, 's>>,
+    name: impl AsRef<str>,
+    diagnostics: &mut Diagnostics,
+) -> Option<(&'m PropertyCode<'a, 't, 's>, SimpleValue)> {
+    let p = properties_code_map.get(name.as_ref())?;
+    match Value::build(ctx, p, diagnostics) {
+        Some(Value::Simple(s)) => Some((p, s)),
+        Some(_) => {
+            diagnostics.push(Diagnostic::error(
+                p.node().byte_range(),
+                "unexpected value type",
+            ));
+            None
+        }
+        None => None,
+    }
+}
+
 /// Makes sure all properties are writable, removes if not.
 ///
 /// This should be called at the very last but before `make_serializable_properties()`
@@ -320,20 +353,6 @@ pub(super) fn reject_unwritable_properties(
         }
         writable
     });
-}
-
-pub(super) fn make_gadget_properties(
-    properties_map: PropertiesMap,
-    diagnostics: &mut Diagnostics,
-) -> HashMap<String, Value> {
-    properties_map
-        .into_iter()
-        .filter_map(|(k, v)| {
-            diagnostics
-                .consume_err(v.into_serializable())
-                .map(|v| (k, v))
-        })
-        .collect()
 }
 
 pub(super) fn make_serializable_properties(
