@@ -348,3 +348,26 @@ fn test_unique_binding_method_name() {
     let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
     insta::assert_snapshot!(ui_support_h);
 }
+
+#[test]
+fn test_dynamic_tab_widget_attached() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QTabWidget {
+            QWidget {
+                id: tab
+                QTabWidget.title: tab.windowTitle
+            }
+        }
+        "###,
+    );
+    insta::assert_snapshot!(
+        common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap_err(), @r###"
+    error: dynamic binding to attached property is not supported
+      ┌─ <unknown>:5:27
+      │
+    5 │         QTabWidget.title: tab.windowTitle
+      │                           ^^^^^^^^^^^^^^^
+    "###);
+}

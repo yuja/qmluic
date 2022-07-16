@@ -219,6 +219,7 @@ pub(super) fn collect_properties_with_node<'a, 't>(
     resolve_properties(ctx, cls, binding_map, diagnostics, |v, _| Option::Some(v))
 }
 
+// TODO: migrate attached property handling to ObjectCodeMap and remove collect_properties*()
 fn resolve_properties<'a, 't, 's, B, F>(
     ctx: &ObjectContext<'a, 't, '_>,
     cls: &Class<'a>,
@@ -236,7 +237,15 @@ where
                 Some(Ok(desc)) => {
                     let property_code = PropertyCode::build(ctx, desc, value, diagnostics)?;
                     let value = PropertyValue::build(ctx, &property_code, diagnostics)?;
-                    Some(PropertyDescValue::new(property_code.desc().clone(), value))
+                    if property_code.is_evaluated_constant() {
+                        Some(PropertyDescValue::new(property_code.desc().clone(), value))
+                    } else {
+                        diagnostics.push(Diagnostic::error(
+                            property_code.node().byte_range(),
+                            "dynamic binding to attached property is not supported",
+                        ));
+                        None
+                    }
                 }
                 Some(Err(e)) => {
                     diagnostics.push(Diagnostic::error(
