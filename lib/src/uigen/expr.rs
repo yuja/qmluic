@@ -83,6 +83,7 @@ impl<'a, 't> PropertyValue<'a, 't> {
                         }
                     }
                 } else {
+                    // TODO: move to UiSupportCode::build()
                     verify_code_return_type(node, code, ty, diagnostics)?;
                     Some(PropertyValue::Dynamic(code.clone()))
                 }

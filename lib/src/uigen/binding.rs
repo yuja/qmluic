@@ -1,10 +1,10 @@
-use super::property::{DynamicPropertiesMap, PropertyDescDynamicExpression, WithNode};
+use super::objcode::{ObjectCodeMap, PropertyCode, PropertyCodeKind};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::{ObjectNode, ObjectTree};
 use crate::qtname::{self, FileNameRules, UniqueNameGenerator};
 use crate::tir;
 use crate::typedexpr::{BuiltinFunctionKind, BuiltinMethodKind};
-use crate::typemap::TypeSpace;
+use crate::typemap::{TypeKind, TypeSpace};
 use itertools::Itertools as _;
 use std::io;
 
@@ -23,7 +23,7 @@ impl UiSupportCode {
         type_name: &str,
         file_name_rules: &FileNameRules,
         object_tree: &ObjectTree,
-        object_properties: &[DynamicPropertiesMap],
+        object_code_maps: &[ObjectCodeMap],
         diagnostics: &mut Diagnostics,
     ) -> Self {
         let quote_includes = vec![file_name_rules.type_name_to_ui_cxx_header_name(type_name)];
@@ -31,14 +31,36 @@ impl UiSupportCode {
         let mut name_gen = UniqueNameGenerator::new();
         let code_translator = CxxCodeBodyTranslator::new(object_tree.root().name(), type_name);
         let mut bindings = Vec::new();
-        for (obj_node, properties_map) in object_tree.flat_iter().zip(object_properties) {
+        for (obj_node, code_map) in object_tree.flat_iter().zip(object_code_maps) {
             // TODO: exclude pseudo node like QActionSeparator
-            bindings.extend(properties_map.iter().sorted_by_key(|&(k, _)| k).filter_map(
-                |(_, v)| {
-                    let prefix = qtname::to_ascii_capitalized(obj_node.name())
-                        + &qtname::to_ascii_capitalized(v.data().desc.name());
-                    let name = name_gen.generate(&prefix);
-                    BindingCode::build(&code_translator, name, obj_node, v, diagnostics)
+            let dyn_props = code_map
+                .properties()
+                .iter()
+                .filter(|(_, p)| !p.is_evaluated_constant())
+                .sorted_by_key(|&(k, _)| k);
+            bindings.extend(dyn_props.filter_map(
+                |(_, property_code)| match property_code.kind() {
+                    PropertyCodeKind::Expr(ty, code) => {
+                        let prefix = qtname::to_ascii_capitalized(obj_node.name())
+                            + &qtname::to_ascii_capitalized(property_code.desc().name());
+                        let name = name_gen.generate(&prefix);
+                        BindingCode::build(
+                            &code_translator,
+                            name,
+                            obj_node,
+                            property_code,
+                            ty,
+                            code,
+                            diagnostics,
+                        )
+                    }
+                    PropertyCodeKind::GadgetMap(..) | PropertyCodeKind::ObjectMap(..) => {
+                        diagnostics.push(Diagnostic::error(
+                            property_code.node().byte_range(),
+                            "dynamic map binding is not supported",
+                        ));
+                        None
+                    }
                 },
             ));
         }
@@ -152,11 +174,13 @@ impl BindingCode {
         code_translator: &CxxCodeBodyTranslator,
         function_name_suffix: String,
         obj_node: ObjectNode,
-        prop: &WithNode<PropertyDescDynamicExpression>,
+        property_code: &PropertyCode,
+        value_ty: &TypeKind,
+        code: &tir::CodeBody,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let sender_signals = code_translator.collect_sender_signals(&prop.data().code, diagnostics);
-        let write_method = if let Some(f) = prop.data().desc.write_func_name() {
+        let sender_signals = code_translator.collect_sender_signals(code, diagnostics);
+        let write_method = if let Some(f) = property_code.desc().write_func_name() {
             format!(
                 "{}->{}",
                 code_translator
@@ -165,28 +189,18 @@ impl BindingCode {
             )
         } else {
             diagnostics.push(Diagnostic::error(
-                prop.binding_node().byte_range(),
+                property_code.binding_node().byte_range(),
                 "not a writable property",
             ));
             return None;
         };
-        let value_type: String = match prop.data().desc.value_type() {
-            Ok(ty) => ty.qualified_cxx_name().into(),
-            Err(e) => {
-                diagnostics.push(Diagnostic::error(
-                    prop.binding_node().byte_range(),
-                    format!("property type resolution failed: {}", e),
-                ));
-                return None;
-            }
-        };
         let mut eval_function_body = Vec::new();
         code_translator
-            .translate(&mut eval_function_body, &prop.data().code)
+            .translate(&mut eval_function_body, code)
             .expect("write to bytes shouldn't fail");
         Some(BindingCode {
             function_name_suffix,
-            value_type,
+            value_type: value_ty.qualified_cxx_name().into(),
             sender_signals,
             write_method,
             eval_function_body,

@@ -50,9 +50,9 @@ pub fn build(
         &type_space,
         diagnostics,
     )?;
-    let (_object_code_maps, mut object_properties) =
+    let (object_code_maps, mut object_properties) =
         build_object_properties(doc, &type_space, &object_tree, base_ctx, diagnostics);
-    let dynamic_object_properties: Vec<_> = object_properties
+    let _dynamic_object_properties: Vec<_> = object_properties
         .iter_mut()
         .map(property::extract_dynamic_properties)
         .collect();
@@ -66,13 +66,17 @@ pub fn build(
             doc.type_name(),
             &base_ctx.file_name_rules,
             &object_tree,
-            &dynamic_object_properties,
+            &object_code_maps,
             diagnostics,
         )),
         DynamicBindingHandling::Reject => {
-            for v in dynamic_object_properties.iter().flat_map(|m| m.values()) {
+            for p in object_code_maps
+                .iter()
+                .flat_map(|m| m.properties().values())
+                .filter(|p| !p.is_evaluated_constant())
+            {
                 diagnostics.push(Diagnostic::error(
-                    v.node().byte_range(),
+                    p.node().byte_range(),
                     "unsupported dynamic binding",
                 ));
             }
