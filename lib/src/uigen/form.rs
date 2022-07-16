@@ -1,6 +1,5 @@
 use super::context::BuildDocContext;
 use super::object::Widget;
-use super::property;
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
@@ -33,13 +32,7 @@ impl UiForm {
             ));
             // but continue anyway to report as many errors as possible
         }
-
-        let properties_map = property::make_properties_from_code_map(
-            &ctx.make_object_context(),
-            ctx.code_map_for_object(obj_node).properties(),
-            diagnostics,
-        );
-        let root_widget = Widget::build(ctx, obj_node, properties_map, diagnostics);
+        let root_widget = Widget::build(ctx, obj_node, diagnostics);
         let custom_widgets = ctx
             .object_tree
             .flat_iter()
