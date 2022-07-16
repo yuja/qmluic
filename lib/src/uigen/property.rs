@@ -268,6 +268,40 @@ pub(super) fn make_properties_from_code_map<'a, 't>(
         .collect()
 }
 
+/// Creates a map of serializable properties from the given code map.
+///
+/// `excludes` is a list of property names which should have been processed in a special
+/// manner by the caller. The list should be small in practice.
+pub(super) fn make_serializable_map(
+    ctx: &ObjectContext,
+    properties_code_map: &HashMap<&str, PropertyCode>,
+    excludes: &[&str],
+    diagnostics: &mut Diagnostics,
+) -> HashMap<String, (Value, PropertySetter)> {
+    properties_code_map
+        .iter()
+        .filter(|(name, _)| !excludes.contains(name))
+        .filter_map(|(&name, property_code)| {
+            // evaluate once to sort out constant/dynamic nature
+            let v = Value::build(ctx, property_code, diagnostics)?;
+            if property_code.desc().is_writable() {
+                let s = if property_code.desc().is_std_set() {
+                    PropertySetter::StdSet
+                } else {
+                    PropertySetter::Var
+                };
+                Some((name.to_owned(), (v, s)))
+            } else {
+                diagnostics.push(Diagnostic::error(
+                    property_code.binding_node().byte_range(),
+                    "not a writable property",
+                ));
+                None
+            }
+        })
+        .collect()
+}
+
 /// Makes sure all properties are writable, removes if not.
 ///
 /// This should be called at the very last but before `make_serializable_properties()`
