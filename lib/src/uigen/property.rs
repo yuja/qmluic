@@ -4,7 +4,7 @@ use super::objcode::PropertyCode;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
-use crate::typemap::{Class, Property, TypeSpace};
+use crate::typemap::{Class, TypeSpace};
 use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
@@ -12,19 +12,6 @@ use std::fmt::Debug;
 use std::io;
 use std::ops::Range;
 use thiserror::Error;
-
-/// Property value with its description.
-#[derive(Clone, Debug)]
-pub(super) struct PropertyDescValue<'a> {
-    pub desc: Property<'a>,
-    pub value: PropertyValue,
-}
-
-impl<'a> PropertyDescValue<'a> {
-    pub fn new(desc: Property<'a>, value: PropertyValue) -> Self {
-        PropertyDescValue { desc, value }
-    }
-}
 
 /// Type of the property setter to be used by `uic`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -91,7 +78,7 @@ impl<'t, V> WithNode<'t, V> {
     }
 }
 
-impl<'t> WithNode<'t, PropertyDescValue<'_>> {
+impl<'t> WithNode<'t, PropertyValue> {
     pub fn to_enum(&self) -> Result<&str, ValueTypeError<'t>> {
         self.as_serializable()
             .and_then(|v| v.as_enum())
@@ -114,26 +101,17 @@ impl<'t> WithNode<'t, PropertyDescValue<'_>> {
     }
 
     pub fn as_serializable(&self) -> Option<&Value> {
-        match &self.data.value {
+        match &self.data {
             PropertyValue::Serializable(v) => Some(v),
             _ => None,
         }
     }
 
     pub fn into_serializable(self) -> Result<Value, ValueTypeError<'t>> {
-        match self.data.value {
+        match self.data {
             PropertyValue::Serializable(v) => Ok(v),
             _ => Err(self.make_type_error()),
         }
-    }
-
-    pub fn into_serializable_setter(self) -> Result<(Value, PropertySetter), ValueTypeError<'t>> {
-        let s = if self.data.desc.is_std_set() {
-            PropertySetter::StdSet
-        } else {
-            PropertySetter::Var
-        };
-        self.into_serializable().map(|v| (v, s))
     }
 }
 
@@ -162,7 +140,7 @@ impl From<ValueTypeError<'_>> for Diagnostic {
 }
 
 /// Hash map of property values that may or may not be serialized to UI XML.
-pub(super) type PropertiesMap<'a, 't> = HashMap<String, WithNode<'t, PropertyDescValue<'a>>>;
+pub(super) type PropertiesMap<'t> = HashMap<String, WithNode<'t, PropertyValue>>;
 
 /// Parses the given `binding_map` into a map of constant expressions.
 ///
@@ -186,7 +164,7 @@ pub(super) fn collect_properties_with_node<'a, 't>(
     cls: &Class<'a>,
     binding_map: &UiBindingMap<'t, '_>,
     diagnostics: &mut Diagnostics,
-) -> PropertiesMap<'a, 't> {
+) -> PropertiesMap<'t> {
     resolve_properties(ctx, cls, binding_map, diagnostics, |v, _| Option::Some(v))
 }
 
@@ -199,7 +177,7 @@ fn resolve_properties<'a, 't, 's, B, F>(
     mut make_value: F,
 ) -> HashMap<String, B>
 where
-    F: FnMut(WithNode<'t, PropertyDescValue<'a>>, &mut Diagnostics) -> Option<B>,
+    F: FnMut(WithNode<'t, PropertyValue>, &mut Diagnostics) -> Option<B>,
 {
     binding_map
         .iter()
@@ -209,7 +187,7 @@ where
                     let property_code = PropertyCode::build(ctx, desc, value, diagnostics)?;
                     let value_opt = PropertyValue::build(ctx, &property_code, diagnostics);
                     if property_code.is_evaluated_constant() {
-                        value_opt.map(|v| PropertyDescValue::new(property_code.desc().clone(), v))
+                        value_opt
                     } else {
                         diagnostics.push(Diagnostic::error(
                             property_code.node().byte_range(),
@@ -240,23 +218,6 @@ where
             .and_then(|x| {
                 make_value(WithNode::new(value, x), diagnostics).map(|v| (name.to_owned(), v))
             })
-        })
-        .collect()
-}
-
-// TODO: remove after migrating to ObjectCodeMap
-pub(super) fn make_properties_from_code_map<'a, 't>(
-    ctx: &ObjectContext<'a, '_, '_>,
-    properties_code_map: &HashMap<&str, PropertyCode<'a, 't, '_>>,
-    diagnostics: &mut Diagnostics,
-) -> PropertiesMap<'a, 't> {
-    properties_code_map
-        .iter()
-        .filter_map(|(&name, property_code)| {
-            let node = property_code.node();
-            let value = PropertyValue::build(ctx, property_code, diagnostics)?;
-            let data = PropertyDescValue::new(property_code.desc().clone(), value);
-            Some((name.to_owned(), WithNode { node, data }))
         })
         .collect()
 }
@@ -369,40 +330,6 @@ pub(super) fn get_i32<'a, 't, 's, 'm>(
         ));
         None
     }
-}
-
-/// Makes sure all properties are writable, removes if not.
-///
-/// This should be called at the very last but before `make_serializable_properties()`
-/// where all pseudo properties would have been transformed.
-pub(super) fn reject_unwritable_properties(
-    properties_map: &mut PropertiesMap,
-    diagnostics: &mut Diagnostics,
-) {
-    properties_map.retain(|_, v| {
-        let writable = v.data().desc.is_writable();
-        if !writable {
-            diagnostics.push(Diagnostic::error(
-                v.binding_node().byte_range(),
-                "not a writable property",
-            ));
-        }
-        writable
-    });
-}
-
-pub(super) fn make_serializable_properties(
-    properties_map: PropertiesMap,
-    diagnostics: &mut Diagnostics,
-) -> HashMap<String, (Value, PropertySetter)> {
-    properties_map
-        .into_iter()
-        .filter_map(|(k, v)| {
-            diagnostics
-                .consume_err(v.into_serializable_setter())
-                .map(|x| (k, x))
-        })
-        .collect()
 }
 
 pub(super) fn serialize_properties_to_xml<W, T>(
