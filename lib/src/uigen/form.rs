@@ -34,7 +34,7 @@ impl UiForm {
             // but continue anyway to report as many errors as possible
         }
 
-        let properties_map = property::make_constant_properties_from_code_map(
+        let properties_map = property::make_properties_from_code_map(
             &ctx.make_object_context(),
             ctx.code_map_for_object(obj_node).properties(),
             diagnostics,

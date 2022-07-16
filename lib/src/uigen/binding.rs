@@ -1,3 +1,4 @@
+use super::expr;
 use super::objcode::{ObjectCodeMap, PropertyCode, PropertyCodeKind};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::{ObjectNode, ObjectTree};
@@ -41,6 +42,7 @@ impl UiSupportCode {
             bindings.extend(dyn_props.filter_map(
                 |(_, property_code)| match property_code.kind() {
                     PropertyCodeKind::Expr(ty, code) => {
+                        expr::verify_code_return_type(property_code.node(), code, ty, diagnostics)?;
                         let prefix = qtname::to_ascii_capitalized(obj_node.name())
                             + &qtname::to_ascii_capitalized(property_code.desc().name());
                         let name = name_gen.generate(&prefix);
