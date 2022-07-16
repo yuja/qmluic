@@ -38,10 +38,8 @@ impl<'a, 't> PropertyValue<'a, 't> {
             PropertyCodeKind::Expr(ty, code) => {
                 let res = property_code.evaluate()?; // no warning; to be processed by cxx pass
                 match ty {
-                    TypeKind::Just(t) => {
-                        parse_as_value_type(ctx, ty, t, node, code, res, diagnostics)
-                            .map(PropertyValue::Serializable)
-                    }
+                    TypeKind::Just(_) => Value::build(ctx, property_code, diagnostics)
+                        .map(PropertyValue::Serializable),
                     TypeKind::Pointer(NamedType::Class(cls))
                         if cls.is_derived_from(&ctx.classes.abstract_item_model) =>
                     {
@@ -54,10 +52,8 @@ impl<'a, 't> PropertyValue<'a, 't> {
                         Some(PropertyValue::ItemModel(items))
                     }
                     TypeKind::Pointer(NamedType::Class(_)) => {
-                        verify_code_return_type(node, code, ty, diagnostics)?;
-                        Some(PropertyValue::Serializable(Value::Simple(
-                            SimpleValue::Cstring(res.unwrap_object_ref()),
-                        )))
+                        Value::build(ctx, property_code, diagnostics)
+                            .map(PropertyValue::Serializable)
                     }
                     TypeKind::PointerList(NamedType::Class(_)) => {
                         verify_code_return_type(node, code, ty, diagnostics)?;
@@ -75,21 +71,8 @@ impl<'a, 't> PropertyValue<'a, 't> {
                     }
                 }
             }
-            PropertyCodeKind::GadgetMap(cls, map) => {
-                let properties_map = property::make_properties_from_code_map(ctx, map, diagnostics);
-                if let Some(kind) = GadgetKind::from_class(cls, ctx.classes) {
-                    let v = Gadget::new(kind, properties_map, diagnostics);
-                    Some(PropertyValue::Serializable(Value::Gadget(v)))
-                } else if cls.name() == "QPaletteColorGroup" {
-                    let v = PaletteColorGroup::new(properties_map, diagnostics);
-                    Some(PropertyValue::Serializable(Value::PaletteColorGroup(v)))
-                } else {
-                    diagnostics.push(Diagnostic::error(
-                        node.byte_range(),
-                        format!("unsupported gadget type: {}", cls.qualified_cxx_name()),
-                    ));
-                    None
-                }
+            PropertyCodeKind::GadgetMap(..) => {
+                Value::build(ctx, property_code, diagnostics).map(PropertyValue::Serializable)
             }
             PropertyCodeKind::ObjectMap(_, map) => {
                 let properties_map = property::make_properties_from_code_map(ctx, map, diagnostics);
@@ -112,6 +95,58 @@ pub enum Value {
 }
 
 impl Value {
+    pub(super) fn build(
+        ctx: &ObjectContext,
+        property_code: &PropertyCode,
+        diagnostics: &mut Diagnostics,
+    ) -> Option<Self> {
+        let node = property_code.node();
+        match property_code.kind() {
+            PropertyCodeKind::Expr(ty, code) => {
+                let res = property_code.evaluate()?; // no warning; to be processed by cxx pass
+                match ty {
+                    TypeKind::Just(t) => {
+                        parse_as_value_type(ctx, ty, t, node, code, res, diagnostics)
+                    }
+                    TypeKind::Pointer(NamedType::Class(_)) => {
+                        verify_code_return_type(node, code, ty, diagnostics)?;
+                        Some(Value::Simple(SimpleValue::Cstring(res.unwrap_object_ref())))
+                    }
+                    TypeKind::Pointer(_) | TypeKind::PointerList(_) => {
+                        diagnostics.push(Diagnostic::error(
+                            node.byte_range(),
+                            format!("unexpected value type: {}", ty.qualified_cxx_name(),),
+                        ));
+                        None
+                    }
+                }
+            }
+            PropertyCodeKind::GadgetMap(cls, map) => {
+                let properties_map = property::make_properties_from_code_map(ctx, map, diagnostics);
+                if let Some(kind) = GadgetKind::from_class(cls, ctx.classes) {
+                    let v = Gadget::new(kind, properties_map, diagnostics);
+                    Some(Value::Gadget(v))
+                } else if cls.name() == "QPaletteColorGroup" {
+                    let v = PaletteColorGroup::new(properties_map, diagnostics);
+                    Some(Value::PaletteColorGroup(v))
+                } else {
+                    diagnostics.push(Diagnostic::error(
+                        node.byte_range(),
+                        format!("unsupported gadget type: {}", cls.qualified_cxx_name()),
+                    ));
+                    None
+                }
+            }
+            PropertyCodeKind::ObjectMap(cls, _) => {
+                diagnostics.push(Diagnostic::error(
+                    node.byte_range(),
+                    format!("unexpected value type: {}", cls.qualified_cxx_name(),),
+                ));
+                None
+            }
+        }
+    }
+
     /// Serializes this to UI XML.
     pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
     where
