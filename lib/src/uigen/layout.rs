@@ -274,14 +274,19 @@ impl LayoutItemContent {
     /// Generates layout content and its children recursively from the given `obj_node`.
     fn build(ctx: &BuildDocContext, obj_node: ObjectNode, diagnostics: &mut Diagnostics) -> Self {
         let cls = obj_node.class();
-        let properties_map = property::make_properties_from_code_map(
-            &ctx.make_object_context(),
-            ctx.code_map_for_object(obj_node).properties(),
-            diagnostics,
-        );
         if cls.is_derived_from(&ctx.classes.layout) {
+            let properties_map = property::make_properties_from_code_map(
+                &ctx.make_object_context(),
+                ctx.code_map_for_object(obj_node).properties(),
+                diagnostics,
+            );
             LayoutItemContent::Layout(Layout::build(ctx, obj_node, properties_map, diagnostics))
         } else if cls.is_derived_from(&ctx.classes.spacer_item) {
+            let properties_map = property::make_properties_from_code_map(
+                &ctx.make_object_context(),
+                ctx.code_map_for_object(obj_node).properties(),
+                diagnostics,
+            );
             object::confine_children(obj_node, diagnostics);
             LayoutItemContent::SpacerItem(SpacerItem::new(
                 obj_node.name(),
@@ -289,7 +294,7 @@ impl LayoutItemContent {
                 diagnostics,
             ))
         } else if cls.is_derived_from(&ctx.classes.widget) {
-            LayoutItemContent::Widget(Widget::build(ctx, obj_node, properties_map, diagnostics))
+            LayoutItemContent::Widget(Widget::build(ctx, obj_node, diagnostics))
         } else {
             diagnostics.push(Diagnostic::error(
                 obj_node.obj().node().byte_range(),
@@ -299,7 +304,7 @@ impl LayoutItemContent {
                 ),
             ));
             // but process as widget to report as many errors as possible
-            LayoutItemContent::Widget(Widget::build(ctx, obj_node, properties_map, diagnostics))
+            LayoutItemContent::Widget(Widget::build(ctx, obj_node, diagnostics))
         }
     }
 

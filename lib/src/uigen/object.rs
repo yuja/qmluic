@@ -2,7 +2,8 @@ use super::context::BuildDocContext;
 use super::expr::{PropertyValue, Value};
 use super::gadget::ModelItem;
 use super::layout::Layout;
-use super::property::{self, PropertiesMap, PropertyDescValue, PropertySetter, WithNode};
+use super::objcode::PropertyCode;
+use super::property::{self, PropertySetter};
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectNode;
@@ -32,23 +33,28 @@ impl UiObject {
         diagnostics: &mut Diagnostics,
     ) -> Self {
         let cls = obj_node.class();
-        let properties_map = property::make_properties_from_code_map(
-            &ctx.make_object_context(),
-            ctx.code_map_for_object(obj_node).properties(),
-            diagnostics,
-        );
         if cls.is_derived_from(&ctx.classes.action) {
             confine_children(obj_node, diagnostics);
-            UiObject::Action(Action::new(obj_node.name(), properties_map, diagnostics))
+            UiObject::Action(Action::new(
+                ctx,
+                obj_node.name(),
+                ctx.code_map_for_object(obj_node).properties(),
+                diagnostics,
+            ))
         } else if cls.is_derived_from(&ctx.classes.action_separator) {
             confine_children(obj_node, diagnostics);
             UiObject::ActionSeparator
         } else if cls.is_derived_from(&ctx.classes.layout) {
+            let properties_map = property::make_properties_from_code_map(
+                &ctx.make_object_context(),
+                ctx.code_map_for_object(obj_node).properties(),
+                diagnostics,
+            );
             UiObject::Layout(Layout::build(ctx, obj_node, properties_map, diagnostics))
         } else if cls.is_derived_from(&ctx.classes.menu) {
-            UiObject::Menu(Widget::build(ctx, obj_node, properties_map, diagnostics))
+            UiObject::Menu(Widget::build(ctx, obj_node, diagnostics))
         } else if cls.is_derived_from(&ctx.classes.widget) {
-            UiObject::Widget(Widget::build(ctx, obj_node, properties_map, diagnostics))
+            UiObject::Widget(Widget::build(ctx, obj_node, diagnostics))
         } else {
             diagnostics.push(Diagnostic::error(
                 obj_node.obj().node().byte_range(),
@@ -58,7 +64,7 @@ impl UiObject {
                 ),
             ));
             // but process as widget to report as many errors as possible
-            UiObject::Widget(Widget::build(ctx, obj_node, properties_map, diagnostics))
+            UiObject::Widget(Widget::build(ctx, obj_node, diagnostics))
         }
     }
 
@@ -86,12 +92,17 @@ pub struct Action {
 
 impl Action {
     pub(super) fn new(
+        ctx: &BuildDocContext,
         name: impl Into<String>,
-        mut properties_map: PropertiesMap,
+        properties_code_map: &HashMap<&str, PropertyCode>,
         diagnostics: &mut Diagnostics,
     ) -> Self {
-        property::reject_unwritable_properties(&mut properties_map, diagnostics);
-        let properties = property::make_serializable_properties(properties_map, diagnostics);
+        let properties = property::make_serializable_map(
+            &ctx.make_object_context(),
+            properties_code_map,
+            &[],
+            diagnostics,
+        );
         Action {
             name: name.into(),
             properties,
@@ -131,7 +142,6 @@ impl Widget {
     pub(super) fn build(
         ctx: &BuildDocContext,
         obj_node: ObjectNode,
-        properties_map: PropertiesMap,
         diagnostics: &mut Diagnostics,
     ) -> Self {
         let children = if obj_node.class().is_derived_from(&ctx.classes.tab_widget) {
@@ -144,7 +154,7 @@ impl Widget {
             ctx,
             obj_node.class(),
             obj_node.name(),
-            properties_map,
+            ctx.code_map_for_object(obj_node).properties(),
             children,
             diagnostics,
         )
@@ -154,64 +164,60 @@ impl Widget {
         ctx: &BuildDocContext,
         class: &Class,
         name: impl Into<String>,
-        mut properties_map: PropertiesMap,
+        properties_code_map: &HashMap<&str, PropertyCode>,
         children: Vec<UiObject>,
         diagnostics: &mut Diagnostics,
     ) -> Self {
-        let actions = match properties_map.remove("actions") {
-            Some(WithNode {
-                data:
-                    PropertyDescValue {
-                        value: PropertyValue::ObjectRefList(refs),
-                        ..
-                    },
-                ..
-            }) => refs
-                .into_iter()
-                .map(|id| {
-                    if ctx
-                        .object_tree
-                        .get_by_id(&id)
-                        .expect("object ref must be valid")
-                        .class()
-                        .is_derived_from(&ctx.classes.action_separator)
-                    {
-                        ACTION_SEPARATOR_NAME.to_owned()
-                    } else {
-                        id
-                    }
-                })
-                .collect(),
-            Some(x) => {
-                diagnostics.push(Diagnostic::error(
-                    x.node().byte_range(),
-                    "not an actions list",
-                ));
-                vec![]
+        let mut pseudo_property_names = vec!["actions", "model"];
+
+        let actions = if let Some(p) = properties_code_map.get("actions") {
+            match PropertyValue::build(&ctx.make_object_context(), p, diagnostics) {
+                Some(PropertyValue::ObjectRefList(refs)) => refs
+                    .into_iter()
+                    .map(|id| {
+                        if ctx
+                            .object_tree
+                            .get_by_id(&id)
+                            .expect("object ref must be valid")
+                            .class()
+                            .is_derived_from(&ctx.classes.action_separator)
+                        {
+                            ACTION_SEPARATOR_NAME.to_owned()
+                        } else {
+                            id
+                        }
+                    })
+                    .collect(),
+                Some(_) => {
+                    diagnostics.push(Diagnostic::error(
+                        p.node().byte_range(),
+                        "not an actions list",
+                    ));
+                    vec![]
+                }
+                None => vec![],
             }
-            None => collect_action_like_children(&children),
+        } else {
+            collect_action_like_children(&children)
         };
 
         let items = if class.is_derived_from(&ctx.classes.combo_box)
             || class.is_derived_from(&ctx.classes.list_widget)
         {
-            match properties_map.remove("model") {
-                Some(WithNode {
-                    data:
-                        PropertyDescValue {
-                            value: PropertyValue::ItemModel(items),
-                            ..
-                        },
-                    ..
-                }) => items,
-                Some(x) => {
-                    diagnostics.push(Diagnostic::error(
-                        x.node().byte_range(),
-                        "not an item model",
-                    ));
-                    vec![]
+            if let Some(p) = properties_code_map.get("model") {
+                match PropertyValue::build(&ctx.make_object_context(), p, diagnostics) {
+                    Some(PropertyValue::ItemModel(items)) => items,
+                    Some(_) => {
+                        diagnostics.push(Diagnostic::error(
+                            p.node().byte_range(),
+                            "not an item model",
+                        ));
+                        vec![]
+                    }
+                    None => vec![],
                 }
-                None => vec![],
+            } else {
+                vec![]
             }
         } else {
             vec![]
@@ -219,30 +225,39 @@ impl Widget {
 
         let mut attributes = HashMap::new();
         if class.is_derived_from(&ctx.classes.table_view) {
+            pseudo_property_names.extend(["horizontalHeader", "verticalHeader"]);
             flatten_object_properties_into_attributes(
+                ctx,
                 &mut attributes,
-                &mut properties_map,
+                properties_code_map,
                 "horizontalHeader",
                 diagnostics,
             );
             flatten_object_properties_into_attributes(
+                ctx,
                 &mut attributes,
-                &mut properties_map,
+                properties_code_map,
                 "verticalHeader",
                 diagnostics,
             );
         }
         if class.is_derived_from(&ctx.classes.tree_view) {
+            pseudo_property_names.extend(["header"]);
             flatten_object_properties_into_attributes(
+                ctx,
                 &mut attributes,
-                &mut properties_map,
+                properties_code_map,
                 "header",
                 diagnostics,
             );
         }
 
-        property::reject_unwritable_properties(&mut properties_map, diagnostics);
-        let mut properties = property::make_serializable_properties(properties_map, diagnostics);
+        let mut properties = property::make_serializable_map(
+            &ctx.make_object_context(),
+            properties_code_map,
+            &pseudo_property_names,
+            diagnostics,
+        );
         if class.is_derived_from(&ctx.classes.push_button) {
             // see metatype_tweak.rs, "default" is a reserved word
             if let Some((mut k, (v, _))) = properties.remove_entry("default_") {
@@ -353,33 +368,29 @@ fn collect_action_like_children(children: &[UiObject]) -> Vec<String> {
 }
 
 fn flatten_object_properties_into_attributes(
+    ctx: &BuildDocContext,
     attributes: &mut HashMap<String, (Value, PropertySetter)>,
-    properties_map: &mut PropertiesMap,
+    properties_code_map: &HashMap<&str, PropertyCode>,
     name: &str,
     diagnostics: &mut Diagnostics,
 ) {
-    match properties_map.remove(name) {
-        Some(WithNode {
-            data:
-                PropertyDescValue {
-                    value: PropertyValue::ObjectProperties(props),
-                    ..
-                },
-            ..
-        }) => {
-            attributes.extend(props.into_iter().filter_map(|(k, v)| {
-                diagnostics
-                    .consume_err(v.into_serializable_setter())
-                    .map(|x| (concat_camel_case_names(name, &k), x))
-            }));
+    if let Some(p) = properties_code_map.get(name) {
+        match PropertyValue::build(&ctx.make_object_context(), p, diagnostics) {
+            Some(PropertyValue::ObjectProperties(props)) => {
+                attributes.extend(props.into_iter().filter_map(|(k, v)| {
+                    diagnostics
+                        .consume_err(v.into_serializable_setter())
+                        .map(|x| (concat_camel_case_names(name, &k), x))
+                }));
+            }
+            Some(_) => {
+                diagnostics.push(Diagnostic::error(
+                    p.node().byte_range(),
+                    "not a properties map",
+                ));
+            }
+            None => {}
         }
-        Some(x) => {
-            diagnostics.push(Diagnostic::error(
-                x.node().byte_range(),
-                "not a properties map",
-            ));
-        }
-        None => {}
     }
 }
 
