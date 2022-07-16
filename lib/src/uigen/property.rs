@@ -281,6 +281,16 @@ pub(super) fn make_properties_from_code_map<'a, 't>(
         .collect()
 }
 
+pub(super) fn make_constant_properties_from_code_map<'a, 't>(
+    ctx: &ObjectContext<'a, '_, '_>,
+    properties_code_map: &HashMap<&str, PropertyCode<'a, 't, '_>>,
+    diagnostics: &mut Diagnostics,
+) -> PropertiesMap<'a, 't> {
+    let mut properties = make_properties_from_code_map(ctx, properties_code_map, diagnostics);
+    extract_dynamic_properties(&mut properties);
+    properties
+}
+
 /// Makes sure all properties are writable, removes if not.
 ///
 /// This should be called at the very last but before `make_serializable_properties()`

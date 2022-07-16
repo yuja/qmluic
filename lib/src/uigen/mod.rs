@@ -1,7 +1,6 @@
 //! Qt user interface XML (.ui) generator.
 
 use self::objcode::ObjectCodeMap;
-use self::property::PropertiesMap;
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectTree;
 use crate::qmlast::{UiImportSource, UiProgram};
@@ -50,14 +49,10 @@ pub fn build(
         &type_space,
         diagnostics,
     )?;
-    let (object_code_maps, mut object_properties) =
-        build_object_properties(doc, &type_space, &object_tree, base_ctx, diagnostics);
-    let _dynamic_object_properties: Vec<_> = object_properties
-        .iter_mut()
-        .map(property::extract_dynamic_properties)
-        .collect();
+    let object_code_maps =
+        build_object_code_maps(doc, &type_space, &object_tree, base_ctx, diagnostics);
 
-    let ctx = BuildDocContext::new(doc, &type_space, &object_tree, &object_properties, base_ctx);
+    let ctx = BuildDocContext::new(doc, &type_space, &object_tree, &object_code_maps, base_ctx);
     let form = UiForm::build(&ctx, object_tree.root(), diagnostics);
 
     let ui_support = match base_ctx.dynamic_binding_handling {
@@ -139,21 +134,18 @@ fn make_doc_module_space<'a>(
     module_space
 }
 
-fn build_object_properties<'a, 't, 's>(
+fn build_object_code_maps<'a, 't, 's>(
     doc: &'s UiDocument,
     type_space: &'s ImportedModuleSpace<'a>,
     object_tree: &'s ObjectTree<'a, 't>,
     base_ctx: &'s BuildContext<'a>,
     diagnostics: &mut Diagnostics,
-) -> (Vec<ObjectCodeMap<'a, 't, 's>>, Vec<PropertiesMap<'a, 't>>) {
+) -> Vec<ObjectCodeMap<'a, 't, 's>> {
     object_tree
         .flat_iter()
         .map(|obj_node| {
             let ctx = ObjectContext::new(doc, type_space, object_tree, base_ctx);
-            let code_map = ObjectCodeMap::build(&ctx, obj_node, diagnostics);
-            let properties =
-                property::make_properties_from_code_map(&ctx, code_map.properties(), diagnostics);
-            (code_map, properties)
+            ObjectCodeMap::build(&ctx, obj_node, diagnostics)
         })
-        .unzip()
+        .collect()
 }

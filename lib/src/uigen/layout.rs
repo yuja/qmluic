@@ -274,7 +274,11 @@ impl LayoutItemContent {
     /// Generates layout content and its children recursively from the given `obj_node`.
     fn build(ctx: &BuildDocContext, obj_node: ObjectNode, diagnostics: &mut Diagnostics) -> Self {
         let cls = obj_node.class();
-        let properties_map = ctx.properties_for_object(obj_node).clone();
+        let properties_map = property::make_constant_properties_from_code_map(
+            &ctx.make_object_context(),
+            ctx.code_map_for_object(obj_node).properties(),
+            diagnostics,
+        );
         if cls.is_derived_from(&ctx.classes.layout) {
             LayoutItemContent::Layout(Layout::build(ctx, obj_node, properties_map, diagnostics))
         } else if cls.is_derived_from(&ctx.classes.spacer_item) {

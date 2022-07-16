@@ -1,4 +1,4 @@
-use super::property::PropertiesMap;
+use super::objcode::ObjectCodeMap;
 use crate::objtree::{ObjectNode, ObjectTree};
 use crate::qmldoc::UiDocument;
 use crate::qtname::FileNameRules;
@@ -36,7 +36,7 @@ pub(super) struct BuildDocContext<'a, 't, 's> {
     pub classes: &'s KnownClasses<'a>,
     pub type_space: &'s ImportedModuleSpace<'a>,
     pub object_tree: &'s ObjectTree<'a, 't>,
-    object_properties: &'s [PropertiesMap<'a, 't>],
+    object_code_maps: &'s [ObjectCodeMap<'a, 't, 's>],
 }
 
 /// Context where expression is supposed to be evaluated.
@@ -162,7 +162,7 @@ impl<'a, 't, 's> BuildDocContext<'a, 't, 's> {
         doc: &'s UiDocument,
         type_space: &'s ImportedModuleSpace<'a>,
         object_tree: &'s ObjectTree<'a, 't>,
-        object_properties: &'s [PropertiesMap<'a, 't>],
+        object_code_maps: &'s [ObjectCodeMap<'a, 't, 's>],
         base_ctx: &'s BuildContext<'a>,
     ) -> Self {
         BuildDocContext {
@@ -172,12 +172,12 @@ impl<'a, 't, 's> BuildDocContext<'a, 't, 's> {
             classes: &base_ctx.classes,
             type_space,
             object_tree,
-            object_properties,
+            object_code_maps,
         }
     }
 
-    pub fn properties_for_object(&self, obj_node: ObjectNode) -> &PropertiesMap {
-        &self.object_properties[obj_node.flat_index()]
+    pub fn code_map_for_object(&self, obj_node: ObjectNode) -> &ObjectCodeMap<'a, 't, 's> {
+        &self.object_code_maps[obj_node.flat_index()]
     }
 
     pub fn make_object_context(&self) -> ObjectContext<'a, 't, '_> {
