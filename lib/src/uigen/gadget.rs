@@ -1,5 +1,5 @@
 use super::context::{KnownClasses, ObjectContext};
-use super::expr::{self, SimpleValue, StringKind, Value};
+use super::expr::{self, SerializableValue, SimpleValue, StringKind};
 use super::objcode::PropertyCode;
 use super::property;
 use super::xmlutil;
@@ -18,7 +18,7 @@ use std::io;
 pub struct Gadget {
     pub kind: GadgetKind,
     pub attributes: HashMap<String, SimpleValue>,
-    pub properties: HashMap<String, Value>,
+    pub properties: HashMap<String, SerializableValue>,
 }
 
 impl Gadget {
@@ -76,7 +76,7 @@ impl Gadget {
         for (k, v) in self.properties.iter().sorted_by_key(|&(k, _)| k) {
             let t = k.to_ascii_lowercase(); // apparently tag name of .ui is lowercase
             match v {
-                Value::Simple(SimpleValue::Enum(s)) if self.kind.no_enum_prefix() => {
+                SerializableValue::Simple(SimpleValue::Enum(s)) if self.kind.no_enum_prefix() => {
                     xmlutil::write_tagged_str(writer, &t, expr::strip_enum_prefix(s))?;
                 }
                 _ => v.serialize_to_xml_as(writer, &t)?,
@@ -90,7 +90,12 @@ impl Gadget {
 impl From<Color> for Gadget {
     fn from(color: Color) -> Self {
         let attr = |n: &str, v: u8| (n.to_owned(), SimpleValue::Number(v.into()));
-        let prop = |n: &str, v: u8| (n.to_owned(), Value::Simple(SimpleValue::Number(v.into())));
+        let prop = |n: &str, v: u8| {
+            (
+                n.to_owned(),
+                SerializableValue::Simple(SimpleValue::Number(v.into())),
+            )
+        };
         let (attributes, properties) = match color {
             Color::Rgb8(c) => (
                 // forcibly set alpha since QUiLoader can't handle color without alpha component
@@ -181,7 +186,10 @@ fn make_brush_properties(
     ctx: &ObjectContext,
     map: &HashMap<&str, PropertyCode>,
     diagnostics: &mut Diagnostics,
-) -> (HashMap<String, SimpleValue>, HashMap<String, Value>) {
+) -> (
+    HashMap<String, SimpleValue>,
+    HashMap<String, SerializableValue>,
+) {
     let mut attributes = HashMap::new();
     if let Some((_, s)) = property::get_simple_value(ctx, map, "style", diagnostics) {
         attributes.insert("brushstyle".to_owned(), s);
@@ -195,7 +203,10 @@ fn make_icon_properties(
     ctx: &ObjectContext,
     map: &HashMap<&str, PropertyCode>,
     diagnostics: &mut Diagnostics,
-) -> (HashMap<String, SimpleValue>, HashMap<String, Value>) {
+) -> (
+    HashMap<String, SimpleValue>,
+    HashMap<String, SerializableValue>,
+) {
     let mut attributes = HashMap::new();
     if let Some((_, s)) = property::get_simple_value(ctx, map, "name", diagnostics) {
         attributes.insert("theme".to_owned(), s);
@@ -209,7 +220,10 @@ fn make_palette_properties(
     ctx: &ObjectContext,
     map: &HashMap<&str, PropertyCode>,
     diagnostics: &mut Diagnostics,
-) -> (HashMap<String, SimpleValue>, HashMap<String, Value>) {
+) -> (
+    HashMap<String, SimpleValue>,
+    HashMap<String, SerializableValue>,
+) {
     let mut color_groups = HashMap::from([
         ("active", PaletteColorGroup::default()),
         ("inactive", PaletteColorGroup::default()),
@@ -217,8 +231,8 @@ fn make_palette_properties(
     ]);
     let mut default_roles = Vec::new();
     for (k, p) in map {
-        match Value::build(ctx, p, diagnostics) {
-            Some(Value::PaletteColorGroup(g)) => {
+        match SerializableValue::build(ctx, p, diagnostics) {
+            Some(SerializableValue::PaletteColorGroup(g)) => {
                 color_groups.insert(k, g);
             }
             Some(x) => {
@@ -235,7 +249,7 @@ fn make_palette_properties(
     let attributes = HashMap::new();
     let properties = color_groups
         .into_iter()
-        .map(|(k, g)| (k.to_owned(), Value::PaletteColorGroup(g)))
+        .map(|(k, g)| (k.to_owned(), SerializableValue::PaletteColorGroup(g)))
         .collect();
     (attributes, properties)
 }
@@ -244,7 +258,10 @@ fn make_size_policy_properties(
     ctx: &ObjectContext,
     map: &HashMap<&str, PropertyCode>,
     diagnostics: &mut Diagnostics,
-) -> (HashMap<String, SimpleValue>, HashMap<String, Value>) {
+) -> (
+    HashMap<String, SimpleValue>,
+    HashMap<String, SerializableValue>,
+) {
     let mut attributes = HashMap::new();
     match (
         property::get_simple_value(ctx, map, "horizontalPolicy", diagnostics),
@@ -270,7 +287,7 @@ fn make_size_policy_properties(
     ] {
         if let Some((p, v)) = map
             .get(k0)
-            .and_then(|p| Value::build(ctx, p, diagnostics).map(|v| (p, v)))
+            .and_then(|p| SerializableValue::build(ctx, p, diagnostics).map(|v| (p, v)))
         {
             if attributes.is_empty() {
                 // uic would otherwise generate invalid code, which might look correct but is
@@ -308,13 +325,15 @@ fn make_size_policy_properties(
 /// QComboBox/QAbstractItemView item.
 #[derive(Clone, Debug)]
 pub struct ModelItem {
-    pub properties: HashMap<String, Value>,
+    pub properties: HashMap<String, SerializableValue>,
 }
 
 impl ModelItem {
     pub(super) fn with_text(s: String, k: StringKind) -> Self {
-        let properties =
-            HashMap::from([("text".to_owned(), Value::Simple(SimpleValue::String(s, k)))]);
+        let properties = HashMap::from([(
+            "text".to_owned(),
+            SerializableValue::Simple(SimpleValue::String(s, k)),
+        )]);
         ModelItem { properties }
     }
 
@@ -331,7 +350,7 @@ impl ModelItem {
 
 fn serialize_item_properties_to_xml<W>(
     writer: &mut XmlWriter<W>,
-    properties: &HashMap<String, Value>,
+    properties: &HashMap<String, SerializableValue>,
 ) -> XmlResult<()>
 where
     W: io::Write,
@@ -348,7 +367,7 @@ where
 /// Map of palette color role to brush.
 #[derive(Clone, Debug, Default)]
 pub struct PaletteColorGroup {
-    pub roles: HashMap<String, Value>,
+    pub roles: HashMap<String, SerializableValue>,
 }
 
 impl PaletteColorGroup {
@@ -360,14 +379,14 @@ impl PaletteColorGroup {
         let roles = map
             .iter()
             .filter_map(|(&k, p)| {
-                let v = Value::build(ctx, p, diagnostics)?;
+                let v = SerializableValue::build(ctx, p, diagnostics)?;
                 Some((qtname::to_ascii_capitalized(k), v))
             })
             .collect();
         PaletteColorGroup { roles }
     }
 
-    pub(super) fn merge_default_roles(&mut self, default_roles: &[(String, Value)]) {
+    pub(super) fn merge_default_roles(&mut self, default_roles: &[(String, SerializableValue)]) {
         for (k, v) in default_roles {
             self.roles.entry(k.to_owned()).or_insert_with(|| v.clone());
         }

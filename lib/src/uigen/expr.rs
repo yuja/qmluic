@@ -16,7 +16,7 @@ use std::io;
 
 /// Variant for the constant expressions which can be serialized to UI XML.
 #[derive(Clone, Debug)]
-pub enum Value {
+pub enum SerializableValue {
     Simple(SimpleValue),
     /// Generic structured value.
     Gadget(Gadget),
@@ -26,7 +26,7 @@ pub enum Value {
     StringList(Vec<String>, StringKind),
 }
 
-impl Value {
+impl SerializableValue {
     pub(super) fn build(
         ctx: &ObjectContext,
         property_code: &PropertyCode,
@@ -42,7 +42,9 @@ impl Value {
                     }
                     TypeKind::Pointer(NamedType::Class(_)) => {
                         verify_code_return_type(node, code, ty, diagnostics)?;
-                        Some(Value::Simple(SimpleValue::Cstring(res.unwrap_object_ref())))
+                        Some(SerializableValue::Simple(SimpleValue::Cstring(
+                            res.unwrap_object_ref(),
+                        )))
                     }
                     TypeKind::Pointer(_) | TypeKind::PointerList(_) => {
                         diagnostics.push(Diagnostic::error(
@@ -55,10 +57,11 @@ impl Value {
             }
             PropertyCodeKind::GadgetMap(cls, map) => {
                 if let Some(kind) = GadgetKind::from_class(cls, ctx.classes) {
-                    Some(Value::Gadget(Gadget::new(ctx, kind, map, diagnostics)))
+                    let v = Gadget::new(ctx, kind, map, diagnostics);
+                    Some(SerializableValue::Gadget(v))
                 } else if cls.name() == "QPaletteColorGroup" {
                     let v = PaletteColorGroup::new(ctx, map, diagnostics);
-                    Some(Value::PaletteColorGroup(v))
+                    Some(SerializableValue::PaletteColorGroup(v))
                 } else {
                     diagnostics.push(Diagnostic::error(
                         node.byte_range(),
@@ -82,7 +85,7 @@ impl Value {
     where
         W: io::Write,
     {
-        use Value::*;
+        use SerializableValue::*;
         match self {
             Simple(x) => x.serialize_to_xml(writer),
             Gadget(x) => x.serialize_to_xml(writer),
@@ -100,7 +103,7 @@ impl Value {
         W: io::Write,
         T: AsRef<[u8]>,
     {
-        use Value::*;
+        use SerializableValue::*;
         match self {
             Simple(x) => x.serialize_to_xml_as(writer, tag_name),
             Gadget(x) => x.serialize_to_xml_as(writer, tag_name),
@@ -111,14 +114,14 @@ impl Value {
 
     pub fn as_number(&self) -> Option<f64> {
         match self {
-            Value::Simple(x) => x.as_number(),
+            SerializableValue::Simple(x) => x.as_number(),
             _ => None,
         }
     }
 
     pub fn as_enum(&self) -> Option<&str> {
         match self {
-            Value::Simple(x) => x.as_enum(),
+            SerializableValue::Simple(x) => x.as_enum(),
             _ => None,
         }
     }
@@ -254,19 +257,20 @@ fn parse_as_value_type(
     code: &tir::CodeBody,
     res: EvaluatedValue,
     diagnostics: &mut Diagnostics,
-) -> Option<Value> {
+) -> Option<SerializableValue> {
     match expected_just_ty {
         NamedType::Class(cls) if cls == &ctx.classes.brush => {
-            let color = parse_color_value(node, code, res, diagnostics).map(Value::Gadget)?;
+            let color =
+                parse_color_value(node, code, res, diagnostics).map(SerializableValue::Gadget)?;
             let style = SimpleValue::Enum("Qt::SolidPattern".to_owned());
-            Some(Value::Gadget(Gadget {
+            Some(SerializableValue::Gadget(Gadget {
                 kind: GadgetKind::Brush,
                 attributes: HashMap::from([("brushstyle".to_owned(), style)]),
                 properties: HashMap::from([("color".to_owned(), color)]),
             }))
         }
         NamedType::Class(cls) if cls == &ctx.classes.color => {
-            parse_color_value(node, code, res, diagnostics).map(Value::Gadget)
+            parse_color_value(node, code, res, diagnostics).map(SerializableValue::Gadget)
         }
         NamedType::Class(cls) if cls == &ctx.classes.cursor => {
             verify_code_return_type(
@@ -276,7 +280,7 @@ fn parse_as_value_type(
                 diagnostics,
             )?;
             let expr = res.unwrap_enum_set().join("|");
-            Some(Value::Simple(SimpleValue::CursorShape(
+            Some(SerializableValue::Simple(SimpleValue::CursorShape(
                 strip_enum_prefix(&expr).to_owned(),
             )))
         }
@@ -289,12 +293,12 @@ fn parse_as_value_type(
                 (Ok(()), _) => {
                     let expr = res.unwrap_enum_set().join("|");
                     if standard_key_en.is_flag() {
-                        Some(Value::Simple(SimpleValue::Set(expr)))
+                        Some(SerializableValue::Simple(SimpleValue::Set(expr)))
                     } else {
-                        Some(Value::Simple(SimpleValue::Enum(expr)))
+                        Some(SerializableValue::Simple(SimpleValue::Enum(expr)))
                     }
                 }
-                (_, Ok(())) => Some(Value::Simple(res.unwrap_into_simple_value())),
+                (_, Ok(())) => Some(SerializableValue::Simple(res.unwrap_into_simple_value())),
                 (
                     Err(tir::TypeError::IncompatibleTypes(expected1, actual)),
                     Err(tir::TypeError::IncompatibleTypes(expected2, _)),
@@ -316,15 +320,15 @@ fn parse_as_value_type(
         NamedType::Class(cls) if cls == &ctx.classes.pixmap => {
             verify_code_return_type(node, code, &TypeKind::STRING, diagnostics)?;
             extract_static_string(node, res, diagnostics)
-                .map(|s| Value::Simple(SimpleValue::Pixmap(s)))
+                .map(|s| SerializableValue::Simple(SimpleValue::Pixmap(s)))
         }
         NamedType::Enum(en) => {
             verify_code_return_type(node, code, expected_ty, diagnostics)?;
             let expr = res.unwrap_enum_set().join("|");
             if en.is_flag() {
-                Some(Value::Simple(SimpleValue::Set(expr)))
+                Some(SerializableValue::Simple(SimpleValue::Set(expr)))
             } else {
-                Some(Value::Simple(SimpleValue::Enum(expr)))
+                Some(SerializableValue::Simple(SimpleValue::Enum(expr)))
             }
         }
         NamedType::Primitive(
@@ -335,7 +339,7 @@ fn parse_as_value_type(
             | PrimitiveType::QString,
         ) => {
             verify_code_return_type(node, code, expected_ty, diagnostics)?;
-            Some(Value::Simple(res.unwrap_into_simple_value()))
+            Some(SerializableValue::Simple(res.unwrap_into_simple_value()))
         }
         NamedType::Primitive(PrimitiveType::QStringList) => {
             verify_code_return_type(node, code, expected_ty, diagnostics)?;
@@ -482,13 +486,13 @@ fn extract_string_list(
     node: Node,
     res: EvaluatedValue,
     diagnostics: &mut Diagnostics,
-) -> Option<Value> {
+) -> Option<SerializableValue> {
     let xs = res.unwrap_string_list();
     // unfortunately, notr attribute is list level
     let kind = xs.first().map(|(_, k)| *k).unwrap_or(StringKind::NoTr);
     if xs.iter().all(|(_, k)| *k == kind) {
         let ss = xs.into_iter().map(|(s, _)| s).collect();
-        Some(Value::StringList(ss, kind))
+        Some(SerializableValue::StringList(ss, kind))
     } else {
         diagnostics.push(Diagnostic::error(
             node.byte_range(),

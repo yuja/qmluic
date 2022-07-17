@@ -1,5 +1,5 @@
 use super::context::{BuildDocContext, ObjectContext};
-use super::expr::Value;
+use super::expr::SerializableValue;
 use super::objcode::PropertyCode;
 use super::object::{self, Widget};
 use super::property::{self, PropertySetter};
@@ -18,7 +18,7 @@ pub struct Layout {
     pub class: String,
     pub name: String,
     attributes: LayoutAttributes,
-    pub properties: HashMap<String, (Value, PropertySetter)>,
+    pub properties: HashMap<String, (SerializableValue, PropertySetter)>,
     pub children: Vec<LayoutItem>,
 }
 
@@ -91,7 +91,7 @@ impl Layout {
             diagnostics,
         );
         // TODO: if metatypes were broken, contentsMargins could be of different type
-        if let Some((Value::Gadget(m), s)) = properties.remove("contentsMargins") {
+        if let Some((SerializableValue::Gadget(m), s)) = properties.remove("contentsMargins") {
             // don't care the property setter since uic will anyway retranslate them
             properties.extend(
                 m.properties
@@ -327,7 +327,7 @@ impl LayoutItemContent {
 #[derive(Clone, Debug)]
 pub struct SpacerItem {
     pub name: String,
-    pub properties: HashMap<String, Value>,
+    pub properties: HashMap<String, SerializableValue>,
 }
 
 impl SpacerItem {

@@ -1,5 +1,5 @@
 use super::context::{BuildDocContext, ObjectContext};
-use super::expr::{self, Value};
+use super::expr::{self, SerializableValue};
 use super::gadget::ModelItem;
 use super::layout::Layout;
 use super::objcode::{PropertyCode, PropertyCodeKind};
@@ -83,7 +83,7 @@ impl UiObject {
 #[derive(Clone, Debug)]
 pub struct Action {
     pub name: String,
-    pub properties: HashMap<String, (Value, PropertySetter)>,
+    pub properties: HashMap<String, (SerializableValue, PropertySetter)>,
 }
 
 impl Action {
@@ -122,8 +122,8 @@ impl Action {
 pub struct Widget {
     pub class: String,
     pub name: String,
-    pub attributes: HashMap<String, (Value, PropertySetter)>,
-    pub properties: HashMap<String, (Value, PropertySetter)>,
+    pub attributes: HashMap<String, (SerializableValue, PropertySetter)>,
+    pub properties: HashMap<String, (SerializableValue, PropertySetter)>,
     pub actions: Vec<String>,
     pub items: Vec<ModelItem>,
     pub children: Vec<UiObject>,
@@ -341,7 +341,7 @@ fn collect_action_like_children(children: &[UiObject]) -> Vec<String> {
 
 fn flatten_object_properties_into_attributes(
     ctx: &ObjectContext,
-    attributes: &mut HashMap<String, (Value, PropertySetter)>,
+    attributes: &mut HashMap<String, (SerializableValue, PropertySetter)>,
     properties_code_map: &HashMap<&str, PropertyCode>,
     name: &str,
     diagnostics: &mut Diagnostics,

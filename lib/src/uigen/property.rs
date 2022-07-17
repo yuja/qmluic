@@ -1,5 +1,5 @@
 use super::context::ObjectContext;
-use super::expr::{SimpleValue, Value};
+use super::expr::{SerializableValue, SimpleValue};
 use super::objcode::PropertyCode;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
@@ -27,13 +27,13 @@ pub(super) fn make_serializable_map(
     properties_code_map: &HashMap<&str, PropertyCode>,
     excludes: &[&str],
     diagnostics: &mut Diagnostics,
-) -> HashMap<String, (Value, PropertySetter)> {
+) -> HashMap<String, (SerializableValue, PropertySetter)> {
     properties_code_map
         .iter()
         .filter(|(name, _)| !excludes.contains(name))
         .filter_map(|(&name, property_code)| {
             // evaluate once to sort out constant/dynamic nature
-            let v = Value::build(ctx, property_code, diagnostics)?;
+            let v = SerializableValue::build(ctx, property_code, diagnostics)?;
             if property_code.desc().is_writable() {
                 let s = if property_code.desc().is_std_set() {
                     PropertySetter::StdSet
@@ -61,12 +61,12 @@ pub(super) fn make_value_map(
     properties_code_map: &HashMap<&str, PropertyCode>,
     excludes: &[&str],
     diagnostics: &mut Diagnostics,
-) -> HashMap<String, Value> {
+) -> HashMap<String, SerializableValue> {
     properties_code_map
         .iter()
         .filter(|(name, _)| !excludes.contains(name))
         .filter_map(|(&name, property_code)| {
-            let v = Value::build(ctx, property_code, diagnostics)?;
+            let v = SerializableValue::build(ctx, property_code, diagnostics)?;
             Some((name.to_owned(), v))
         })
         .collect()
@@ -79,8 +79,8 @@ pub(super) fn get_simple_value<'a, 't, 's, 'm>(
     diagnostics: &mut Diagnostics,
 ) -> Option<(&'m PropertyCode<'a, 't, 's>, SimpleValue)> {
     let p = properties_code_map.get(name.as_ref())?;
-    match Value::build(ctx, p, diagnostics) {
-        Some(Value::Simple(s)) => Some((p, s)),
+    match SerializableValue::build(ctx, p, diagnostics) {
+        Some(SerializableValue::Simple(s)) => Some((p, s)),
         Some(_) => {
             diagnostics.push(Diagnostic::error(
                 p.node().byte_range(),
@@ -131,7 +131,7 @@ pub(super) fn get_i32<'a, 't, 's, 'm>(
 pub(super) fn serialize_properties_to_xml<W, T>(
     writer: &mut XmlWriter<W>,
     tag_name: T,
-    properties: &HashMap<String, (Value, PropertySetter)>,
+    properties: &HashMap<String, (SerializableValue, PropertySetter)>,
 ) -> XmlResult<()>
 where
     W: io::Write,
