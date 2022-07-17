@@ -55,7 +55,20 @@ pub fn build(
     let ctx = BuildDocContext::new(doc, &type_space, &object_tree, &object_code_maps, base_ctx);
     let form = UiForm::build(&ctx, object_tree.root(), diagnostics);
 
-    // TODO: warn unused attached properties
+    for p in object_code_maps
+        .iter()
+        .filter_map(|cm| {
+            cm.attached_properties(&ctx.classes.tab_widget) // TODO
+                .map(|(_, pm)| pm)
+        })
+        .flat_map(|pm| pm.values())
+        .filter(|p| !p.is_evaluated_constant())
+    {
+        diagnostics.push(Diagnostic::error(
+            p.binding_node().byte_range(),
+            "unused or unsupported dynamic binding to attached property",
+        ));
+    }
 
     let ui_support = match base_ctx.dynamic_binding_handling {
         DynamicBindingHandling::Omit => None,
