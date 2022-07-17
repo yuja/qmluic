@@ -140,6 +140,36 @@ pub fn to_ascii_capitalized(name: &str) -> String {
     }
 }
 
+/// Creates a copy of the given string which the first character is turned into ASCII lower case.
+pub fn to_ascii_uncapitalized(name: &str) -> String {
+    if name.starts_with(|c: char| c.is_ascii_uppercase()) {
+        let src_bytes = name.as_bytes();
+        let mut uncapitalized = Vec::with_capacity(src_bytes.len());
+        uncapitalized.push(src_bytes[0].to_ascii_lowercase());
+        uncapitalized.extend_from_slice(&src_bytes[1..]);
+        String::from_utf8(uncapitalized).expect("changing ASCII letter should not invalidate UTF-8")
+    } else {
+        name.to_owned()
+    }
+}
+
+/// Extracts signal name from the given `on` callback name.
+///
+/// ```
+/// # use qmluic::qtname::*;
+/// assert_eq!(callback_to_signal_name("onClicked"), Some("clicked".to_owned()));
+/// assert!(callback_to_signal_name("click").is_none());
+/// assert!(callback_to_signal_name("on").is_none());
+/// assert!(callback_to_signal_name("onclick").is_none());
+/// ```
+pub fn callback_to_signal_name(name: &str) -> Option<String> {
+    if name.starts_with("on") && name[2..].starts_with(|c: char| c.is_ascii_uppercase()) {
+        Some(to_ascii_uncapitalized(&name[2..]))
+    } else {
+        None
+    }
+}
+
 /// Checks if the property name follows the standard setter function naming convention.
 ///
 /// See `PropertyDef::stdCppSet()` in `qtbase/src/tools/moc/moc.h` for details.
