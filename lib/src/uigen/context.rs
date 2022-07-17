@@ -52,7 +52,6 @@ pub(super) struct ObjectContext<'a, 't, 's> {
 /// Classes to be used to switch uigen paths.
 #[derive(Clone, Debug)]
 pub(super) struct KnownClasses<'a> {
-    pub abstract_item_model: Class<'a>,
     pub action: Class<'a>,
     pub action_separator: Class<'a>,
     pub brush: Class<'a>,
@@ -112,7 +111,6 @@ impl<'a> BuildContext<'a> {
             }
         };
         let classes = KnownClasses {
-            abstract_item_model: get_class("QAbstractItemModel")?,
             action: get_class("QAction")?,
             action_separator: get_class("QActionSeparator")?,
             brush: get_class("QBrush")?,

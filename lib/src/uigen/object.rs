@@ -1,5 +1,5 @@
 use super::context::{BuildDocContext, ObjectContext};
-use super::expr::{PropertyValue, Value};
+use super::expr::{self, PropertyValue, Value};
 use super::gadget::ModelItem;
 use super::layout::Layout;
 use super::objcode::{PropertyCode, PropertyCodeKind};
@@ -197,17 +197,7 @@ impl Widget {
             || class.is_derived_from(&ctx.classes.list_widget)
         {
             if let Some(p) = properties_code_map.get("model") {
-                match PropertyValue::build(ctx, p, diagnostics) {
-                    Some(PropertyValue::ItemModel(items)) => items,
-                    Some(_) => {
-                        diagnostics.push(Diagnostic::error(
-                            p.node().byte_range(),
-                            "not an item model",
-                        ));
-                        vec![]
-                    }
-                    None => vec![],
-                }
+                expr::build_item_model(p, diagnostics).unwrap_or_default()
             } else {
                 vec![]
             }
