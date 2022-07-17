@@ -8,6 +8,7 @@ use std::mem;
 mod class;
 mod core;
 mod enum_;
+mod function;
 mod module;
 mod namespace;
 mod qml_component;
@@ -16,6 +17,7 @@ mod util;
 pub use self::class::*; // re-export
 pub use self::core::*; // re-export
 pub use self::enum_::*; // re-export
+pub use self::function::*; // re-export
 pub use self::module::*; // re-export
 pub use self::namespace::*; // re-export
 pub use self::qml_component::*; // re-export
