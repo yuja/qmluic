@@ -319,7 +319,7 @@ fn process_tab_widget_children(
                         .consume_err(n.obj().build_attached_type_map(ctx.source))
                         .unwrap_or_default();
                     // TODO: resolve against imported types,
-                    if let Some(m) = attached_type_map.get(["QTabWidget"].as_ref()) {
+                    if let Some((_, m)) = attached_type_map.get(["QTabWidget"].as_ref()) {
                         w.attributes.extend(
                             property::collect_properties(
                                 &ctx.make_object_context(),

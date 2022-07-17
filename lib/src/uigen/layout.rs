@@ -241,7 +241,7 @@ impl<'t> LayoutItemAttached<'t> {
     ) -> Option<Self> {
         let attached_type_map =
             diagnostics.consume_err(obj_node.obj().build_attached_type_map(ctx.source))?;
-        let binding_map = attached_type_map.get(["QLayout"].as_ref())?; // TODO: resolve against imported types
+        let (_, binding_map) = attached_type_map.get(["QLayout"].as_ref())?; // TODO: resolve against imported types
         let properties_map = property::collect_properties_with_node(
             &ctx.make_object_context(),
             &ctx.classes.layout_attached,
