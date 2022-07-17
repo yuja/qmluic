@@ -1,17 +1,13 @@
 use super::context::ObjectContext;
-use super::expr::{PropertyValue, SimpleValue, Value};
+use super::expr::{SimpleValue, Value};
 use super::objcode::PropertyCode;
 use super::{XmlResult, XmlWriter};
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
-use crate::typemap::{Class, TypeSpace};
 use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::io;
-use std::ops::Range;
-use thiserror::Error;
 
 /// Type of the property setter to be used by `uic`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -20,182 +16,6 @@ pub enum PropertySetter {
     Var,
     /// `set<Name>(<value>)`
     StdSet,
-}
-
-/// Parsed property value with its AST node.
-#[derive(Clone, Copy, Debug)]
-pub(super) struct WithNode<'t, V> {
-    node: Node<'t>,
-    pub data: V,
-}
-
-impl<'t, V> WithNode<'t, V> {
-    fn new(binding_value: &UiBindingValue<'t, '_>, data: V) -> Self {
-        WithNode {
-            node: binding_value.node(),
-            data,
-        }
-    }
-
-    pub fn node(&self) -> Node<'t> {
-        self.node
-    }
-
-    pub fn binding_node(&self) -> Node<'t> {
-        // see UiBindingValue::binding_node()
-        self.node
-            .parent()
-            .expect("binding value node should have parent")
-    }
-
-    pub fn data(&self) -> &V {
-        &self.data
-    }
-
-    pub fn into_data(self) -> V {
-        self.data
-    }
-
-    pub fn map_data<U, F>(self, f: F) -> WithNode<'t, U>
-    where
-        F: FnOnce(V) -> U,
-    {
-        WithNode {
-            node: self.node,
-            data: f(self.data),
-        }
-    }
-
-    fn rewrap<U>(&self, data: U) -> WithNode<'t, U> {
-        WithNode {
-            node: self.node,
-            data,
-        }
-    }
-
-    fn make_type_error(&self) -> ValueTypeError<'t> {
-        ValueTypeError { node: self.node }
-    }
-}
-
-impl<'t> WithNode<'t, PropertyValue> {
-    pub fn to_enum(&self) -> Result<&str, ValueTypeError<'t>> {
-        self.as_serializable()
-            .and_then(|v| v.as_enum())
-            .ok_or_else(|| self.make_type_error())
-    }
-
-    pub fn to_enum_with_node(&self) -> Result<WithNode<'t, &str>, ValueTypeError<'t>> {
-        Ok(self.rewrap(self.to_enum()?))
-    }
-
-    pub fn to_i32(&self) -> Result<i32, ValueTypeError<'t>> {
-        self.as_serializable()
-            .and_then(|v| v.as_number())
-            .map(|d| d as i32)
-            .ok_or_else(|| self.make_type_error())
-    }
-
-    pub fn to_i32_with_node(&self) -> Result<WithNode<'t, i32>, ValueTypeError<'t>> {
-        Ok(self.rewrap(self.to_i32()?))
-    }
-
-    pub fn as_serializable(&self) -> Option<&Value> {
-        match &self.data {
-            PropertyValue::Serializable(v) => Some(v),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Error)]
-#[error("unexpected type of value")]
-pub(super) struct ValueTypeError<'t> {
-    node: Node<'t>,
-}
-
-impl<'t> ValueTypeError<'t> {
-    pub fn byte_range(&self) -> Range<usize> {
-        self.node.byte_range()
-    }
-}
-
-impl From<&ValueTypeError<'_>> for Diagnostic {
-    fn from(error: &ValueTypeError) -> Self {
-        Self::error(error.byte_range(), error.to_string())
-    }
-}
-
-impl From<ValueTypeError<'_>> for Diagnostic {
-    fn from(error: ValueTypeError) -> Self {
-        Self::from(&error)
-    }
-}
-
-/// Hash map of property values that may or may not be serialized to UI XML.
-pub(super) type PropertiesMap<'t> = HashMap<String, WithNode<'t, PropertyValue>>;
-
-pub(super) fn collect_properties_with_node<'a, 't>(
-    ctx: &ObjectContext<'a, 't, '_>,
-    cls: &Class<'a>,
-    binding_map: &UiBindingMap<'t, '_>,
-    diagnostics: &mut Diagnostics,
-) -> PropertiesMap<'t> {
-    resolve_properties(ctx, cls, binding_map, diagnostics, |v, _| Option::Some(v))
-}
-
-// TODO: migrate attached property handling to ObjectCodeMap and remove collect_properties*()
-fn resolve_properties<'a, 't, 's, B, F>(
-    ctx: &ObjectContext<'a, 't, '_>,
-    cls: &Class<'a>,
-    binding_map: &UiBindingMap<'t, 's>,
-    diagnostics: &mut Diagnostics,
-    mut make_value: F,
-) -> HashMap<String, B>
-where
-    F: FnMut(WithNode<'t, PropertyValue>, &mut Diagnostics) -> Option<B>,
-{
-    binding_map
-        .iter()
-        .filter_map(|(&name, value)| {
-            match cls.get_property(name) {
-                Some(Ok(desc)) => {
-                    let property_code = PropertyCode::build(ctx, desc, value, diagnostics)?;
-                    let value_opt = PropertyValue::build(ctx, &property_code, diagnostics);
-                    if property_code.is_evaluated_constant() {
-                        value_opt
-                    } else {
-                        diagnostics.push(Diagnostic::error(
-                            property_code.node().byte_range(),
-                            "dynamic binding to attached property is not supported",
-                        ));
-                        None
-                    }
-                }
-                Some(Err(e)) => {
-                    diagnostics.push(Diagnostic::error(
-                        value.binding_node().byte_range(),
-                        format!("property resolution failed: {e}"),
-                    ));
-                    None
-                }
-                None => {
-                    diagnostics.push(Diagnostic::error(
-                        value.binding_node().byte_range(),
-                        format!(
-                            "unknown property of class '{}': {}",
-                            cls.qualified_cxx_name(),
-                            name
-                        ),
-                    ));
-                    None
-                }
-            }
-            .and_then(|x| {
-                make_value(WithNode::new(value, x), diagnostics).map(|v| (name.to_owned(), v))
-            })
-        })
-        .collect()
 }
 
 /// Creates a map of serializable properties from the given code map.
