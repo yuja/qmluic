@@ -1,5 +1,6 @@
 use super::core::{TypeMapError, TypeSpace};
 use super::enum_::Enum;
+use super::function::{MethodDataTable, MethodKind, MethodMatches};
 use super::namespace::NamespaceData;
 use super::util::{self, TypeDataRef, TypeMapRef};
 use super::{NamedType, ParentSpace, TypeKind};
@@ -25,7 +26,7 @@ pub(super) struct ClassData {
     attached_class_name: Option<String>,
     inner_type_map: NamespaceData,
     property_map: HashMap<String, PropertyData>,
-    // TODO
+    public_methods: MethodDataTable,
 }
 
 impl<'a> Class<'a> {
@@ -122,6 +123,22 @@ impl<'a> Class<'a> {
             .get_key_value(name)
             .map(|(n, d)| Ok(Property::new(TypeDataRef(n), TypeDataRef(d), self.clone())))
     }
+
+    /// Looks up signals, slots, and methods by name.
+    ///
+    /// Though signals are conceptually different from slots and methods, they live in
+    /// the same name resolution space. Therefore, they are looked up together. Use
+    /// [`kind()`](super::Method::kind()) to find the nature of the function.
+    pub fn get_public_method(&self, name: &str) -> Option<Result<MethodMatches<'a>, TypeMapError>> {
+        // TODO: does it follow the shadowing rule of Qt meta methods?
+        self.find_map_self_and_base_classes(|cls| {
+            cls.data
+                .as_ref()
+                .public_methods
+                .get_method_with(name, || self.clone())
+                .map(Ok)
+        })
+    }
 }
 
 impl<'a> TypeSpace<'a> for Class<'a> {
@@ -155,6 +172,7 @@ impl ClassData {
             attached_class_name: None,
             inner_type_map: NamespaceData::default(),
             property_map: HashMap::new(),
+            public_methods: MethodDataTable::default(),
         }
     }
 
@@ -185,12 +203,22 @@ impl ClassData {
             .map(PropertyData::pair_from_meta)
             .collect();
 
+        let public_methods = MethodDataTable::from_meta(
+            [
+                (meta.signals, MethodKind::Signal),
+                (meta.slots, MethodKind::Slot),
+                (meta.methods, MethodKind::Method),
+            ],
+            metatype::AccessSpecifier::Public,
+        );
+
         ClassData {
             class_name: meta.class_name,
             public_super_class_names,
             attached_class_name,
             inner_type_map,
             property_map,
+            public_methods,
         }
     }
 
