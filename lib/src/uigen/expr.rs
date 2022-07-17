@@ -18,8 +18,6 @@ use std::io;
 #[derive(Clone, Debug)]
 pub(super) enum PropertyValue {
     Serializable(Value),
-    /// List of identifiers referencing the objects.
-    ObjectRefList(Vec<String>),
 }
 
 impl PropertyValue {
@@ -38,10 +36,6 @@ impl PropertyValue {
                     TypeKind::Pointer(NamedType::Class(_)) => {
                         Value::build(ctx, property_code, diagnostics)
                             .map(PropertyValue::Serializable)
-                    }
-                    TypeKind::PointerList(NamedType::Class(_)) => {
-                        verify_code_return_type(node, code, ty, diagnostics)?;
-                        Some(PropertyValue::ObjectRefList(res.unwrap_object_ref_list()))
                     }
                     TypeKind::Pointer(_) | TypeKind::PointerList(_) => {
                         diagnostics.push(Diagnostic::error(
@@ -489,6 +483,28 @@ pub(super) fn build_item_model(
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
                 format!("not a static item model: {}", cls.qualified_cxx_name()),
+            ));
+            None
+        }
+    }
+}
+
+/// Evaluates the given code as a list of identifiers referencing objects.
+pub(super) fn build_object_ref_list(
+    property_code: &PropertyCode,
+    diagnostics: &mut Diagnostics,
+) -> Option<Vec<String>> {
+    let node = property_code.node();
+    match property_code.kind() {
+        PropertyCodeKind::Expr(ty, code) => {
+            let res = property_code.evaluate()?; // no warning; to be processed by cxx pass
+            verify_code_return_type(node, code, ty, diagnostics)?;
+            res.into_object_ref_list()
+        }
+        PropertyCodeKind::GadgetMap(cls, _) | PropertyCodeKind::ObjectMap(cls, _) => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                format!("not an object ref list: {}", cls.qualified_cxx_name()),
             ));
             None
         }
