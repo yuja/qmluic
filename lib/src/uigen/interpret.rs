@@ -59,11 +59,11 @@ impl EvaluatedValue {
         }
     }
 
-    pub fn unwrap_object_ref_list(self) -> Vec<String> {
+    pub fn into_object_ref_list(self) -> Option<Vec<String>> {
         match self {
-            EvaluatedValue::ObjectRefList(ss) => ss,
-            EvaluatedValue::EmptyList => vec![],
-            _ => panic!("evaluated value must be object ref list"),
+            EvaluatedValue::ObjectRefList(ss) => Some(ss),
+            EvaluatedValue::EmptyList => Some(vec![]),
+            _ => None,
         }
     }
 }

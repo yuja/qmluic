@@ -1,5 +1,5 @@
 use super::context::{BuildDocContext, ObjectContext};
-use super::expr::{self, PropertyValue, Value};
+use super::expr::{self, Value};
 use super::gadget::ModelItem;
 use super::layout::Layout;
 use super::objcode::{PropertyCode, PropertyCodeKind};
@@ -163,9 +163,8 @@ impl Widget {
         let mut pseudo_property_names = vec!["actions", "model"];
 
         let actions = if let Some(p) = properties_code_map.get("actions") {
-            match PropertyValue::build(ctx, p, diagnostics) {
-                Some(PropertyValue::ObjectRefList(refs)) => refs
-                    .into_iter()
+            if let Some(refs) = expr::build_object_ref_list(p, diagnostics) {
+                refs.into_iter()
                     .map(|id| {
                         if ctx
                             .object_tree
@@ -179,15 +178,9 @@ impl Widget {
                             id
                         }
                     })
-                    .collect(),
-                Some(_) => {
-                    diagnostics.push(Diagnostic::error(
-                        p.node().byte_range(),
-                        "not an actions list",
-                    ));
-                    vec![]
-                }
-                None => vec![],
+                    .collect()
+            } else {
+                vec![]
             }
         } else {
             collect_action_like_children(&children)
