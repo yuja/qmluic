@@ -106,13 +106,6 @@ impl<'t> WithNode<'t, PropertyValue> {
             _ => None,
         }
     }
-
-    pub fn into_serializable(self) -> Result<Value, ValueTypeError<'t>> {
-        match self.data {
-            PropertyValue::Serializable(v) => Ok(v),
-            _ => Err(self.make_type_error()),
-        }
-    }
 }
 
 #[derive(Clone, Debug, Error)]
@@ -141,23 +134,6 @@ impl From<ValueTypeError<'_>> for Diagnostic {
 
 /// Hash map of property values that may or may not be serialized to UI XML.
 pub(super) type PropertiesMap<'t> = HashMap<String, WithNode<'t, PropertyValue>>;
-
-/// Parses the given `binding_map` into a map of constant expressions.
-///
-/// Unparsable properties are excluded from the resulting map so as many diagnostic messages
-/// will be generated as possible.
-///
-/// Use `collect_properties_with_node()` if you need to inspect resulting values further.
-pub(super) fn collect_properties(
-    ctx: &ObjectContext,
-    cls: &Class,
-    binding_map: &UiBindingMap,
-    diagnostics: &mut Diagnostics,
-) -> HashMap<String, Value> {
-    resolve_properties(ctx, cls, binding_map, diagnostics, |v, diagnostics| {
-        diagnostics.consume_err(v.into_serializable())
-    })
-}
 
 pub(super) fn collect_properties_with_node<'a, 't>(
     ctx: &ObjectContext<'a, 't, '_>,
