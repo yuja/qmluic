@@ -55,6 +55,13 @@ impl<'a, 't, 's> ObjectCodeMap<'a, 't, 's> {
         &self.properties
     }
 
+    /// Map of attaching class to attached properties map.
+    pub fn all_attached_properties(
+        &self,
+    ) -> &HashMap<Class<'a>, (Class<'a>, HashMap<&'s str, PropertyCode<'a, 't, 's>>)> {
+        &self.attached_properties
+    }
+
     /// Looks up attached class and properties by the attaching class.
     pub fn attached_properties(
         &self,

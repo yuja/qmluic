@@ -65,6 +65,27 @@ fn test_unused_attached() {
 }
 
 #[test]
+fn test_partially_used_layout_attached() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QWidget {
+        QVBoxLayout {
+            QWidget {
+                QLayout.columnStretch: 1
+                QLayout.rowStretch: 2
+            }
+        }
+    }
+    "###).unwrap_err(), @r###"
+    error: unused or unsupported dynamic binding to attached property
+      ┌─ <unknown>:5:13
+      │
+    5 │             QLayout.columnStretch: 1
+      │             ^^^^^^^^^^^^^^^^^^^^^^^^
+    "###);
+}
+
+#[test]
 fn test_tab_widget() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
