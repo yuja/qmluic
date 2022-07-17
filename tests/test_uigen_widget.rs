@@ -364,10 +364,10 @@ fn test_dynamic_tab_widget_attached() {
     );
     insta::assert_snapshot!(
         common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap_err(), @r###"
-    error: dynamic binding to attached property is not supported
-      ┌─ <unknown>:5:27
+    error: unused or unsupported dynamic binding to attached property
+      ┌─ <unknown>:5:9
       │
     5 │         QTabWidget.title: tab.windowTitle
-      │                           ^^^^^^^^^^^^^^^
+      │         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     "###);
 }

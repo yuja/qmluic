@@ -49,6 +49,22 @@ fn test_enum_as_attached_type() {
 }
 
 #[test]
+fn test_unused_attached() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QWidget {
+        QTabWidget.title: "Hello"
+    }
+    "###).unwrap_err(), @r###"
+    error: unused or unsupported dynamic binding to attached property
+      ┌─ <unknown>:3:5
+      │
+    3 │     QTabWidget.title: "Hello"
+      │     ^^^^^^^^^^^^^^^^^^^^^^^^^
+    "###);
+}
+
+#[test]
 fn test_tab_widget() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets

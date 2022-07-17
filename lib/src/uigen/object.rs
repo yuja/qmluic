@@ -315,16 +315,13 @@ fn process_tab_widget_children(
             let mut o = UiObject::build(ctx, n, diagnostics);
             match &mut o {
                 UiObject::Menu(w) | UiObject::Widget(w) => {
-                    let attached_type_map = diagnostics
-                        .consume_err(n.obj().build_attached_type_map(ctx.source))
-                        .unwrap_or_default();
-                    // TODO: resolve against imported types,
-                    if let Some((_, m)) = attached_type_map.get(["QTabWidget"].as_ref()) {
+                    let code_map = ctx.code_map_for_object(n);
+                    if let Some((_, map)) = code_map.attached_properties(&ctx.classes.tab_widget) {
                         w.attributes.extend(
-                            property::collect_properties(
+                            property::make_value_map(
                                 &ctx.make_object_context(),
-                                &ctx.classes.tab_widget_attached,
-                                m,
+                                map,
+                                &[],
                                 diagnostics,
                             )
                             .into_iter()
