@@ -1,4 +1,4 @@
-use super::context::BuildDocContext;
+use super::context::{BuildDocContext, ObjectContext};
 use super::expr::{PropertyValue, Value};
 use super::gadget::ModelItem;
 use super::layout::Layout;
@@ -37,7 +37,7 @@ impl UiObject {
         if cls.is_derived_from(&ctx.classes.action) {
             confine_children(obj_node, diagnostics);
             UiObject::Action(Action::new(
-                ctx,
+                &ctx.make_object_context(),
                 obj_node.name(),
                 ctx.code_map_for_object(obj_node).properties(),
                 diagnostics,
@@ -88,17 +88,13 @@ pub struct Action {
 
 impl Action {
     pub(super) fn new(
-        ctx: &BuildDocContext,
+        ctx: &ObjectContext,
         name: impl Into<String>,
         properties_code_map: &HashMap<&str, PropertyCode>,
         diagnostics: &mut Diagnostics,
     ) -> Self {
-        let properties = property::make_serializable_map(
-            &ctx.make_object_context(),
-            properties_code_map,
-            &[],
-            diagnostics,
-        );
+        let properties =
+            property::make_serializable_map(ctx, properties_code_map, &[], diagnostics);
         Action {
             name: name.into(),
             properties,
@@ -147,7 +143,7 @@ impl Widget {
         };
 
         Self::new(
-            ctx,
+            &ctx.make_object_context(),
             obj_node.class(),
             obj_node.name(),
             ctx.code_map_for_object(obj_node).properties(),
@@ -157,7 +153,7 @@ impl Widget {
     }
 
     pub(super) fn new(
-        ctx: &BuildDocContext,
+        ctx: &ObjectContext,
         class: &Class,
         name: impl Into<String>,
         properties_code_map: &HashMap<&str, PropertyCode>,
@@ -167,7 +163,7 @@ impl Widget {
         let mut pseudo_property_names = vec!["actions", "model"];
 
         let actions = if let Some(p) = properties_code_map.get("actions") {
-            match PropertyValue::build(&ctx.make_object_context(), p, diagnostics) {
+            match PropertyValue::build(ctx, p, diagnostics) {
                 Some(PropertyValue::ObjectRefList(refs)) => refs
                     .into_iter()
                     .map(|id| {
@@ -201,7 +197,7 @@ impl Widget {
             || class.is_derived_from(&ctx.classes.list_widget)
         {
             if let Some(p) = properties_code_map.get("model") {
-                match PropertyValue::build(&ctx.make_object_context(), p, diagnostics) {
+                match PropertyValue::build(ctx, p, diagnostics) {
                     Some(PropertyValue::ItemModel(items)) => items,
                     Some(_) => {
                         diagnostics.push(Diagnostic::error(
@@ -249,7 +245,7 @@ impl Widget {
         }
 
         let mut properties = property::make_serializable_map(
-            &ctx.make_object_context(),
+            ctx,
             properties_code_map,
             &pseudo_property_names,
             diagnostics,
@@ -361,7 +357,7 @@ fn collect_action_like_children(children: &[UiObject]) -> Vec<String> {
 }
 
 fn flatten_object_properties_into_attributes(
-    ctx: &BuildDocContext,
+    ctx: &ObjectContext,
     attributes: &mut HashMap<String, (Value, PropertySetter)>,
     properties_code_map: &HashMap<&str, PropertyCode>,
     name: &str,
@@ -371,14 +367,9 @@ fn flatten_object_properties_into_attributes(
         match property_code.kind() {
             PropertyCodeKind::ObjectMap(_, map) => {
                 attributes.extend(
-                    property::make_serializable_map(
-                        &ctx.make_object_context(),
-                        map,
-                        &[],
-                        diagnostics,
-                    )
-                    .into_iter()
-                    .map(|(k, v)| (name.to_owned() + &qtname::to_ascii_capitalized(&k), v)),
+                    property::make_serializable_map(ctx, map, &[], diagnostics)
+                        .into_iter()
+                        .map(|(k, v)| (name.to_owned() + &qtname::to_ascii_capitalized(&k), v)),
                 );
             }
             _ => {

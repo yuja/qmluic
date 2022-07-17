@@ -60,7 +60,7 @@ impl Layout {
         };
 
         Self::new(
-            ctx,
+            &ctx.make_object_context(),
             obj_node.class(),
             obj_node.name(),
             attributes,
@@ -71,7 +71,7 @@ impl Layout {
     }
 
     pub(super) fn new(
-        ctx: &BuildDocContext,
+        ctx: &ObjectContext,
         class: &Class,
         name: impl Into<String>,
         attributes: LayoutAttributes,
@@ -85,7 +85,7 @@ impl Layout {
             [].as_ref()
         };
         let mut properties = property::make_serializable_map(
-            &ctx.make_object_context(),
+            ctx,
             properties_code_map,
             pseudo_property_names,
             diagnostics,
@@ -322,7 +322,7 @@ impl LayoutItemContent {
         } else if cls.is_derived_from(&ctx.classes.spacer_item) {
             object::confine_children(obj_node, diagnostics);
             LayoutItemContent::SpacerItem(SpacerItem::new(
-                ctx,
+                &ctx.make_object_context(),
                 obj_node.name(),
                 ctx.code_map_for_object(obj_node).properties(),
                 diagnostics,
@@ -364,18 +364,13 @@ pub struct SpacerItem {
 
 impl SpacerItem {
     pub(super) fn new(
-        ctx: &BuildDocContext,
+        ctx: &ObjectContext,
         name: impl Into<String>,
         properties_code_map: &HashMap<&str, PropertyCode>,
         diagnostics: &mut Diagnostics,
     ) -> Self {
         // no check for writable as all spacer properties are translated by uic
-        let properties = property::make_value_map(
-            &ctx.make_object_context(),
-            properties_code_map,
-            &[],
-            diagnostics,
-        );
+        let properties = property::make_value_map(ctx, properties_code_map, &[], diagnostics);
 
         SpacerItem {
             name: name.into(),
