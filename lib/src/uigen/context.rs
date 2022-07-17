@@ -68,7 +68,6 @@ pub(super) struct KnownClasses<'a> {
     pub key_sequence: Class<'a>,
     pub key_sequence_standard_key: Enum<'a>,
     pub layout: Class<'a>,
-    pub layout_attached: Class<'a>,
     pub list_widget: Class<'a>,
     pub margins: Class<'a>,
     pub menu: Class<'a>,
@@ -129,7 +128,6 @@ impl<'a> BuildContext<'a> {
             key_sequence: get_class("QKeySequence")?,
             key_sequence_standard_key: get_enum("QKeySequence::StandardKey")?,
             layout: get_class("QLayout")?,
-            layout_attached: get_class("QLayoutAttached")?,
             list_widget: get_class("QListWidget")?,
             margins: get_class("QMargins")?,
             menu: get_class("QMenu")?,
@@ -178,7 +176,7 @@ impl<'a, 't, 's> BuildDocContext<'a, 't, 's> {
         &self.object_code_maps[obj_node.flat_index()]
     }
 
-    pub fn make_object_context(&self) -> ObjectContext<'a, 't, '_> {
+    pub fn make_object_context(&self) -> ObjectContext<'a, 't, 's> {
         ObjectContext {
             source: self.source,
             classes: self.classes,

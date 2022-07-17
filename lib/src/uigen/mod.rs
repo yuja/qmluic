@@ -57,10 +57,7 @@ pub fn build(
 
     for p in object_code_maps
         .iter()
-        .filter_map(|cm| {
-            cm.attached_properties(&ctx.classes.tab_widget) // TODO
-                .map(|(_, pm)| pm)
-        })
+        .flat_map(|cm| cm.all_attached_properties().values().map(|(_, pm)| pm))
         .flat_map(|pm| pm.values())
         .filter(|p| !p.is_evaluated_constant())
     {
