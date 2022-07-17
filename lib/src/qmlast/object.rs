@@ -217,7 +217,7 @@ impl<'tree> UiObjectDefinition<'tree> {
             let (type_name, prop_name) = name
                 .split_type_name_prefix(source)
                 .expect("attached binding name should have type prefix");
-            let map = type_map
+            let (_, map) = type_map
                 .entry(
                     type_name
                         .components()
@@ -225,7 +225,7 @@ impl<'tree> UiObjectDefinition<'tree> {
                         .map(|p| p.to_str(source))
                         .collect(),
                 )
-                .or_default();
+                .or_insert_with(|| (type_name, HashMap::new()));
             // attached binding can't be grouped
             try_insert_ui_binding_node(map, &prop_name, *value_node, source)?;
         }
@@ -365,7 +365,7 @@ pub enum UiBindingNotation {
 
 /// Map of type name to attached property binding map.
 pub type UiAttachedTypeBindingMap<'tree, 'source> =
-    HashMap<Vec<&'source str>, UiBindingMap<'tree, 'source>>;
+    HashMap<Vec<&'source str>, (NestedIdentifier<'tree>, UiBindingMap<'tree, 'source>)>;
 
 /// Map of property binding name to value (or nested binding map.)
 pub type UiBindingMap<'tree, 'source> = HashMap<&'source str, UiBindingValue<'tree, 'source>>;
@@ -800,12 +800,12 @@ mod tests {
         let type_map = root_obj.build_attached_type_map(doc.source()).unwrap();
         assert_eq!(type_map.len(), 2);
 
-        let bar_map = type_map.get(["Bar"].as_ref()).unwrap();
+        let (_, bar_map) = type_map.get(["Bar"].as_ref()).unwrap();
         assert_eq!(bar_map.len(), 2);
         assert!(!bar_map.get("bar").unwrap().is_map());
         assert!(!bar_map.get("baz").unwrap().is_map());
 
-        let ab_map = type_map.get(["A", "B"].as_ref()).unwrap();
+        let (_, ab_map) = type_map.get(["A", "B"].as_ref()).unwrap();
         assert_eq!(ab_map.len(), 1);
         assert!(ab_map.get("c").unwrap().is_map());
         assert!(!ab_map
