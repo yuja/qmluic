@@ -226,6 +226,30 @@ struct LayoutItemAttached<'a, 't, 's, 'm> {
     map: Option<&'m HashMap<&'s str, PropertyCode<'a, 't, 's>>>,
 }
 
+macro_rules! impl_attached_enum_property {
+    ($name:ident, $key:expr) => {
+        fn $name(
+            &self,
+            diagnostics: &mut Diagnostics,
+        ) -> Option<(&'m PropertyCode<'a, 't, 's>, String)> {
+            self.map
+                .and_then(|m| property::get_enum(&self.ctx, m, $key, diagnostics))
+        }
+    };
+}
+
+macro_rules! impl_attached_i32_property {
+    ($name:ident, $key:expr) => {
+        fn $name(
+            &self,
+            diagnostics: &mut Diagnostics,
+        ) -> Option<(&'m PropertyCode<'a, 't, 's>, i32)> {
+            self.map
+                .and_then(|m| property::get_i32(&self.ctx, m, $key, diagnostics))
+        }
+    };
+}
+
 impl<'a, 't, 's, 'm> LayoutItemAttached<'a, 't, 's, 'm> {
     fn prepare(ctx: &'m BuildDocContext<'a, 't, 's>, obj_node: ObjectNode) -> Self {
         let code_map = ctx.code_map_for_object(obj_node);
@@ -238,71 +262,15 @@ impl<'a, 't, 's, 'm> LayoutItemAttached<'a, 't, 's, 'm> {
         }
     }
 
-    fn alignment(
-        &self,
-        diagnostics: &mut Diagnostics,
-    ) -> Option<(&'m PropertyCode<'a, 't, 's>, String)> {
-        self.map
-            .and_then(|m| property::get_enum(&self.ctx, m, "alignment", diagnostics))
-    }
-
-    fn column(&self, diagnostics: &mut Diagnostics) -> Option<(&'m PropertyCode<'a, 't, 's>, i32)> {
-        self.map
-            .and_then(|m| property::get_i32(&self.ctx, m, "column", diagnostics))
-    }
-
-    fn column_minimum_width(
-        &self,
-        diagnostics: &mut Diagnostics,
-    ) -> Option<(&'m PropertyCode<'a, 't, 's>, i32)> {
-        self.map
-            .and_then(|m| property::get_i32(&self.ctx, m, "columnMinimumWidth", diagnostics))
-    }
-
-    fn column_span(
-        &self,
-        diagnostics: &mut Diagnostics,
-    ) -> Option<(&'m PropertyCode<'a, 't, 's>, i32)> {
-        self.map
-            .and_then(|m| property::get_i32(&self.ctx, m, "columnSpan", diagnostics))
-    }
-
-    fn column_stretch(
-        &self,
-        diagnostics: &mut Diagnostics,
-    ) -> Option<(&'m PropertyCode<'a, 't, 's>, i32)> {
-        self.map
-            .and_then(|m| property::get_i32(&self.ctx, m, "columnStretch", diagnostics))
-    }
-
-    fn row(&self, diagnostics: &mut Diagnostics) -> Option<(&'m PropertyCode<'a, 't, 's>, i32)> {
-        self.map
-            .and_then(|m| property::get_i32(&self.ctx, m, "row", diagnostics))
-    }
-
-    fn row_minimum_height(
-        &self,
-        diagnostics: &mut Diagnostics,
-    ) -> Option<(&'m PropertyCode<'a, 't, 's>, i32)> {
-        self.map
-            .and_then(|m| property::get_i32(&self.ctx, m, "rowMinimumHeight", diagnostics))
-    }
-
-    fn row_span(
-        &self,
-        diagnostics: &mut Diagnostics,
-    ) -> Option<(&'m PropertyCode<'a, 't, 's>, i32)> {
-        self.map
-            .and_then(|m| property::get_i32(&self.ctx, m, "rowSpan", diagnostics))
-    }
-
-    fn row_stretch(
-        &self,
-        diagnostics: &mut Diagnostics,
-    ) -> Option<(&'m PropertyCode<'a, 't, 's>, i32)> {
-        self.map
-            .and_then(|m| property::get_i32(&self.ctx, m, "rowStretch", diagnostics))
-    }
+    impl_attached_enum_property!(alignment, "alignment");
+    impl_attached_i32_property!(column, "column");
+    impl_attached_i32_property!(column_minimum_width, "columnMinimumWidth");
+    impl_attached_i32_property!(column_span, "columnSpan");
+    impl_attached_i32_property!(column_stretch, "columnStretch");
+    impl_attached_i32_property!(row, "row");
+    impl_attached_i32_property!(row_minimum_height, "rowMinimumHeight");
+    impl_attached_i32_property!(row_span, "rowSpan");
+    impl_attached_i32_property!(row_stretch, "rowStretch");
 }
 
 /// Variant for the object managed by the layout item.
