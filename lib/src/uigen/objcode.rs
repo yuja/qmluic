@@ -5,8 +5,11 @@ use super::interpret::{self, EvaluatedValue};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectNode;
 use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
+use crate::qtname;
 use crate::tir::{self, CodeBody};
-use crate::typemap::{Class, NamedType, Property, TypeKind, TypeSpace as _};
+use crate::typemap::{
+    Class, Method, MethodKind, MethodMatches, NamedType, Property, TypeKind, TypeSpace as _,
+};
 use once_cell::sync::OnceCell;
 use std::collections::HashMap;
 
@@ -14,9 +17,9 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub(super) struct ObjectCodeMap<'a, 't, 's> {
     properties: HashMap<&'s str, PropertyCode<'a, 't, 's>>,
+    callbacks: Vec<CallbackCode<'a, 't>>,
     attached_properties:
         HashMap<Class<'a>, (Class<'a>, HashMap<&'s str, PropertyCode<'a, 't, 's>>)>,
-    // TODO: map of onSignal callbacks
 }
 
 impl<'a, 't, 's> ObjectCodeMap<'a, 't, 's> {
@@ -28,7 +31,8 @@ impl<'a, 't, 's> ObjectCodeMap<'a, 't, 's> {
         let binding_map = diagnostics
             .consume_err(obj_node.obj().build_binding_map(ctx.source))
             .unwrap_or_default();
-        let properties = build_properties_map(ctx, obj_node.class(), &binding_map, diagnostics);
+        let (properties, callbacks) =
+            build_properties_callbacks(ctx, obj_node.class(), &binding_map, diagnostics);
 
         let attached_type_map = diagnostics
             .consume_err(obj_node.obj().build_attached_type_map(ctx.source))
@@ -46,6 +50,7 @@ impl<'a, 't, 's> ObjectCodeMap<'a, 't, 's> {
 
         ObjectCodeMap {
             properties,
+            callbacks,
             attached_properties,
         }
     }
@@ -53,6 +58,11 @@ impl<'a, 't, 's> ObjectCodeMap<'a, 't, 's> {
     /// Map of property name to binding code.
     pub fn properties(&self) -> &HashMap<&'s str, PropertyCode<'a, 't, 's>> {
         &self.properties
+    }
+
+    /// List of signal callback codes.
+    pub fn callbacks(&self) -> &[CallbackCode<'a, 't>] {
+        &self.callbacks
     }
 
     /// Map of attaching class to attached properties map.
@@ -71,39 +81,86 @@ impl<'a, 't, 's> ObjectCodeMap<'a, 't, 's> {
     }
 }
 
+fn build_properties_callbacks<'a, 't, 's>(
+    ctx: &ObjectContext<'a, 't, '_>,
+    cls: &Class<'a>,
+    binding_map: &UiBindingMap<'t, 's>,
+    diagnostics: &mut Diagnostics,
+) -> (
+    HashMap<&'s str, PropertyCode<'a, 't, 's>>,
+    Vec<CallbackCode<'a, 't>>,
+) {
+    let mut properties = HashMap::new();
+    let mut callbacks = Vec::new();
+    for (&name, value) in binding_map {
+        let cb_name = qtname::callback_to_signal_name(name);
+        if let Some(r) = cls.get_property(name) {
+            match r {
+                Ok(desc) => {
+                    if let Some(p) = PropertyCode::build(ctx, desc, value, diagnostics) {
+                        properties.insert(name, p);
+                    }
+                }
+                Err(e) => {
+                    diagnostics.push(Diagnostic::error(
+                        value.binding_node().byte_range(),
+                        format!("property resolution failed: {e}"),
+                    ));
+                }
+            }
+        } else if let Some(r) = cb_name.as_ref().and_then(|n| cls.get_public_method(n)) {
+            match r {
+                Ok(MethodMatches::Unique(desc)) if desc.kind() == MethodKind::Signal => {
+                    if let Some(c) = CallbackCode::build(ctx, desc, value, diagnostics) {
+                        callbacks.push(c);
+                    }
+                }
+                Ok(MethodMatches::Unique(_)) => {
+                    diagnostics.push(Diagnostic::error(
+                        value.binding_node().byte_range(),
+                        "not a signal",
+                    ));
+                }
+                Ok(MethodMatches::Overloaded(_)) => {
+                    diagnostics.push(Diagnostic::error(
+                        value.binding_node().byte_range(),
+                        "cannot bind to overloaded signal",
+                    ));
+                }
+                Err(e) => {
+                    diagnostics.push(Diagnostic::error(
+                        value.binding_node().byte_range(),
+                        format!("signal resolution failed: {e}"),
+                    ));
+                }
+            }
+        } else {
+            let class_name = cls.qualified_cxx_name();
+            let msg = if let Some(n) = cb_name.as_ref() {
+                format!("unknown signal of class '{}': {}", class_name, n)
+            } else {
+                format!("unknown property of class '{}': {}", class_name, name)
+            };
+            diagnostics.push(Diagnostic::error(value.binding_node().byte_range(), msg));
+        }
+    }
+    (properties, callbacks)
+}
+
 fn build_properties_map<'a, 't, 's>(
     ctx: &ObjectContext<'a, 't, '_>,
     cls: &Class<'a>,
     binding_map: &UiBindingMap<'t, 's>,
     diagnostics: &mut Diagnostics,
 ) -> HashMap<&'s str, PropertyCode<'a, 't, 's>> {
-    binding_map
-        .iter()
-        .filter_map(|(&name, value)| {
-            match cls.get_property(name) {
-                Some(Ok(desc)) => PropertyCode::build(ctx, desc, value, diagnostics),
-                Some(Err(e)) => {
-                    diagnostics.push(Diagnostic::error(
-                        value.binding_node().byte_range(),
-                        format!("property resolution failed: {e}"),
-                    ));
-                    None
-                }
-                None => {
-                    diagnostics.push(Diagnostic::error(
-                        value.binding_node().byte_range(),
-                        format!(
-                            "unknown property of class '{}': {}",
-                            cls.qualified_cxx_name(),
-                            name
-                        ),
-                    ));
-                    None
-                }
-            }
-            .map(|code| (name, code))
-        })
-        .collect()
+    let (properties, callbacks) = build_properties_callbacks(ctx, cls, binding_map, diagnostics);
+    for c in &callbacks {
+        diagnostics.push(Diagnostic::error(
+            c.binding_node().byte_range(),
+            "attached/nested/gadget callback is not supported",
+        ));
+    }
+    properties
 }
 
 fn resolve_attached_class<'a>(
@@ -279,6 +336,7 @@ impl<'a, 't, 's> PropertyCodeKind<'a, 't, 's> {
                     Some(PropertyCodeKind::GadgetMap(cls, map))
                 }
                 TypeKind::Pointer(NamedType::Class(cls)) => {
+                    // TODO: handle callback on nested object
                     let map = build_properties_map(ctx, &cls, m, diagnostics);
                     Some(PropertyCodeKind::ObjectMap(cls, map))
                 }
@@ -294,5 +352,57 @@ impl<'a, 't, 's> PropertyCodeKind<'a, 't, 's> {
                 }
             },
         }
+    }
+}
+
+/// Signal callback code with its description.
+#[derive(Clone, Debug)]
+pub(super) struct CallbackCode<'a, 't> {
+    desc: Method<'a>,
+    node: Node<'t>,
+    code: CodeBody<'a>,
+}
+
+impl<'a, 't> CallbackCode<'a, 't> {
+    pub fn build(
+        ctx: &ObjectContext<'a, 't, '_>,
+        desc: Method<'a>,
+        value: &UiBindingValue<'t, '_>,
+        diagnostics: &mut Diagnostics,
+    ) -> Option<Self> {
+        let code = match value {
+            UiBindingValue::Node(n) => tir::build(ctx, *n, ctx.source, diagnostics)?,
+            UiBindingValue::Map(n, _) => {
+                diagnostics.push(Diagnostic::error(
+                    n.byte_range(),
+                    "signal callback cannot be a map",
+                ));
+                return None;
+            }
+        };
+        Some(CallbackCode {
+            desc,
+            node: value.node(),
+            code,
+        })
+    }
+
+    pub fn desc(&self) -> &Method<'a> {
+        &self.desc
+    }
+
+    pub fn node(&self) -> Node<'t> {
+        self.node
+    }
+
+    pub fn binding_node(&self) -> Node<'t> {
+        // see UiBindingValue::binding_node()
+        self.node
+            .parent()
+            .expect("binding value node should have parent")
+    }
+
+    pub fn code(&self) -> &CodeBody<'a> {
+        &self.code
     }
 }

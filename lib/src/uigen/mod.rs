@@ -94,6 +94,14 @@ pub fn build(
                     ));
                 }
             }
+
+            for c in object_code_maps.iter().flat_map(|cm| cm.callbacks()) {
+                diagnostics.push(Diagnostic::error(
+                    c.binding_node().byte_range(),
+                    "signal callback cannot be translated without dynamic binding",
+                ));
+            }
+
             None
         }
     };
