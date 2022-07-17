@@ -14,55 +14,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::io;
 
-/// Variant for the property values that can or cannot be serialized to UI XML.
-#[derive(Clone, Debug)]
-pub(super) enum PropertyValue {
-    Serializable(Value),
-}
-
-impl PropertyValue {
-    pub(super) fn build(
-        ctx: &ObjectContext,
-        property_code: &PropertyCode,
-        diagnostics: &mut Diagnostics,
-    ) -> Option<Self> {
-        let node = property_code.node();
-        match property_code.kind() {
-            PropertyCodeKind::Expr(ty, code) => {
-                let res = property_code.evaluate()?; // no warning; to be processed by cxx pass
-                match ty {
-                    TypeKind::Just(_) => Value::build(ctx, property_code, diagnostics)
-                        .map(PropertyValue::Serializable),
-                    TypeKind::Pointer(NamedType::Class(_)) => {
-                        Value::build(ctx, property_code, diagnostics)
-                            .map(PropertyValue::Serializable)
-                    }
-                    TypeKind::Pointer(_) | TypeKind::PointerList(_) => {
-                        diagnostics.push(Diagnostic::error(
-                            node.byte_range(),
-                            format!(
-                                "unsupported value expression of type '{}'",
-                                ty.qualified_cxx_name(),
-                            ),
-                        ));
-                        None
-                    }
-                }
-            }
-            PropertyCodeKind::GadgetMap(..) => {
-                Value::build(ctx, property_code, diagnostics).map(PropertyValue::Serializable)
-            }
-            PropertyCodeKind::ObjectMap(cls, _) => {
-                diagnostics.push(Diagnostic::error(
-                    property_code.node().byte_range(),
-                    format!("unexpected value type: {}", cls.qualified_cxx_name()),
-                ));
-                None
-            }
-        }
-    }
-}
-
 /// Variant for the constant expressions which can be serialized to UI XML.
 #[derive(Clone, Debug)]
 pub enum Value {
