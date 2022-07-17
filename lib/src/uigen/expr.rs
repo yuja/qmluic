@@ -18,8 +18,6 @@ use std::io;
 #[derive(Clone, Debug)]
 pub(super) enum PropertyValue {
     Serializable(Value),
-    /// List of static QComboBox/QAbstractItemView items.
-    ItemModel(Vec<ModelItem>),
     /// List of identifiers referencing the objects.
     ObjectRefList(Vec<String>),
 }
@@ -37,17 +35,6 @@ impl PropertyValue {
                 match ty {
                     TypeKind::Just(_) => Value::build(ctx, property_code, diagnostics)
                         .map(PropertyValue::Serializable),
-                    TypeKind::Pointer(NamedType::Class(cls))
-                        if cls.is_derived_from(&ctx.classes.abstract_item_model) =>
-                    {
-                        verify_code_return_type(node, code, &TypeKind::STRING_LIST, diagnostics)?;
-                        let items = res
-                            .unwrap_string_list()
-                            .into_iter()
-                            .map(|(s, k)| ModelItem::with_text(s, k))
-                            .collect();
-                        Some(PropertyValue::ItemModel(items))
-                    }
                     TypeKind::Pointer(NamedType::Class(_)) => {
                         Value::build(ctx, property_code, diagnostics)
                             .map(PropertyValue::Serializable)
@@ -477,6 +464,35 @@ fn parse_color_value(
             None
         }
     })
+}
+
+/// Evaluates the given code as a static item model.
+///
+/// The return type of the given code is supposed to be `QAbstractItemModel *`.
+pub(super) fn build_item_model(
+    property_code: &PropertyCode,
+    diagnostics: &mut Diagnostics,
+) -> Option<Vec<ModelItem>> {
+    let node = property_code.node();
+    match property_code.kind() {
+        PropertyCodeKind::Expr(_, code) => {
+            let res = property_code.evaluate()?; // no warning; to be processed by cxx pass
+            verify_code_return_type(node, code, &TypeKind::STRING_LIST, diagnostics)?;
+            let items = res
+                .unwrap_string_list()
+                .into_iter()
+                .map(|(s, k)| ModelItem::with_text(s, k))
+                .collect();
+            Some(items)
+        }
+        PropertyCodeKind::GadgetMap(cls, _) | PropertyCodeKind::ObjectMap(cls, _) => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                format!("not a static item model: {}", cls.qualified_cxx_name()),
+            ));
+            None
+        }
+    }
 }
 
 fn extract_static_string(
