@@ -81,6 +81,8 @@ impl BasicBlockRef {
 pub enum Statement<'a> {
     /// `<local> = <rvalue>`
     Assign(LocalRef, Rvalue<'a>),
+    /// `<rvalue>`
+    Exec(Rvalue<'a>),
 }
 
 /// Last instruction to exit from `BasicBlock`.
@@ -101,6 +103,7 @@ pub enum Operand<'a> {
     EnumVariant(EnumVariant<'a>),
     Local(Local<'a>),
     NamedObject(NamedObject<'a>),
+    Void(Void),
 }
 
 impl Operand<'_> {
@@ -111,6 +114,7 @@ impl Operand<'_> {
             Operand::EnumVariant(x) => x.byte_range.clone(),
             Operand::Local(x) => x.byte_range.clone(),
             Operand::NamedObject(x) => x.byte_range.clone(),
+            Operand::Void(x) => x.byte_range.clone(),
         }
     }
 }
@@ -126,6 +130,7 @@ impl<'a> DescribeType<'a> for Operand<'a> {
             Operand::NamedObject(x) => {
                 TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(x.cls.clone())))
             }
+            Operand::Void(_) => TypeDesc::VOID,
         }
     }
 }
@@ -205,6 +210,7 @@ pub struct Local<'a> {
 
 impl<'a> Local<'a> {
     pub(super) fn new(name: usize, ty: TypeKind<'a>, byte_range: Range<usize>) -> Self {
+        assert!(ty != TypeKind::VOID);
         Local {
             name: LocalRef(name),
             ty,
@@ -238,6 +244,22 @@ impl<'a> NamedObject<'a> {
 /// Member object name.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct NamedObjectRef(pub String);
+
+/// Placeholder representing void expression.
+///
+/// Since void expression cannot be assigned to lvalue, the type of [`Local`](Local)
+/// shouldn't be [`void`](TypeKind::VOID). Use `Void` instead.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Void {
+    /// Source code location of the holding void expression.
+    pub byte_range: Range<usize>,
+}
+
+impl Void {
+    pub(super) fn new(byte_range: Range<usize>) -> Self {
+        Void { byte_range }
+    }
+}
 
 /// Variant for rvalue expressions.
 #[derive(Clone, Debug, PartialEq)]

@@ -282,6 +282,7 @@ impl TypeKind<'_> {
     pub const UINT: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::Uint));
     pub const STRING: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::QString));
     pub const STRING_LIST: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::QStringList));
+    pub const VOID: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::Void));
 
     pub fn qualified_cxx_name(&self) -> Cow<'_, str> {
         match self {

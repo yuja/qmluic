@@ -29,6 +29,7 @@ impl<'a> TypeDesc<'a> {
     pub const UINT: Self = TypeDesc::Concrete(TypeKind::UINT);
     pub const STRING: Self = TypeDesc::Concrete(TypeKind::STRING);
     pub const STRING_LIST: Self = TypeDesc::Concrete(TypeKind::STRING_LIST);
+    pub const VOID: Self = TypeDesc::Concrete(TypeKind::VOID);
 
     pub fn qualified_name(&self) -> Cow<'_, str> {
         match self {
