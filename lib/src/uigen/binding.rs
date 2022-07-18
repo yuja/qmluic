@@ -77,12 +77,18 @@ impl UiSupportCode {
                 },
             ));
 
-            callbacks.extend(code_map.callbacks().iter().map(|callback_code| {
-                let prefix = qtname::to_ascii_capitalized(obj_node.name())
-                    + &qtname::to_ascii_capitalized(callback_code.desc().name());
-                let name = name_gen.generate(&prefix);
-                CxxCallback::build(&callback_code_translator, name, obj_node, callback_code)
-            }));
+            callbacks.extend(
+                code_map
+                    .callbacks()
+                    .iter()
+                    .sorted_by_key(|c| c.desc().name())
+                    .map(|callback_code| {
+                        let prefix = qtname::to_ascii_capitalized(obj_node.name())
+                            + &qtname::to_ascii_capitalized(callback_code.desc().name());
+                        let name = name_gen.generate(&prefix);
+                        CxxCallback::build(&callback_code_translator, name, obj_node, callback_code)
+                    }),
+            );
         }
 
         UiSupportCode {
