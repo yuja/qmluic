@@ -4,7 +4,7 @@ expression: ui_xml
 ---
 <ui version="4.0">
  <class>SettingsDialog</class>
- <widget class="QDialog" name="dialog">
+ <widget class="QDialog" name="root">
   <property name="geometry">
    <rect>
     <height>300</height>

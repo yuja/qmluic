@@ -3,8 +3,10 @@
 
 import qmluic.QtWidgets
 
-//  <widget class="QDialog" name="SettingsDialog">
+//  <widget class="QDialog" name="root">
 QDialog {
+    id: root
+
     //   <property name="geometry">
     //    <rect>
     //     <x>0</x>
@@ -197,6 +199,10 @@ QDialog {
             //       <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
             //      </property>
             standardButtons: QDialogButtonBox.Cancel | QDialogButtonBox.Ok
+
+            // C++ signal slot connections:
+            onAccepted: root.accept()
+            onRejected: root.reject()
 
             //     </widget>
             //    </item>
