@@ -1,3 +1,5 @@
+use qmluic::uigen::DynamicBindingHandling;
+
 pub mod common;
 
 #[test]
@@ -46,4 +48,34 @@ fn test_callback_without_dynamic_binding() {
     3 │     onAccepted: 0
       │     ^^^^^^^^^^^^^
     "###);
+}
+
+#[test]
+fn test_root_connection() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QDialog {
+            onAccepted: 0
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
+fn test_non_root_connection() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QDialog {
+            QDialogButtonBox {
+                onAccepted: 0
+            }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
 }

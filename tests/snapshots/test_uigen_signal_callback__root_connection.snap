@@ -1,0 +1,40 @@
+---
+source: tests/test_uigen_signal_callback.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_mytype.h"
+
+namespace UiSupport {
+class MyType
+{
+public:
+    MyType(QDialog *root, Ui::MyType *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+        this->setupDialogAccepted();
+    }
+
+private:
+    enum class BindingIndex : unsigned {
+    };
+
+    void setupDialogAccepted()
+    {
+        QObject::connect(this->root_, &QDialog::accepted, root_, [this]() { this->onDialogAccepted(); });
+    }
+
+    void onDialogAccepted()
+    {
+    b0:
+        static_cast<void>(0);
+        return;
+    }
+
+    QDialog *const root_;
+    Ui::MyType *const ui_;
+
+};
+} // namespace UiSupport
+
