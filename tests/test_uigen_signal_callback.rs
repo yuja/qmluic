@@ -70,12 +70,45 @@ fn test_non_root_connection() {
         r###"
         import qmluic.QtWidgets
         QDialog {
-            QDialogButtonBox {
-                onAccepted: 0
-            }
+            id: root
+            QDialogButtonBox { onAccepted: root.accept() }
         }
         "###,
     );
     let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
     insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
+fn test_method_call_bad_arg_count() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QDialog {
+        id: root
+        QDialogButtonBox { onAccepted: root.accept(0) }
+    }
+    "###).unwrap_err(), @r###"
+    error: invalid argument: expects (), but got (integer)
+      ┌─ <unknown>:4:36
+      │
+    4 │     QDialogButtonBox { onAccepted: root.accept(0) }
+      │                                    ^^^^^^^^^^^^^^
+    "###);
+}
+
+#[test]
+fn test_method_call_bad_arg_type() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QDialog {
+        id: root
+        QDialogButtonBox { onAccepted: root.done("whatever") }
+    }
+    "###).unwrap_err(), @r###"
+    error: invalid argument: expects (int), but got (QString)
+      ┌─ <unknown>:4:36
+      │
+    4 │     QDialogButtonBox { onAccepted: root.done("whatever") }
+      │                                    ^^^^^^^^^^^^^^^^^^^^^
+    "###);
 }

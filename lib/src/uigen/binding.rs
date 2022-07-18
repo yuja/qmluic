@@ -596,6 +596,14 @@ impl CxxCodeBodyTranslator {
                     args.iter().map(|a| self.format_operand(a)).join(", ")
                 ),
             },
+            Rvalue::CallMethod(obj, meth, args) => {
+                format!(
+                    "{}->{}({})",
+                    self.format_operand(obj),
+                    meth.name(),
+                    args.iter().map(|a| self.format_operand(a)).join(", ")
+                )
+            }
             Rvalue::ReadProperty(obj, prop) => {
                 format!(
                     "{}->{}()",

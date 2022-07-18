@@ -28,7 +28,7 @@ private:
     void onDialogButtonBoxAccepted()
     {
     b0:
-        static_cast<void>(0);
+        this->root_->accept();
         return;
     }
 

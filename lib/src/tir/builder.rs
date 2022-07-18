@@ -14,6 +14,7 @@ use crate::typedexpr::{
 use crate::typemap::{
     Class, Enum, MethodMatches, NamedType, PrimitiveType, Property, TypeKind, TypeMapError,
 };
+use itertools::Itertools as _;
 use std::num::TryFromIntError;
 use std::ops::Range;
 use thiserror::Error;
@@ -189,7 +190,50 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         arguments: Vec<Self::Item>,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
-        todo!();
+        let arguments: Vec<_> = arguments.into_iter().map(ensure_concrete_string).collect();
+        let mut matched_index: Option<usize> = None;
+        for (i, m) in methods.iter().enumerate() {
+            if m.arguments_len() == arguments.len() {
+                let compatible: Result<bool, TypeMapError> = m
+                    .argument_types()
+                    .zip(&arguments)
+                    .try_fold(true, |acc, (ty, v)| {
+                        Ok(acc && typeutil::verify_concrete_type(&ty?, &v.type_desc()).is_ok())
+                    });
+                if compatible? {
+                    matched_index = Some(i);
+                    break;
+                }
+            }
+        }
+
+        if let Some(i) = matched_index {
+            let m = methods.into_vec().swap_remove(i);
+            Ok(self.emit_result(
+                m.return_type()?,
+                Rvalue::CallMethod(object, m, arguments),
+                byte_range,
+            ))
+        } else {
+            let expects = methods
+                .iter()
+                .map(|m| {
+                    m.argument_types()
+                        .map(|r| {
+                            r.map(|t| t.qualified_cxx_name().into_owned())
+                                .unwrap_or_else(|_| "?".to_owned())
+                        })
+                        .join(", ")
+                })
+                .join(") | (");
+            let actual = arguments
+                .iter()
+                .map(|v| v.type_desc().qualified_name().into_owned())
+                .join(", ");
+            Err(ExpressionError::InvalidArgument(format!(
+                "expects ({expects}), but got ({actual})"
+            )))
+        }
     }
 
     fn visit_object_builtin_method_call(
@@ -649,6 +693,16 @@ mod tests {
                         ..Default::default()
                     },
                 ],
+                slots: vec![metatype::Method {
+                    name: "done".to_owned(),
+                    access: metatype::AccessSpecifier::Public,
+                    return_type: "void".to_owned(),
+                    arguments: vec![metatype::Argument {
+                        name: None,
+                        r#type: "int".to_owned(),
+                    }],
+                    ..Default::default()
+                }],
                 ..Default::default()
             };
             module_data.extend([foo_meta, metatype::Class::new("A")]);
@@ -786,6 +840,15 @@ mod tests {
         .0:
             %0 = read_property [foo]: Foo*, "checked"
             return %0: bool
+        "###);
+    }
+
+    #[test]
+    fn call_object_method() {
+        insta::assert_snapshot!(dump("foo.done(1)"), @r###"
+        .0:
+            call_method [foo]: Foo*, "done", {1: integer}
+            return _: void
         "###);
     }
 

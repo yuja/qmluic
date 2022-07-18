@@ -204,7 +204,7 @@ Major TODOs
   - [ ] integer/string as bool
   - [x] integer/floating point mess
   - [ ] implicit/explicit `this` property
-  - [ ] method/slot call
+  - [x] method/slot call
   - [ ] property setter
   - [ ] gadget types
   - [x] cycle detection
