@@ -196,19 +196,22 @@ Major TODOs
 - [ ] Live preview triggered by lsp
 - [ ] Live preview for multi-document file
 - [ ] Better support for static `QComboBox`/`QListWidget` items
-- [ ] Support signal-slot connections (`on<Signal>` syntax)
-- [ ] Improve support for dynamic property bindings
+- [x] Support signal-slot connections (`on<Signal>` syntax)
+- [ ] Improve support for dynamic property bindings / signal callbacks
   - [x] ternary operator
   - [ ] `.toString()`
   - [x] `QString::arg()`
   - [ ] integer/string as bool
   - [x] integer/floating point mess
   - [ ] implicit/explicit `this` property
+  - [ ] method/slot call
+  - [ ] property setter
   - [ ] gadget types
   - [x] cycle detection
   - [ ] `if` statement
   - [ ] `switch` statement
   - [ ] multiple statements
+  - [ ] signal parameters: `on<Signal>: function(...) {}`
 
 Comparison to DeclarativeWidgets
 --------------------------------
