@@ -67,6 +67,14 @@ fn format_rvalue(rv: &Rvalue) -> String {
                 args.iter().map(format_operand).join(", ")
             )
         }
+        Rvalue::CallMethod(obj, meth, args) => {
+            format!(
+                "call_method {}, {:?}, {{{}}}",
+                format_operand(obj),
+                meth.name(),
+                args.iter().map(format_operand).join(", ")
+            )
+        }
         Rvalue::ReadProperty(obj, prop) => {
             format!("read_property {}, {:?}", format_operand(obj), prop.name())
         }

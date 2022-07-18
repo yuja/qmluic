@@ -2,7 +2,7 @@
 
 use super::typeutil::{self, TypeError};
 use crate::typedexpr::{BuiltinFunctionKind, BuiltinMethodKind, DescribeType, TypeDesc};
-use crate::typemap::{Class, Enum, NamedType, Property, TypeKind};
+use crate::typemap::{Class, Enum, Method, NamedType, Property, TypeKind};
 use std::fmt;
 use std::ops::Range;
 
@@ -273,6 +273,8 @@ pub enum Rvalue<'a> {
     CallBuiltinFunction(BuiltinFunctionKind, Vec<Operand<'a>>),
     /// `<obj> -> <method>(<args>)`
     CallBuiltinMethod(Operand<'a>, BuiltinMethodKind, Vec<Operand<'a>>),
+    /// `<obj> -> <method>(<args>)`
+    CallMethod(Operand<'a>, Method<'a>, Vec<Operand<'a>>),
     /// `<obj> -> <read_property>()`
     ReadProperty(Operand<'a>, Property<'a>),
     /// `{<0>, <1>, ...}`
