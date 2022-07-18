@@ -329,6 +329,7 @@ where
                 }
             }
         }
+        Expression::AssignmentExpression(_) => todo!(),
         Expression::UnaryExpression(x) => {
             let argument = walk(ctx, x.argument, source, visitor, diagnostics)?;
             // TODO: confine type error?

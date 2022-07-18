@@ -15,6 +15,7 @@ pub enum Expression<'tree> {
     Array(Vec<Node<'tree>>),
     MemberExpression(MemberExpression<'tree>),
     CallExpression(CallExpression<'tree>),
+    AssignmentExpression(AssignmentExpression<'tree>),
     UnaryExpression(UnaryExpression<'tree>),
     BinaryExpression(BinaryExpression<'tree>),
     TernaryExpression(TernaryExpression<'tree>),
@@ -92,6 +93,11 @@ impl<'tree> Expression<'tree> {
                     arguments,
                 })
             }
+            "assignment_expression" => {
+                let left = astutil::get_child_by_field_name(node, "left")?;
+                let right = astutil::get_child_by_field_name(node, "right")?;
+                Expression::AssignmentExpression(AssignmentExpression { left, right })
+            }
             "unary_expression" => {
                 let operator =
                     UnaryOperator::from_node(astutil::get_child_by_field_name(node, "operator")?)?;
@@ -140,6 +146,13 @@ pub struct MemberExpression<'tree> {
 pub struct CallExpression<'tree> {
     pub function: Node<'tree>,
     pub arguments: Vec<Node<'tree>>,
+}
+
+/// Represents an assignment expression.
+#[derive(Clone, Debug)]
+pub struct AssignmentExpression<'tree> {
+    pub left: Node<'tree>,
+    pub right: Node<'tree>,
 }
 
 /// Represents a unary expression.
@@ -503,6 +516,27 @@ mod tests {
                     "foo"
                 );
                 assert_eq!(x.arguments.len(), 2);
+            }
+            expr => panic!("unexpected expression: {expr:?}"),
+        }
+    }
+
+    #[test]
+    fn assignment_expression() {
+        let doc = parse(
+            r###"
+            Foo {
+                assign: foo = 1
+            }
+            "###,
+        );
+        match unwrap_expr(&doc, "assign") {
+            Expression::AssignmentExpression(x) => {
+                assert_eq!(
+                    Identifier::from_node(x.left).unwrap().to_str(doc.source()),
+                    "foo"
+                );
+                assert_ne!(x.left, x.right);
             }
             expr => panic!("unexpected expression: {expr:?}"),
         }
