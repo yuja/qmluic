@@ -1,5 +1,5 @@
 use super::expr;
-use super::objcode::{ObjectCodeMap, PropertyCode, PropertyCodeKind};
+use super::objcode::{CallbackCode, ObjectCodeMap, PropertyCode, PropertyCodeKind};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::{ObjectNode, ObjectTree};
 use crate::qtname::{self, FileNameRules, UniqueNameGenerator};
@@ -17,6 +17,7 @@ pub struct UiSupportCode {
     ui_class: String,
     quote_includes: Vec<String>,
     bindings: Vec<CxxBinding>,
+    callbacks: Vec<CxxCallback>,
 }
 
 impl UiSupportCode {
@@ -35,7 +36,13 @@ impl UiSupportCode {
             type_name,
             CxxCodeReturnKind::Value,
         );
+        let callback_code_translator = CxxCodeBodyTranslator::new(
+            object_tree.root().name(),
+            type_name,
+            CxxCodeReturnKind::Void,
+        );
         let mut bindings = Vec::new();
+        let mut callbacks = Vec::new();
         for (obj_node, code_map) in object_tree.flat_iter().zip(object_code_maps) {
             // TODO: exclude pseudo node like QActionSeparator
             let dyn_props = code_map
@@ -69,6 +76,13 @@ impl UiSupportCode {
                     }
                 },
             ));
+
+            callbacks.extend(code_map.callbacks().iter().map(|callback_code| {
+                let prefix = qtname::to_ascii_capitalized(obj_node.name())
+                    + &qtname::to_ascii_capitalized(callback_code.desc().name());
+                let name = name_gen.generate(&prefix);
+                CxxCallback::build(&callback_code_translator, name, obj_node, callback_code)
+            }));
         }
 
         UiSupportCode {
@@ -77,6 +91,7 @@ impl UiSupportCode {
             ui_class: format!("Ui::{}", type_name),
             quote_includes,
             bindings,
+            callbacks,
         }
     }
 
@@ -98,6 +113,7 @@ impl UiSupportCode {
         writeln!(writer, "private:")?;
         self.write_binding_index(writer, "    ")?;
         self.write_binding_functions(writer, "    ")?;
+        self.write_callback_functions(writer, "    ")?;
         self.write_fields(writer, "    ")?;
         writeln!(writer, "}};")?;
 
@@ -118,6 +134,9 @@ impl UiSupportCode {
         writeln!(writer, "{indent}{{")?;
         for b in &self.bindings {
             writeln!(writer, "{indent}    this->{}();", b.setup_function_name())?;
+        }
+        for c in &self.callbacks {
+            writeln!(writer, "{indent}    this->{}();", c.setup_function_name())?;
         }
         for b in &self.bindings {
             writeln!(writer, "{indent}    this->{}();", b.update_function_name())?;
@@ -144,6 +163,18 @@ impl UiSupportCode {
             b.write_setup_function(writer, indent)?;
             b.write_update_function(writer, indent)?;
             b.write_eval_function(writer, indent)?;
+        }
+        Ok(())
+    }
+
+    fn write_callback_functions<W: io::Write>(
+        &self,
+        writer: &mut W,
+        indent: &str,
+    ) -> io::Result<()> {
+        for c in &self.callbacks {
+            c.write_setup_function(writer, indent)?;
+            c.write_callback_function(writer, indent)?;
         }
         Ok(())
     }
@@ -282,6 +313,76 @@ impl CxxBinding {
         )?;
         writeln!(writer, "{indent}{{")?;
         writer.write_all(&self.eval_function_body)?;
+        writeln!(writer, "{indent}}}")?;
+        writeln!(writer)
+    }
+}
+
+/// C++ function and statements for callback connection.
+#[derive(Clone, Debug)]
+struct CxxCallback {
+    name: String,
+    sender: String,
+    signal: String,
+    callback_function_body: Vec<u8>,
+}
+
+impl CxxCallback {
+    fn build(
+        code_translator: &CxxCodeBodyTranslator,
+        name: String,
+        obj_node: ObjectNode,
+        callback_code: &CallbackCode,
+    ) -> Self {
+        let sender = code_translator
+            .format_named_object_ref(&tir::NamedObjectRef(obj_node.name().to_owned()));
+        let signal = format!(
+            "{}::{}",
+            callback_code.desc().object_class().qualified_cxx_name(),
+            callback_code.desc().name()
+        );
+        let mut callback_function_body = Vec::new();
+        code_translator
+            .translate(&mut callback_function_body, callback_code.code())
+            .expect("write to bytes shouldn't fail");
+        CxxCallback {
+            name,
+            sender,
+            signal,
+            callback_function_body,
+        }
+    }
+
+    fn setup_function_name(&self) -> String {
+        format!("setup{}", self.name)
+    }
+
+    fn callback_function_name(&self) -> String {
+        format!("on{}", self.name)
+    }
+
+    fn write_setup_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+        writeln!(writer, "{indent}void {}()", self.setup_function_name())?;
+        writeln!(writer, "{indent}{{")?;
+        writeln!(
+            writer,
+            "{indent}    QObject::connect({}, &{}, root_, [this]() {{ this->{}(); }});",
+            self.sender,
+            self.signal,
+            self.callback_function_name()
+        )?;
+        writeln!(writer, "{indent}}}")?;
+        writeln!(writer)
+    }
+
+    fn write_callback_function<W: io::Write>(
+        &self,
+        writer: &mut W,
+        indent: &str,
+    ) -> io::Result<()> {
+        writeln!(writer, "{indent}void {}()", self.callback_function_name())?;
+        writeln!(writer, "{indent}{{")?;
+        writer.write_all(&self.callback_function_body)?;
         writeln!(writer, "{indent}}}")?;
         writeln!(writer)
     }
