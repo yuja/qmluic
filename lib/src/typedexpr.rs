@@ -193,6 +193,7 @@ pub trait ExpressionVisitor<'a> {
 #[derive(Debug)]
 enum Intermediate<'a, T> {
     Item(T),
+    BoundProperty(T, Property<'a>),
     BoundMethod(T, MethodMatches<'a>),
     BoundBuiltinMethod(T, BuiltinMethodKind),
     BuiltinFunction(BuiltinFunctionKind),
@@ -215,6 +216,10 @@ where
 {
     match walk_inner(ctx, node, source, visitor, diagnostics)? {
         Intermediate::Item(x) => Some(x),
+        Intermediate::BoundProperty(it, p) => diagnostics.consume_node_err(
+            node,
+            visitor.visit_object_property(it, p, node.byte_range()),
+        ),
         Intermediate::BoundMethod(..)
         | Intermediate::BoundBuiltinMethod(..)
         | Intermediate::BuiltinFunction(_) => {
@@ -268,7 +273,14 @@ where
         Expression::MemberExpression(x) => {
             match walk_inner(ctx, x.object, source, visitor, diagnostics)? {
                 Intermediate::Item(it) => {
-                    process_item_property(it, x.property, source, visitor, diagnostics)
+                    process_item_property(it, x.property, source, diagnostics)
+                }
+                Intermediate::BoundProperty(it, p) => {
+                    let obj = diagnostics.consume_node_err(
+                        x.object,
+                        visitor.visit_object_property(it, p, x.object.byte_range()),
+                    )?;
+                    process_item_property(obj, x.property, source, diagnostics)
                 }
                 Intermediate::BoundMethod(..)
                 | Intermediate::BoundBuiltinMethod(..)
@@ -323,7 +335,7 @@ where
                         )
                         .map(Intermediate::Item)
                 }
-                Intermediate::Item(_) | Intermediate::Type(_) => {
+                Intermediate::Item(_) | Intermediate::BoundProperty(..) | Intermediate::Type(_) => {
                     diagnostics.push(Diagnostic::error(x.function.byte_range(), "not callable"));
                     None
                 }
@@ -417,15 +429,14 @@ where
     }
 }
 
-fn process_item_property<'a, V>(
-    item: V::Item,
+fn process_item_property<'a, T>(
+    item: T,
     id: Identifier,
     source: &str,
-    visitor: &mut V,
     diagnostics: &mut Diagnostics,
-) -> Option<Intermediate<'a, V::Item>>
+) -> Option<Intermediate<'a, T>>
 where
-    V: ExpressionVisitor<'a>,
+    T: DescribeType<'a>,
 {
     let not_found = || Diagnostic::error(id.node().byte_range(), "no property/method found");
     let name = id.to_str(source);
@@ -458,12 +469,7 @@ where
         TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(cls))) => {
             if let Some(r) = cls.get_property(name) {
                 match r {
-                    Ok(p) => diagnostics
-                        .consume_node_err(
-                            id.node(),
-                            visitor.visit_object_property(item, p, id.node().byte_range()),
-                        )
-                        .map(Intermediate::Item),
+                    Ok(p) => Some(Intermediate::BoundProperty(item, p)),
                     Err(e) => {
                         diagnostics.push(Diagnostic::error(
                             id.node().byte_range(),
