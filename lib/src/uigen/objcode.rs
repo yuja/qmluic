@@ -391,9 +391,11 @@ impl<'a, 't> CallbackCode<'a, 't> {
         &self.desc
     }
 
+    /*
     pub fn node(&self) -> Node<'t> {
         self.node
     }
+    */
 
     pub fn binding_node(&self) -> Node<'t> {
         // see UiBindingValue::binding_node()
