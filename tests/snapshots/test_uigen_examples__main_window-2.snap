@@ -14,15 +14,16 @@ public:
     void setup()
     {
         this->setupFormStackCurrentIndex();
-        this->setupMainWindowWindowTitle();
+        this->setupRootWindowTitle();
+        this->setupAction_QuitTriggered();
         this->updateFormStackCurrentIndex();
-        this->updateMainWindowWindowTitle();
+        this->updateRootWindowTitle();
     }
 
 private:
     enum class BindingIndex : unsigned {
         FormStackCurrentIndex,
-        MainWindowWindowTitle,
+        RootWindowTitle,
     };
 
     void setupFormStackCurrentIndex()
@@ -51,26 +52,26 @@ private:
         return a0;
     }
 
-    void setupMainWindowWindowTitle()
+    void setupRootWindowTitle()
     {
-        QObject::connect(this->ui_->fileNameEdit, &QComboBox::currentIndexChanged, this->root_, [this]() { this->updateMainWindowWindowTitle(); });
-        QObject::connect(this->ui_->fileNameEdit, &QComboBox::currentTextChanged, this->root_, [this]() { this->updateMainWindowWindowTitle(); });
+        QObject::connect(this->ui_->fileNameEdit, &QComboBox::currentIndexChanged, this->root_, [this]() { this->updateRootWindowTitle(); });
+        QObject::connect(this->ui_->fileNameEdit, &QComboBox::currentTextChanged, this->root_, [this]() { this->updateRootWindowTitle(); });
     }
 
-    void updateMainWindowWindowTitle()
+    void updateRootWindowTitle()
     {
 #ifndef QT_NO_DEBUG
-        constexpr unsigned index = static_cast<unsigned>(BindingIndex::MainWindowWindowTitle);
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::RootWindowTitle);
         Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
         this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
 #endif
-        this->root_->setWindowTitle(this->evalMainWindowWindowTitle());
+        this->root_->setWindowTitle(this->evalRootWindowTitle());
 #ifndef QT_NO_DEBUG
         this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
 #endif
     }
 
-    QString evalMainWindowWindowTitle() const
+    QString evalRootWindowTitle() const
     {
         int a0;
         bool a1;
@@ -98,6 +99,20 @@ private:
         a5 = QCoreApplication::translate("MainWindow", "Qmluic Example: %1");
         a6 = a5.arg(a4);
         return a6;
+    }
+
+    void setupAction_QuitTriggered()
+    {
+        QObject::connect(this->ui_->action_Quit, &QAction::triggered, this->root_, [this]() { this->onAction_QuitTriggered(); });
+    }
+
+    void onAction_QuitTriggered()
+    {
+        bool a0;
+    b0:
+        a0 = this->root_->close();
+        static_cast<void>(a0);
+        return;
     }
 
     QMainWindow *const root_;

@@ -4,7 +4,7 @@ expression: ui_xml
 ---
 <ui version="4.0">
  <class>MainWindow</class>
- <widget class="QMainWindow" name="mainWindow">
+ <widget class="QMainWindow" name="root">
   <property name="geometry">
    <rect>
     <height>600</height>
