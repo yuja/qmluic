@@ -16,7 +16,7 @@ pub struct UiSupportCode {
     root_class: String,
     ui_class: String,
     quote_includes: Vec<String>,
-    bindings: Vec<BindingCode>,
+    bindings: Vec<CxxBinding>,
 }
 
 impl UiSupportCode {
@@ -46,7 +46,7 @@ impl UiSupportCode {
                         let prefix = qtname::to_ascii_capitalized(obj_node.name())
                             + &qtname::to_ascii_capitalized(property_code.desc().name());
                         let name = name_gen.generate(&prefix);
-                        BindingCode::build(
+                        CxxBinding::build(
                             &code_translator,
                             name,
                             obj_node,
@@ -163,7 +163,7 @@ impl UiSupportCode {
 
 /// C++ function and statements for dynamic property binding.
 #[derive(Clone, Debug)]
-struct BindingCode {
+struct CxxBinding {
     function_name_suffix: String,
     value_type: String,
     sender_signals: Vec<(String, String)>,
@@ -171,7 +171,7 @@ struct BindingCode {
     eval_function_body: Vec<u8>,
 }
 
-impl BindingCode {
+impl CxxBinding {
     fn build(
         code_translator: &CxxCodeBodyTranslator,
         function_name_suffix: String,
@@ -200,7 +200,7 @@ impl BindingCode {
         code_translator
             .translate(&mut eval_function_body, code)
             .expect("write to bytes shouldn't fail");
-        Some(BindingCode {
+        Some(CxxBinding {
             function_name_suffix,
             value_type: value_ty.qualified_cxx_name().into(),
             sender_signals,
