@@ -3,7 +3,8 @@
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::{BinaryOperator, Expression, Identifier, Node, UnaryOperator};
 use crate::typemap::{
-    Class, Enum, NamedType, PrimitiveType, Property, TypeKind, TypeMapError, TypeSpace,
+    Class, Enum, MethodMatches, NamedType, PrimitiveType, Property, TypeKind, TypeMapError,
+    TypeSpace,
 };
 use std::borrow::Cow;
 use std::fmt::Debug;
@@ -144,6 +145,13 @@ pub trait ExpressionVisitor<'a> {
         property: Property<'a>,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error>;
+    fn visit_object_method_call(
+        &mut self,
+        object: Self::Item,
+        methods: MethodMatches<'a>,
+        arguments: Vec<Self::Item>,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error>;
     fn visit_object_builtin_method_call(
         &mut self,
         object: Self::Item,
@@ -185,6 +193,7 @@ pub trait ExpressionVisitor<'a> {
 #[derive(Debug)]
 enum Intermediate<'a, T> {
     Item(T),
+    BoundMethod(T, MethodMatches<'a>),
     BoundBuiltinMethod(T, BuiltinMethodKind),
     BuiltinFunction(BuiltinFunctionKind),
     Type(NamedType<'a>),
@@ -206,7 +215,9 @@ where
 {
     match walk_inner(ctx, node, source, visitor, diagnostics)? {
         Intermediate::Item(x) => Some(x),
-        Intermediate::BoundBuiltinMethod(..) | Intermediate::BuiltinFunction(_) => {
+        Intermediate::BoundMethod(..)
+        | Intermediate::BoundBuiltinMethod(..)
+        | Intermediate::BuiltinFunction(_) => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
                 "bare function reference",
@@ -259,7 +270,9 @@ where
                 Intermediate::Item(it) => {
                     process_item_property(it, x.property, source, visitor, diagnostics)
                 }
-                Intermediate::BoundBuiltinMethod(..) | Intermediate::BuiltinFunction(_) => {
+                Intermediate::BoundMethod(..)
+                | Intermediate::BoundBuiltinMethod(..)
+                | Intermediate::BuiltinFunction(_) => {
                     diagnostics.push(Diagnostic::error(
                         node.byte_range(),
                         "function has no property/method",
@@ -278,6 +291,15 @@ where
                 .map(|&n| walk(ctx, n, source, visitor, diagnostics))
                 .collect::<Option<Vec<_>>>()?;
             match walk_inner(ctx, x.function, source, visitor, diagnostics)? {
+                Intermediate::BoundMethod(it, ms) => {
+                    // TODO: look up overloaded methods and confine type error here?
+                    diagnostics
+                        .consume_node_err(
+                            node,
+                            visitor.visit_object_method_call(it, ms, arguments, node.byte_range()),
+                        )
+                        .map(Intermediate::Item)
+                }
                 Intermediate::BoundBuiltinMethod(it, f) => {
                     // TODO: confine type error?
                     diagnostics
@@ -433,24 +455,36 @@ where
         }
         // object types
         TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(cls))) => {
-            match cls.get_property(name) {
-                Some(Ok(p)) => diagnostics
-                    .consume_node_err(
-                        id.node(),
-                        visitor.visit_object_property(item, p, id.node().byte_range()),
-                    )
-                    .map(Intermediate::Item),
-                Some(Err(e)) => {
-                    diagnostics.push(Diagnostic::error(
-                        id.node().byte_range(),
-                        format!("property resolution failed: {e}"),
-                    ));
-                    None
+            if let Some(r) = cls.get_property(name) {
+                match r {
+                    Ok(p) => diagnostics
+                        .consume_node_err(
+                            id.node(),
+                            visitor.visit_object_property(item, p, id.node().byte_range()),
+                        )
+                        .map(Intermediate::Item),
+                    Err(e) => {
+                        diagnostics.push(Diagnostic::error(
+                            id.node().byte_range(),
+                            format!("property resolution failed: {e}"),
+                        ));
+                        None
+                    }
                 }
-                None => {
-                    diagnostics.push(not_found());
-                    None
+            } else if let Some(r) = cls.get_public_method(name) {
+                match r {
+                    Ok(m) => Some(Intermediate::BoundMethod(item, m)),
+                    Err(e) => {
+                        diagnostics.push(Diagnostic::error(
+                            id.node().byte_range(),
+                            format!("method resolution failed: {e}"),
+                        ));
+                        None
+                    }
                 }
+            } else {
+                diagnostics.push(not_found());
+                None
             }
         }
         // list types
