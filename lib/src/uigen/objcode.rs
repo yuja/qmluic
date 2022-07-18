@@ -109,19 +109,19 @@ fn build_properties_callbacks<'a, 't, 's>(
                 }
             }
         } else if let Some(r) = cb_name.as_ref().and_then(|n| cls.get_public_method(n)) {
-            match r {
-                Ok(MethodMatches::Unique(desc)) if desc.kind() == MethodKind::Signal => {
+            match r.map(uniquify_methods) {
+                Ok(Some(desc)) if desc.kind() == MethodKind::Signal => {
                     if let Some(c) = CallbackCode::build(ctx, desc, value, diagnostics) {
                         callbacks.push(c);
                     }
                 }
-                Ok(MethodMatches::Unique(_)) => {
+                Ok(Some(_)) => {
                     diagnostics.push(Diagnostic::error(
                         value.binding_node().byte_range(),
                         "not a signal",
                     ));
                 }
-                Ok(MethodMatches::Overloaded(_)) => {
+                Ok(None) => {
                     diagnostics.push(Diagnostic::error(
                         value.binding_node().byte_range(),
                         "cannot bind to overloaded signal",
@@ -212,6 +212,35 @@ fn resolve_attached_class<'a>(
         }
     };
     Some((cls, acls))
+}
+
+fn uniquify_methods(methods: MethodMatches) -> Option<Method> {
+    match methods {
+        MethodMatches::Unique(m) => Some(m),
+        MethodMatches::Overloaded(mut meths) => {
+            // If a function has default parameters, more than one metatype entries are
+            // generated: e.g. clicked(bool = false) -> [clicked(), clicked(bool)].
+            // There's no way to discriminate them from true overloaded functions, and
+            // default parameters are common in button/action signals. Therefore, we assume
+            // that two functions are identical if their leading arguments are the same.
+            meths.sort_by_key(|m| -(m.arguments_len() as isize));
+            let mut known = meths.pop().expect("method matches should not be empty");
+            while let Some(m) = meths.pop() {
+                if known.kind() == m.kind()
+                    && matches!((known.return_type(), m.return_type()), (Ok(a), Ok(b)) if a == b)
+                    && known
+                        .argument_types()
+                        .zip(m.argument_types())
+                        .all(|x| matches!(x, (Ok(a), Ok(b)) if a == b))
+                {
+                    known = m;
+                } else {
+                    return None;
+                }
+            }
+            Some(known)
+        }
+    }
 }
 
 /// Property binding code or map with its description.

@@ -80,6 +80,22 @@ fn test_non_root_connection() {
 }
 
 #[test]
+fn test_default_argument_deduction() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QDialog {
+            id: root
+            // clicked(bool checked = false)
+            QPushButton { onClicked: root.close() }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
 fn test_method_call_bad_arg_count() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
