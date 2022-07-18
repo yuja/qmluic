@@ -30,7 +30,11 @@ impl UiSupportCode {
         let quote_includes = vec![file_name_rules.type_name_to_ui_cxx_header_name(type_name)];
 
         let mut name_gen = UniqueNameGenerator::new();
-        let code_translator = CxxCodeBodyTranslator::new(object_tree.root().name(), type_name);
+        let binding_code_translator = CxxCodeBodyTranslator::new(
+            object_tree.root().name(),
+            type_name,
+            CxxCodeReturnKind::Value,
+        );
         let mut bindings = Vec::new();
         for (obj_node, code_map) in object_tree.flat_iter().zip(object_code_maps) {
             // TODO: exclude pseudo node like QActionSeparator
@@ -47,7 +51,7 @@ impl UiSupportCode {
                             + &qtname::to_ascii_capitalized(property_code.desc().name());
                         let name = name_gen.generate(&prefix);
                         CxxBinding::build(
-                            &code_translator,
+                            &binding_code_translator,
                             name,
                             obj_node,
                             property_code,
@@ -287,15 +291,27 @@ impl CxxBinding {
 struct CxxCodeBodyTranslator {
     root_object_name: tir::NamedObjectRef,
     tr_context: String,
+    return_kind: CxxCodeReturnKind,
     label_indent: String,
     body_indent: String,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum CxxCodeReturnKind {
+    Value,
+    Void,
+}
+
 impl CxxCodeBodyTranslator {
-    fn new(root_object_name: impl Into<String>, tr_context: impl Into<String>) -> Self {
+    fn new(
+        root_object_name: impl Into<String>,
+        tr_context: impl Into<String>,
+        return_kind: CxxCodeReturnKind,
+    ) -> Self {
         CxxCodeBodyTranslator {
             root_object_name: tir::NamedObjectRef(root_object_name.into()),
             tr_context: tr_context.into(),
+            return_kind,
             label_indent: " ".repeat(4),
             body_indent: " ".repeat(8),
         }
@@ -405,9 +421,20 @@ impl CxxCodeBodyTranslator {
                     self.format_basic_block_ref(*z)
                 )?;
             }
-            Terminator::Return(x) => {
-                writeln!(w, "{}return {};", self.body_indent, self.format_operand(x))?
-            }
+            Terminator::Return(x) => match self.return_kind {
+                CxxCodeReturnKind::Value => {
+                    writeln!(w, "{}return {};", self.body_indent, self.format_operand(x))?;
+                }
+                CxxCodeReturnKind::Void => {
+                    writeln!(
+                        w,
+                        "{}static_cast<void>({});",
+                        self.body_indent,
+                        self.format_operand(x)
+                    )?;
+                    writeln!(w, "{}return;", self.body_indent)?;
+                }
+            },
         }
         Ok(())
     }
