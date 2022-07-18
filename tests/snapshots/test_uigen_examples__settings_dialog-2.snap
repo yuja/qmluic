@@ -13,11 +13,37 @@ public:
 
     void setup()
     {
+        this->setupButtonBoxAccepted();
+        this->setupButtonBoxRejected();
     }
 
 private:
     enum class BindingIndex : unsigned {
     };
+
+    void setupButtonBoxAccepted()
+    {
+        QObject::connect(this->ui_->buttonBox, &QDialogButtonBox::accepted, root_, [this]() { this->onButtonBoxAccepted(); });
+    }
+
+    void onButtonBoxAccepted()
+    {
+    b0:
+        this->root_->accept();
+        return;
+    }
+
+    void setupButtonBoxRejected()
+    {
+        QObject::connect(this->ui_->buttonBox, &QDialogButtonBox::rejected, root_, [this]() { this->onButtonBoxRejected(); });
+    }
+
+    void onButtonBoxRejected()
+    {
+    b0:
+        this->root_->reject();
+        return;
+    }
 
     QDialog *const root_;
     Ui::SettingsDialog *const ui_;
