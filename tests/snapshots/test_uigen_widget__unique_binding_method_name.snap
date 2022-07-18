@@ -27,7 +27,7 @@ private:
 
     void setupMainWindowTitle()
     {
-        QObject::connect(this->ui_->edit2, &QLineEdit::textChanged, root_, [this]() { this->updateMainWindowTitle(); });
+        QObject::connect(this->ui_->edit2, &QLineEdit::textChanged, this->root_, [this]() { this->updateMainWindowTitle(); });
     }
 
     void updateMainWindowTitle()
@@ -53,7 +53,7 @@ private:
 
     void setupMainWindowTitle1()
     {
-        QObject::connect(this->ui_->edit1, &QLineEdit::textChanged, root_, [this]() { this->updateMainWindowTitle1(); });
+        QObject::connect(this->ui_->edit1, &QLineEdit::textChanged, this->root_, [this]() { this->updateMainWindowTitle1(); });
     }
 
     void updateMainWindowTitle1()

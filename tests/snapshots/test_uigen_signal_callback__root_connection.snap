@@ -22,7 +22,7 @@ private:
 
     void setupDialogAccepted()
     {
-        QObject::connect(this->root_, &QDialog::accepted, root_, [this]() { this->onDialogAccepted(); });
+        QObject::connect(this->root_, &QDialog::accepted, this->root_, [this]() { this->onDialogAccepted(); });
     }
 
     void onDialogAccepted()

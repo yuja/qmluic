@@ -120,7 +120,7 @@ private:
 
     void setupCheck0Checked()
     {
-        QObject::connect(this->ui_->check32, &QAbstractButton::toggled, root_, [this]() { this->updateCheck0Checked(); });
+        QObject::connect(this->ui_->check32, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck0Checked(); });
     }
 
     void updateCheck0Checked()
@@ -146,7 +146,7 @@ private:
 
     void setupCheck1Checked()
     {
-        QObject::connect(this->ui_->check0, &QAbstractButton::toggled, root_, [this]() { this->updateCheck1Checked(); });
+        QObject::connect(this->ui_->check0, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck1Checked(); });
     }
 
     void updateCheck1Checked()
@@ -172,7 +172,7 @@ private:
 
     void setupCheck2Checked()
     {
-        QObject::connect(this->ui_->check1, &QAbstractButton::toggled, root_, [this]() { this->updateCheck2Checked(); });
+        QObject::connect(this->ui_->check1, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck2Checked(); });
     }
 
     void updateCheck2Checked()
@@ -198,7 +198,7 @@ private:
 
     void setupCheck3Checked()
     {
-        QObject::connect(this->ui_->check2, &QAbstractButton::toggled, root_, [this]() { this->updateCheck3Checked(); });
+        QObject::connect(this->ui_->check2, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck3Checked(); });
     }
 
     void updateCheck3Checked()
@@ -224,7 +224,7 @@ private:
 
     void setupCheck4Checked()
     {
-        QObject::connect(this->ui_->check3, &QAbstractButton::toggled, root_, [this]() { this->updateCheck4Checked(); });
+        QObject::connect(this->ui_->check3, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck4Checked(); });
     }
 
     void updateCheck4Checked()
@@ -250,7 +250,7 @@ private:
 
     void setupCheck5Checked()
     {
-        QObject::connect(this->ui_->check4, &QAbstractButton::toggled, root_, [this]() { this->updateCheck5Checked(); });
+        QObject::connect(this->ui_->check4, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck5Checked(); });
     }
 
     void updateCheck5Checked()
@@ -276,7 +276,7 @@ private:
 
     void setupCheck6Checked()
     {
-        QObject::connect(this->ui_->check5, &QAbstractButton::toggled, root_, [this]() { this->updateCheck6Checked(); });
+        QObject::connect(this->ui_->check5, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck6Checked(); });
     }
 
     void updateCheck6Checked()
@@ -302,7 +302,7 @@ private:
 
     void setupCheck7Checked()
     {
-        QObject::connect(this->ui_->check6, &QAbstractButton::toggled, root_, [this]() { this->updateCheck7Checked(); });
+        QObject::connect(this->ui_->check6, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck7Checked(); });
     }
 
     void updateCheck7Checked()
@@ -328,7 +328,7 @@ private:
 
     void setupCheck8Checked()
     {
-        QObject::connect(this->ui_->check7, &QAbstractButton::toggled, root_, [this]() { this->updateCheck8Checked(); });
+        QObject::connect(this->ui_->check7, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck8Checked(); });
     }
 
     void updateCheck8Checked()
@@ -354,7 +354,7 @@ private:
 
     void setupCheck9Checked()
     {
-        QObject::connect(this->ui_->check8, &QAbstractButton::toggled, root_, [this]() { this->updateCheck9Checked(); });
+        QObject::connect(this->ui_->check8, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck9Checked(); });
     }
 
     void updateCheck9Checked()
@@ -380,7 +380,7 @@ private:
 
     void setupCheck10Checked()
     {
-        QObject::connect(this->ui_->check9, &QAbstractButton::toggled, root_, [this]() { this->updateCheck10Checked(); });
+        QObject::connect(this->ui_->check9, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck10Checked(); });
     }
 
     void updateCheck10Checked()
@@ -406,7 +406,7 @@ private:
 
     void setupCheck11Checked()
     {
-        QObject::connect(this->ui_->check10, &QAbstractButton::toggled, root_, [this]() { this->updateCheck11Checked(); });
+        QObject::connect(this->ui_->check10, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck11Checked(); });
     }
 
     void updateCheck11Checked()
@@ -432,7 +432,7 @@ private:
 
     void setupCheck12Checked()
     {
-        QObject::connect(this->ui_->check11, &QAbstractButton::toggled, root_, [this]() { this->updateCheck12Checked(); });
+        QObject::connect(this->ui_->check11, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck12Checked(); });
     }
 
     void updateCheck12Checked()
@@ -458,7 +458,7 @@ private:
 
     void setupCheck13Checked()
     {
-        QObject::connect(this->ui_->check12, &QAbstractButton::toggled, root_, [this]() { this->updateCheck13Checked(); });
+        QObject::connect(this->ui_->check12, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck13Checked(); });
     }
 
     void updateCheck13Checked()
@@ -484,7 +484,7 @@ private:
 
     void setupCheck14Checked()
     {
-        QObject::connect(this->ui_->check13, &QAbstractButton::toggled, root_, [this]() { this->updateCheck14Checked(); });
+        QObject::connect(this->ui_->check13, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck14Checked(); });
     }
 
     void updateCheck14Checked()
@@ -510,7 +510,7 @@ private:
 
     void setupCheck15Checked()
     {
-        QObject::connect(this->ui_->check14, &QAbstractButton::toggled, root_, [this]() { this->updateCheck15Checked(); });
+        QObject::connect(this->ui_->check14, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck15Checked(); });
     }
 
     void updateCheck15Checked()
@@ -536,7 +536,7 @@ private:
 
     void setupCheck16Checked()
     {
-        QObject::connect(this->ui_->check15, &QAbstractButton::toggled, root_, [this]() { this->updateCheck16Checked(); });
+        QObject::connect(this->ui_->check15, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck16Checked(); });
     }
 
     void updateCheck16Checked()
@@ -562,7 +562,7 @@ private:
 
     void setupCheck17Checked()
     {
-        QObject::connect(this->ui_->check16, &QAbstractButton::toggled, root_, [this]() { this->updateCheck17Checked(); });
+        QObject::connect(this->ui_->check16, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck17Checked(); });
     }
 
     void updateCheck17Checked()
@@ -588,7 +588,7 @@ private:
 
     void setupCheck18Checked()
     {
-        QObject::connect(this->ui_->check17, &QAbstractButton::toggled, root_, [this]() { this->updateCheck18Checked(); });
+        QObject::connect(this->ui_->check17, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck18Checked(); });
     }
 
     void updateCheck18Checked()
@@ -614,7 +614,7 @@ private:
 
     void setupCheck19Checked()
     {
-        QObject::connect(this->ui_->check18, &QAbstractButton::toggled, root_, [this]() { this->updateCheck19Checked(); });
+        QObject::connect(this->ui_->check18, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck19Checked(); });
     }
 
     void updateCheck19Checked()
@@ -640,7 +640,7 @@ private:
 
     void setupCheck20Checked()
     {
-        QObject::connect(this->ui_->check19, &QAbstractButton::toggled, root_, [this]() { this->updateCheck20Checked(); });
+        QObject::connect(this->ui_->check19, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck20Checked(); });
     }
 
     void updateCheck20Checked()
@@ -666,7 +666,7 @@ private:
 
     void setupCheck21Checked()
     {
-        QObject::connect(this->ui_->check20, &QAbstractButton::toggled, root_, [this]() { this->updateCheck21Checked(); });
+        QObject::connect(this->ui_->check20, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck21Checked(); });
     }
 
     void updateCheck21Checked()
@@ -692,7 +692,7 @@ private:
 
     void setupCheck22Checked()
     {
-        QObject::connect(this->ui_->check21, &QAbstractButton::toggled, root_, [this]() { this->updateCheck22Checked(); });
+        QObject::connect(this->ui_->check21, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck22Checked(); });
     }
 
     void updateCheck22Checked()
@@ -718,7 +718,7 @@ private:
 
     void setupCheck23Checked()
     {
-        QObject::connect(this->ui_->check22, &QAbstractButton::toggled, root_, [this]() { this->updateCheck23Checked(); });
+        QObject::connect(this->ui_->check22, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck23Checked(); });
     }
 
     void updateCheck23Checked()
@@ -744,7 +744,7 @@ private:
 
     void setupCheck24Checked()
     {
-        QObject::connect(this->ui_->check23, &QAbstractButton::toggled, root_, [this]() { this->updateCheck24Checked(); });
+        QObject::connect(this->ui_->check23, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck24Checked(); });
     }
 
     void updateCheck24Checked()
@@ -770,7 +770,7 @@ private:
 
     void setupCheck25Checked()
     {
-        QObject::connect(this->ui_->check24, &QAbstractButton::toggled, root_, [this]() { this->updateCheck25Checked(); });
+        QObject::connect(this->ui_->check24, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck25Checked(); });
     }
 
     void updateCheck25Checked()
@@ -796,7 +796,7 @@ private:
 
     void setupCheck26Checked()
     {
-        QObject::connect(this->ui_->check25, &QAbstractButton::toggled, root_, [this]() { this->updateCheck26Checked(); });
+        QObject::connect(this->ui_->check25, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck26Checked(); });
     }
 
     void updateCheck26Checked()
@@ -822,7 +822,7 @@ private:
 
     void setupCheck27Checked()
     {
-        QObject::connect(this->ui_->check26, &QAbstractButton::toggled, root_, [this]() { this->updateCheck27Checked(); });
+        QObject::connect(this->ui_->check26, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck27Checked(); });
     }
 
     void updateCheck27Checked()
@@ -848,7 +848,7 @@ private:
 
     void setupCheck28Checked()
     {
-        QObject::connect(this->ui_->check27, &QAbstractButton::toggled, root_, [this]() { this->updateCheck28Checked(); });
+        QObject::connect(this->ui_->check27, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck28Checked(); });
     }
 
     void updateCheck28Checked()
@@ -874,7 +874,7 @@ private:
 
     void setupCheck29Checked()
     {
-        QObject::connect(this->ui_->check28, &QAbstractButton::toggled, root_, [this]() { this->updateCheck29Checked(); });
+        QObject::connect(this->ui_->check28, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck29Checked(); });
     }
 
     void updateCheck29Checked()
@@ -900,7 +900,7 @@ private:
 
     void setupCheck30Checked()
     {
-        QObject::connect(this->ui_->check29, &QAbstractButton::toggled, root_, [this]() { this->updateCheck30Checked(); });
+        QObject::connect(this->ui_->check29, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck30Checked(); });
     }
 
     void updateCheck30Checked()
@@ -926,7 +926,7 @@ private:
 
     void setupCheck31Checked()
     {
-        QObject::connect(this->ui_->check30, &QAbstractButton::toggled, root_, [this]() { this->updateCheck31Checked(); });
+        QObject::connect(this->ui_->check30, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck31Checked(); });
     }
 
     void updateCheck31Checked()
@@ -952,8 +952,8 @@ private:
 
     void setupCheck32Checked()
     {
-        QObject::connect(this->ui_->check31, &QAbstractButton::toggled, root_, [this]() { this->updateCheck32Checked(); });
-        QObject::connect(this->ui_->trig, &QAbstractButton::toggled, root_, [this]() { this->updateCheck32Checked(); });
+        QObject::connect(this->ui_->check31, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck32Checked(); });
+        QObject::connect(this->ui_->trig, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheck32Checked(); });
     }
 
     void updateCheck32Checked()

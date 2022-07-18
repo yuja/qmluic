@@ -272,7 +272,7 @@ impl CxxBinding {
         for (sender, signal) in self.sender_signals.iter().unique() {
             writeln!(
                 writer,
-                "{indent}    QObject::connect({}, &{}, root_, [this]() {{ this->{}(); }});",
+                "{indent}    QObject::connect({}, &{}, this->root_, [this]() {{ this->{}(); }});",
                 sender,
                 signal,
                 self.update_function_name()
@@ -372,7 +372,7 @@ impl CxxCallback {
         writeln!(writer, "{indent}{{")?;
         writeln!(
             writer,
-            "{indent}    QObject::connect({}, &{}, root_, [this]() {{ this->{}(); }});",
+            "{indent}    QObject::connect({}, &{}, this->root_, [this]() {{ this->{}(); }});",
             self.sender,
             self.signal,
             self.callback_function_name()
