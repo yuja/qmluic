@@ -5,6 +5,8 @@ import qmluic.QtWidgets
 //
 // Menu/toolbar actions are all dummy but for the quit action.
 QMainWindow {
+    id: root
+
     // Since the width/height properties are readonly, you need to set the geometry instead.
     // You can also set the size property, but apparently uic generates a slightly better
     // code for geometry. You can omit 'x: 0; y: 0;' part.
@@ -146,6 +148,7 @@ QMainWindow {
         id: action_Quit
         text: qsTr("&Quit")
         shortcut: "Ctrl+X, Ctrl+C"
+        onTriggered: root.close()
     }
 
     QAction {

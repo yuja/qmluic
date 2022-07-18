@@ -16,8 +16,6 @@ MainWindow::MainWindow(QWidget *parent)
     uiSupport_->setup();
     connect(ui_->fileNameEdit, &QComboBox::currentIndexChanged, this,
             &MainWindow::updateSourceEdit);
-    connect(ui_->action_Quit, &QAction::triggered, QCoreApplication::instance(),
-            &QCoreApplication::quit, Qt::QueuedConnection);
     updateSourceEdit();
 }
 
