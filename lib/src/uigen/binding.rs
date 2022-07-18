@@ -441,7 +441,7 @@ impl CxxCodeBodyTranslator {
         let mut sender_signals = Vec::new();
         for s in code.basic_blocks.iter().flat_map(|b| &b.statements) {
             match s {
-                Statement::Assign(_, r) => {
+                Statement::Assign(_, r) | Statement::Exec(r) => {
                     if let Rvalue::ReadProperty(a, prop) = r {
                         match a {
                             Operand::NamedObject(obj) => {
@@ -466,7 +466,7 @@ impl CxxCodeBodyTranslator {
                                     "chained object property is not supported",
                                 ));
                             }
-                            Operand::Constant(_) | Operand::EnumVariant(_) => {
+                            Operand::Constant(_) | Operand::EnumVariant(_) | Operand::Void(_) => {
                                 panic!("invald read_property: {r:?}");
                             }
                         }
@@ -495,7 +495,7 @@ impl CxxCodeBodyTranslator {
         w: &mut W,
         block: &tir::BasicBlock,
     ) -> io::Result<()> {
-        use tir::Terminator;
+        use tir::{Operand, Terminator};
         for s in &block.statements {
             self.write_statement(w, s)?;
         }
@@ -522,6 +522,7 @@ impl CxxCodeBodyTranslator {
                     self.format_basic_block_ref(*z)
                 )?;
             }
+            Terminator::Return(Operand::Void(_)) => writeln!(w, "{}return;", self.body_indent)?,
             Terminator::Return(x) => match self.return_kind {
                 CxxCodeReturnKind::Value => {
                     writeln!(w, "{}return {};", self.body_indent, self.format_operand(x))?;
@@ -550,6 +551,7 @@ impl CxxCodeBodyTranslator {
                 self.format_local_ref(*l),
                 self.format_rvalue(r)
             ),
+            Statement::Exec(r) => writeln!(w, "{}{};", self.body_indent, self.format_rvalue(r)),
         }
     }
 
@@ -631,6 +633,7 @@ impl CxxCodeBodyTranslator {
             Operand::EnumVariant(x) => x.cxx_expression(),
             Operand::Local(x) => self.format_local_ref(x.name),
             Operand::NamedObject(x) => self.format_named_object_ref(&x.name),
+            Operand::Void(_) => "void()".to_owned(),
         }
     }
 }

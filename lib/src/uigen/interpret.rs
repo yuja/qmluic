@@ -105,6 +105,7 @@ pub(super) fn evaluate_code(code: &CodeBody) -> Option<EvaluatedValue> {
                         _ => return None,
                     }
                 }
+                Statement::Exec(_) => {} // uninteresting as a constant expression
             }
         }
 
@@ -133,6 +134,7 @@ fn to_evaluated_value(
         Operand::EnumVariant(x) => Some(EvaluatedValue::EnumSet(vec![x.cxx_expression()])),
         Operand::Local(x) => locals[x.name.0].clone(),
         Operand::NamedObject(x) => Some(EvaluatedValue::ObjectRef(x.name.0.clone())),
+        Operand::Void(_) => None,
     }
 }
 

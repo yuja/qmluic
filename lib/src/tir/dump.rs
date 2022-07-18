@@ -38,6 +38,7 @@ fn dump_basic_block<W: io::Write>(w: &mut W, block: &BasicBlock) -> io::Result<(
 fn dump_statement<W: io::Write>(w: &mut W, stmt: &Statement) -> io::Result<()> {
     match stmt {
         Statement::Assign(l, r) => writeln!(w, "    %{} = {}", l.0, format_rvalue(r)),
+        Statement::Exec(r) => writeln!(w, "    {}", format_rvalue(r)),
     }
 }
 
@@ -92,5 +93,6 @@ fn format_operand(a: &Operand) -> String {
         ),
         Operand::Local(x) => format!("%{}: {}", x.name.0, a.type_desc().qualified_name()),
         Operand::NamedObject(x) => format!("[{}]: {}", x.name.0, a.type_desc().qualified_name()),
+        Operand::Void(_) => format!("_: {}", a.type_desc().qualified_name()),
     }
 }

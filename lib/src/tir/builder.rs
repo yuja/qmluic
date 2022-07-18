@@ -2,7 +2,7 @@ use super::ceval;
 use super::core::{
     BasicBlock, BasicBlockRef, BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, BinaryOp, CodeBody,
     ComparisonOp, Constant, ConstantValue, EnumVariant, Local, NamedObject, Operand, Rvalue,
-    ShiftOp, Statement, Terminator, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp, UnaryOp,
+    ShiftOp, Statement, Terminator, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp, UnaryOp, Void,
 };
 use super::typeutil::{self, TypeError};
 use crate::diagnostic::Diagnostics;
@@ -29,10 +29,14 @@ impl<'a> CodeBuilder<'a> {
         }
     }
 
-    fn alloca(&mut self, ty: TypeKind<'a>, byte_range: Range<usize>) -> Local<'a> {
-        let a = Local::new(self.code.locals.len(), ty, byte_range);
-        self.code.locals.push(a.clone());
-        a
+    fn alloca(&mut self, ty: TypeKind<'a>, byte_range: Range<usize>) -> Result<Local<'a>, Void> {
+        if ty != TypeKind::VOID {
+            let a = Local::new(self.code.locals.len(), ty, byte_range);
+            self.code.locals.push(a.clone());
+            Ok(a)
+        } else {
+            Err(Void::new(byte_range))
+        }
     }
 
     fn current_basic_block_ref(&self) -> BasicBlockRef {
@@ -61,9 +65,16 @@ impl<'a> CodeBuilder<'a> {
         rv: Rvalue<'a>,
         byte_range: Range<usize>,
     ) -> Operand<'a> {
-        let a = self.alloca(ty, byte_range);
-        self.push_statement(Statement::Assign(a.name, rv));
-        Operand::Local(a)
+        match self.alloca(ty, byte_range) {
+            Ok(a) => {
+                self.push_statement(Statement::Assign(a.name, rv));
+                Operand::Local(a)
+            }
+            Err(v) => {
+                self.push_statement(Statement::Exec(rv));
+                Operand::Void(v)
+            }
+        }
     }
 }
 
@@ -316,10 +327,12 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
             (alternative, alternative_ref),
         ] {
             let block = self.get_basic_block_mut(src_ref);
-            block.push_statement(Statement::Assign(sink.name, Rvalue::Copy(src)));
+            if let Ok(a) = &sink {
+                block.push_statement(Statement::Assign(a.name, Rvalue::Copy(src)));
+            }
             block.finalize(Terminator::Br(alternative_ref.next())); // end
         }
-        Ok(Operand::Local(sink))
+        Ok(sink.map(Operand::Local).unwrap_or_else(Operand::Void))
     }
 
     /// Inserts new basic block for the statements after the branch, returns the reference
