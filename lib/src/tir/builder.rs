@@ -11,7 +11,9 @@ use crate::typedexpr::{
     self, BuiltinFunctionKind, BuiltinMethodKind, DescribeType, ExpressionVisitor, RefSpace,
     TypeDesc,
 };
-use crate::typemap::{Class, Enum, NamedType, PrimitiveType, Property, TypeKind, TypeMapError};
+use crate::typemap::{
+    Class, Enum, MethodMatches, NamedType, PrimitiveType, Property, TypeKind, TypeMapError,
+};
 use std::num::TryFromIntError;
 use std::ops::Range;
 use thiserror::Error;
@@ -178,6 +180,16 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
             Rvalue::ReadProperty(object, property),
             byte_range,
         ))
+    }
+
+    fn visit_object_method_call(
+        &mut self,
+        object: Self::Item,
+        methods: MethodMatches<'a>,
+        arguments: Vec<Self::Item>,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error> {
+        todo!();
     }
 
     fn visit_object_builtin_method_call(
