@@ -24,7 +24,7 @@ private:
 
     void setupWidgetVisible()
     {
-        QObject::connect(this->ui_->source, &QAbstractButton::toggled, root_, [this]() { this->updateWidgetVisible(); });
+        QObject::connect(this->ui_->source, &QAbstractButton::toggled, this->root_, [this]() { this->updateWidgetVisible(); });
     }
 
     void updateWidgetVisible()

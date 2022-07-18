@@ -27,7 +27,7 @@ private:
 
     void setupLabelText()
     {
-        QObject::connect(this->ui_->combo, &QComboBox::currentIndexChanged, root_, [this]() { this->updateLabelText(); });
+        QObject::connect(this->ui_->combo, &QComboBox::currentIndexChanged, this->root_, [this]() { this->updateLabelText(); });
     }
 
     void updateLabelText()

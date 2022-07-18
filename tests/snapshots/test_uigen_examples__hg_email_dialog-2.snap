@@ -27,7 +27,7 @@ private:
 
     void setupWriteIntroCheckEnabled()
     {
-        QObject::connect(this->ui_->bundleRadio, &QAbstractButton::toggled, root_, [this]() { this->updateWriteIntroCheckEnabled(); });
+        QObject::connect(this->ui_->bundleRadio, &QAbstractButton::toggled, this->root_, [this]() { this->updateWriteIntroCheckEnabled(); });
     }
 
     void updateWriteIntroCheckEnabled()
@@ -55,8 +55,8 @@ private:
 
     void setupIntroBoxVisible()
     {
-        QObject::connect(this->ui_->writeIntroCheck, &QAbstractButton::toggled, root_, [this]() { this->updateIntroBoxVisible(); });
-        QObject::connect(this->ui_->bundleRadio, &QAbstractButton::toggled, root_, [this]() { this->updateIntroBoxVisible(); });
+        QObject::connect(this->ui_->writeIntroCheck, &QAbstractButton::toggled, this->root_, [this]() { this->updateIntroBoxVisible(); });
+        QObject::connect(this->ui_->bundleRadio, &QAbstractButton::toggled, this->root_, [this]() { this->updateIntroBoxVisible(); });
     }
 
     void updateIntroBoxVisible()
