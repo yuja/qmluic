@@ -7,20 +7,14 @@ QDialog {
     windowTitle: qsTr("Settings")
 
     QVBoxLayout {
-        id: verticalLayout
-
         QFormLayout {
-            id: formLayout
-
             QLabel {
-                id: hgExecutableLabel
                 QLayout.row: 0
                 QLayout.column: 0
                 text: qsTr("Hg executable:")
             }
 
             QHBoxLayout {
-                id: hgExecutableLayout
                 QLayout.row: 0
                 QLayout.column: 1
                 QLineEdit { id: hgExecutableEdit }
@@ -31,14 +25,12 @@ QDialog {
             }
 
             QLabel {
-                id: textFontLabel
                 QLayout.row: 1
                 QLayout.column: 0
                 text: qsTr("Text font:")
             }
 
             QHBoxLayout {
-                id: textFontLayout
                 QLayout.row: 1
                 QLayout.column: 1
 
@@ -58,15 +50,11 @@ QDialog {
                     maximum: 999
                 }
 
-                QLabel {
-                    id: textFontSizeLabel
-                    text: qsTr("pt")
-                }
+                QLabel { text: qsTr("pt") }
             }
         }
 
         QSpacerItem {
-            id: verticalSpacer
             orientation: Qt.Vertical
             sizeHint { width: 20; height: 40 }
         }
