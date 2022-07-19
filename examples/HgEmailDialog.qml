@@ -127,6 +127,7 @@ QDialog {
                                             "Upstream users can pull from them. This is " +
                                             "the safest way to send changes to recipient " +
                                             "Mercurial users.")
+                                        onClicked: writeIntroCheck.checked = true
                                     }
                                 }
                             }
