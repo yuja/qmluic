@@ -210,7 +210,7 @@ Major TODOs
   - [x] cycle detection
   - [ ] `if` statement
   - [ ] `switch` statement
-  - [ ] multiple statements
+  - [x] multiple statements
   - [ ] signal parameters: `on<Signal>: function(...) {}`
 
 Comparison to DeclarativeWidgets

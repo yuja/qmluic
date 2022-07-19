@@ -86,6 +86,10 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
     type Label = BasicBlockRef;
     type Error = ExpressionError;
 
+    fn make_void(&self, byte_range: Range<usize>) -> Self::Item {
+        Operand::Void(Void::new(byte_range))
+    }
+
     fn visit_integer(
         &mut self,
         value: u64,
@@ -1311,6 +1315,28 @@ mod tests {
         .6:
             %8 = binary_op '+', %3: QString, %7: QString
             return %8: QString
+        "###);
+    }
+
+    #[test]
+    fn multiple_statements() {
+        insta::assert_snapshot!(
+            dump("{ qsTr('hello'); foo.done(0); 'discarded'; foo.done(1); 'world' }"), @r###"
+            %0: QString
+        .0:
+            %0 = call_builtin_function Tr, {"hello": string}
+            call_method [foo]: Foo*, "done", {0: integer}
+            call_method [foo]: Foo*, "done", {1: integer}
+            return "world": QString
+        "###);
+    }
+
+    #[test]
+    fn empty_statement() {
+        insta::assert_snapshot!(
+            dump(";"), @r###"
+        .0:
+            return _: void
         "###);
     }
 }

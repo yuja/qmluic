@@ -100,6 +100,10 @@ pub trait ExpressionVisitor<'a> {
     type Label;
     type Error: ToString;
 
+    /// Creates an item that represents a valid, but not meaningful value. An empty statement
+    /// would complete with this value for example.
+    fn make_void(&self, byte_range: Range<usize>) -> Self::Item;
+
     fn visit_integer(
         &mut self,
         value: u64,
@@ -221,14 +225,32 @@ where
     C: RefSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
+    walk_stmt(ctx, node, source, visitor, diagnostics)
+}
+
+/// Walks expression nodes recursively and returns the completion value.
+fn walk_stmt<'a, C, V>(
+    ctx: &C,
+    node: Node,
+    source: &str,
+    visitor: &mut V,
+    diagnostics: &mut Diagnostics,
+) -> Option<V::Item>
+where
+    C: RefSpace<'a>,
+    V: ExpressionVisitor<'a>,
+{
     match diagnostics.consume_err(Statement::from_node(node))? {
         Statement::Expression(n) => walk_rvalue(ctx, n, source, visitor, diagnostics),
-        Statement::Block(_) => {
-            diagnostics.push(Diagnostic::error(
-                node.byte_range(),
-                "statement block is not supported",
-            ));
-            None
+        Statement::Block(ns) => {
+            // If we supported local variables, new scope would be created here.
+            let mut completion = Some(visitor.make_void(node.byte_range()));
+            for n in ns {
+                // visit all to report as many errors as possible
+                let r = walk_stmt(ctx, n, source, visitor, diagnostics);
+                completion = completion.and(r);
+            }
+            completion
         }
     }
 }
