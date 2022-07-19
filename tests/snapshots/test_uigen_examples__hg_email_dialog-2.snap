@@ -105,9 +105,18 @@ private:
 
     void onWriteIntroCheckClicked()
     {
+        bool a0;
     b0:
+        a0 = this->ui_->writeIntroCheck->isChecked();
+        if (a0)
+            goto b1;
+        else
+            goto b2;
+    b1:
         this->ui_->subjectEdit->setFocus();
         this->ui_->subjectEdit->selectAll();
+        goto b2;
+    b2:
         return;
     }
 
