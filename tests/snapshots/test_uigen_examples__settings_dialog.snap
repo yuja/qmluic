@@ -16,18 +16,18 @@ expression: ui_xml
   <property name="windowTitle">
    <string>Settings</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
+  <layout class="QVBoxLayout" name="vboxLayout">
    <item>
     <layout class="QFormLayout" name="formLayout">
      <item column="0" row="0">
-      <widget class="QLabel" name="hgExecutableLabel">
+      <widget class="QLabel" name="label">
        <property name="text">
         <string>Hg executable:</string>
        </property>
       </widget>
      </item>
      <item column="1" row="0">
-      <layout class="QHBoxLayout" name="hgExecutableLayout">
+      <layout class="QHBoxLayout" name="hboxLayout">
        <item>
         <widget class="QLineEdit" name="hgExecutableEdit">
         </widget>
@@ -42,14 +42,14 @@ expression: ui_xml
       </layout>
      </item>
      <item column="0" row="1">
-      <widget class="QLabel" name="textFontLabel">
+      <widget class="QLabel" name="label1">
        <property name="text">
         <string>Text font:</string>
        </property>
       </widget>
      </item>
      <item column="1" row="1">
-      <layout class="QHBoxLayout" name="textFontLayout">
+      <layout class="QHBoxLayout" name="hboxLayout1">
        <item>
         <widget class="QFontComboBox" name="textFontFamilyEdit">
          <property name="sizePolicy">
@@ -71,7 +71,7 @@ expression: ui_xml
         </widget>
        </item>
        <item>
-        <widget class="QLabel" name="textFontSizeLabel">
+        <widget class="QLabel" name="label2">
          <property name="text">
           <string>pt</string>
          </property>
@@ -82,7 +82,7 @@ expression: ui_xml
     </layout>
    </item>
    <item>
-    <spacer name="verticalSpacer">
+    <spacer name="spacerItem">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
      </property>
