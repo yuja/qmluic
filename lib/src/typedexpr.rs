@@ -221,7 +221,7 @@ where
     C: RefSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
-    match walk_inner(ctx, node, source, visitor, diagnostics)? {
+    match walk_expr(ctx, node, source, visitor, diagnostics)? {
         Intermediate::Item(x) => Some(x),
         Intermediate::BoundProperty(it, p) => diagnostics.consume_node_err(
             node,
@@ -243,7 +243,7 @@ where
     }
 }
 
-fn walk_inner<'a, C, V>(
+fn walk_expr<'a, C, V>(
     ctx: &C,
     node: Node,
     source: &str,
@@ -278,7 +278,7 @@ where
                 .map(Intermediate::Item)
         }
         Expression::MemberExpression(x) => {
-            match walk_inner(ctx, x.object, source, visitor, diagnostics)? {
+            match walk_expr(ctx, x.object, source, visitor, diagnostics)? {
                 Intermediate::Item(it) => {
                     process_item_property(it, x.property, source, diagnostics)
                 }
@@ -309,7 +309,7 @@ where
                 .iter()
                 .map(|&n| walk(ctx, n, source, visitor, diagnostics))
                 .collect::<Option<Vec<_>>>()?;
-            match walk_inner(ctx, x.function, source, visitor, diagnostics)? {
+            match walk_expr(ctx, x.function, source, visitor, diagnostics)? {
                 Intermediate::BoundMethod(it, ms) => {
                     // TODO: look up overloaded methods and confine type error here?
                     diagnostics
@@ -350,7 +350,7 @@ where
         }
         Expression::AssignmentExpression(x) => {
             let right = walk(ctx, x.right, source, visitor, diagnostics)?;
-            match walk_inner(ctx, x.left, source, visitor, diagnostics)? {
+            match walk_expr(ctx, x.left, source, visitor, diagnostics)? {
                 Intermediate::BoundProperty(it, p) => diagnostics
                     .consume_node_err(
                         node,
