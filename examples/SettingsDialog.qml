@@ -8,15 +8,8 @@ QDialog {
 
     QVBoxLayout {
         QFormLayout {
-            QLabel {
-                QLayout.row: 0
-                QLayout.column: 0
-                text: qsTr("Hg executable:")
-            }
-
+            QLabel { text: qsTr("Hg executable:") }
             QHBoxLayout {
-                QLayout.row: 0
-                QLayout.column: 1
                 QLineEdit { id: hgExecutableEdit }
                 QToolButton {
                     id: hgExecutableBrowseButton
@@ -24,16 +17,8 @@ QDialog {
                 }
             }
 
-            QLabel {
-                QLayout.row: 1
-                QLayout.column: 0
-                text: qsTr("Text font:")
-            }
-
+            QLabel { text: qsTr("Text font:") }
             QHBoxLayout {
-                QLayout.row: 1
-                QLayout.column: 1
-
                 QFontComboBox {
                     id: textFontFamilyEdit
                     sizePolicy {
