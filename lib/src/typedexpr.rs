@@ -198,6 +198,20 @@ pub trait ExpressionVisitor<'a> {
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error>;
 
+    fn visit_if_statement(
+        &mut self,
+        condition: (Self::Item, Self::Label),
+        consequence: (Self::Item, Self::Label),
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error>;
+    fn visit_if_else_statement(
+        &mut self,
+        condition: (Self::Item, Self::Label),
+        consequence: (Self::Item, Self::Label),
+        alternative: (Self::Item, Self::Label),
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error>;
+
     fn mark_branch_point(&mut self) -> Self::Label;
 }
 
@@ -252,8 +266,33 @@ where
             }
             completion
         }
-        Statement::If(_) => {
-            todo!();
+        Statement::If(x) => {
+            let condition = walk_rvalue(ctx, x.condition, source, visitor, diagnostics)?;
+            let condition_label = visitor.mark_branch_point();
+            let consequence = walk_stmt(ctx, x.consequence, source, visitor, diagnostics)?;
+            let consequence_label = visitor.mark_branch_point();
+            if let Some(n) = x.alternative {
+                let alternative = walk_stmt(ctx, n, source, visitor, diagnostics)?;
+                let alternative_label = visitor.mark_branch_point();
+                diagnostics.consume_node_err(
+                    node,
+                    visitor.visit_if_else_statement(
+                        (condition, condition_label),
+                        (consequence, consequence_label),
+                        (alternative, alternative_label),
+                        node.byte_range(),
+                    ),
+                )
+            } else {
+                diagnostics.consume_node_err(
+                    node,
+                    visitor.visit_if_statement(
+                        (condition, condition_label),
+                        (consequence, consequence_label),
+                        node.byte_range(),
+                    ),
+                )
+            }
         }
     }
 }
