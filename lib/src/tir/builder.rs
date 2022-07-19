@@ -190,7 +190,19 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         right: Self::Item,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
-        todo!();
+        if !property.is_writable() {
+            return Err(ExpressionError::UnwritableProperty);
+        }
+        let right = ensure_concrete_string(right);
+        typeutil::verify_concrete_type(&property.value_type()?, &right.type_desc())
+            .map_err(|e| to_operation_type_error("=", e))?;
+        // TODO: should we allow chained assignment?
+        // TODO: do we want to break binding? maybe no, but document the behavior difference
+        Ok(self.emit_result(
+            TypeKind::VOID,
+            Rvalue::WriteProperty(object, property, right),
+            byte_range,
+        ))
     }
 
     fn visit_object_method_call(
@@ -575,6 +587,8 @@ pub(super) enum ExpressionError {
     UnsupportedOperation(String),
     #[error("not a readable property")]
     UnreadableProperty,
+    #[error("not a writable property")]
+    UnwritableProperty,
 }
 
 fn to_operation_type_error(op_desc: impl ToString, err: TypeError) -> ExpressionError {
@@ -850,6 +864,15 @@ mod tests {
         .0:
             %0 = read_property [foo]: Foo*, "checked"
             return %0: bool
+        "###);
+    }
+
+    #[test]
+    fn write_object_property() {
+        insta::assert_snapshot!(dump("foo.checked = true"), @r###"
+        .0:
+            write_property [foo]: Foo*, "checked", true: bool
+            return _: void
         "###);
     }
 

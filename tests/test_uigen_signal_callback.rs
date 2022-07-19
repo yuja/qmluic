@@ -128,3 +128,52 @@ fn test_method_call_bad_arg_type() {
       │                                    ^^^^^^^^^^^^^^^^^^^^^
     "###);
 }
+
+#[test]
+fn test_property_assignment() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QDialog {
+            id: root
+            QPushButton { onClicked: root.windowTitle = "clicked" }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
+fn test_property_assignment_incompatible_type() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QDialog {
+        id: root
+        QPushButton { onClicked: root.windowTitle = 1 }
+    }
+    "###).unwrap_err(), @r###"
+    error: operation '=' on incompatible types: QString and integer
+      ┌─ <unknown>:4:30
+      │
+    4 │     QPushButton { onClicked: root.windowTitle = 1 }
+      │                              ^^^^^^^^^^^^^^^^^^^^
+    "###);
+}
+
+#[test]
+fn test_property_assignment_readonly() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QDialog {
+        id: root
+        QPushButton { onClicked: root.width = 1 }
+    }
+    "###).unwrap_err(), @r###"
+    error: not a writable property
+      ┌─ <unknown>:4:30
+      │
+    4 │     QPushButton { onClicked: root.width = 1 }
+      │                              ^^^^^^^^^^^^^^
+    "###);
+}

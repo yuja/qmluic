@@ -277,6 +277,8 @@ pub enum Rvalue<'a> {
     CallMethod(Operand<'a>, Method<'a>, Vec<Operand<'a>>),
     /// `<obj> -> <read_property>()`
     ReadProperty(Operand<'a>, Property<'a>),
+    /// `<obj> -> <write_property>(<right>)`
+    WriteProperty(Operand<'a>, Property<'a>, Operand<'a>),
     /// `{<0>, <1>, ...}`
     MakeList(Vec<Operand<'a>>),
 }

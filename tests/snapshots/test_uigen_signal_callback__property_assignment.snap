@@ -1,0 +1,40 @@
+---
+source: tests/test_uigen_signal_callback.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_mytype.h"
+
+namespace UiSupport {
+class MyType
+{
+public:
+    MyType(QDialog *root, Ui::MyType *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+        this->setupPushButtonClicked();
+    }
+
+private:
+    enum class BindingIndex : unsigned {
+    };
+
+    void setupPushButtonClicked()
+    {
+        QObject::connect(this->ui_->pushButton, &QPushButton::clicked, this->root_, [this]() { this->onPushButtonClicked(); });
+    }
+
+    void onPushButtonClicked()
+    {
+    b0:
+        this->root_->setWindowTitle(QStringLiteral("clicked"));
+        return;
+    }
+
+    QDialog *const root_;
+    Ui::MyType *const ui_;
+
+};
+} // namespace UiSupport
+
