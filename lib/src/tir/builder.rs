@@ -420,10 +420,25 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
     fn visit_if_statement(
         &mut self,
         (condition, condition_ref): (Self::Item, Self::Label),
-        (consequence, consequence_ref): (Self::Item, Self::Label),
+        (_consequence, consequence_ref): (Self::Item, Self::Label),
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
-        todo!();
+        if condition.type_desc() != TypeDesc::BOOL {
+            return Err(ExpressionError::IncompatibleConditionType(
+                condition.type_desc().qualified_name().into(),
+            ));
+        }
+        // Unlike if-else, we can simply discard the consequence's completion value,
+        // as there should be no compatible value type without an alternative path.
+        self.get_basic_block_mut(condition_ref)
+            .finalize(Terminator::BrCond(
+                condition,
+                condition_ref.next(),   // consequence start
+                consequence_ref.next(), // end
+            ));
+        self.get_basic_block_mut(consequence_ref)
+            .finalize(Terminator::Br(consequence_ref.next())); // end
+        Ok(self.make_void(byte_range))
     }
 
     fn visit_if_else_statement(
@@ -433,7 +448,38 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         (alternative, alternative_ref): (Self::Item, Self::Label),
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
-        todo!();
+        if condition.type_desc() != TypeDesc::BOOL {
+            return Err(ExpressionError::IncompatibleConditionType(
+                condition.type_desc().qualified_name().into(),
+            ));
+        }
+        // This is pretty much the same as ternary except for the handling of incompatible
+        // completion value types.
+        let consequence = ensure_concrete_string(consequence);
+        let alternative = ensure_concrete_string(alternative);
+        let ty = typeutil::deduce_concrete_type(consequence.type_desc(), alternative.type_desc())
+            .or_else(|e| match e {
+            TypeError::IncompatibleTypes(..) => Ok(TypeKind::VOID),
+            e => Err(to_operation_type_error("if-else", e)),
+        })?;
+        let sink = self.alloca(ty, byte_range);
+        self.get_basic_block_mut(condition_ref)
+            .finalize(Terminator::BrCond(
+                condition,
+                condition_ref.next(),   // consequence start
+                consequence_ref.next(), // alternative start
+            ));
+        for (src, src_ref) in [
+            (consequence, consequence_ref),
+            (alternative, alternative_ref),
+        ] {
+            let block = self.get_basic_block_mut(src_ref);
+            if let Ok(a) = &sink {
+                block.push_statement(Statement::Assign(a.name, Rvalue::Copy(src)));
+            }
+            block.finalize(Terminator::Br(alternative_ref.next())); // end
+        }
+        Ok(sink.map(Operand::Local).unwrap_or_else(Operand::Void))
     }
 
     /// Inserts new basic block for the statements after the branch, returns the reference
@@ -1355,6 +1401,218 @@ mod tests {
         insta::assert_snapshot!(
             dump(";"), @r###"
         .0:
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn if_statement_literal() {
+        insta::assert_snapshot!(dump("if (foo.checked) { 'yes' }"), @r###"
+            %0: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .2
+        .1:
+            br .2
+        .2:
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn if_else_statement_literal() {
+        insta::assert_snapshot!(dump("if (foo.checked) { 'yes' } else { 'no' }"), @r###"
+            %0: bool
+            %1: QString
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .2
+        .1:
+            %1 = copy "yes": QString
+            br .3
+        .2:
+            %1 = copy "no": QString
+            br .3
+        .3:
+            return %1: QString
+        "###);
+    }
+
+    #[test]
+    fn if_else_statement_literal_incompatible_completion() {
+        insta::assert_snapshot!(dump("if (foo.checked) { 'yes' } else { false }"), @r###"
+            %0: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .2
+        .1:
+            br .3
+        .2:
+            br .3
+        .3:
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn if_statement_call() {
+        insta::assert_snapshot!(dump("if (foo.checked) { foo.done(0) }"), @r###"
+            %0: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .2
+        .1:
+            call_method [foo]: Foo*, "done", {0: integer}
+            br .2
+        .2:
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn if_else_statement_call() {
+        insta::assert_snapshot!(
+            dump("if (foo.checked) { foo.done(0); 'yes' } else { foo.done(1); 'no' }"), @r###"
+            %0: bool
+            %1: QString
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .2
+        .1:
+            call_method [foo]: Foo*, "done", {0: integer}
+            %1 = copy "yes": QString
+            br .3
+        .2:
+            call_method [foo]: Foo*, "done", {1: integer}
+            %1 = copy "no": QString
+            br .3
+        .3:
+            return %1: QString
+        "###);
+    }
+
+    #[test]
+    fn if_else_statement_call_incompatible_completion() {
+        insta::assert_snapshot!(
+            dump("if (foo.checked) { foo.done(0); 'yes' } else { foo.done(1); false }"), @r###"
+            %0: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .2
+        .1:
+            call_method [foo]: Foo*, "done", {0: integer}
+            br .3
+        .2:
+            call_method [foo]: Foo*, "done", {1: integer}
+            br .3
+        .3:
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn if_else_statement_chained() {
+        insta::assert_snapshot!(
+            dump(r###"
+            if (foo.checked) {
+                foo.text
+            } else if (foo2.checked) {
+                foo2.text
+            } else {
+                foo3.text
+            }
+            "###), @r###"
+            %0: bool
+            %1: QString
+            %2: bool
+            %3: QString
+            %4: QString
+            %5: QString
+            %6: QString
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .2
+        .1:
+            %1 = read_property [foo]: Foo*, "text"
+            %6 = copy %1: QString
+            br .6
+        .2:
+            %2 = read_property [foo2]: Foo*, "checked"
+            br_cond %2: bool, .3, .4
+        .3:
+            %3 = read_property [foo2]: Foo*, "text"
+            %5 = copy %3: QString
+            br .5
+        .4:
+            %4 = read_property [foo3]: Foo*, "text"
+            %5 = copy %4: QString
+            br .5
+        .5:
+            %6 = copy %5: QString
+            br .6
+        .6:
+            return %6: QString
+        "###);
+    }
+
+    #[test]
+    fn if_statement_ternary_in_condition() {
+        insta::assert_snapshot!(
+            dump("if (foo.checked ? foo2.checked : foo3.checked) { foo.done(0) }"), @r###"
+            %0: bool
+            %1: bool
+            %2: bool
+            %3: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .2
+        .1:
+            %1 = read_property [foo2]: Foo*, "checked"
+            %3 = copy %1: bool
+            br .3
+        .2:
+            %2 = read_property [foo3]: Foo*, "checked"
+            %3 = copy %2: bool
+            br .3
+        .3:
+            br_cond %3: bool, .4, .5
+        .4:
+            call_method [foo]: Foo*, "done", {0: integer}
+            br .5
+        .5:
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn if_else_statement_ternary_in_condition() {
+        insta::assert_snapshot!(
+            dump("if (foo.checked ? foo2.checked : foo3.checked) { foo.done(0) } else { foo.done(1) }"),
+            @r###"
+            %0: bool
+            %1: bool
+            %2: bool
+            %3: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .2
+        .1:
+            %1 = read_property [foo2]: Foo*, "checked"
+            %3 = copy %1: bool
+            br .3
+        .2:
+            %2 = read_property [foo3]: Foo*, "checked"
+            %3 = copy %2: bool
+            br .3
+        .3:
+            br_cond %3: bool, .4, .5
+        .4:
+            call_method [foo]: Foo*, "done", {0: integer}
+            br .6
+        .5:
+            call_method [foo]: Foo*, "done", {1: integer}
+            br .6
+        .6:
             return _: void
         "###);
     }

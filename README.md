@@ -208,7 +208,7 @@ Major TODOs
   - [x] property setter
   - [ ] gadget types
   - [x] cycle detection
-  - [ ] `if` statement
+  - [x] `if` statement
   - [ ] `switch` statement
   - [x] multiple statements
   - [ ] signal parameters: `on<Signal>: function(...) {}`
