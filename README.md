@@ -210,8 +210,11 @@ Major TODOs
   - [x] cycle detection
   - [x] `if` statement
   - [ ] `switch` statement
+  - [ ] `return` statement
+  - [ ] `let` binding
   - [x] multiple statements
   - [ ] signal parameters: `on<Signal>: function(...) {}`
+- [ ] export helper functions from C++
 
 Comparison to DeclarativeWidgets
 --------------------------------
