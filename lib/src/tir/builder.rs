@@ -417,6 +417,25 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         Ok(sink.map(Operand::Local).unwrap_or_else(Operand::Void))
     }
 
+    fn visit_if_statement(
+        &mut self,
+        (condition, condition_ref): (Self::Item, Self::Label),
+        (consequence, consequence_ref): (Self::Item, Self::Label),
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error> {
+        todo!();
+    }
+
+    fn visit_if_else_statement(
+        &mut self,
+        (condition, condition_ref): (Self::Item, Self::Label),
+        (consequence, consequence_ref): (Self::Item, Self::Label),
+        (alternative, alternative_ref): (Self::Item, Self::Label),
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error> {
+        todo!();
+    }
+
     /// Inserts new basic block for the statements after the branch, returns the reference
     /// to the old (pre-branch) basic block.
     ///
