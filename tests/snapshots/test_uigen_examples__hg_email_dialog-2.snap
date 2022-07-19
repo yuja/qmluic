@@ -15,6 +15,7 @@ public:
     {
         this->setupWriteIntroCheckEnabled();
         this->setupIntroBoxVisible();
+        this->setupBundleRadioClicked();
         this->updateWriteIntroCheckEnabled();
         this->updateIntroBoxVisible();
     }
@@ -82,6 +83,18 @@ private:
         a1 = this->ui_->bundleRadio->isChecked();
         a2 = a0 || a1;
         return a2;
+    }
+
+    void setupBundleRadioClicked()
+    {
+        QObject::connect(this->ui_->bundleRadio, &QRadioButton::clicked, this->root_, [this]() { this->onBundleRadioClicked(); });
+    }
+
+    void onBundleRadioClicked()
+    {
+    b0:
+        this->ui_->writeIntroCheck->setChecked(true);
+        return;
     }
 
     QDialog *const root_;
