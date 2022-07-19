@@ -7,13 +7,13 @@ fn test_unknown_signal() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
     QWidget {
-        onWhatever: 0
+        onWhatever: ;
     }
     "###).unwrap_err(), @r###"
     error: unknown signal of class 'QWidget': whatever
       ┌─ <unknown>:3:5
       │
-    3 │     onWhatever: 0
+    3 │     onWhatever: ;
       │     ^^^^^^^^^^^^^
     "###);
 }
@@ -23,13 +23,13 @@ fn test_invalid_binding_map_callback() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
     QDialog {
-        onAccepted.whatever: 0
+        onAccepted.whatever: ;
     }
     "###).unwrap_err(), @r###"
     error: signal callback cannot be a map
       ┌─ <unknown>:3:16
       │
-    3 │     onAccepted.whatever: 0
+    3 │     onAccepted.whatever: ;
       │                ^^^^^^^^
     "###);
 }
@@ -39,13 +39,13 @@ fn test_callback_without_dynamic_binding() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
     QDialog {
-        onAccepted: 0
+        onAccepted: ;
     }
     "###).unwrap_err(), @r###"
     error: signal callback cannot be translated without dynamic binding
       ┌─ <unknown>:3:5
       │
-    3 │     onAccepted: 0
+    3 │     onAccepted: ;
       │     ^^^^^^^^^^^^^
     "###);
 }
@@ -56,7 +56,7 @@ fn test_root_connection() {
         r###"
         import qmluic.QtWidgets
         QDialog {
-            onAccepted: 0
+            onAccepted: ;
         }
         "###,
     );
@@ -176,4 +176,24 @@ fn test_property_assignment_readonly() {
     4 │     QPushButton { onClicked: root.width = 1 }
       │                              ^^^^^^^^^^^^^^
     "###);
+}
+
+#[test]
+fn test_multiple_statements() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QDialog {
+            id: root
+            QPushButton {
+                onClicked: {
+                    root.showMaximized();
+                    root.raise();
+                }
+            }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
 }

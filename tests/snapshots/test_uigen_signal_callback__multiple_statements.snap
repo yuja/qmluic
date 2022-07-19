@@ -13,21 +13,23 @@ public:
 
     void setup()
     {
-        this->setupDialogAccepted();
+        this->setupPushButtonClicked();
     }
 
 private:
     enum class BindingIndex : unsigned {
     };
 
-    void setupDialogAccepted()
+    void setupPushButtonClicked()
     {
-        QObject::connect(this->root_, &QDialog::accepted, this->root_, [this]() { this->onDialogAccepted(); });
+        QObject::connect(this->ui_->pushButton, &QPushButton::clicked, this->root_, [this]() { this->onPushButtonClicked(); });
     }
 
-    void onDialogAccepted()
+    void onPushButtonClicked()
     {
     b0:
+        this->root_->showMaximized();
+        this->root_->raise();
         return;
     }
 
