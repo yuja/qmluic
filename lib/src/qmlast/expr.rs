@@ -366,48 +366,24 @@ mod tests {
     use crate::qmlast::{UiObjectDefinition, UiProgram};
     use crate::qmldoc::UiDocument;
 
+    macro_rules! impl_unwrap_fn {
+        ($name:ident, $pat:path, $ty:ty) => {
+            fn $name(self) -> $ty {
+                match self {
+                    $pat(x) => x,
+                    _ => panic!("unexpected expression: {self:?}"),
+                }
+            }
+        };
+    }
+
     impl<'tree> Expression<'tree> {
-        fn unwrap_identifier(self) -> Identifier<'tree> {
-            match self {
-                Expression::Identifier(x) => x,
-                _ => panic!("unexpected expression: {self:?}"),
-            }
-        }
-
-        fn unwrap_integer(self) -> u64 {
-            match self {
-                Expression::Integer(x) => x,
-                _ => panic!("unexpected expression: {self:?}"),
-            }
-        }
-
-        fn unwrap_float(self) -> f64 {
-            match self {
-                Expression::Float(x) => x,
-                _ => panic!("unexpected expression: {self:?}"),
-            }
-        }
-
-        fn unwrap_string(self) -> String {
-            match self {
-                Expression::String(x) => x,
-                _ => panic!("unexpected expression: {self:?}"),
-            }
-        }
-
-        fn unwrap_bool(self) -> bool {
-            match self {
-                Expression::Bool(x) => x,
-                _ => panic!("unexpected expression: {self:?}"),
-            }
-        }
-
-        fn unwrap_array(self) -> Vec<Node<'tree>> {
-            match self {
-                Expression::Array(xs) => xs,
-                _ => panic!("unexpected expression: {self:?}"),
-            }
-        }
+        impl_unwrap_fn!(unwrap_identifier, Expression::Identifier, Identifier<'tree>);
+        impl_unwrap_fn!(unwrap_integer, Expression::Integer, u64);
+        impl_unwrap_fn!(unwrap_float, Expression::Float, f64);
+        impl_unwrap_fn!(unwrap_string, Expression::String, String);
+        impl_unwrap_fn!(unwrap_bool, Expression::Bool, bool);
+        impl_unwrap_fn!(unwrap_array, Expression::Array, Vec<Node<'tree>>);
     }
 
     fn parse(source: &str) -> UiDocument {
