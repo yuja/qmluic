@@ -183,6 +183,16 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         ))
     }
 
+    fn visit_object_property_assignment(
+        &mut self,
+        object: Self::Item,
+        property: Property<'a>,
+        right: Self::Item,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error> {
+        todo!();
+    }
+
     fn visit_object_method_call(
         &mut self,
         object: Self::Item,
