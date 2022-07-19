@@ -21,13 +21,7 @@ impl<'tree> Statement<'tree> {
         let node = cursor.node();
         let stmt = match node.kind() {
             "expression_statement" => {
-                if !cursor.goto_first_child() {
-                    return Err(ParseError::new(
-                        cursor.node(),
-                        ParseErrorKind::InvalidSyntax,
-                    ));
-                }
-                astutil::skip_until_named(cursor)?;
+                astutil::goto_first_named_child(cursor)?;
                 Statement::Expression(cursor.node())
             }
             "statement_block" => {

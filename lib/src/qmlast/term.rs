@@ -44,13 +44,7 @@ impl<'tree> NestedIdentifier<'tree> {
     pub(super) fn with_cursor(cursor: &mut TreeCursor<'tree>) -> Result<Self, ParseError<'tree>> {
         let mut depth: usize = 0;
         while cursor.node().kind() == "nested_identifier" {
-            if !cursor.goto_first_child() {
-                return Err(ParseError::new(
-                    cursor.node(),
-                    ParseErrorKind::InvalidSyntax,
-                ));
-            }
-            astutil::skip_until_named(cursor)?;
+            astutil::goto_first_named_child(cursor)?;
             depth += 1;
         }
 
