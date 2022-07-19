@@ -13,12 +13,12 @@ pub enum Expression<'tree> {
     String(String),
     Bool(bool),
     Array(Vec<Node<'tree>>),
-    MemberExpression(MemberExpression<'tree>),
-    CallExpression(CallExpression<'tree>),
-    AssignmentExpression(AssignmentExpression<'tree>),
-    UnaryExpression(UnaryExpression<'tree>),
-    BinaryExpression(BinaryExpression<'tree>),
-    TernaryExpression(TernaryExpression<'tree>),
+    Member(MemberExpression<'tree>),
+    Call(CallExpression<'tree>),
+    Assignment(AssignmentExpression<'tree>),
+    Unary(UnaryExpression<'tree>),
+    Binary(BinaryExpression<'tree>),
+    Ternary(TernaryExpression<'tree>),
     // TODO: ...
 }
 
@@ -68,7 +68,7 @@ impl<'tree> Expression<'tree> {
                 let property =
                     Identifier::from_node(astutil::get_child_by_field_name(node, "property")?)?;
                 // TODO: <object>?.<property>
-                Expression::MemberExpression(MemberExpression { object, property })
+                Expression::Member(MemberExpression { object, property })
             }
             "call_expression" => {
                 let function = astutil::get_child_by_field_name(node, "function")?;
@@ -77,7 +77,7 @@ impl<'tree> Expression<'tree> {
                     .filter(|n| !n.is_extra())
                     .collect();
                 // TODO: <func>?.(<arg>...)
-                Expression::CallExpression(CallExpression {
+                Expression::Call(CallExpression {
                     function,
                     arguments,
                 })
@@ -85,20 +85,20 @@ impl<'tree> Expression<'tree> {
             "assignment_expression" => {
                 let left = astutil::get_child_by_field_name(node, "left")?;
                 let right = astutil::get_child_by_field_name(node, "right")?;
-                Expression::AssignmentExpression(AssignmentExpression { left, right })
+                Expression::Assignment(AssignmentExpression { left, right })
             }
             "unary_expression" => {
                 let operator =
                     UnaryOperator::from_node(astutil::get_child_by_field_name(node, "operator")?)?;
                 let argument = astutil::get_child_by_field_name(node, "argument")?;
-                Expression::UnaryExpression(UnaryExpression { operator, argument })
+                Expression::Unary(UnaryExpression { operator, argument })
             }
             "binary_expression" => {
                 let operator =
                     BinaryOperator::from_node(astutil::get_child_by_field_name(node, "operator")?)?;
                 let left = astutil::get_child_by_field_name(node, "left")?;
                 let right = astutil::get_child_by_field_name(node, "right")?;
-                Expression::BinaryExpression(BinaryExpression {
+                Expression::Binary(BinaryExpression {
                     operator,
                     left,
                     right,
@@ -108,7 +108,7 @@ impl<'tree> Expression<'tree> {
                 let condition = astutil::get_child_by_field_name(node, "condition")?;
                 let consequence = astutil::get_child_by_field_name(node, "consequence")?;
                 let alternative = astutil::get_child_by_field_name(node, "alternative")?;
-                Expression::TernaryExpression(TernaryExpression {
+                Expression::Ternary(TernaryExpression {
                     condition,
                     consequence,
                     alternative,
@@ -374,34 +374,18 @@ mod tests {
         impl_unwrap_fn!(unwrap_string, Expression::String, String);
         impl_unwrap_fn!(unwrap_bool, Expression::Bool, bool);
         impl_unwrap_fn!(unwrap_array, Expression::Array, Vec<Node<'tree>>);
+        impl_unwrap_fn!(unwrap_member, Expression::Member, MemberExpression<'tree>);
+        impl_unwrap_fn!(unwrap_call, Expression::Call, CallExpression<'tree>);
         impl_unwrap_fn!(
-            unwrap_member_expression,
-            Expression::MemberExpression,
-            MemberExpression<'tree>
-        );
-        impl_unwrap_fn!(
-            unwrap_call_expression,
-            Expression::CallExpression,
-            CallExpression<'tree>
-        );
-        impl_unwrap_fn!(
-            unwrap_assignment_expression,
-            Expression::AssignmentExpression,
+            unwrap_assignment,
+            Expression::Assignment,
             AssignmentExpression<'tree>
         );
+        impl_unwrap_fn!(unwrap_unary, Expression::Unary, UnaryExpression<'tree>);
+        impl_unwrap_fn!(unwrap_binary, Expression::Binary, BinaryExpression<'tree>);
         impl_unwrap_fn!(
-            unwrap_unary_expression,
-            Expression::UnaryExpression,
-            UnaryExpression<'tree>
-        );
-        impl_unwrap_fn!(
-            unwrap_binary_expression,
-            Expression::BinaryExpression,
-            BinaryExpression<'tree>
-        );
-        impl_unwrap_fn!(
-            unwrap_ternary_expression,
-            Expression::TernaryExpression,
+            unwrap_ternary,
+            Expression::Ternary,
             TernaryExpression<'tree>
         );
     }
@@ -483,7 +467,7 @@ mod tests {
             }
             "###,
         );
-        let x = unwrap_expr(&doc, "member").unwrap_member_expression();
+        let x = unwrap_expr(&doc, "member").unwrap_member();
         assert_eq!(
             Identifier::from_node(x.object)
                 .unwrap()
@@ -502,7 +486,7 @@ mod tests {
             }
             "###,
         );
-        let x = unwrap_expr(&doc, "call").unwrap_call_expression();
+        let x = unwrap_expr(&doc, "call").unwrap_call();
         assert_eq!(
             Identifier::from_node(x.function)
                 .unwrap()
@@ -521,7 +505,7 @@ mod tests {
             }
             "###,
         );
-        let x = unwrap_expr(&doc, "assign").unwrap_assignment_expression();
+        let x = unwrap_expr(&doc, "assign").unwrap_assignment();
         assert_eq!(
             Identifier::from_node(x.left).unwrap().to_str(doc.source()),
             "foo"
@@ -538,7 +522,7 @@ mod tests {
             }
             "###,
         );
-        let x = unwrap_expr(&doc, "logical_not").unwrap_unary_expression();
+        let x = unwrap_expr(&doc, "logical_not").unwrap_unary();
         assert_eq!(x.operator, UnaryOperator::LogicalNot);
     }
 
@@ -551,7 +535,7 @@ mod tests {
             }
             "###,
         );
-        let x = unwrap_expr(&doc, "add").unwrap_binary_expression();
+        let x = unwrap_expr(&doc, "add").unwrap_binary();
         assert_eq!(x.operator, BinaryOperator::Add);
         assert_ne!(x.left, x.right);
     }
@@ -565,7 +549,7 @@ mod tests {
             }
             "###,
         );
-        let x = unwrap_expr(&doc, "ternary").unwrap_ternary_expression();
+        let x = unwrap_expr(&doc, "ternary").unwrap_ternary();
         assert_ne!(x.condition, x.consequence);
         assert_ne!(x.consequence, x.alternative);
     }
