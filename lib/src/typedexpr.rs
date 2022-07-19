@@ -252,6 +252,9 @@ where
             }
             completion
         }
+        Statement::If(_) => {
+            todo!();
+        }
     }
 }
 

@@ -9,7 +9,9 @@ pub enum Statement<'tree> {
     Expression(Node<'tree>),
     /// Block of statement nodes, or an empty statement without block.
     Block(Vec<Node<'tree>>),
-    // TODO: if, switch, etc., but it's unlikely we'll support export, import, etc.
+
+    If(IfStatement<'tree>),
+    // TODO: switch, etc., but it's unlikely we'll support export, import, etc.
 }
 
 impl<'tree> Statement<'tree> {
@@ -32,12 +34,37 @@ impl<'tree> Statement<'tree> {
                 Statement::Block(stmts)
             }
             "empty_statement" => Statement::Block(vec![]),
+            "if_statement" => {
+                let condition = astutil::get_child_by_field_name(node, "condition")?;
+                let consequence = astutil::get_child_by_field_name(node, "consequence")?;
+                let alternative = node
+                    .child_by_field_name("alternative")
+                    .map(|n| {
+                        cursor.reset(n);
+                        astutil::goto_first_named_child(cursor)?;
+                        Ok(cursor.node())
+                    })
+                    .transpose()?;
+                Statement::If(IfStatement {
+                    condition,
+                    consequence,
+                    alternative,
+                })
+            }
             _ => {
                 return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
             }
         };
         Ok(stmt)
     }
+}
+
+/// Represents an "if" statement.
+#[derive(Clone, Debug)]
+pub struct IfStatement<'tree> {
+    pub condition: Node<'tree>,
+    pub consequence: Node<'tree>,
+    pub alternative: Option<Node<'tree>>,
 }
 
 #[cfg(test)]
@@ -61,6 +88,7 @@ mod tests {
     impl<'tree> Statement<'tree> {
         impl_unwrap_fn!(unwrap_expression, Statement::Expression, Node<'tree>);
         impl_unwrap_fn!(unwrap_block, Statement::Block, Vec<Node<'tree>>);
+        impl_unwrap_fn!(unwrap_if, Statement::If, IfStatement<'tree>);
     }
 
     fn parse(source: &str) -> UiDocument {
@@ -121,5 +149,28 @@ mod tests {
 
         let ns = unwrap_stmt(&doc, "empty_no_block").unwrap_block();
         assert!(ns.is_empty());
+    }
+
+    #[test]
+    fn if_statement() {
+        let doc = parse(
+            r###"
+            Foo {
+                if_: if (0) /*garbage*/ { 1 }
+                if_else: if (0) { 1 } else /*garbage*/ { 2 }
+            }
+            "###,
+        );
+
+        let x = unwrap_stmt(&doc, "if_").unwrap_if();
+        assert!(Expression::from_node(x.condition, doc.source()).is_ok());
+        assert!(Statement::from_node(x.consequence).is_ok());
+        assert!(x.alternative.is_none());
+
+        let x = unwrap_stmt(&doc, "if_else").unwrap_if();
+        assert!(Expression::from_node(x.condition, doc.source()).is_ok());
+        assert!(Statement::from_node(x.consequence).is_ok());
+        assert!(Statement::from_node(x.alternative.unwrap()).is_ok());
+        assert_ne!(x.consequence, x.alternative.unwrap());
     }
 }
