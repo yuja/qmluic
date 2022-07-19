@@ -203,7 +203,7 @@ QDialog {
 
                             QVBoxLayout {
                                 QHBoxLayout {
-                                    QLabel { text: qsTr("Subject:") }  // TODO: buddy
+                                    QLabel { text: qsTr("Subject:"); buddy: subjectEdit }
                                     QLineEdit {  // TODO: was QComboBox
                                         id: subjectEdit
                                         sizePolicy.horizontalPolicy: QSizePolicy.Expanding

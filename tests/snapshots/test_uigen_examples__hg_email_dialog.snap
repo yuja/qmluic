@@ -304,6 +304,9 @@ expression: ui_xml
             <layout class="QHBoxLayout" name="hboxLayout1">
              <item>
               <widget class="QLabel" name="label5">
+               <property name="buddy">
+                <cstring>subjectEdit</cstring>
+               </property>
                <property name="text">
                 <string>Subject:</string>
                </property>
