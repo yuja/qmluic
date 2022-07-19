@@ -304,4 +304,3 @@ QDialog {
 // </customwidgets>
 
 // TODO: tabstops
-// TODO: connections
