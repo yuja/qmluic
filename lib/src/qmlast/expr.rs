@@ -384,6 +384,36 @@ mod tests {
         impl_unwrap_fn!(unwrap_string, Expression::String, String);
         impl_unwrap_fn!(unwrap_bool, Expression::Bool, bool);
         impl_unwrap_fn!(unwrap_array, Expression::Array, Vec<Node<'tree>>);
+        impl_unwrap_fn!(
+            unwrap_member_expression,
+            Expression::MemberExpression,
+            MemberExpression<'tree>
+        );
+        impl_unwrap_fn!(
+            unwrap_call_expression,
+            Expression::CallExpression,
+            CallExpression<'tree>
+        );
+        impl_unwrap_fn!(
+            unwrap_assignment_expression,
+            Expression::AssignmentExpression,
+            AssignmentExpression<'tree>
+        );
+        impl_unwrap_fn!(
+            unwrap_unary_expression,
+            Expression::UnaryExpression,
+            UnaryExpression<'tree>
+        );
+        impl_unwrap_fn!(
+            unwrap_binary_expression,
+            Expression::BinaryExpression,
+            BinaryExpression<'tree>
+        );
+        impl_unwrap_fn!(
+            unwrap_ternary_expression,
+            Expression::TernaryExpression,
+            TernaryExpression<'tree>
+        );
     }
 
     fn parse(source: &str) -> UiDocument {
@@ -460,18 +490,14 @@ mod tests {
             }
             "###,
         );
-        match unwrap_expr(&doc, "member") {
-            Expression::MemberExpression(x) => {
-                assert_eq!(
-                    Identifier::from_node(x.object)
-                        .unwrap()
-                        .to_str(doc.source()),
-                    "foo"
-                );
-                assert_eq!(x.property.to_str(doc.source()), "bar");
-            }
-            expr => panic!("unexpected expression: {expr:?}"),
-        }
+        let x = unwrap_expr(&doc, "member").unwrap_member_expression();
+        assert_eq!(
+            Identifier::from_node(x.object)
+                .unwrap()
+                .to_str(doc.source()),
+            "foo"
+        );
+        assert_eq!(x.property.to_str(doc.source()), "bar");
     }
 
     #[test]
@@ -483,18 +509,14 @@ mod tests {
             }
             "###,
         );
-        match unwrap_expr(&doc, "call") {
-            Expression::CallExpression(x) => {
-                assert_eq!(
-                    Identifier::from_node(x.function)
-                        .unwrap()
-                        .to_str(doc.source()),
-                    "foo"
-                );
-                assert_eq!(x.arguments.len(), 2);
-            }
-            expr => panic!("unexpected expression: {expr:?}"),
-        }
+        let x = unwrap_expr(&doc, "call").unwrap_call_expression();
+        assert_eq!(
+            Identifier::from_node(x.function)
+                .unwrap()
+                .to_str(doc.source()),
+            "foo"
+        );
+        assert_eq!(x.arguments.len(), 2);
     }
 
     #[test]
@@ -506,16 +528,12 @@ mod tests {
             }
             "###,
         );
-        match unwrap_expr(&doc, "assign") {
-            Expression::AssignmentExpression(x) => {
-                assert_eq!(
-                    Identifier::from_node(x.left).unwrap().to_str(doc.source()),
-                    "foo"
-                );
-                assert_ne!(x.left, x.right);
-            }
-            expr => panic!("unexpected expression: {expr:?}"),
-        }
+        let x = unwrap_expr(&doc, "assign").unwrap_assignment_expression();
+        assert_eq!(
+            Identifier::from_node(x.left).unwrap().to_str(doc.source()),
+            "foo"
+        );
+        assert_ne!(x.left, x.right);
     }
 
     #[test]
@@ -527,12 +545,8 @@ mod tests {
             }
             "###,
         );
-        match unwrap_expr(&doc, "logical_not") {
-            Expression::UnaryExpression(x) => {
-                assert_eq!(x.operator, UnaryOperator::LogicalNot);
-            }
-            expr => panic!("unexpected expression: {expr:?}"),
-        }
+        let x = unwrap_expr(&doc, "logical_not").unwrap_unary_expression();
+        assert_eq!(x.operator, UnaryOperator::LogicalNot);
     }
 
     #[test]
@@ -544,13 +558,9 @@ mod tests {
             }
             "###,
         );
-        match unwrap_expr(&doc, "add") {
-            Expression::BinaryExpression(x) => {
-                assert_eq!(x.operator, BinaryOperator::Add);
-                assert_ne!(x.left, x.right);
-            }
-            expr => panic!("unexpected expression: {expr:?}"),
-        }
+        let x = unwrap_expr(&doc, "add").unwrap_binary_expression();
+        assert_eq!(x.operator, BinaryOperator::Add);
+        assert_ne!(x.left, x.right);
     }
 
     #[test]
@@ -562,12 +572,8 @@ mod tests {
             }
             "###,
         );
-        match unwrap_expr(&doc, "ternary") {
-            Expression::TernaryExpression(x) => {
-                assert_ne!(x.condition, x.consequence);
-                assert_ne!(x.consequence, x.alternative);
-            }
-            expr => panic!("unexpected expression: {expr:?}"),
-        }
+        let x = unwrap_expr(&doc, "ternary").unwrap_ternary_expression();
+        assert_ne!(x.condition, x.consequence);
+        assert_ne!(x.consequence, x.alternative);
     }
 }
