@@ -310,13 +310,7 @@ expression: ui_xml
               </widget>
              </item>
              <item>
-              <widget class="QComboBox" name="subjectEdit">
-               <property name="editable">
-                <bool>true</bool>
-               </property>
-               <property name="insertPolicy">
-                <enum>QComboBox::InsertAtTop</enum>
-               </property>
+              <widget class="QLineEdit" name="subjectEdit">
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                 </sizepolicy>

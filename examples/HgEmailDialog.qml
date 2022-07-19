@@ -184,6 +184,11 @@ QDialog {
                             "the entire patch series.  When emailing a bundle, these fields " +
                             "make up the message subject and body. Flags is a comma separated " +
                             "list of tags which are inserted into the message subject prefix.")
+                        onClicked: {
+                            // TODO: if (checked)
+                            subjectEdit.setFocus();
+                            subjectEdit.selectAll();
+                        }
                     }
 
                     QSplitter {
@@ -199,12 +204,12 @@ QDialog {
                             QVBoxLayout {
                                 QHBoxLayout {
                                     QLabel { text: qsTr("Subject:") }  // TODO: buddy
-                                    QComboBox {
+                                    QLineEdit {  // TODO: was QComboBox
                                         id: subjectEdit
                                         sizePolicy.horizontalPolicy: QSizePolicy.Expanding
                                         sizePolicy.verticalPolicy: QSizePolicy.Fixed
-                                        editable: true
-                                        insertPolicy: QComboBox.InsertAtTop
+                                        // editable: true
+                                        // insertPolicy: QComboBox.InsertAtTop
                                     }
                                 }
 

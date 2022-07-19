@@ -16,6 +16,7 @@ public:
         this->setupWriteIntroCheckEnabled();
         this->setupIntroBoxVisible();
         this->setupBundleRadioClicked();
+        this->setupWriteIntroCheckClicked();
         this->updateWriteIntroCheckEnabled();
         this->updateIntroBoxVisible();
     }
@@ -94,6 +95,19 @@ private:
     {
     b0:
         this->ui_->writeIntroCheck->setChecked(true);
+        return;
+    }
+
+    void setupWriteIntroCheckClicked()
+    {
+        QObject::connect(this->ui_->writeIntroCheck, &QCheckBox::clicked, this->root_, [this]() { this->onWriteIntroCheckClicked(); });
+    }
+
+    void onWriteIntroCheckClicked()
+    {
+    b0:
+        this->ui_->subjectEdit->setFocus();
+        this->ui_->subjectEdit->selectAll();
         return;
     }
 
