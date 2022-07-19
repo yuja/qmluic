@@ -7,10 +7,12 @@ use std::ops::Range;
 mod astutil;
 mod expr;
 mod object;
+mod stmt;
 mod term;
 
 pub use self::expr::*; // re-export
 pub use self::object::*; // re-export
+pub use self::stmt::*; // re-export
 pub use self::term::*; // re-export
 pub use tree_sitter::Node; // re-export
 
