@@ -324,33 +324,29 @@ where
                 .consume_node_err(node, visitor.visit_array(elements, node.byte_range()))
                 .map(Intermediate::Item)
         }
-        Expression::MemberExpression(x) => {
-            match walk_expr(ctx, x.object, source, visitor, diagnostics)? {
-                Intermediate::Item(it) => {
-                    process_item_property(it, x.property, source, diagnostics)
-                }
-                Intermediate::BoundProperty(it, p) => {
-                    let obj = diagnostics.consume_node_err(
-                        x.object,
-                        visitor.visit_object_property(it, p, x.object.byte_range()),
-                    )?;
-                    process_item_property(obj, x.property, source, diagnostics)
-                }
-                Intermediate::BoundMethod(..)
-                | Intermediate::BoundBuiltinMethod(..)
-                | Intermediate::BuiltinFunction(_) => {
-                    diagnostics.push(Diagnostic::error(
-                        node.byte_range(),
-                        "function has no property/method",
-                    ));
-                    None
-                }
-                Intermediate::Type(ty) => {
-                    process_identifier(&ty, x.property, source, visitor, diagnostics)
-                }
+        Expression::Member(x) => match walk_expr(ctx, x.object, source, visitor, diagnostics)? {
+            Intermediate::Item(it) => process_item_property(it, x.property, source, diagnostics),
+            Intermediate::BoundProperty(it, p) => {
+                let obj = diagnostics.consume_node_err(
+                    x.object,
+                    visitor.visit_object_property(it, p, x.object.byte_range()),
+                )?;
+                process_item_property(obj, x.property, source, diagnostics)
             }
-        }
-        Expression::CallExpression(x) => {
+            Intermediate::BoundMethod(..)
+            | Intermediate::BoundBuiltinMethod(..)
+            | Intermediate::BuiltinFunction(_) => {
+                diagnostics.push(Diagnostic::error(
+                    node.byte_range(),
+                    "function has no property/method",
+                ));
+                None
+            }
+            Intermediate::Type(ty) => {
+                process_identifier(&ty, x.property, source, visitor, diagnostics)
+            }
+        },
+        Expression::Call(x) => {
             let arguments = x
                 .arguments
                 .iter()
@@ -395,7 +391,7 @@ where
                 }
             }
         }
-        Expression::AssignmentExpression(x) => {
+        Expression::Assignment(x) => {
             let right = walk_rvalue(ctx, x.right, source, visitor, diagnostics)?;
             match walk_expr(ctx, x.left, source, visitor, diagnostics)? {
                 Intermediate::BoundProperty(it, p) => diagnostics
@@ -414,7 +410,7 @@ where
                 }
             }
         }
-        Expression::UnaryExpression(x) => {
+        Expression::Unary(x) => {
             let argument = walk_rvalue(ctx, x.argument, source, visitor, diagnostics)?;
             // TODO: confine type error?
             diagnostics
@@ -424,7 +420,7 @@ where
                 )
                 .map(Intermediate::Item)
         }
-        Expression::BinaryExpression(x) => {
+        Expression::Binary(x) => {
             let left = walk_rvalue(ctx, x.left, source, visitor, diagnostics)?;
             let right = walk_rvalue(ctx, x.right, source, visitor, diagnostics)?;
             // TODO: confine type error?
@@ -435,7 +431,7 @@ where
                 )
                 .map(Intermediate::Item)
         }
-        Expression::TernaryExpression(x) => {
+        Expression::Ternary(x) => {
             let condition = walk_rvalue(ctx, x.condition, source, visitor, diagnostics)?;
             let condition_label = visitor.mark_branch_point();
             let consequence = walk_rvalue(ctx, x.consequence, source, visitor, diagnostics)?;
