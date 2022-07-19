@@ -145,6 +145,13 @@ pub trait ExpressionVisitor<'a> {
         property: Property<'a>,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error>;
+    fn visit_object_property_assignment(
+        &mut self,
+        object: Self::Item,
+        property: Property<'a>,
+        right: Self::Item,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error>;
     fn visit_object_method_call(
         &mut self,
         object: Self::Item,
@@ -341,7 +348,25 @@ where
                 }
             }
         }
-        Expression::AssignmentExpression(_) => todo!(),
+        Expression::AssignmentExpression(x) => {
+            let right = walk(ctx, x.right, source, visitor, diagnostics)?;
+            match walk_inner(ctx, x.left, source, visitor, diagnostics)? {
+                Intermediate::BoundProperty(it, p) => diagnostics
+                    .consume_node_err(
+                        node,
+                        visitor.visit_object_property_assignment(it, p, right, node.byte_range()),
+                    )
+                    .map(Intermediate::Item),
+                Intermediate::Item(_)
+                | Intermediate::BoundMethod(..)
+                | Intermediate::BoundBuiltinMethod(..)
+                | Intermediate::BuiltinFunction(_)
+                | Intermediate::Type(_) => {
+                    diagnostics.push(Diagnostic::error(x.left.byte_range(), "not assignable"));
+                    None
+                }
+            }
+        }
         Expression::UnaryExpression(x) => {
             let argument = walk(ctx, x.argument, source, visitor, diagnostics)?;
             // TODO: confine type error?
