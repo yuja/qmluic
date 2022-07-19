@@ -221,6 +221,21 @@ where
     C: RefSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
+    walk_rvalue(ctx, node, source, visitor, diagnostics)
+}
+
+/// Walks expression nodes recursively and returns item to be used as an rvalue.
+fn walk_rvalue<'a, C, V>(
+    ctx: &C,
+    node: Node,
+    source: &str,
+    visitor: &mut V,
+    diagnostics: &mut Diagnostics,
+) -> Option<V::Item>
+where
+    C: RefSpace<'a>,
+    V: ExpressionVisitor<'a>,
+{
     match walk_expr(ctx, node, source, visitor, diagnostics)? {
         Intermediate::Item(x) => Some(x),
         Intermediate::BoundProperty(it, p) => diagnostics.consume_node_err(
@@ -243,6 +258,7 @@ where
     }
 }
 
+/// Walks expression nodes recursively and returns intermediate result.
 fn walk_expr<'a, C, V>(
     ctx: &C,
     node: Node,
@@ -271,7 +287,7 @@ where
         Expression::Array(ns) => {
             let elements = ns
                 .iter()
-                .map(|&n| walk(ctx, n, source, visitor, diagnostics))
+                .map(|&n| walk_rvalue(ctx, n, source, visitor, diagnostics))
                 .collect::<Option<Vec<_>>>()?;
             diagnostics
                 .consume_node_err(node, visitor.visit_array(elements, node.byte_range()))
@@ -307,7 +323,7 @@ where
             let arguments = x
                 .arguments
                 .iter()
-                .map(|&n| walk(ctx, n, source, visitor, diagnostics))
+                .map(|&n| walk_rvalue(ctx, n, source, visitor, diagnostics))
                 .collect::<Option<Vec<_>>>()?;
             match walk_expr(ctx, x.function, source, visitor, diagnostics)? {
                 Intermediate::BoundMethod(it, ms) => {
@@ -349,7 +365,7 @@ where
             }
         }
         Expression::AssignmentExpression(x) => {
-            let right = walk(ctx, x.right, source, visitor, diagnostics)?;
+            let right = walk_rvalue(ctx, x.right, source, visitor, diagnostics)?;
             match walk_expr(ctx, x.left, source, visitor, diagnostics)? {
                 Intermediate::BoundProperty(it, p) => diagnostics
                     .consume_node_err(
@@ -368,7 +384,7 @@ where
             }
         }
         Expression::UnaryExpression(x) => {
-            let argument = walk(ctx, x.argument, source, visitor, diagnostics)?;
+            let argument = walk_rvalue(ctx, x.argument, source, visitor, diagnostics)?;
             // TODO: confine type error?
             diagnostics
                 .consume_node_err(
@@ -378,8 +394,8 @@ where
                 .map(Intermediate::Item)
         }
         Expression::BinaryExpression(x) => {
-            let left = walk(ctx, x.left, source, visitor, diagnostics)?;
-            let right = walk(ctx, x.right, source, visitor, diagnostics)?;
+            let left = walk_rvalue(ctx, x.left, source, visitor, diagnostics)?;
+            let right = walk_rvalue(ctx, x.right, source, visitor, diagnostics)?;
             // TODO: confine type error?
             diagnostics
                 .consume_node_err(
@@ -389,11 +405,11 @@ where
                 .map(Intermediate::Item)
         }
         Expression::TernaryExpression(x) => {
-            let condition = walk(ctx, x.condition, source, visitor, diagnostics)?;
+            let condition = walk_rvalue(ctx, x.condition, source, visitor, diagnostics)?;
             let condition_label = visitor.mark_branch_point();
-            let consequence = walk(ctx, x.consequence, source, visitor, diagnostics)?;
+            let consequence = walk_rvalue(ctx, x.consequence, source, visitor, diagnostics)?;
             let consequence_label = visitor.mark_branch_point();
-            let alternative = walk(ctx, x.alternative, source, visitor, diagnostics)?;
+            let alternative = walk_rvalue(ctx, x.alternative, source, visitor, diagnostics)?;
             let alternative_label = visitor.mark_branch_point();
             diagnostics
                 .consume_node_err(
