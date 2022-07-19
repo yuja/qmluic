@@ -205,7 +205,7 @@ Major TODOs
   - [x] integer/floating point mess
   - [ ] implicit/explicit `this` property
   - [x] method/slot call
-  - [ ] property setter
+  - [x] property setter
   - [ ] gadget types
   - [x] cycle detection
   - [ ] `if` statement

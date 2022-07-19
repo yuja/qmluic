@@ -78,6 +78,14 @@ fn format_rvalue(rv: &Rvalue) -> String {
         Rvalue::ReadProperty(obj, prop) => {
             format!("read_property {}, {:?}", format_operand(obj), prop.name())
         }
+        Rvalue::WriteProperty(obj, prop, r) => {
+            format!(
+                "write_property {}, {:?}, {}",
+                format_operand(obj),
+                prop.name(),
+                format_operand(r)
+            )
+        }
         Rvalue::MakeList(xs) => {
             format!("make_list {{{}}}", xs.iter().map(format_operand).join(", "))
         }

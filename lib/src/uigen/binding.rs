@@ -618,6 +618,15 @@ impl CxxCodeBodyTranslator {
                         .expect("unreadable property must be rejected by TIR builder")
                 )
             }
+            Rvalue::WriteProperty(obj, prop, r) => {
+                format!(
+                    "{}->{}({})",
+                    self.format_operand(obj),
+                    prop.write_func_name()
+                        .expect("unwritable property must be rejected by TIR builder"),
+                    self.format_operand(r)
+                )
+            }
             Rvalue::MakeList(xs) => {
                 format!(
                     "{{{}}}",
