@@ -80,7 +80,7 @@ mod tests {
     }
 
     #[test]
-    fn trivial_statementss() {
+    fn trivial_statements() {
         let doc = parse(
             r###"
             Foo {
