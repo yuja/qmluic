@@ -16,6 +16,18 @@ pub(super) fn node_text<'tree, 'source>(node: Node<'tree>, source: &'source str)
         .expect("source range must be valid utf-8 string")
 }
 
+pub(super) fn goto_first_named_child<'tree>(
+    cursor: &mut TreeCursor<'tree>,
+) -> Result<(), ParseError<'tree>> {
+    if !cursor.goto_first_child() {
+        return Err(ParseError::new(
+            cursor.node(),
+            ParseErrorKind::InvalidSyntax,
+        ));
+    }
+    skip_until_named(cursor)
+}
+
 pub(super) fn skip_until_named<'tree>(
     cursor: &mut TreeCursor<'tree>,
 ) -> Result<(), ParseError<'tree>> {

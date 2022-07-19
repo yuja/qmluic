@@ -32,13 +32,7 @@ impl<'tree> Expression<'tree> {
         source: &str,
     ) -> Result<Self, ParseError<'tree>> {
         while cursor.node().kind() == "parenthesized_expression" {
-            if !cursor.goto_first_child() {
-                return Err(ParseError::new(
-                    cursor.node(),
-                    ParseErrorKind::InvalidSyntax,
-                ));
-            }
-            astutil::skip_until_named(cursor)?;
+            astutil::goto_first_named_child(cursor)?;
         }
 
         let node = cursor.node();
