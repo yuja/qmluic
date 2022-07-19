@@ -1,7 +1,7 @@
 //! Expression tree visitor with type information.
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::qmlast::{BinaryOperator, Expression, Identifier, Node, UnaryOperator};
+use crate::qmlast::{BinaryOperator, Expression, Identifier, Node, Statement, UnaryOperator};
 use crate::typemap::{
     Class, Enum, MethodMatches, NamedType, PrimitiveType, Property, TypeKind, TypeMapError,
     TypeSpace,
@@ -207,9 +207,9 @@ enum Intermediate<'a, T> {
     Type(NamedType<'a>),
 }
 
-/// Walks expression nodes recursively from the specified `node`.
+/// Walks statement nodes recursively from the specified `node`.
 ///
-/// `parent_space` is the context where an identifier expression is resolved.
+/// `ctx` is the space where an identifier expression is resolved.
 pub fn walk<'a, C, V>(
     ctx: &C,
     node: Node,
@@ -221,7 +221,16 @@ where
     C: RefSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
-    walk_rvalue(ctx, node, source, visitor, diagnostics)
+    match diagnostics.consume_err(Statement::from_node(node))? {
+        Statement::Expression(n) => walk_rvalue(ctx, n, source, visitor, diagnostics),
+        Statement::Block(_) => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                "statement block is not supported",
+            ));
+            None
+        }
+    }
 }
 
 /// Walks expression nodes recursively and returns item to be used as an rvalue.

@@ -31,17 +31,6 @@ impl<'tree> Expression<'tree> {
         cursor: &mut TreeCursor<'tree>,
         source: &str,
     ) -> Result<Self, ParseError<'tree>> {
-        // TODO: expression_statement should be handled by caller, and it may hold
-        // sequence_expression.
-        if cursor.node().kind() == "expression_statement" {
-            if !cursor.goto_first_child() {
-                return Err(ParseError::new(
-                    cursor.node(),
-                    ParseErrorKind::InvalidSyntax,
-                ));
-            }
-            astutil::skip_until_named(cursor)?;
-        }
         while cursor.node().kind() == "parenthesized_expression" {
             if !cursor.goto_first_child() {
                 return Err(ParseError::new(
@@ -362,6 +351,7 @@ pub struct TernaryExpression<'tree> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::stmt::Statement;
     use super::*;
     use crate::qmlast::{UiObjectDefinition, UiProgram};
     use crate::qmldoc::UiDocument;
@@ -425,7 +415,10 @@ mod tests {
         let obj = UiObjectDefinition::from_node(program.root_object_node(), doc.source()).unwrap();
         let map = obj.build_binding_map(doc.source()).unwrap();
         let node = map.get(name).unwrap().get_node().unwrap();
-        Expression::from_node(node, doc.source())
+        match Statement::from_node(node).unwrap() {
+            Statement::Expression(n) => Expression::from_node(n, doc.source()),
+            stmt => panic!("expression statement node must be specified, but got {stmt:?}"),
+        }
     }
 
     fn unwrap_expr<'a>(doc: &'a UiDocument, name: &str) -> Expression<'a> {
