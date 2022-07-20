@@ -211,7 +211,7 @@ Major TODOs
   - [x] `if` statement
   - [ ] `switch` statement
   - [ ] `return` statement
-  - [ ] `let` binding
+  - [x] `let` binding
   - [x] multiple statements
   - [ ] signal parameters: `on<Signal>: function(...) {}`
 - [ ] export helper functions from C++

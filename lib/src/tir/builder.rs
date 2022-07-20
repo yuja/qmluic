@@ -184,6 +184,22 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         Ok(a.name)
     }
 
+    fn visit_local_assignment(
+        &mut self,
+        name: Self::Local,
+        right: Self::Item,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error> {
+        let ty = &self.code.locals[name.0].ty; // name must be valid
+        let right = ensure_concrete_string(right);
+        typeutil::verify_concrete_type(ty, &right.type_desc())
+            .map_err(|e| to_operation_type_error("=", e))?;
+        self.push_statement(Statement::Assign(name, Rvalue::Copy(right)));
+        // TODO: or return rvalue?, but property assignment doesn't because it would have
+        // to re-read property
+        Ok(self.make_void(byte_range))
+    }
+
     fn visit_object_ref(
         &mut self,
         cls: Class<'a>,
@@ -1016,6 +1032,67 @@ mod tests {
     fn local_declaration_with_void() {
         let env = Env::new();
         assert!(env.try_build("{ let a = foo.done() }").is_err());
+    }
+
+    #[test]
+    fn local_assignment_branched() {
+        insta::assert_snapshot!(dump(r###"{
+            let a = '';
+            if (foo.checked) {
+                a = foo.text;
+            } else if (foo2.checked) {
+                a = foo2.text;
+            }
+            foo3.text = a;
+        }"###), @r###"
+            %0: QString
+            %1: bool
+            %2: QString
+            %3: bool
+            %4: QString
+        .0:
+            %0 = copy "": QString
+            %1 = read_property [foo]: Foo*, "checked"
+            br_cond %1: bool, .1, .2
+        .1:
+            %2 = read_property [foo]: Foo*, "text"
+            %0 = copy %2: QString
+            br .5
+        .2:
+            %3 = read_property [foo2]: Foo*, "checked"
+            br_cond %3: bool, .3, .4
+        .3:
+            %4 = read_property [foo2]: Foo*, "text"
+            %0 = copy %4: QString
+            br .4
+        .4:
+            br .5
+        .5:
+            write_property [foo3]: Foo*, "text", %0: QString
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn local_assignment_type_mismatch() {
+        let env = Env::new();
+        assert!(env.try_build("{ let a = true; a = foo.text }").is_err());
+    }
+
+    #[test]
+    fn const_declaration() {
+        insta::assert_snapshot!(dump("{ const s = 'hello'; s }"), @r###"
+            %0: QString
+        .0:
+            %0 = copy "hello": QString
+            return %0: QString
+        "###);
+    }
+
+    #[test]
+    fn const_reassignment() {
+        let env = Env::new();
+        assert!(env.try_build("{ const a = 0; a = 1 }").is_err());
     }
 
     #[test]
