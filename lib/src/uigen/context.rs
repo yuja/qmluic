@@ -46,7 +46,7 @@ pub(super) struct ObjectContext<'a, 't, 's> {
     pub classes: &'s KnownClasses<'a>,
     pub type_space: &'s ImportedModuleSpace<'a>,
     pub object_tree: &'s ObjectTree<'a, 't>,
-    // TODO: Class<'a> to resolve property/method of the surrounding object?
+    obj_node: ObjectNode<'a, 't, 's>,
 }
 
 /// Classes to be used to switch uigen paths.
@@ -174,12 +174,16 @@ impl<'a, 't, 's> BuildDocContext<'a, 't, 's> {
         &self.object_code_maps[obj_node.flat_index()]
     }
 
-    pub fn make_object_context(&self) -> ObjectContext<'a, 't, 's> {
+    pub fn make_object_context(
+        &self,
+        obj_node: ObjectNode<'a, 't, 's>,
+    ) -> ObjectContext<'a, 't, 's> {
         ObjectContext {
             source: self.source,
             classes: self.classes,
             type_space: self.type_space,
             object_tree: self.object_tree,
+            obj_node,
         }
     }
 }
@@ -189,6 +193,7 @@ impl<'a, 't, 's> ObjectContext<'a, 't, 's> {
         doc: &'s UiDocument,
         type_space: &'s ImportedModuleSpace<'a>,
         object_tree: &'s ObjectTree<'a, 't>,
+        obj_node: ObjectNode<'a, 't, 's>,
         base_ctx: &'s BuildContext<'a>,
     ) -> Self {
         ObjectContext {
@@ -196,6 +201,7 @@ impl<'a, 't, 's> ObjectContext<'a, 't, 's> {
             classes: &base_ctx.classes,
             type_space,
             object_tree,
+            obj_node,
         }
     }
 }

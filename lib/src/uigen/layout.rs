@@ -39,6 +39,7 @@ impl Layout {
         diagnostics: &mut Diagnostics,
     ) -> Self {
         let cls = obj_node.class();
+        let obj_ctx = ctx.make_object_context(obj_node);
         let properties_code_map = ctx.code_map_for_object(obj_node).properties();
         let (attributes, children) = if cls.is_derived_from(&ctx.classes.vbox_layout) {
             process_vbox_layout_children(ctx, obj_node, diagnostics)
@@ -47,8 +48,7 @@ impl Layout {
         } else if cls.is_derived_from(&ctx.classes.form_layout) {
             process_form_layout_children(ctx, obj_node, diagnostics)
         } else if cls.is_derived_from(&ctx.classes.grid_layout) {
-            let flow =
-                LayoutFlow::parse(&ctx.make_object_context(), properties_code_map, diagnostics);
+            let flow = LayoutFlow::parse(&obj_ctx, properties_code_map, diagnostics);
             process_grid_layout_children(ctx, obj_node, flow, diagnostics)
         } else {
             diagnostics.push(Diagnostic::error(
@@ -60,7 +60,7 @@ impl Layout {
         };
 
         Self::new(
-            &ctx.make_object_context(),
+            &obj_ctx,
             obj_node.class(),
             obj_node.name(),
             attributes,
@@ -251,13 +251,13 @@ macro_rules! impl_attached_i32_property {
 }
 
 impl<'a, 't, 's, 'm> LayoutItemAttached<'a, 't, 's, 'm> {
-    fn prepare(ctx: &'m BuildDocContext<'a, 't, 's>, obj_node: ObjectNode) -> Self {
+    fn prepare(ctx: &'m BuildDocContext<'a, 't, 's>, obj_node: ObjectNode<'a, 't, 's>) -> Self {
         let code_map = ctx.code_map_for_object(obj_node);
         let map = code_map
             .attached_properties(&ctx.classes.layout)
             .map(|(_, m)| m);
         LayoutItemAttached {
-            ctx: ctx.make_object_context(),
+            ctx: ctx.make_object_context(obj_node),
             map,
         }
     }
@@ -290,7 +290,7 @@ impl LayoutItemContent {
         } else if cls.is_derived_from(&ctx.classes.spacer_item) {
             object::confine_children(obj_node, diagnostics);
             LayoutItemContent::SpacerItem(SpacerItem::new(
-                &ctx.make_object_context(),
+                &ctx.make_object_context(obj_node),
                 obj_node.name(),
                 ctx.code_map_for_object(obj_node).properties(),
                 diagnostics,

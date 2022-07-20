@@ -37,7 +37,7 @@ impl UiObject {
         if cls.is_derived_from(&ctx.classes.action) {
             confine_children(obj_node, diagnostics);
             UiObject::Action(Action::new(
-                &ctx.make_object_context(),
+                &ctx.make_object_context(obj_node),
                 obj_node.name(),
                 ctx.code_map_for_object(obj_node).properties(),
                 diagnostics,
@@ -143,7 +143,7 @@ impl Widget {
         };
 
         Self::new(
-            &ctx.make_object_context(),
+            &ctx.make_object_context(obj_node),
             obj_node.class(),
             obj_node.name(),
             ctx.code_map_for_object(obj_node).properties(),
@@ -298,7 +298,7 @@ fn process_tab_widget_children(
                     if let Some((_, map)) = code_map.attached_properties(&ctx.classes.tab_widget) {
                         w.attributes.extend(
                             property::make_value_map(
-                                &ctx.make_object_context(),
+                                &ctx.make_object_context(n),
                                 map,
                                 &[],
                                 diagnostics,
