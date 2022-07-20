@@ -171,7 +171,7 @@ fn build_object_code_maps<'a, 't, 's>(
     object_tree
         .flat_iter()
         .map(|obj_node| {
-            let ctx = ObjectContext::new(doc, type_space, object_tree, base_ctx);
+            let ctx = ObjectContext::new(doc, type_space, object_tree, obj_node, base_ctx);
             ObjectCodeMap::build(&ctx, obj_node, diagnostics)
         })
         .collect()
