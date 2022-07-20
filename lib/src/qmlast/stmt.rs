@@ -1,4 +1,5 @@
 use super::astutil;
+use super::node::StatementNode;
 use super::term::{self, Identifier, NestedIdentifier};
 use super::{ParseError, ParseErrorKind};
 use tree_sitter::{Node, TreeCursor};
@@ -9,7 +10,7 @@ pub enum Statement<'tree> {
     /// Expression node.
     Expression(Node<'tree>),
     /// Block of statement nodes, or an empty statement without block.
-    Block(Vec<Node<'tree>>),
+    Block(Vec<StatementNode<'tree>>),
 
     LexicalDeclaration(LexicalDeclaration<'tree>),
     If(IfStatement<'tree>),
@@ -22,7 +23,7 @@ pub enum Statement<'tree> {
 }
 
 impl<'tree> Statement<'tree> {
-    pub fn from_node(node: Node<'tree>) -> Result<Self, ParseError<'tree>> {
+    pub fn from_node(node: StatementNode<'tree>) -> Result<Self, ParseError<'tree>> {
         Self::with_cursor(&mut node.walk())
     }
 
@@ -37,6 +38,7 @@ impl<'tree> Statement<'tree> {
                 let stmts = node
                     .named_children(cursor)
                     .filter(|n| !n.is_extra())
+                    .map(StatementNode)
                     .collect();
                 Statement::Block(stmts)
             }
@@ -46,13 +48,14 @@ impl<'tree> Statement<'tree> {
             }
             "if_statement" => {
                 let condition = astutil::get_child_by_field_name(node, "condition")?;
-                let consequence = astutil::get_child_by_field_name(node, "consequence")?;
+                let consequence =
+                    astutil::get_child_by_field_name(node, "consequence").map(StatementNode)?;
                 let alternative = node
                     .child_by_field_name("alternative")
                     .map(|n| {
                         cursor.reset(n);
                         astutil::goto_first_named_child(cursor)?;
-                        Ok(cursor.node())
+                        Ok(StatementNode(cursor.node()))
                     })
                     .transpose()?;
                 Statement::If(IfStatement {
@@ -159,8 +162,8 @@ impl<'tree> VariableDeclarator<'tree> {
 #[derive(Clone, Debug)]
 pub struct IfStatement<'tree> {
     pub condition: Node<'tree>,
-    pub consequence: Node<'tree>,
-    pub alternative: Option<Node<'tree>>,
+    pub consequence: StatementNode<'tree>,
+    pub alternative: Option<StatementNode<'tree>>,
 }
 
 /// Represents a "switch" statement.
@@ -180,7 +183,7 @@ pub struct SwitchCase<'tree> {
     /// Expression to be matched.
     pub value: Node<'tree>,
     /// Statements to be executed.
-    pub body: Vec<Node<'tree>>,
+    pub body: Vec<StatementNode<'tree>>,
 }
 
 /// Represents a "default" clause.
@@ -189,7 +192,7 @@ pub struct SwitchDefault<'tree> {
     /// Index in the fall-through list, which is usually `cases.len()`.
     pub position: usize,
     /// Statements to be executed.
-    pub body: Vec<Node<'tree>>,
+    pub body: Vec<StatementNode<'tree>>,
 }
 
 impl<'tree> SwitchStatement<'tree> {
@@ -206,6 +209,7 @@ impl<'tree> SwitchStatement<'tree> {
                     let value = astutil::get_child_by_field_name(node, "value")?;
                     let body = node
                         .children_by_field_name("body", &mut node.walk())
+                        .map(StatementNode)
                         .collect();
                     cases.push(SwitchCase { value, body });
                 }
@@ -215,6 +219,7 @@ impl<'tree> SwitchStatement<'tree> {
                 "switch_default" => {
                     let body = node
                         .children_by_field_name("body", &mut node.walk())
+                        .map(StatementNode)
                         .collect();
                     default = Some(SwitchDefault { position: i, body });
                 }
@@ -252,7 +257,7 @@ mod tests {
 
     impl<'tree> Statement<'tree> {
         impl_unwrap_fn!(unwrap_expression, Statement::Expression, Node<'tree>);
-        impl_unwrap_fn!(unwrap_block, Statement::Block, Vec<Node<'tree>>);
+        impl_unwrap_fn!(unwrap_block, Statement::Block, Vec<StatementNode<'tree>>);
         impl_unwrap_fn!(
             unwrap_lexical_declaration,
             Statement::LexicalDeclaration,
@@ -273,7 +278,7 @@ mod tests {
         let obj = UiObjectDefinition::from_node(program.root_object_node(), doc.source()).unwrap();
         let map = obj.build_binding_map(doc.source()).unwrap();
         let node = map.get(name).unwrap().get_node().unwrap();
-        Statement::from_node(node)
+        node.parse()
     }
 
     fn unwrap_stmt<'t>(doc: &'t UiDocument, name: &str) -> Statement<'t> {
@@ -283,7 +288,7 @@ mod tests {
     fn unwrap_block_stmt<'t>(doc: &'t UiDocument, name: &str) -> Statement<'t> {
         let ns = unwrap_stmt(doc, name).unwrap_block();
         assert!(ns.len() == 1);
-        Statement::from_node(ns[0]).unwrap()
+        ns[0].parse().unwrap()
     }
 
     #[test]
@@ -308,20 +313,13 @@ mod tests {
 
         let ns = unwrap_stmt(&doc, "block").unwrap_block();
         assert_eq!(ns.len(), 3);
-        assert!(Expression::from_node(
-            Statement::from_node(ns[0]).unwrap().unwrap_expression(),
-            doc.source()
-        )
-        .is_ok());
-        assert!(matches!(
-            Statement::from_node(ns[1]).unwrap(),
-            Statement::Block(_)
-        ));
-        assert!(Expression::from_node(
-            Statement::from_node(ns[2]).unwrap().unwrap_expression(),
-            doc.source()
-        )
-        .is_ok());
+        assert!(
+            Expression::from_node(ns[0].parse().unwrap().unwrap_expression(), doc.source()).is_ok()
+        );
+        assert!(matches!(ns[1].parse().unwrap(), Statement::Block(_)));
+        assert!(
+            Expression::from_node(ns[2].parse().unwrap().unwrap_expression(), doc.source()).is_ok()
+        );
 
         let ns = unwrap_stmt(&doc, "empty_block").unwrap_block();
         assert!(ns.is_empty());
@@ -391,13 +389,13 @@ mod tests {
 
         let x = unwrap_stmt(&doc, "if_").unwrap_if();
         assert!(Expression::from_node(x.condition, doc.source()).is_ok());
-        assert!(Statement::from_node(x.consequence).is_ok());
+        assert!(x.consequence.parse().is_ok());
         assert!(x.alternative.is_none());
 
         let x = unwrap_stmt(&doc, "if_else").unwrap_if();
         assert!(Expression::from_node(x.condition, doc.source()).is_ok());
-        assert!(Statement::from_node(x.consequence).is_ok());
-        assert!(Statement::from_node(x.alternative.unwrap()).is_ok());
+        assert!(x.consequence.parse().is_ok());
+        assert!(x.alternative.unwrap().parse().is_ok());
         assert_ne!(x.consequence, x.alternative.unwrap());
     }
 
@@ -437,16 +435,10 @@ mod tests {
         assert_eq!(x.cases.len(), 3);
         assert!(Expression::from_node(x.cases[0].value, doc.source()).is_ok());
         assert_eq!(x.cases[0].body.len(), 2);
-        assert!(Statement::from_node(x.cases[0].body[1])
-            .unwrap()
-            .unwrap_break()
-            .is_none());
+        assert!(x.cases[0].body[1].parse().unwrap().unwrap_break().is_none());
         assert_eq!(x.cases[1].body.len(), 0);
         assert_eq!(x.cases[2].body.len(), 1);
-        assert!(Statement::from_node(x.cases[2].body[0])
-            .unwrap()
-            .unwrap_break()
-            .is_some());
+        assert!(x.cases[2].body[0].parse().unwrap().unwrap_break().is_some());
         assert!(x.default.is_none());
 
         let x = unwrap_stmt(&doc, "switch_with_default").unwrap_switch();

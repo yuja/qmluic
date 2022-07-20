@@ -5,7 +5,7 @@ use super::core::{
 };
 use crate::diagnostic::Diagnostics;
 use crate::opcode::{BinaryArithOp, BinaryOp, BuiltinFunctionKind, UnaryOp};
-use crate::qmlast::Node;
+use crate::qmlast::StatementNode;
 use crate::typedexpr::{
     self, DescribeType, ExpressionError, ExpressionVisitor, RefSpace, TypeAnnotationSpace, TypeDesc,
 };
@@ -736,7 +736,7 @@ fn check_object_subscript_type<'a>(
 /// Translates expression AST nodes into type-checked IR.
 pub fn build<'a, C>(
     ctx: &C,
-    node: Node,
+    node: StatementNode,
     source: &str,
     diagnostics: &mut Diagnostics,
 ) -> Option<CodeBody<'a>>
@@ -758,7 +758,7 @@ where
 /// parameters will be built. Otherwise this function is identical to `build()`.
 pub fn build_callback<'a, C>(
     ctx: &C,
-    node: Node,
+    node: StatementNode,
     source: &str,
     diagnostics: &mut Diagnostics,
 ) -> Option<CodeBody<'a>>

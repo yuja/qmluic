@@ -1,4 +1,5 @@
 use super::astutil;
+use super::node::StatementNode;
 use super::term::{Identifier, NestedIdentifier};
 use super::{ParseError, ParseErrorKind};
 use std::collections::HashMap;
@@ -139,8 +140,9 @@ impl<'tree> UiImport<'tree> {
     }
 }
 
-fn extract_object_id(mut node: Node) -> Result<Identifier, ParseError> {
+fn extract_object_id(node: StatementNode) -> Result<Identifier, ParseError> {
     // (expression_statement (identifier))
+    let mut node = node.inner_node(); // TODO: maybe use node.parse()?
     if node.kind() == "expression_statement" {
         node = node
             .child(0)
@@ -304,7 +306,8 @@ impl<'tree> UiObjectBody<'tree> {
                 "ui_binding" => {
                     let name_node = astutil::get_child_by_field_name(node, "name")?;
                     let name = NestedIdentifier::from_node(name_node)?;
-                    let value_node = astutil::get_child_by_field_name(node, "value")?;
+                    let value_node =
+                        astutil::get_child_by_field_name(node, "value").map(StatementNode)?;
                     if name.to_string(source) == "id" {
                         if object_id.is_some() {
                             return Err(ParseError::new(
@@ -351,7 +354,7 @@ pub struct UiBinding<'tree> {
 /// Variant for the property binding notation.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UiBindingNotation<'tree> {
-    Scalar(Node<'tree>),
+    Scalar(StatementNode<'tree>),
     Grouped(Node<'tree>),
 }
 
@@ -366,7 +369,7 @@ pub type UiBindingMap<'tree, 'source> = HashMap<&'source str, UiBindingValue<'tr
 #[derive(Clone, Debug)]
 pub enum UiBindingValue<'tree, 'source> {
     // TODO: rename Node and get_node() which are ambiguous
-    Node(Node<'tree>),
+    Node(StatementNode<'tree>),
     Map(Node<'tree>, UiBindingMap<'tree, 'source>),
 }
 
@@ -374,7 +377,7 @@ impl<'tree, 'source> UiBindingValue<'tree, 'source> {
     /// Node representing this expression or group.
     pub fn node(&self) -> Node<'tree> {
         match self {
-            UiBindingValue::Node(n) => *n,
+            UiBindingValue::Node(n) => n.inner_node(),
             UiBindingValue::Map(n, _) => *n,
         }
     }
@@ -395,7 +398,7 @@ impl<'tree, 'source> UiBindingValue<'tree, 'source> {
     }
 
     /// Returns the node if this isn't a (nested) map.
-    pub fn get_node(&self) -> Option<Node<'tree>> {
+    pub fn get_node(&self) -> Option<StatementNode<'tree>> {
         match self {
             UiBindingValue::Node(n) => Some(*n),
             UiBindingValue::Map(..) => None,
@@ -451,7 +454,7 @@ fn ensure_ui_binding_map_bases<'tree, 'source, 'map>(
 fn try_insert_ui_binding_node<'tree, 'source>(
     map: &mut UiBindingMap<'tree, 'source>,
     name: &NestedIdentifier<'tree>,
-    value_node: Node<'tree>,
+    value_node: StatementNode<'tree>,
     source: &'source str,
 ) -> Result<(), ParseError<'tree>> {
     use std::collections::hash_map::Entry;
@@ -515,7 +518,8 @@ fn try_insert_ui_grouped_binding_node<'tree, 'source>(
             "ui_binding" => {
                 let name_node = astutil::get_child_by_field_name(node, "name")?;
                 let name = NestedIdentifier::from_node(name_node)?;
-                let value_node = astutil::get_child_by_field_name(node, "value")?;
+                let value_node =
+                    astutil::get_child_by_field_name(node, "value").map(StatementNode)?;
                 try_insert_ui_binding_node(map, &name, value_node, source)?;
             }
             _ => astutil::handle_uninteresting_node(node)?,
