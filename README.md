@@ -203,7 +203,7 @@ Major TODOs
   - [x] `QString::arg()`
   - [ ] integer/string as bool
   - [x] integer/floating point mess
-  - [ ] implicit/explicit `this` property
+  - [x] implicit/explicit `this` property
   - [x] method/slot call
   - [x] property setter
   - [ ] gadget types
