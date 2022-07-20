@@ -72,7 +72,10 @@ pub enum RefKind<'a> {
     EnumVariant(Enum<'a>),
     /// Object reference of the type.
     Object(Class<'a>),
-    // TODO: Function, Property, etc.?
+    /// Property of implicit this object reference.
+    ObjectProperty(Class<'a>, String, Property<'a>),
+    /// Method of implicit this object reference.
+    ObjectMethod(Class<'a>, String, MethodMatches<'a>),
 }
 
 /// Top-level context or object which supports name lookup.
@@ -522,6 +525,18 @@ where
                 visitor.visit_object_ref(cls, name, id.node().byte_range()),
             )
             .map(Intermediate::Item),
+        Some(Ok(RefKind::ObjectProperty(obj_cls, obj_name, p))) => diagnostics
+            .consume_node_err(
+                id.node(),
+                visitor.visit_object_ref(obj_cls, &obj_name, id.node().byte_range()),
+            )
+            .map(|item| Intermediate::BoundProperty(item, p)),
+        Some(Ok(RefKind::ObjectMethod(obj_cls, obj_name, m))) => diagnostics
+            .consume_node_err(
+                id.node(),
+                visitor.visit_object_ref(obj_cls, &obj_name, id.node().byte_range()),
+            )
+            .map(|item| Intermediate::BoundMethod(item, m)),
         Some(Err(e)) => {
             diagnostics.push(Diagnostic::error(
                 id.node().byte_range(),

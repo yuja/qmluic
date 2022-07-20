@@ -208,8 +208,14 @@ impl<'a, 't, 's> ObjectContext<'a, 't, 's> {
 
 impl<'a> RefSpace<'a> for ObjectContext<'a, '_, '_> {
     fn get_ref(&self, name: &str) -> Option<Result<RefKind<'a>, TypeMapError>> {
+        // object id lookup is explicit, which should precede any other implicit this lookups.
+        let me = &self.obj_node;
         if let Some(obj) = self.object_tree.get_by_id(name) {
             Some(Ok(RefKind::Object(obj.class().clone())))
+        } else if let Some(r) = me.class().get_property(name) {
+            Some(r.map(|p| RefKind::ObjectProperty(me.class().clone(), me.name().to_owned(), p)))
+        } else if let Some(r) = me.class().get_public_method(name) {
+            Some(r.map(|m| RefKind::ObjectMethod(me.class().clone(), me.name().to_owned(), m)))
         } else if let Some(r) = self.type_space.get_type(name) {
             Some(r.map(RefKind::Type))
         } else if name == "qsTr" {

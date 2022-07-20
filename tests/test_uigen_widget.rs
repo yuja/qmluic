@@ -191,17 +191,15 @@ fn test_object_property_binding_unsupported() {
 }
 
 #[test]
-fn test_self_property_binding_unsupported() {
-    insta::assert_snapshot!(common::translate_str(r###"
-    import qmluic.QtWidgets
-    QCheckBox { checked: enabled }
-    "###).unwrap_err(), @r###"
-    error: undefined reference
-      ┌─ <unknown>:2:22
-      │
-    2 │ QCheckBox { checked: enabled }
-      │                      ^^^^^^^
-    "###);
+fn test_implicit_this_property_binding() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QCheckBox { checked: windowTitle === "" }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
 }
 
 #[test]
