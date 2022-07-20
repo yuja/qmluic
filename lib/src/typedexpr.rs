@@ -150,6 +150,7 @@ pub trait ExpressionVisitor<'a> {
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error>;
 
+    fn visit_local_ref(&mut self, name: Self::Local) -> Result<Self::Item, Self::Error>;
     fn visit_local_declaration(
         &mut self,
         value: Self::Item,
@@ -235,8 +236,9 @@ pub trait ExpressionVisitor<'a> {
 }
 
 #[derive(Debug)]
-enum Intermediate<'a, T> {
+enum Intermediate<'a, T, L> {
     Item(T),
+    Local(L, LexicalDeclarationKind),
     BoundProperty(T, Property<'a>),
     BoundMethod(T, MethodMatches<'a>),
     BoundBuiltinMethod(T, BuiltinMethodKind),
@@ -352,6 +354,7 @@ where
 {
     match walk_expr(ctx, locals, node, source, visitor, diagnostics)? {
         Intermediate::Item(x) => Some(x),
+        Intermediate::Local(l, _) => diagnostics.consume_node_err(node, visitor.visit_local_ref(l)),
         Intermediate::BoundProperty(it, p) => diagnostics.consume_node_err(
             node,
             visitor.visit_object_property(it, p, node.byte_range()),
@@ -380,7 +383,7 @@ fn walk_expr<'a, C, V>(
     source: &str,
     visitor: &mut V,
     diagnostics: &mut Diagnostics,
-) -> Option<Intermediate<'a, V::Item>>
+) -> Option<Intermediate<'a, V::Item, V::Local>>
 where
     C: RefSpace<'a>,
     V: ExpressionVisitor<'a>,
@@ -426,6 +429,10 @@ where
         Expression::Member(x) => {
             match walk_expr(ctx, locals, x.object, source, visitor, diagnostics)? {
                 Intermediate::Item(it) => {
+                    process_item_property(it, x.property, source, diagnostics)
+                }
+                Intermediate::Local(l, _) => {
+                    let it = diagnostics.consume_node_err(node, visitor.visit_local_ref(l))?;
                     process_item_property(it, x.property, source, diagnostics)
                 }
                 Intermediate::BoundProperty(it, p) => {
@@ -488,7 +495,10 @@ where
                         )
                         .map(Intermediate::Item)
                 }
-                Intermediate::Item(_) | Intermediate::BoundProperty(..) | Intermediate::Type(_) => {
+                Intermediate::Item(_)
+                | Intermediate::Local(..)
+                | Intermediate::BoundProperty(..)
+                | Intermediate::Type(_) => {
                     diagnostics.push(Diagnostic::error(x.function.byte_range(), "not callable"));
                     None
                 }
@@ -497,6 +507,7 @@ where
         Expression::Assignment(x) => {
             let right = walk_rvalue(ctx, locals, x.right, source, visitor, diagnostics)?;
             match walk_expr(ctx, locals, x.left, source, visitor, diagnostics)? {
+                Intermediate::Local(..) => todo!(),
                 Intermediate::BoundProperty(it, p) => diagnostics
                     .consume_node_err(
                         node,
@@ -565,62 +576,65 @@ fn process_identifier<'a, C, V>(
     source: &str,
     visitor: &mut V,
     diagnostics: &mut Diagnostics,
-) -> Option<Intermediate<'a, V::Item>>
+) -> Option<Intermediate<'a, V::Item, V::Local>>
 where
     C: RefSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
     let name = id.to_str(source);
-    match ctx.get_ref(name) {
-        Some(Ok(RefKind::BuiltinFunction(f))) => Some(Intermediate::BuiltinFunction(f)),
-        Some(Ok(RefKind::Type(ty))) => Some(Intermediate::Type(ty)),
-        Some(Ok(RefKind::EnumVariant(en))) => diagnostics
-            .consume_node_err(
-                id.node(),
-                visitor.visit_enum(en, name, id.node().byte_range()),
-            )
-            .map(Intermediate::Item),
-        Some(Ok(RefKind::Object(cls))) => diagnostics
-            .consume_node_err(
-                id.node(),
-                visitor.visit_object_ref(cls, name, id.node().byte_range()),
-            )
-            .map(Intermediate::Item),
-        Some(Ok(RefKind::ObjectProperty(obj_cls, obj_name, p))) => diagnostics
-            .consume_node_err(
-                id.node(),
-                visitor.visit_object_ref(obj_cls, &obj_name, id.node().byte_range()),
-            )
-            .map(|item| Intermediate::BoundProperty(item, p)),
-        Some(Ok(RefKind::ObjectMethod(obj_cls, obj_name, m))) => diagnostics
-            .consume_node_err(
-                id.node(),
-                visitor.visit_object_ref(obj_cls, &obj_name, id.node().byte_range()),
-            )
-            .map(|item| Intermediate::BoundMethod(item, m)),
-        Some(Err(e)) => {
-            diagnostics.push(Diagnostic::error(
-                id.node().byte_range(),
-                format!("type resolution failed: {e}"),
-            ));
-            None
+    if let Some(&(l, k)) = locals.get(name) {
+        Some(Intermediate::Local(l, k))
+    } else if let Some(r) = ctx.get_ref(name) {
+        match r {
+            Ok(RefKind::BuiltinFunction(f)) => Some(Intermediate::BuiltinFunction(f)),
+            Ok(RefKind::Type(ty)) => Some(Intermediate::Type(ty)),
+            Ok(RefKind::EnumVariant(en)) => diagnostics
+                .consume_node_err(
+                    id.node(),
+                    visitor.visit_enum(en, name, id.node().byte_range()),
+                )
+                .map(Intermediate::Item),
+            Ok(RefKind::Object(cls)) => diagnostics
+                .consume_node_err(
+                    id.node(),
+                    visitor.visit_object_ref(cls, name, id.node().byte_range()),
+                )
+                .map(Intermediate::Item),
+            Ok(RefKind::ObjectProperty(obj_cls, obj_name, p)) => diagnostics
+                .consume_node_err(
+                    id.node(),
+                    visitor.visit_object_ref(obj_cls, &obj_name, id.node().byte_range()),
+                )
+                .map(|item| Intermediate::BoundProperty(item, p)),
+            Ok(RefKind::ObjectMethod(obj_cls, obj_name, m)) => diagnostics
+                .consume_node_err(
+                    id.node(),
+                    visitor.visit_object_ref(obj_cls, &obj_name, id.node().byte_range()),
+                )
+                .map(|item| Intermediate::BoundMethod(item, m)),
+            Err(e) => {
+                diagnostics.push(Diagnostic::error(
+                    id.node().byte_range(),
+                    format!("type resolution failed: {e}"),
+                ));
+                None
+            }
         }
-        None => {
-            diagnostics.push(Diagnostic::error(
-                id.node().byte_range(),
-                "undefined reference",
-            ));
-            None
-        }
+    } else {
+        diagnostics.push(Diagnostic::error(
+            id.node().byte_range(),
+            "undefined reference",
+        ));
+        None
     }
 }
 
-fn process_item_property<'a, T>(
+fn process_item_property<'a, T, L>(
     item: T,
     id: Identifier,
     source: &str,
     diagnostics: &mut Diagnostics,
-) -> Option<Intermediate<'a, T>>
+) -> Option<Intermediate<'a, T, L>>
 where
     T: DescribeType<'a>,
 {

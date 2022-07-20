@@ -162,6 +162,11 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         }
     }
 
+    fn visit_local_ref(&mut self, name: Self::Local) -> Result<Self::Item, Self::Error> {
+        let a = self.code.locals[name.0].clone(); // name must be valid
+        Ok(Operand::Local(a))
+    }
+
     fn visit_local_declaration(
         &mut self,
         value: Self::Item,
@@ -943,29 +948,29 @@ mod tests {
 
     #[test]
     fn local_declaration_with_literal() {
-        insta::assert_snapshot!(dump("{ let s = 'hello' }"), @r###"
+        insta::assert_snapshot!(dump("{ let s = 'hello'; s }"), @r###"
             %0: QString
         .0:
             %0 = copy "hello": QString
-            return _: void
+            return %0: QString
         "###);
     }
 
     #[test]
     fn local_declaration_with_property() {
-        insta::assert_snapshot!(dump("{ let s = foo.checked }"), @r###"
+        insta::assert_snapshot!(dump("{ let s = foo.checked; s }"), @r###"
             %0: bool
             %1: bool
         .0:
             %0 = read_property [foo]: Foo*, "checked"
             %1 = copy %0: bool
-            return _: void
+            return %1: bool
         "###);
     }
 
     #[test]
     fn local_declaration_with_ternary() {
-        insta::assert_snapshot!(dump("{ let s = foo.checked ? 1 : 2 }"), @r###"
+        insta::assert_snapshot!(dump("{ let s = foo.checked ? 1 : 2; s }"), @r###"
             %0: bool
             %1: int
             %2: int
@@ -980,6 +985,29 @@ mod tests {
             br .3
         .3:
             %2 = copy %1: int
+            return %2: int
+        "###);
+    }
+
+    #[test]
+    fn local_declaration_in_nested_block() {
+        insta::assert_snapshot!(dump(r###"{
+            let a = 'outer';
+            {
+                let a = a + 'inner';
+                foo.text = a;
+            }
+            foo2.text = a;
+        }"###), @r###"
+            %0: QString
+            %1: QString
+            %2: QString
+        .0:
+            %0 = copy "outer": QString
+            %1 = binary_op '+', %0: QString, "inner": QString
+            %2 = copy %1: QString
+            write_property [foo]: Foo*, "text", %2: QString
+            write_property [foo2]: Foo*, "text", %0: QString
             return _: void
         "###);
     }
@@ -988,6 +1016,29 @@ mod tests {
     fn local_declaration_with_void() {
         let env = Env::new();
         assert!(env.try_build("{ let a = foo.done() }").is_err());
+    }
+
+    #[test]
+    fn local_declaration_with_object_then_read_property() {
+        insta::assert_snapshot!(dump("{ let o = foo; o.checked }"), @r###"
+            %0: Foo*
+            %1: bool
+        .0:
+            %0 = copy [foo]: Foo*
+            %1 = read_property %0: Foo*, "checked"
+            return %1: bool
+        "###);
+    }
+
+    #[test]
+    fn local_declaration_with_object_then_write_property() {
+        insta::assert_snapshot!(dump("{ let o = foo; o.checked = true }"), @r###"
+            %0: Foo*
+        .0:
+            %0 = copy [foo]: Foo*
+            write_property %0: Foo*, "checked", true: bool
+            return _: void
+        "###);
     }
 
     #[test]
