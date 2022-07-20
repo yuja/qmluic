@@ -13,9 +13,9 @@ QMainWindow {
     geometry { x: 0; y: 0; width: 800; height: 600 }
 
     windowTitle: {
+        let mainPage = fileNameEdit.currentIndex === 0;
         qsTr("Qmluic Example: %1").arg(
-                fileNameEdit.currentIndex === 0 ? qsTr("*** Select Source ***")
-                                                : fileNameEdit.currentText)
+                mainPage ? qsTr("*** Select Source ***") : fileNameEdit.currentText)
     }
 
     // QAction and QMenu instances will be added automatically unless 'actions'
