@@ -203,6 +203,18 @@ fn test_implicit_this_property_binding() {
 }
 
 #[test]
+fn test_explicit_this_property_binding() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QCheckBox { checked: this.windowTitle === "" }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
 fn test_dynamic_binding_type_mismatch() {
     let doc = common::parse_doc(
         r###"

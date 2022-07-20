@@ -224,6 +224,11 @@ impl<'a> RefSpace<'a> for ObjectContext<'a, '_, '_> {
             None
         }
     }
+
+    fn this_object(&self) -> Option<(Class<'a>, String)> {
+        let me = &self.obj_node;
+        Some((me.class().clone(), me.name().to_owned()))
+    }
 }
 
 /// Error occurred while setting up [`BuildContext`].

@@ -82,6 +82,8 @@ pub enum RefKind<'a> {
 pub trait RefSpace<'a> {
     /// Looks up reference by name.
     fn get_ref(&self, name: &str) -> Option<Result<RefKind<'a>, TypeMapError>>;
+    /// Looks up "this" object type and name.
+    fn this_object(&self) -> Option<(Class<'a>, String)>;
 }
 
 impl<'a, T: TypeSpace<'a>> RefSpace<'a> for T {
@@ -94,6 +96,10 @@ impl<'a, T: TypeSpace<'a>> RefSpace<'a> for T {
         } else {
             None
         }
+    }
+
+    fn this_object(&self) -> Option<(Class<'a>, String)> {
+        None
     }
 }
 
@@ -348,7 +354,19 @@ where
 {
     match diagnostics.consume_err(Expression::from_node(node, source))? {
         Expression::Identifier(x) => process_identifier(ctx, x, source, visitor, diagnostics),
-        Expression::This => todo!(),
+        Expression::This => {
+            if let Some((cls, name)) = ctx.this_object() {
+                diagnostics
+                    .consume_node_err(
+                        node,
+                        visitor.visit_object_ref(cls, &name, node.byte_range()),
+                    )
+                    .map(Intermediate::Item)
+            } else {
+                diagnostics.push(Diagnostic::error(node.byte_range(), "undefined reference"));
+                None
+            }
+        }
         Expression::Integer(v) => diagnostics
             .consume_node_err(node, visitor.visit_integer(v, node.byte_range()))
             .map(Intermediate::Item),

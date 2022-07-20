@@ -844,6 +844,10 @@ mod tests {
                 _ => self.type_space.get_ref(name),
             }
         }
+
+        fn this_object(&self) -> Option<(Class<'a>, String)> {
+            None
+        }
     }
 
     fn dump(expr_source: &str) -> String {
