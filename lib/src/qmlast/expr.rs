@@ -1,4 +1,5 @@
 use super::astutil::{self, Number};
+use super::node::StatementNode;
 use super::term::{self, Identifier, NestedIdentifier};
 use super::{ParseError, ParseErrorKind};
 use std::fmt;
@@ -210,7 +211,7 @@ impl<'tree> Function<'tree> {
                     name,
                     parameters,
                     return_ty,
-                    body: FunctionBody::Statement(body_node),
+                    body: FunctionBody::Statement(StatementNode(body_node)),
                 })
             }
             "arrow_function" => {
@@ -239,7 +240,7 @@ impl<'tree> Function<'tree> {
                     .transpose()?;
                 let body_node = astutil::get_child_by_field_name(node, "body")?;
                 let body = if body_node.kind() == "statement_block" {
-                    FunctionBody::Statement(body_node)
+                    FunctionBody::Statement(StatementNode(body_node))
                 } else {
                     FunctionBody::Expression(body_node)
                 };
@@ -261,7 +262,7 @@ impl<'tree> Function<'tree> {
 #[derive(Clone, Copy, Debug)]
 pub enum FunctionBody<'tree> {
     Expression(Node<'tree>),
-    Statement(Node<'tree>),
+    Statement(StatementNode<'tree>),
 }
 
 /// Represents a function parameter.

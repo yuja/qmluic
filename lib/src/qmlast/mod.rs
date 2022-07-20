@@ -6,11 +6,13 @@ use std::ops::Range;
 
 mod astutil;
 mod expr;
+mod node;
 mod object;
 mod stmt;
 mod term;
 
 pub use self::expr::*; // re-export
+pub use self::node::*; // re-export
 pub use self::object::*; // re-export
 pub use self::stmt::*; // re-export
 pub use self::term::*; // re-export

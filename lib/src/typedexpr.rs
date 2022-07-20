@@ -4,7 +4,7 @@ use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::opcode::{BinaryOp, BuiltinFunctionKind, ComparisonOp, UnaryLogicalOp, UnaryOp};
 use crate::qmlast::{
     Expression, Function, FunctionBody, Identifier, LexicalDeclarationKind, NestedIdentifier, Node,
-    Statement,
+    Statement, StatementNode,
 };
 use crate::typemap::{
     Class, Enum, MethodMatches, NamedType, Property, TypeKind, TypeMapError, TypeSpace,
@@ -340,7 +340,7 @@ enum ReceiverKind {
 /// `ctx` is the space where an identifier expression is resolved.
 pub fn walk<'a, C, V>(
     ctx: &C,
-    node: Node,
+    node: StatementNode,
     source: &str,
     visitor: &mut V,
     diagnostics: &mut Diagnostics,
@@ -358,7 +358,7 @@ fn walk_stmt<'a, C, V>(
     ctx: &C,
     locals: &mut HashMap<String, (V::Local, LexicalDeclarationKind)>,
     break_label: Option<V::Label>,
-    node: Node,
+    node: StatementNode,
     source: &str,
     visitor: &mut V,
     diagnostics: &mut Diagnostics,
@@ -367,7 +367,7 @@ where
     C: RefSpace<'a> + TypeAnnotationSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
-    match diagnostics.consume_err(Statement::from_node(node))? {
+    match diagnostics.consume_err(node.parse())? {
         Statement::Expression(n) => {
             let value = walk_rvalue(ctx, locals, n, source, visitor, diagnostics)?;
             visitor.visit_expression_statement(value);
@@ -541,7 +541,7 @@ fn walk_stmt_nodes<'a, C, V>(
     ctx: &C,
     locals: &mut HashMap<String, (V::Local, LexicalDeclarationKind)>,
     break_label: Option<V::Label>,
-    nodes: &[Node],
+    nodes: &[StatementNode],
     source: &str,
     visitor: &mut V,
     diagnostics: &mut Diagnostics,
@@ -564,7 +564,7 @@ where
 /// `ctx` is the space where an identifier expression is resolved.
 pub fn walk_callback<'a, C, V>(
     ctx: &C,
-    node: Node,
+    node: StatementNode,
     source: &str,
     visitor: &mut V,
     diagnostics: &mut Diagnostics,
@@ -573,7 +573,7 @@ where
     C: RefSpace<'a> + TypeAnnotationSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
-    match diagnostics.consume_err(Statement::from_node(node))? {
+    match diagnostics.consume_err(node.parse())? {
         // explicitly test the node kind since any expression surrounded by parentheses
         // shouldn't be parsed as a top-level function block.
         Statement::Expression(n) if n.kind() == "function" || n.kind() == "arrow_function" => {

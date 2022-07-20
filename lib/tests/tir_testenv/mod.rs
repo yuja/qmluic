@@ -3,7 +3,7 @@
 use qmluic::diagnostic::Diagnostics;
 use qmluic::metatype;
 use qmluic::opcode::BuiltinFunctionKind;
-use qmluic::qmlast::{Node, UiObjectDefinition, UiProgram};
+use qmluic::qmlast::{StatementNode, UiObjectDefinition, UiProgram};
 use qmluic::qmldoc::UiDocument;
 use qmluic::tir::{self, CodeBody};
 use qmluic::typedexpr::{RefKind, RefSpace, TypeAnnotationSpace};
@@ -120,7 +120,7 @@ impl Env {
     fn try_build_with<'a>(
         &'a self,
         expr_source: &str,
-        build: impl FnOnce(&Context<'a>, Node, &str, &mut Diagnostics) -> Option<CodeBody<'a>>,
+        build: impl FnOnce(&Context<'a>, StatementNode, &str, &mut Diagnostics) -> Option<CodeBody<'a>>,
     ) -> Result<CodeBody<'a>, Diagnostics> {
         let mut type_space = ImportedModuleSpace::new(&self.type_map);
         assert!(type_space.import_module(ModuleId::Builtins));
