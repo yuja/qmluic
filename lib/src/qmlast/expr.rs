@@ -8,6 +8,7 @@ use tree_sitter::{Node, TreeCursor};
 #[derive(Clone, Debug)]
 pub enum Expression<'tree> {
     Identifier(Identifier<'tree>),
+    This,
     Integer(u64),
     Float(f64),
     String(String),
@@ -38,6 +39,7 @@ impl<'tree> Expression<'tree> {
         let node = cursor.node();
         let expr = match node.kind() {
             "identifier" => Expression::Identifier(Identifier::from_node(node)?),
+            "this" => Expression::This,
             "number" => {
                 // A number is floating point in JavaScript, but we want to discriminate
                 // integer/float to process numeric operations in more C/Rust-like way.
@@ -409,6 +411,7 @@ mod tests {
             r###"
             Foo {
                 identifier: foo
+                this_: this
                 integer: 123
                 float: 123.
                 string_: "whatever"
@@ -428,6 +431,7 @@ mod tests {
                 .to_str(doc.source()),
             "foo"
         );
+        assert!(matches!(unwrap_expr(&doc, "this_"), Expression::This));
         assert_eq!(unwrap_expr(&doc, "integer").unwrap_integer(), 123);
         assert_eq!(unwrap_expr(&doc, "float").unwrap_float(), 123.);
         assert_eq!(unwrap_expr(&doc, "string_").unwrap_string(), "whatever");
