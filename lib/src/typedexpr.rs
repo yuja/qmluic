@@ -1,12 +1,15 @@
 //! Expression tree visitor with type information.
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::qmlast::{BinaryOperator, Expression, Identifier, Node, Statement, UnaryOperator};
+use crate::qmlast::{
+    BinaryOperator, Expression, Identifier, LexicalDeclarationKind, Node, Statement, UnaryOperator,
+};
 use crate::typemap::{
     Class, Enum, MethodMatches, NamedType, PrimitiveType, Property, TypeKind, TypeMapError,
     TypeSpace,
 };
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::ops::Range;
 
@@ -106,6 +109,7 @@ impl<'a, T: TypeSpace<'a>> RefSpace<'a> for T {
 /// Translates each expression node to [`Self::Item`].
 pub trait ExpressionVisitor<'a> {
     type Item: DescribeType<'a>; // TODO: do we want to check type error by walk()?
+    type Local: Copy;
     type Label;
     type Error: ToString;
 
@@ -248,12 +252,14 @@ where
     C: RefSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
-    walk_stmt(ctx, node, source, visitor, diagnostics)
+    let mut locals = HashMap::new();
+    walk_stmt(ctx, &mut locals, node, source, visitor, diagnostics)
 }
 
 /// Walks expression nodes recursively and returns the completion value.
 fn walk_stmt<'a, C, V>(
     ctx: &C,
+    locals: &mut HashMap<String, (V::Local, LexicalDeclarationKind)>,
     node: Node,
     source: &str,
     visitor: &mut V,
@@ -264,13 +270,13 @@ where
     V: ExpressionVisitor<'a>,
 {
     match diagnostics.consume_err(Statement::from_node(node))? {
-        Statement::Expression(n) => walk_rvalue(ctx, n, source, visitor, diagnostics),
+        Statement::Expression(n) => walk_rvalue(ctx, locals, n, source, visitor, diagnostics),
         Statement::Block(ns) => {
-            // If we supported local variables, new scope would be created here.
+            let mut locals = locals.clone(); // inner scope inheriting outer
             let mut completion = Some(visitor.make_void(node.byte_range()));
             for n in ns {
                 // visit all to report as many errors as possible
-                let r = walk_stmt(ctx, n, source, visitor, diagnostics);
+                let r = walk_stmt(ctx, &mut locals, n, source, visitor, diagnostics);
                 completion = completion.and(r);
             }
             completion
@@ -284,12 +290,12 @@ where
             None
         }
         Statement::If(x) => {
-            let condition = walk_rvalue(ctx, x.condition, source, visitor, diagnostics)?;
+            let condition = walk_rvalue(ctx, locals, x.condition, source, visitor, diagnostics)?;
             let condition_label = visitor.mark_branch_point();
-            let consequence = walk_stmt(ctx, x.consequence, source, visitor, diagnostics)?;
+            let consequence = walk_stmt(ctx, locals, x.consequence, source, visitor, diagnostics)?;
             let consequence_label = visitor.mark_branch_point();
             if let Some(n) = x.alternative {
-                let alternative = walk_stmt(ctx, n, source, visitor, diagnostics)?;
+                let alternative = walk_stmt(ctx, locals, n, source, visitor, diagnostics)?;
                 let alternative_label = visitor.mark_branch_point();
                 diagnostics.consume_node_err(
                     node,
@@ -317,6 +323,7 @@ where
 /// Walks expression nodes recursively and returns item to be used as an rvalue.
 fn walk_rvalue<'a, C, V>(
     ctx: &C,
+    locals: &mut HashMap<String, (V::Local, LexicalDeclarationKind)>,
     node: Node,
     source: &str,
     visitor: &mut V,
@@ -326,7 +333,7 @@ where
     C: RefSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
-    match walk_expr(ctx, node, source, visitor, diagnostics)? {
+    match walk_expr(ctx, locals, node, source, visitor, diagnostics)? {
         Intermediate::Item(x) => Some(x),
         Intermediate::BoundProperty(it, p) => diagnostics.consume_node_err(
             node,
@@ -351,6 +358,7 @@ where
 /// Walks expression nodes recursively and returns intermediate result.
 fn walk_expr<'a, C, V>(
     ctx: &C,
+    locals: &mut HashMap<String, (V::Local, LexicalDeclarationKind)>,
     node: Node,
     source: &str,
     visitor: &mut V,
@@ -361,7 +369,9 @@ where
     V: ExpressionVisitor<'a>,
 {
     match diagnostics.consume_err(Expression::from_node(node, source))? {
-        Expression::Identifier(x) => process_identifier(ctx, x, source, visitor, diagnostics),
+        Expression::Identifier(x) => {
+            process_identifier(ctx, locals, x, source, visitor, diagnostics)
+        }
         Expression::This => {
             if let Some((cls, name)) = ctx.this_object() {
                 diagnostics
@@ -390,41 +400,45 @@ where
         Expression::Array(ns) => {
             let elements = ns
                 .iter()
-                .map(|&n| walk_rvalue(ctx, n, source, visitor, diagnostics))
+                .map(|&n| walk_rvalue(ctx, locals, n, source, visitor, diagnostics))
                 .collect::<Option<Vec<_>>>()?;
             diagnostics
                 .consume_node_err(node, visitor.visit_array(elements, node.byte_range()))
                 .map(Intermediate::Item)
         }
-        Expression::Member(x) => match walk_expr(ctx, x.object, source, visitor, diagnostics)? {
-            Intermediate::Item(it) => process_item_property(it, x.property, source, diagnostics),
-            Intermediate::BoundProperty(it, p) => {
-                let obj = diagnostics.consume_node_err(
-                    x.object,
-                    visitor.visit_object_property(it, p, x.object.byte_range()),
-                )?;
-                process_item_property(obj, x.property, source, diagnostics)
+        Expression::Member(x) => {
+            match walk_expr(ctx, locals, x.object, source, visitor, diagnostics)? {
+                Intermediate::Item(it) => {
+                    process_item_property(it, x.property, source, diagnostics)
+                }
+                Intermediate::BoundProperty(it, p) => {
+                    let obj = diagnostics.consume_node_err(
+                        x.object,
+                        visitor.visit_object_property(it, p, x.object.byte_range()),
+                    )?;
+                    process_item_property(obj, x.property, source, diagnostics)
+                }
+                Intermediate::BoundMethod(..)
+                | Intermediate::BoundBuiltinMethod(..)
+                | Intermediate::BuiltinFunction(_) => {
+                    diagnostics.push(Diagnostic::error(
+                        node.byte_range(),
+                        "function has no property/method",
+                    ));
+                    None
+                }
+                Intermediate::Type(ty) => {
+                    process_identifier(&ty, locals, x.property, source, visitor, diagnostics)
+                }
             }
-            Intermediate::BoundMethod(..)
-            | Intermediate::BoundBuiltinMethod(..)
-            | Intermediate::BuiltinFunction(_) => {
-                diagnostics.push(Diagnostic::error(
-                    node.byte_range(),
-                    "function has no property/method",
-                ));
-                None
-            }
-            Intermediate::Type(ty) => {
-                process_identifier(&ty, x.property, source, visitor, diagnostics)
-            }
-        },
+        }
         Expression::Call(x) => {
             let arguments = x
                 .arguments
                 .iter()
-                .map(|&n| walk_rvalue(ctx, n, source, visitor, diagnostics))
+                .map(|&n| walk_rvalue(ctx, locals, n, source, visitor, diagnostics))
                 .collect::<Option<Vec<_>>>()?;
-            match walk_expr(ctx, x.function, source, visitor, diagnostics)? {
+            match walk_expr(ctx, locals, x.function, source, visitor, diagnostics)? {
                 Intermediate::BoundMethod(it, ms) => {
                     // TODO: look up overloaded methods and confine type error here?
                     diagnostics
@@ -464,8 +478,8 @@ where
             }
         }
         Expression::Assignment(x) => {
-            let right = walk_rvalue(ctx, x.right, source, visitor, diagnostics)?;
-            match walk_expr(ctx, x.left, source, visitor, diagnostics)? {
+            let right = walk_rvalue(ctx, locals, x.right, source, visitor, diagnostics)?;
+            match walk_expr(ctx, locals, x.left, source, visitor, diagnostics)? {
                 Intermediate::BoundProperty(it, p) => diagnostics
                     .consume_node_err(
                         node,
@@ -483,7 +497,7 @@ where
             }
         }
         Expression::Unary(x) => {
-            let argument = walk_rvalue(ctx, x.argument, source, visitor, diagnostics)?;
+            let argument = walk_rvalue(ctx, locals, x.argument, source, visitor, diagnostics)?;
             // TODO: confine type error?
             diagnostics
                 .consume_node_err(
@@ -493,8 +507,8 @@ where
                 .map(Intermediate::Item)
         }
         Expression::Binary(x) => {
-            let left = walk_rvalue(ctx, x.left, source, visitor, diagnostics)?;
-            let right = walk_rvalue(ctx, x.right, source, visitor, diagnostics)?;
+            let left = walk_rvalue(ctx, locals, x.left, source, visitor, diagnostics)?;
+            let right = walk_rvalue(ctx, locals, x.right, source, visitor, diagnostics)?;
             // TODO: confine type error?
             diagnostics
                 .consume_node_err(
@@ -504,11 +518,13 @@ where
                 .map(Intermediate::Item)
         }
         Expression::Ternary(x) => {
-            let condition = walk_rvalue(ctx, x.condition, source, visitor, diagnostics)?;
+            let condition = walk_rvalue(ctx, locals, x.condition, source, visitor, diagnostics)?;
             let condition_label = visitor.mark_branch_point();
-            let consequence = walk_rvalue(ctx, x.consequence, source, visitor, diagnostics)?;
+            let consequence =
+                walk_rvalue(ctx, locals, x.consequence, source, visitor, diagnostics)?;
             let consequence_label = visitor.mark_branch_point();
-            let alternative = walk_rvalue(ctx, x.alternative, source, visitor, diagnostics)?;
+            let alternative =
+                walk_rvalue(ctx, locals, x.alternative, source, visitor, diagnostics)?;
             let alternative_label = visitor.mark_branch_point();
             diagnostics
                 .consume_node_err(
@@ -527,6 +543,7 @@ where
 
 fn process_identifier<'a, C, V>(
     ctx: &C,
+    locals: &HashMap<String, (V::Local, LexicalDeclarationKind)>,
     id: Identifier,
     source: &str,
     visitor: &mut V,

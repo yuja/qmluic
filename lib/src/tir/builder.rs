@@ -83,6 +83,7 @@ impl<'a> CodeBuilder<'a> {
 
 impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
     type Item = Operand<'a>;
+    type Local = (); // TODO
     type Label = BasicBlockRef;
     type Error = ExpressionError;
 
