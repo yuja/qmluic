@@ -156,6 +156,12 @@ pub trait ExpressionVisitor<'a> {
         value: Self::Item,
         byte_range: Range<usize>,
     ) -> Result<Self::Local, Self::Error>;
+    fn visit_local_assignment(
+        &mut self,
+        name: Self::Local,
+        right: Self::Item,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error>;
 
     fn visit_object_ref(
         &mut self,
@@ -507,7 +513,21 @@ where
         Expression::Assignment(x) => {
             let right = walk_rvalue(ctx, locals, x.right, source, visitor, diagnostics)?;
             match walk_expr(ctx, locals, x.left, source, visitor, diagnostics)? {
-                Intermediate::Local(..) => todo!(),
+                Intermediate::Local(l, k) => match k {
+                    LexicalDeclarationKind::Let => diagnostics
+                        .consume_node_err(
+                            node,
+                            visitor.visit_local_assignment(l, right, node.byte_range()),
+                        )
+                        .map(Intermediate::Item),
+                    LexicalDeclarationKind::Const => {
+                        diagnostics.push(Diagnostic::error(
+                            x.left.byte_range(),
+                            "cannot assign to const variable",
+                        ));
+                        None
+                    }
+                },
                 Intermediate::BoundProperty(it, p) => diagnostics
                     .consume_node_err(
                         node,
