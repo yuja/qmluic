@@ -348,6 +348,7 @@ where
 {
     match diagnostics.consume_err(Expression::from_node(node, source))? {
         Expression::Identifier(x) => process_identifier(ctx, x, source, visitor, diagnostics),
+        Expression::This => todo!(),
         Expression::Integer(v) => diagnostics
             .consume_node_err(node, visitor.visit_integer(v, node.byte_range()))
             .map(Intermediate::Item),
