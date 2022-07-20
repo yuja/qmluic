@@ -275,6 +275,14 @@ where
             }
             completion
         }
+        Statement::LexicalDeclaration(_) => {
+            // TODO
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                "unsupported variable declaration",
+            ));
+            None
+        }
         Statement::If(x) => {
             let condition = walk_rvalue(ctx, x.condition, source, visitor, diagnostics)?;
             let condition_label = visitor.mark_branch_point();
