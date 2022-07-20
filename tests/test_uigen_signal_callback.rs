@@ -130,6 +130,20 @@ fn test_method_call_bad_arg_type() {
 }
 
 #[test]
+fn test_implicit_this_method_call() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QDialog {
+            QPushButton { onClicked: hide() }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
 fn test_property_assignment() {
     let doc = common::parse_doc(
         r###"
