@@ -150,6 +150,12 @@ pub trait ExpressionVisitor<'a> {
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error>;
 
+    fn visit_local_declaration(
+        &mut self,
+        value: Self::Item,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Local, Self::Error>;
+
     fn visit_object_ref(
         &mut self,
         cls: Class<'a>,
@@ -281,13 +287,24 @@ where
             }
             completion
         }
-        Statement::LexicalDeclaration(_) => {
-            // TODO
-            diagnostics.push(Diagnostic::error(
-                node.byte_range(),
-                "unsupported variable declaration",
-            ));
-            None
+        Statement::LexicalDeclaration(x) => {
+            for decl in &x.variables {
+                if let Some(n) = decl.value {
+                    let value = walk_rvalue(ctx, locals, n, source, visitor, diagnostics)?;
+                    let local = diagnostics.consume_node_err(
+                        decl.name.node(),
+                        visitor.visit_local_declaration(value, decl.name.node().byte_range()),
+                    )?;
+                    locals.insert(decl.name.to_str(source).to_owned(), (local, x.kind));
+                } else {
+                    diagnostics.push(Diagnostic::error(
+                        node.byte_range(),
+                        "variable declaration without initializer is not supported",
+                    ));
+                    return None;
+                }
+            }
+            Some(visitor.make_void(node.byte_range()))
         }
         Statement::If(x) => {
             let condition = walk_rvalue(ctx, locals, x.condition, source, visitor, diagnostics)?;

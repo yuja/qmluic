@@ -1,8 +1,9 @@
 use super::ceval;
 use super::core::{
     BasicBlock, BasicBlockRef, BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, BinaryOp, CodeBody,
-    ComparisonOp, Constant, ConstantValue, EnumVariant, Local, NamedObject, Operand, Rvalue,
-    ShiftOp, Statement, Terminator, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp, UnaryOp, Void,
+    ComparisonOp, Constant, ConstantValue, EnumVariant, Local, LocalRef, NamedObject, Operand,
+    Rvalue, ShiftOp, Statement, Terminator, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp, UnaryOp,
+    Void,
 };
 use super::typeutil::{self, TypeError};
 use crate::diagnostic::Diagnostics;
@@ -83,7 +84,7 @@ impl<'a> CodeBuilder<'a> {
 
 impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
     type Item = Operand<'a>;
-    type Local = (); // TODO
+    type Local = LocalRef;
     type Label = BasicBlockRef;
     type Error = ExpressionError;
 
@@ -159,6 +160,23 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
                 byte_range,
             )))
         }
+    }
+
+    fn visit_local_declaration(
+        &mut self,
+        value: Self::Item,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Local, Self::Error> {
+        let value = ensure_concrete_string(value);
+        let ty = to_concrete_type("=", value.type_desc())?;
+        let a = self.alloca(ty, byte_range).map_err(|_| {
+            ExpressionError::OperationOnUnsupportedType(
+                "=".to_owned(),
+                value.type_desc().qualified_name().into(),
+            )
+        })?;
+        self.push_statement(Statement::Assign(a.name, Rvalue::Copy(value)));
+        Ok(a.name)
     }
 
     fn visit_object_ref(
@@ -921,6 +939,55 @@ mod tests {
     fn incompatible_array_literal() {
         let env = Env::new();
         assert!(env.try_build("[foo, 'bar']").is_err());
+    }
+
+    #[test]
+    fn local_declaration_with_literal() {
+        insta::assert_snapshot!(dump("{ let s = 'hello' }"), @r###"
+            %0: QString
+        .0:
+            %0 = copy "hello": QString
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn local_declaration_with_property() {
+        insta::assert_snapshot!(dump("{ let s = foo.checked }"), @r###"
+            %0: bool
+            %1: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            %1 = copy %0: bool
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn local_declaration_with_ternary() {
+        insta::assert_snapshot!(dump("{ let s = foo.checked ? 1 : 2 }"), @r###"
+            %0: bool
+            %1: int
+            %2: int
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .2
+        .1:
+            %1 = copy 1: integer
+            br .3
+        .2:
+            %1 = copy 2: integer
+            br .3
+        .3:
+            %2 = copy %1: int
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn local_declaration_with_void() {
+        let env = Env::new();
+        assert!(env.try_build("{ let a = foo.done() }").is_err());
     }
 
     #[test]
