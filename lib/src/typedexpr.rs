@@ -227,6 +227,7 @@ pub trait ExpressionVisitor<'a> {
         consequence_ref: Self::Label,
         alternative_ref: Option<Self::Label>,
     ) -> Result<(), Self::Error>;
+    fn visit_return_statement(&mut self, value: Option<Self::Item>) -> Result<(), Self::Error>;
 
     fn mark_branch_point(&mut self) -> Self::Label;
 }
@@ -327,8 +328,13 @@ where
                 ),
             )
         }
-        Statement::Return(_) => {
-            todo!();
+        Statement::Return(x) => {
+            let value = if let Some(n) = x {
+                Some(walk_rvalue(ctx, locals, n, source, visitor, diagnostics)?)
+            } else {
+                None
+            };
+            diagnostics.consume_node_err(node, visitor.visit_return_statement(value))
         }
     }
 }

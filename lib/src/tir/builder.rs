@@ -489,6 +489,10 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         Ok(())
     }
 
+    fn visit_return_statement(&mut self, value: Option<Self::Item>) -> Result<(), Self::Error> {
+        todo!();
+    }
+
     /// Inserts new basic block for the statements after the branch, returns the reference
     /// to the old (pre-branch) basic block.
     ///
