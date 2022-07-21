@@ -224,19 +224,21 @@ pub trait ExpressionVisitor<'a> {
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error>;
 
+    fn visit_expression_statement(&mut self, value: Self::Item) -> Result<(), Self::Error>;
+
     fn visit_if_statement(
         &mut self,
         condition: (Self::Item, Self::Label),
-        consequence: (Self::Item, Self::Label),
+        consequence_ref: Self::Label,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error>;
+    ) -> Result<(), Self::Error>;
     fn visit_if_else_statement(
         &mut self,
         condition: (Self::Item, Self::Label),
-        consequence: (Self::Item, Self::Label),
-        alternative: (Self::Item, Self::Label),
+        consequence_ref: Self::Label,
+        alternative_ref: Self::Label,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error>;
+    ) -> Result<(), Self::Error>;
 
     fn mark_branch_point(&mut self) -> Self::Label;
 }
@@ -261,7 +263,7 @@ pub fn walk<'a, C, V>(
     source: &str,
     visitor: &mut V,
     diagnostics: &mut Diagnostics,
-) -> Option<V::Item>
+) -> Option<()>
 where
     C: RefSpace<'a>,
     V: ExpressionVisitor<'a>,
@@ -270,7 +272,7 @@ where
     walk_stmt(ctx, &mut locals, node, source, visitor, diagnostics)
 }
 
-/// Walks expression nodes recursively and returns the completion value.
+/// Walks statement nodes recursively.
 fn walk_stmt<'a, C, V>(
     ctx: &C,
     locals: &mut HashMap<String, (V::Local, LexicalDeclarationKind)>,
@@ -278,22 +280,25 @@ fn walk_stmt<'a, C, V>(
     source: &str,
     visitor: &mut V,
     diagnostics: &mut Diagnostics,
-) -> Option<V::Item>
+) -> Option<()>
 where
     C: RefSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
     match diagnostics.consume_err(Statement::from_node(node))? {
-        Statement::Expression(n) => walk_rvalue(ctx, locals, n, source, visitor, diagnostics),
+        Statement::Expression(n) => {
+            let value = walk_rvalue(ctx, locals, n, source, visitor, diagnostics)?;
+            diagnostics.consume_node_err(node, visitor.visit_expression_statement(value))
+        }
         Statement::Block(ns) => {
             let mut locals = locals.clone(); // inner scope inheriting outer
-            let mut completion = Some(visitor.make_void(node.byte_range()));
+            let mut res = Some(());
             for n in ns {
                 // visit all to report as many errors as possible
                 let r = walk_stmt(ctx, &mut locals, n, source, visitor, diagnostics);
-                completion = completion.and(r);
+                res = res.and(r);
             }
-            completion
+            res
         }
         Statement::LexicalDeclaration(x) => {
             for decl in &x.variables {
@@ -312,22 +317,22 @@ where
                     return None;
                 }
             }
-            Some(visitor.make_void(node.byte_range()))
+            Some(())
         }
         Statement::If(x) => {
             let condition = walk_rvalue(ctx, locals, x.condition, source, visitor, diagnostics)?;
             let condition_label = visitor.mark_branch_point();
-            let consequence = walk_stmt(ctx, locals, x.consequence, source, visitor, diagnostics)?;
+            walk_stmt(ctx, locals, x.consequence, source, visitor, diagnostics)?;
             let consequence_label = visitor.mark_branch_point();
             if let Some(n) = x.alternative {
-                let alternative = walk_stmt(ctx, locals, n, source, visitor, diagnostics)?;
+                walk_stmt(ctx, locals, n, source, visitor, diagnostics)?;
                 let alternative_label = visitor.mark_branch_point();
                 diagnostics.consume_node_err(
                     node,
                     visitor.visit_if_else_statement(
                         (condition, condition_label),
-                        (consequence, consequence_label),
-                        (alternative, alternative_label),
+                        consequence_label,
+                        alternative_label,
                         node.byte_range(),
                     ),
                 )
@@ -336,7 +341,7 @@ where
                     node,
                     visitor.visit_if_statement(
                         (condition, condition_label),
-                        (consequence, consequence_label),
+                        consequence_label,
                         node.byte_range(),
                     ),
                 )
