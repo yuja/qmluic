@@ -38,6 +38,7 @@ impl CodeBody<'_> {
 #[derive(Clone, Debug, PartialEq)]
 pub struct BasicBlock<'a> {
     pub statements: Vec<Statement<'a>>,
+    completion_value: Option<Operand<'a>>,
     terminator: Option<Terminator<'a>>,
 }
 
@@ -45,6 +46,7 @@ impl<'a> BasicBlock<'a> {
     pub(super) fn empty() -> Self {
         BasicBlock {
             statements: Vec::new(),
+            completion_value: None,
             terminator: None,
         }
     }
@@ -53,6 +55,17 @@ impl<'a> BasicBlock<'a> {
         self.terminator
             .as_ref()
             .expect("terminator must have been set by builder")
+    }
+
+    pub(super) fn take_completion_value(&mut self) -> Operand<'a> {
+        self.completion_value
+            .take()
+            .unwrap_or_else(|| Operand::Void(Void::new(0..0)))
+    }
+
+    pub(super) fn set_completion_value(&mut self, value: Operand<'a>) {
+        assert!(self.terminator.is_none());
+        self.completion_value = Some(value);
     }
 
     pub(super) fn push_statement(&mut self, stmt: Statement<'a>) {

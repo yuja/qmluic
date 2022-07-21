@@ -59,6 +59,10 @@ impl<'a> CodeBuilder<'a> {
         &mut self.code.basic_blocks[r.0]
     }
 
+    fn set_completion_value(&mut self, value: Operand<'a>) {
+        self.current_basic_block_mut().set_completion_value(value)
+    }
+
     fn push_statement(&mut self, stmt: Statement<'a>) {
         self.current_basic_block_mut().push_statement(stmt);
     }
@@ -457,12 +461,17 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         Ok(sink.map(Operand::Local).unwrap_or_else(Operand::Void))
     }
 
+    fn visit_expression_statement(&mut self, value: Self::Item) -> Result<(), Self::Error> {
+        self.set_completion_value(ensure_concrete_string(value));
+        Ok(())
+    }
+
     fn visit_if_statement(
         &mut self,
         (condition, condition_ref): (Self::Item, Self::Label),
-        (_consequence, consequence_ref): (Self::Item, Self::Label),
-        byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error> {
+        consequence_ref: Self::Label,
+        _byte_range: Range<usize>,
+    ) -> Result<(), Self::Error> {
         if condition.type_desc() != TypeDesc::BOOL {
             return Err(ExpressionError::IncompatibleConditionType(
                 condition.type_desc().qualified_name().into(),
@@ -478,16 +487,16 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
             ));
         self.get_basic_block_mut(consequence_ref)
             .finalize(Terminator::Br(consequence_ref.next())); // end
-        Ok(self.make_void(byte_range))
+        Ok(())
     }
 
     fn visit_if_else_statement(
         &mut self,
         (condition, condition_ref): (Self::Item, Self::Label),
-        (consequence, consequence_ref): (Self::Item, Self::Label),
-        (alternative, alternative_ref): (Self::Item, Self::Label),
+        consequence_ref: Self::Label,
+        alternative_ref: Self::Label,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error> {
+    ) -> Result<(), Self::Error> {
         if condition.type_desc() != TypeDesc::BOOL {
             return Err(ExpressionError::IncompatibleConditionType(
                 condition.type_desc().qualified_name().into(),
@@ -495,8 +504,12 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         }
         // This is pretty much the same as ternary except for the handling of incompatible
         // completion value types.
-        let consequence = ensure_concrete_string(consequence);
-        let alternative = ensure_concrete_string(alternative);
+        let consequence = self
+            .get_basic_block_mut(consequence_ref)
+            .take_completion_value();
+        let alternative = self
+            .get_basic_block_mut(alternative_ref)
+            .take_completion_value();
         let ty = typeutil::deduce_concrete_type(consequence.type_desc(), alternative.type_desc())
             .or_else(|e| match e {
             TypeError::IncompatibleTypes(..) => Ok(TypeKind::VOID),
@@ -519,7 +532,8 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
             }
             block.finalize(Terminator::Br(alternative_ref.next())); // end
         }
-        Ok(sink.map(Operand::Local).unwrap_or_else(Operand::Void))
+        self.set_completion_value(sink.map(Operand::Local).unwrap_or_else(Operand::Void));
+        Ok(())
     }
 
     /// Inserts new basic block for the statements after the branch, returns the reference
@@ -766,10 +780,10 @@ where
     C: RefSpace<'a>,
 {
     let mut builder = CodeBuilder::new();
-    let a = typedexpr::walk(ctx, node, source, &mut builder, diagnostics)?;
-    builder
-        .current_basic_block_mut()
-        .finalize(Terminator::Return(ensure_concrete_string(a)));
+    typedexpr::walk(ctx, node, source, &mut builder, diagnostics)?;
+    let block = builder.current_basic_block_mut();
+    let a = block.take_completion_value();
+    block.finalize(Terminator::Return(a));
     Some(builder.code)
 }
 
