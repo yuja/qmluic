@@ -13,6 +13,9 @@ pub enum Statement<'tree> {
 
     LexicalDeclaration(LexicalDeclaration<'tree>),
     If(IfStatement<'tree>),
+
+    /// Return with optionally expression node.
+    Return(Option<Node<'tree>>),
     // TODO: switch, etc., but it's unlikely we'll support export, import, etc.
 }
 
@@ -55,6 +58,10 @@ impl<'tree> Statement<'tree> {
                     consequence,
                     alternative,
                 })
+            }
+            "return_statement" => {
+                let expr = node.named_children(cursor).find(|n| !n.is_extra());
+                Statement::Return(expr)
             }
             _ => {
                 return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
@@ -161,6 +168,7 @@ mod tests {
             LexicalDeclaration<'tree>
         );
         impl_unwrap_fn!(unwrap_if, Statement::If, IfStatement<'tree>);
+        impl_unwrap_fn!(unwrap_return, Statement::Return, Option<Node<'tree>>);
     }
 
     fn parse(source: &str) -> UiDocument {
@@ -283,5 +291,27 @@ mod tests {
         assert!(Statement::from_node(x.consequence).is_ok());
         assert!(Statement::from_node(x.alternative.unwrap()).is_ok());
         assert_ne!(x.consequence, x.alternative.unwrap());
+    }
+
+    #[test]
+    fn return_statement() {
+        let doc = parse(
+            r###"
+            Foo {
+                return_none: { return; }
+                return_garbage: { return /*garbage*/; }
+                return_value: { return /*garbage*/ 1; }
+            }
+            "###,
+        );
+
+        let x = unwrap_block_stmt(&doc, "return_none").unwrap_return();
+        assert!(x.is_none());
+
+        let x = unwrap_block_stmt(&doc, "return_garbage").unwrap_return();
+        assert!(x.is_none());
+
+        let x = unwrap_block_stmt(&doc, "return_value").unwrap_return();
+        assert!(Expression::from_node(x.unwrap(), doc.source()).is_ok());
     }
 }
