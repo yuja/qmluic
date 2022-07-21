@@ -113,10 +113,6 @@ pub trait ExpressionVisitor<'a> {
     type Label;
     type Error: ToString;
 
-    /// Creates an item that represents a valid, but not meaningful value. An empty statement
-    /// would complete with this value for example.
-    fn make_void(&self, byte_range: Range<usize>) -> Self::Item;
-
     fn visit_integer(
         &mut self,
         value: u64,
