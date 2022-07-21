@@ -92,10 +92,6 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
     type Label = BasicBlockRef;
     type Error = ExpressionError;
 
-    fn make_void(&self, byte_range: Range<usize>) -> Self::Item {
-        Operand::Void(Void::new(byte_range))
-    }
-
     fn visit_integer(
         &mut self,
         value: u64,
@@ -201,7 +197,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         self.push_statement(Statement::Assign(name, Rvalue::Copy(right)));
         // TODO: or return rvalue?, but property assignment doesn't because it would have
         // to re-read property
-        Ok(self.make_void(byte_range))
+        Ok(Operand::Void(Void::new(byte_range)))
     }
 
     fn visit_object_ref(
