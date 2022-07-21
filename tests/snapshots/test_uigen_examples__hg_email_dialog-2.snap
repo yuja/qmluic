@@ -115,7 +115,7 @@ private:
     b1:
         this->ui_->subjectEdit->setFocus();
         this->ui_->subjectEdit->selectAll();
-        goto b2;
+        return;
     b2:
         return;
     }

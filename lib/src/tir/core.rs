@@ -4,6 +4,7 @@ use super::typeutil::{self, TypeError};
 use crate::typedexpr::{BuiltinFunctionKind, BuiltinMethodKind, DescribeType, TypeDesc};
 use crate::typemap::{Class, Enum, Method, NamedType, Property, TypeKind};
 use std::fmt;
+use std::mem;
 use std::ops::Range;
 
 /// Container of type-checked IR code.
@@ -32,6 +33,44 @@ impl CodeBody<'_> {
         }
         Ok(())
     }
+
+    /// Patches up terminators from the specified block so that the completion values
+    /// will be returned.
+    pub(super) fn finalize_completion_values(&mut self, start_ref: BasicBlockRef) {
+        let start_block = &mut self.basic_blocks[start_ref.0];
+        assert!(start_block.terminator.is_none());
+        if let Some(a) = start_block.completion_value.take() {
+            // common fast path: no need to build reverse "br" map
+            start_block.terminator = Some(Terminator::Return(a));
+            return;
+        }
+
+        // build reverse "br" map: no need to collect conditional branches since condition
+        // value isn't considered a completion value.
+        let mut incoming_map = vec![vec![]; self.basic_blocks.len()];
+        for (i, b) in self.basic_blocks.iter().enumerate() {
+            match &b.terminator {
+                Some(Terminator::Br(l)) => incoming_map[l.0].push(i),
+                Some(Terminator::BrCond(..) | Terminator::Return(_)) | None => {}
+            }
+        }
+
+        // turn "br" into "return" while distance from the start_ref block is 0, where
+        // distance = completion_value + statements.len()
+        let mut to_visit = vec![start_ref.0];
+        while let Some(i) = to_visit.pop() {
+            let b = &mut self.basic_blocks[i];
+            assert!(matches!(b.terminator, Some(Terminator::Br(_)) | None));
+            if let Some(a) = b.completion_value.take() {
+                b.terminator = Some(Terminator::Return(a));
+            } else {
+                b.terminator = Some(Terminator::Return(Operand::Void(Void::new(0..0))));
+                if b.statements.is_empty() {
+                    to_visit.extend(mem::take(&mut incoming_map[i]));
+                }
+            }
+        }
+    }
 }
 
 /// List of statements to be run sequentially.
@@ -55,12 +94,6 @@ impl<'a> BasicBlock<'a> {
         self.terminator
             .as_ref()
             .expect("terminator must have been set by builder")
-    }
-
-    pub(super) fn take_completion_value(&mut self) -> Operand<'a> {
-        self.completion_value
-            .take()
-            .unwrap_or_else(|| Operand::Void(Void::new(0..0)))
     }
 
     pub(super) fn set_completion_value(&mut self, value: Operand<'a>) {
