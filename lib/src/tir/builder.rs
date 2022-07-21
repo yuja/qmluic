@@ -491,44 +491,23 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         (condition, condition_ref): (Self::Item, Self::Label),
         consequence_ref: Self::Label,
         alternative_ref: Self::Label,
-        byte_range: Range<usize>,
+        _byte_range: Range<usize>,
     ) -> Result<(), Self::Error> {
         if condition.type_desc() != TypeDesc::BOOL {
             return Err(ExpressionError::IncompatibleConditionType(
                 condition.type_desc().qualified_name().into(),
             ));
         }
-        // This is pretty much the same as ternary except for the handling of incompatible
-        // completion value types.
-        let consequence = self
-            .get_basic_block_mut(consequence_ref)
-            .take_completion_value();
-        let alternative = self
-            .get_basic_block_mut(alternative_ref)
-            .take_completion_value();
-        let ty = typeutil::deduce_concrete_type(consequence.type_desc(), alternative.type_desc())
-            .or_else(|e| match e {
-            TypeError::IncompatibleTypes(..) => Ok(TypeKind::VOID),
-            e => Err(to_operation_type_error("if-else", e)),
-        })?;
-        let sink = self.alloca(ty, byte_range);
         self.get_basic_block_mut(condition_ref)
             .finalize(Terminator::BrCond(
                 condition,
                 condition_ref.next(),   // consequence start
                 consequence_ref.next(), // alternative start
             ));
-        for (src, src_ref) in [
-            (consequence, consequence_ref),
-            (alternative, alternative_ref),
-        ] {
-            let block = self.get_basic_block_mut(src_ref);
-            if let Ok(a) = &sink {
-                block.push_statement(Statement::Assign(a.name, Rvalue::Copy(src)));
-            }
-            block.finalize(Terminator::Br(alternative_ref.next())); // end
-        }
-        self.set_completion_value(sink.map(Operand::Local).unwrap_or_else(Operand::Void));
+        self.get_basic_block_mut(consequence_ref)
+            .finalize(Terminator::Br(alternative_ref.next())); // end
+        self.get_basic_block_mut(alternative_ref)
+            .finalize(Terminator::Br(alternative_ref.next())); // end
         Ok(())
     }
 
@@ -777,9 +756,8 @@ where
 {
     let mut builder = CodeBuilder::new();
     typedexpr::walk(ctx, node, source, &mut builder, diagnostics)?;
-    let block = builder.current_basic_block_mut();
-    let a = block.take_completion_value();
-    block.finalize(Terminator::Return(a));
+    let current_ref = builder.current_basic_block_ref();
+    builder.code.finalize_completion_values(current_ref);
     Some(builder.code)
 }
 
@@ -1623,7 +1601,7 @@ mod tests {
             %0 = read_property [foo]: Foo*, "checked"
             br_cond %0: bool, .1, .2
         .1:
-            br .2
+            return "yes": QString
         .2:
             return _: void
         "###);
@@ -1633,18 +1611,15 @@ mod tests {
     fn if_else_statement_literal() {
         insta::assert_snapshot!(dump("if (foo.checked) { 'yes' } else { 'no' }"), @r###"
             %0: bool
-            %1: QString
         .0:
             %0 = read_property [foo]: Foo*, "checked"
             br_cond %0: bool, .1, .2
         .1:
-            %1 = copy "yes": QString
-            br .3
+            return "yes": QString
         .2:
-            %1 = copy "no": QString
-            br .3
+            return "no": QString
         .3:
-            return %1: QString
+            return _: void
         "###);
     }
 
@@ -1656,9 +1631,9 @@ mod tests {
             %0 = read_property [foo]: Foo*, "checked"
             br_cond %0: bool, .1, .2
         .1:
-            br .3
+            return "yes": QString
         .2:
-            br .3
+            return false: bool
         .3:
             return _: void
         "###);
@@ -1673,7 +1648,7 @@ mod tests {
             br_cond %0: bool, .1, .2
         .1:
             call_method [foo]: Foo*, "done", {0: integer}
-            br .2
+            return _: void
         .2:
             return _: void
         "###);
@@ -1684,20 +1659,17 @@ mod tests {
         insta::assert_snapshot!(
             dump("if (foo.checked) { foo.done(0); 'yes' } else { foo.done(1); 'no' }"), @r###"
             %0: bool
-            %1: QString
         .0:
             %0 = read_property [foo]: Foo*, "checked"
             br_cond %0: bool, .1, .2
         .1:
             call_method [foo]: Foo*, "done", {0: integer}
-            %1 = copy "yes": QString
-            br .3
+            return "yes": QString
         .2:
             call_method [foo]: Foo*, "done", {1: integer}
-            %1 = copy "no": QString
-            br .3
+            return "no": QString
         .3:
-            return %1: QString
+            return _: void
         "###);
     }
 
@@ -1711,10 +1683,10 @@ mod tests {
             br_cond %0: bool, .1, .2
         .1:
             call_method [foo]: Foo*, "done", {0: integer}
-            br .3
+            return "yes": QString
         .2:
             call_method [foo]: Foo*, "done", {1: integer}
-            br .3
+            return false: bool
         .3:
             return _: void
         "###);
@@ -1737,31 +1709,25 @@ mod tests {
             %2: bool
             %3: QString
             %4: QString
-            %5: QString
-            %6: QString
         .0:
             %0 = read_property [foo]: Foo*, "checked"
             br_cond %0: bool, .1, .2
         .1:
             %1 = read_property [foo]: Foo*, "text"
-            %6 = copy %1: QString
-            br .6
+            return %1: QString
         .2:
             %2 = read_property [foo2]: Foo*, "checked"
             br_cond %2: bool, .3, .4
         .3:
             %3 = read_property [foo2]: Foo*, "text"
-            %5 = copy %3: QString
-            br .5
+            return %3: QString
         .4:
             %4 = read_property [foo3]: Foo*, "text"
-            %5 = copy %4: QString
-            br .5
+            return %4: QString
         .5:
-            %6 = copy %5: QString
-            br .6
+            return _: void
         .6:
-            return %6: QString
+            return _: void
         "###);
     }
 
@@ -1788,7 +1754,7 @@ mod tests {
             br_cond %3: bool, .4, .5
         .4:
             call_method [foo]: Foo*, "done", {0: integer}
-            br .5
+            return _: void
         .5:
             return _: void
         "###);
@@ -1818,10 +1784,10 @@ mod tests {
             br_cond %3: bool, .4, .5
         .4:
             call_method [foo]: Foo*, "done", {0: integer}
-            br .6
+            return _: void
         .5:
             call_method [foo]: Foo*, "done", {1: integer}
-            br .6
+            return _: void
         .6:
             return _: void
         "###);
