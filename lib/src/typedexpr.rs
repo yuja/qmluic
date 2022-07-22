@@ -281,13 +281,7 @@ where
         }
         Statement::Block(ns) => {
             let mut locals = locals.clone(); // inner scope inheriting outer
-            let mut res = Some(());
-            for n in ns {
-                // visit all to report as many errors as possible
-                let r = walk_stmt(ctx, &mut locals, n, source, visitor, diagnostics);
-                res = res.and(r);
-            }
-            res
+            walk_stmt_nodes(ctx, &mut locals, &ns, source, visitor, diagnostics)
         }
         Statement::LexicalDeclaration(x) => {
             for decl in &x.variables {
@@ -343,6 +337,27 @@ where
             diagnostics.consume_node_err(node, visitor.visit_return_statement(value))
         }
     }
+}
+
+fn walk_stmt_nodes<'a, C, V>(
+    ctx: &C,
+    locals: &mut HashMap<String, (V::Local, LexicalDeclarationKind)>,
+    nodes: &[Node],
+    source: &str,
+    visitor: &mut V,
+    diagnostics: &mut Diagnostics,
+) -> Option<()>
+where
+    C: RefSpace<'a>,
+    V: ExpressionVisitor<'a>,
+{
+    let mut res = Some(());
+    for &n in nodes {
+        // visit all to report as many errors as possible
+        let r = walk_stmt(ctx, locals, n, source, visitor, diagnostics);
+        res = res.and(r);
+    }
+    res
 }
 
 /// Walks expression nodes recursively and returns item to be used as an rvalue.
