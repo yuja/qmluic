@@ -209,7 +209,7 @@ Major TODOs
   - [ ] gadget types
   - [x] cycle detection
   - [x] `if` statement
-  - [ ] `switch` statement
+  - [x] `switch` statement
   - [x] `return` statement
   - [x] `let` binding
   - [x] multiple statements
