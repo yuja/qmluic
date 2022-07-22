@@ -328,6 +328,12 @@ where
                 ),
             )
         }
+        Statement::Switch(_) => {
+            todo!();
+        }
+        Statement::Break(_) => {
+            todo!();
+        }
         Statement::Return(x) => {
             let value = if let Some(n) = x {
                 Some(walk_rvalue(ctx, locals, n, source, visitor, diagnostics)?)

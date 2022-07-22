@@ -13,10 +13,12 @@ pub enum Statement<'tree> {
 
     LexicalDeclaration(LexicalDeclaration<'tree>),
     If(IfStatement<'tree>),
+    Switch(SwitchStatement<'tree>),
 
+    /// Break with optional label.
+    Break(Option<Identifier<'tree>>),
     /// Return with optionally expression node.
     Return(Option<Node<'tree>>),
-    // TODO: switch, etc., but it's unlikely we'll support export, import, etc.
 }
 
 impl<'tree> Statement<'tree> {
@@ -58,6 +60,14 @@ impl<'tree> Statement<'tree> {
                     consequence,
                     alternative,
                 })
+            }
+            "switch_statement" => SwitchStatement::with_cursor(cursor).map(Statement::Switch)?,
+            "break_statement" => {
+                let label = node
+                    .child_by_field_name("label")
+                    .map(Identifier::from_node)
+                    .transpose()?;
+                Statement::Break(label)
             }
             "return_statement" => {
                 let expr = node.named_children(cursor).find(|n| !n.is_extra());
@@ -141,6 +151,75 @@ pub struct IfStatement<'tree> {
     pub alternative: Option<Node<'tree>>,
 }
 
+/// Represents a "switch" statement.
+#[derive(Clone, Debug)]
+pub struct SwitchStatement<'tree> {
+    /// Expression to be matched against each case clause.
+    pub value: Node<'tree>,
+    /// Case clauses.
+    pub cases: Vec<SwitchCase<'tree>>,
+    /// Default clause.
+    pub default: Option<SwitchDefault<'tree>>,
+}
+
+/// Represents a "case" clause.
+#[derive(Clone, Debug)]
+pub struct SwitchCase<'tree> {
+    /// Expression to be matched.
+    pub value: Node<'tree>,
+    /// Statements to be executed.
+    pub body: Vec<Node<'tree>>,
+}
+
+/// Represents a "default" clause.
+#[derive(Clone, Debug)]
+pub struct SwitchDefault<'tree> {
+    /// Index in the fall-through list, which is usually `cases.len()`.
+    pub position: usize,
+    /// Statements to be executed.
+    pub body: Vec<Node<'tree>>,
+}
+
+impl<'tree> SwitchStatement<'tree> {
+    fn with_cursor(cursor: &mut TreeCursor<'tree>) -> Result<Self, ParseError<'tree>> {
+        let switch_node = cursor.node();
+        let switch_value = astutil::get_child_by_field_name(switch_node, "value")?;
+
+        let switch_body_node = astutil::get_child_by_field_name(switch_node, "body")?;
+        let mut cases = Vec::new();
+        let mut default = None;
+        for (i, node) in switch_body_node.named_children(cursor).enumerate() {
+            match node.kind() {
+                "switch_case" => {
+                    let value = astutil::get_child_by_field_name(node, "value")?;
+                    let body = node
+                        .children_by_field_name("body", &mut node.walk())
+                        .collect();
+                    cases.push(SwitchCase { value, body });
+                }
+                "switch_default" if default.is_some() => {
+                    return Err(ParseError::new(node, ParseErrorKind::MultipleDefaultLabels));
+                }
+                "switch_default" => {
+                    let body = node
+                        .children_by_field_name("body", &mut node.walk())
+                        .collect();
+                    default = Some(SwitchDefault { position: i, body });
+                }
+                _ => {
+                    return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
+                }
+            }
+        }
+
+        Ok(SwitchStatement {
+            value: switch_value,
+            cases,
+            default,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::expr::Expression;
@@ -168,6 +247,8 @@ mod tests {
             LexicalDeclaration<'tree>
         );
         impl_unwrap_fn!(unwrap_if, Statement::If, IfStatement<'tree>);
+        impl_unwrap_fn!(unwrap_switch, Statement::Switch, SwitchStatement<'tree>);
+        impl_unwrap_fn!(unwrap_break, Statement::Break, Option<Identifier<'tree>>);
         impl_unwrap_fn!(unwrap_return, Statement::Return, Option<Node<'tree>>);
     }
 
@@ -291,6 +372,63 @@ mod tests {
         assert!(Statement::from_node(x.consequence).is_ok());
         assert!(Statement::from_node(x.alternative.unwrap()).is_ok());
         assert_ne!(x.consequence, x.alternative.unwrap());
+    }
+
+    #[test]
+    fn switch_statement() {
+        let doc = parse(
+            r###"
+            Foo {
+                switch_no_default: switch (foo) {
+                case /*garbage*/ 0:
+                    "case 0" /*garbage*/;
+                    break;
+                case 1 /*garbage*/:
+                case 2:
+                    break a;
+                }
+
+                switch_with_default: switch (foo) {
+                case 0:
+                default:
+                    "default";
+                }
+
+                switch_multiple_defaults: switch (foo) {
+                case 0:
+                default:
+                    "default";
+                default:
+                    "default";
+                }
+            }
+            "###,
+        );
+
+        let x = unwrap_stmt(&doc, "switch_no_default").unwrap_switch();
+        assert!(Expression::from_node(x.value, doc.source()).is_ok());
+        assert_eq!(x.cases.len(), 3);
+        assert!(Expression::from_node(x.cases[0].value, doc.source()).is_ok());
+        assert_eq!(x.cases[0].body.len(), 2);
+        assert!(Statement::from_node(x.cases[0].body[1])
+            .unwrap()
+            .unwrap_break()
+            .is_none());
+        assert_eq!(x.cases[1].body.len(), 0);
+        assert_eq!(x.cases[2].body.len(), 1);
+        assert!(Statement::from_node(x.cases[2].body[0])
+            .unwrap()
+            .unwrap_break()
+            .is_some());
+        assert!(x.default.is_none());
+
+        let x = unwrap_stmt(&doc, "switch_with_default").unwrap_switch();
+        assert_eq!(x.cases.len(), 1);
+        assert_eq!(x.cases[0].body.len(), 0);
+        assert_eq!(x.default.as_ref().unwrap().position, 1);
+        assert_eq!(x.default.as_ref().unwrap().body.len(), 1);
+
+        assert!(extract_stmt(&doc, "switch_multiple_defaults").is_err());
     }
 
     #[test]

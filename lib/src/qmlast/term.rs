@@ -9,10 +9,10 @@ pub struct Identifier<'tree>(Node<'tree>);
 
 impl<'tree> Identifier<'tree> {
     pub fn from_node(node: Node<'tree>) -> Result<Self, ParseError<'tree>> {
-        if node.kind() != "identifier" && node.kind() != "property_identifier" {
-            return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
+        match node.kind() {
+            "identifier" | "property_identifier" | "statement_identifier" => Ok(Identifier(node)),
+            _ => Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind)),
         }
-        Ok(Identifier(node))
     }
 
     pub fn node(&self) -> Node<'tree> {
