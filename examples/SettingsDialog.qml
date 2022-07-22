@@ -37,6 +37,43 @@ QDialog {
 
                 QLabel { text: qsTr("pt") }
             }
+
+            QLabel { text: qsTr("Text alignment:") }
+            QComboBox {
+                id: textAlignmentEdit
+                model: [
+                    "Left",
+                    "Right",
+                    "Center",
+                    "Justify",
+                ]
+            }
+
+            QFrame {
+                QLayout.column: 1
+                frameShape: QFrame.StyledPanel
+                frameShadow: QFrame.Plain
+                QVBoxLayout {
+                    QLabel {
+                        text: "The quick brown fox jumps over the lazy dog."
+                        font: textFontFamilyEdit.currentFont  // TODO: point size
+                        alignment: {
+                            switch (textAlignmentEdit.currentIndex) {
+                            case 0:
+                                return Qt.AlignLeft;
+                            case 1:
+                                return Qt.AlignRight;
+                            case 2:
+                                return Qt.AlignHCenter;
+                            case 3:
+                                return Qt.AlignJustify;
+                            default:
+                                return Qt.AlignLeft;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         QSpacerItem {
