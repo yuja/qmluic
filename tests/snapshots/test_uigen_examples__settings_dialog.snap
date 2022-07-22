@@ -16,7 +16,7 @@ expression: ui_xml
   <property name="windowTitle">
    <string>Settings</string>
   </property>
-  <layout class="QVBoxLayout" name="vboxLayout">
+  <layout class="QVBoxLayout" name="vboxLayout1">
    <item>
     <layout class="QFormLayout" name="formLayout">
      <item column="0" row="0">
@@ -78,6 +78,56 @@ expression: ui_xml
         </widget>
        </item>
       </layout>
+     </item>
+     <item column="0" row="2">
+      <widget class="QLabel" name="label3">
+       <property name="text">
+        <string>Text alignment:</string>
+       </property>
+      </widget>
+     </item>
+     <item column="1" row="2">
+      <widget class="QComboBox" name="textAlignmentEdit">
+       <item>
+        <property name="text">
+         <string notr="true">Left</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string notr="true">Right</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string notr="true">Center</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string notr="true">Justify</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item column="1" row="3">
+      <widget class="QFrame" name="frame">
+       <property name="frameShadow">
+        <enum>QFrame::Plain</enum>
+       </property>
+       <property name="frameShape">
+        <enum>QFrame::StyledPanel</enum>
+       </property>
+       <layout class="QVBoxLayout" name="vboxLayout">
+        <item>
+         <widget class="QLabel" name="label4">
+          <property name="text">
+           <string notr="true">The quick brown fox jumps over the lazy dog.</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
      </item>
     </layout>
    </item>

@@ -13,13 +13,123 @@ public:
 
     void setup()
     {
+        this->setupLabel4Alignment();
+        this->setupLabel4Font();
         this->setupButtonBoxAccepted();
         this->setupButtonBoxRejected();
+        this->updateLabel4Alignment();
+        this->updateLabel4Font();
     }
 
 private:
     enum class BindingIndex : unsigned {
+        Label4Alignment,
+        Label4Font,
     };
+
+    void setupLabel4Alignment()
+    {
+        QObject::connect(this->ui_->textAlignmentEdit, &QComboBox::currentIndexChanged, this->root_, [this]() { this->updateLabel4Alignment(); });
+    }
+
+    void updateLabel4Alignment()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Label4Alignment);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->label4->setAlignment(this->evalLabel4Alignment());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    Qt::Alignment evalLabel4Alignment() const
+    {
+        int a0;
+        bool a1;
+        bool a2;
+        bool a3;
+        bool a4;
+    b0:
+        a0 = this->ui_->textAlignmentEdit->currentIndex();
+        goto b2;
+    b1:
+        Q_UNREACHABLE();
+    b2:
+        a1 = a0 == 0;
+        if (a1)
+            goto b3;
+        else
+            goto b5;
+    b3:
+        return Qt::AlignLeft;
+    b4:
+        goto b6;
+    b5:
+        a2 = a0 == 1;
+        if (a2)
+            goto b6;
+        else
+            goto b8;
+    b6:
+        return Qt::AlignRight;
+    b7:
+        goto b9;
+    b8:
+        a3 = a0 == 2;
+        if (a3)
+            goto b9;
+        else
+            goto b11;
+    b9:
+        return Qt::AlignHCenter;
+    b10:
+        goto b12;
+    b11:
+        a4 = a0 == 3;
+        if (a4)
+            goto b12;
+        else
+            goto b14;
+    b12:
+        return Qt::AlignJustify;
+    b13:
+        goto b14;
+    b14:
+        return Qt::AlignLeft;
+    b15:
+        Q_UNREACHABLE();
+    b16:
+        Q_UNREACHABLE();
+    }
+
+    void setupLabel4Font()
+    {
+        QObject::connect(this->ui_->textFontFamilyEdit, &QFontComboBox::currentFontChanged, this->root_, [this]() { this->updateLabel4Font(); });
+    }
+
+    void updateLabel4Font()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Label4Font);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->ui_->label4->setFont(this->evalLabel4Font());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    QFont evalLabel4Font() const
+    {
+        QFont a0;
+    b0:
+        a0 = this->ui_->textFontFamilyEdit->currentFont();
+        return a0;
+    }
 
     void setupButtonBoxAccepted()
     {
@@ -47,6 +157,9 @@ private:
 
     QDialog *const root_;
     Ui::SettingsDialog *const ui_;
+#ifndef QT_NO_DEBUG
+    quint32 bindingGuard_[1] = {0};
+#endif
 
 };
 } // namespace UiSupport
