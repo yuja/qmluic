@@ -32,6 +32,7 @@ fn dump_basic_block<W: io::Write>(w: &mut W, block: &BasicBlock) -> io::Result<(
             writeln!(w, "    br_cond {}, .{}, .{}", format_operand(x), y.0, z.0)
         }
         Terminator::Return(x) => writeln!(w, "    return {}", format_operand(x)),
+        Terminator::Unreachable => writeln!(w, "    unreachable"),
     }
 }
 

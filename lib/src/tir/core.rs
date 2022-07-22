@@ -45,13 +45,20 @@ impl CodeBody<'_> {
             return;
         }
 
-        // build reverse "br" map: no need to collect conditional branches since condition
-        // value isn't considered a completion value.
+        // build reverse "br" map: conditional branches aren't collected since they
+        // cannot be turned into "return", and a condition value isn't considered
+        // a completion value.
         let mut incoming_map = vec![vec![]; self.basic_blocks.len()];
+        let mut reachable = vec![false; self.basic_blocks.len()];
+        reachable[0] = true;
         for (i, b) in self.basic_blocks.iter().enumerate() {
             match &b.terminator {
                 Some(Terminator::Br(l)) => incoming_map[l.0].push(i),
-                Some(Terminator::BrCond(..) | Terminator::Return(_)) | None => {}
+                Some(Terminator::BrCond(_, a, b)) => {
+                    reachable[a.0] = true;
+                    reachable[b.0] = true;
+                }
+                Some(Terminator::Return(_) | Terminator::Unreachable) | None => {}
             }
         }
 
@@ -64,7 +71,11 @@ impl CodeBody<'_> {
             if let Some(a) = b.completion_value.take() {
                 b.terminator = Some(Terminator::Return(a));
             } else {
-                b.terminator = Some(Terminator::Return(Operand::Void(Void::new(0..0))));
+                b.terminator = if reachable[i] {
+                    Some(Terminator::Return(Operand::Void(Void::new(0..0))))
+                } else {
+                    Some(Terminator::Unreachable)
+                };
                 if b.statements.is_empty() {
                     to_visit.extend(mem::take(&mut incoming_map[i]));
                 }
@@ -140,6 +151,8 @@ pub enum Terminator<'a> {
     BrCond(Operand<'a>, BasicBlockRef, BasicBlockRef),
     /// `return <operand>`
     Return(Operand<'a>),
+    /// `unreachable()`
+    Unreachable,
 }
 
 /// Variable or constant value.

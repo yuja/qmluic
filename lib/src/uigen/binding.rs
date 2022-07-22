@@ -543,6 +543,7 @@ impl CxxCodeBodyTranslator {
                     writeln!(w, "{}return;", self.body_indent)?;
                 }
             },
+            Terminator::Unreachable => writeln!(w, "{}Q_UNREACHABLE();", self.body_indent)?,
         }
         Ok(())
     }

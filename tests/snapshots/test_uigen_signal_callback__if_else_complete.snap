@@ -1,0 +1,68 @@
+---
+source: tests/test_uigen_signal_callback.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_mytype.h"
+
+namespace UiSupport {
+class MyType
+{
+public:
+    MyType(QCheckBox *root, Ui::MyType *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+        this->setupCheckBoxText();
+        this->updateCheckBoxText();
+    }
+
+private:
+    enum class BindingIndex : unsigned {
+        CheckBoxText,
+    };
+
+    void setupCheckBoxText()
+    {
+        QObject::connect(this->root_, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheckBoxText(); });
+    }
+
+    void updateCheckBoxText()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::CheckBoxText);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->root_->setText(this->evalCheckBoxText());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    QString evalCheckBoxText() const
+    {
+        bool a0;
+    b0:
+        a0 = this->root_->isChecked();
+        if (a0)
+            goto b1;
+        else
+            goto b2;
+    b1:
+        return QStringLiteral("checked");
+    b2:
+        return QStringLiteral("unchecked");
+    b3:
+        Q_UNREACHABLE();
+    }
+
+    QCheckBox *const root_;
+    Ui::MyType *const ui_;
+#ifndef QT_NO_DEBUG
+    quint32 bindingGuard_[1] = {0};
+#endif
+
+};
+} // namespace UiSupport
+

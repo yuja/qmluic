@@ -243,3 +243,17 @@ fn test_let_object() {
     let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
     insta::assert_snapshot!(ui_support_h);
 }
+
+#[test]
+fn test_if_else_complete() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QCheckBox {
+            text: if (checked) { "checked" } else { "unchecked" }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
