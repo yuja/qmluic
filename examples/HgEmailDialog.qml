@@ -185,10 +185,10 @@ QDialog {
                             "make up the message subject and body. Flags is a comma separated " +
                             "list of tags which are inserted into the message subject prefix.")
                         onClicked: {
-                            if (checked) {
-                                subjectEdit.setFocus();
-                                subjectEdit.selectAll();
-                            }
+                            if (!checked)
+                                return;
+                            subjectEdit.setFocus();
+                            subjectEdit.selectAll();
                         }
                     }
 
