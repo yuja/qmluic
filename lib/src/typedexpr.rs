@@ -221,19 +221,11 @@ pub trait ExpressionVisitor<'a> {
     ) -> Result<Self::Item, Self::Error>;
 
     fn visit_expression_statement(&mut self, value: Self::Item) -> Result<(), Self::Error>;
-
     fn visit_if_statement(
         &mut self,
         condition: (Self::Item, Self::Label),
         consequence_ref: Self::Label,
-        byte_range: Range<usize>,
-    ) -> Result<(), Self::Error>;
-    fn visit_if_else_statement(
-        &mut self,
-        condition: (Self::Item, Self::Label),
-        consequence_ref: Self::Label,
-        alternative_ref: Self::Label,
-        byte_range: Range<usize>,
+        alternative_ref: Option<Self::Label>,
     ) -> Result<(), Self::Error>;
 
     fn mark_branch_point(&mut self) -> Self::Label;
@@ -320,28 +312,20 @@ where
             let condition_label = visitor.mark_branch_point();
             walk_stmt(ctx, locals, x.consequence, source, visitor, diagnostics)?;
             let consequence_label = visitor.mark_branch_point();
-            if let Some(n) = x.alternative {
+            let alternative_label = if let Some(n) = x.alternative {
                 walk_stmt(ctx, locals, n, source, visitor, diagnostics)?;
-                let alternative_label = visitor.mark_branch_point();
-                diagnostics.consume_node_err(
-                    node,
-                    visitor.visit_if_else_statement(
-                        (condition, condition_label),
-                        consequence_label,
-                        alternative_label,
-                        node.byte_range(),
-                    ),
-                )
+                Some(visitor.mark_branch_point())
             } else {
-                diagnostics.consume_node_err(
-                    node,
-                    visitor.visit_if_statement(
-                        (condition, condition_label),
-                        consequence_label,
-                        node.byte_range(),
-                    ),
-                )
-            }
+                None
+            };
+            diagnostics.consume_node_err(
+                node,
+                visitor.visit_if_statement(
+                    (condition, condition_label),
+                    consequence_label,
+                    alternative_label,
+                ),
+            )
         }
     }
 }
