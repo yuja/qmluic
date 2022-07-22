@@ -490,7 +490,13 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
     }
 
     fn visit_return_statement(&mut self, value: Option<Self::Item>) -> Result<(), Self::Error> {
-        todo!();
+        let value = value
+            .map(ensure_concrete_string)
+            .unwrap_or_else(|| Operand::Void(Void::new(0..0)));
+        self.current_basic_block_mut()
+            .finalize(Terminator::Return(value));
+        self.code.basic_blocks.push(BasicBlock::empty()); // unreachable code may be inserted here
+        Ok(())
     }
 
     /// Inserts new basic block for the statements after the branch, returns the reference
@@ -1790,6 +1796,249 @@ mod tests {
             return _: void
         .3:
             unreachable
+        "###);
+    }
+
+    #[test]
+    fn return_nothing() {
+        insta::assert_snapshot!(dump("{ return; }"), @r###"
+        .0:
+            return _: void
+        .1:
+            unreachable
+        "###);
+    }
+
+    #[test]
+    fn return_literal() {
+        insta::assert_snapshot!(dump("{ return 'hello'; }"), @r###"
+        .0:
+            return "hello": QString
+        .1:
+            unreachable
+        "###);
+    }
+
+    #[test]
+    fn return_dynamic_expression() {
+        insta::assert_snapshot!(dump("{ return foo.checked; }"), @r###"
+            %0: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            return %0: bool
+        .1:
+            unreachable
+        "###);
+    }
+
+    #[test]
+    fn return_if() {
+        insta::assert_snapshot!(
+            dump(r###"{
+            if (foo.checked)
+                return foo.text;
+            if (foo2.checked)
+                return foo2.text;
+            foo3.text
+        }"###), @r###"
+            %0: bool
+            %1: QString
+            %2: bool
+            %3: QString
+            %4: QString
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .3
+        .1:
+            %1 = read_property [foo]: Foo*, "text"
+            return %1: QString
+        .2:
+            br .3
+        .3:
+            %2 = read_property [foo2]: Foo*, "checked"
+            br_cond %2: bool, .4, .6
+        .4:
+            %3 = read_property [foo2]: Foo*, "text"
+            return %3: QString
+        .5:
+            br .6
+        .6:
+            %4 = read_property [foo3]: Foo*, "text"
+            return %4: QString
+        "###);
+    }
+
+    #[test]
+    fn return_if_else_commplete() {
+        insta::assert_snapshot!(
+            dump(r###"{
+            if (foo.checked) {
+                return foo.text;
+            } else if (foo2.checked) {
+                return foo2.text;
+            } else {
+                return foo3.text;
+            }
+        }"###), @r###"
+            %0: bool
+            %1: QString
+            %2: bool
+            %3: QString
+            %4: QString
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .3
+        .1:
+            %1 = read_property [foo]: Foo*, "text"
+            return %1: QString
+        .2:
+            unreachable
+        .3:
+            %2 = read_property [foo2]: Foo*, "checked"
+            br_cond %2: bool, .4, .6
+        .4:
+            %3 = read_property [foo2]: Foo*, "text"
+            return %3: QString
+        .5:
+            unreachable
+        .6:
+            %4 = read_property [foo3]: Foo*, "text"
+            return %4: QString
+        .7:
+            unreachable
+        .8:
+            unreachable
+        .9:
+            unreachable
+        "###);
+    }
+
+    #[test]
+    fn return_if_else_partial() {
+        insta::assert_snapshot!(
+            dump(r###"{
+            if (foo.checked) {
+                return foo.text;
+            } else if (foo2.checked) {
+                foo2.text;
+            } else {
+                return foo3.text;
+            }
+        }"###), @r###"
+            %0: bool
+            %1: QString
+            %2: bool
+            %3: QString
+            %4: QString
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .3
+        .1:
+            %1 = read_property [foo]: Foo*, "text"
+            return %1: QString
+        .2:
+            unreachable
+        .3:
+            %2 = read_property [foo2]: Foo*, "checked"
+            br_cond %2: bool, .4, .5
+        .4:
+            %3 = read_property [foo2]: Foo*, "text"
+            return %3: QString
+        .5:
+            %4 = read_property [foo3]: Foo*, "text"
+            return %4: QString
+        .6:
+            unreachable
+        .7:
+            unreachable
+        .8:
+            unreachable
+        "###);
+    }
+
+    #[test]
+    fn return_if_else_partial_and_trailing_code() {
+        insta::assert_snapshot!(
+            dump(r###"{
+            if (foo.checked) {
+                return foo.text;
+            } else if (foo2.checked) {
+                foo2.text;
+            } else {
+                return foo3.text;
+            }
+            foo4.text;
+        }"###), @r###"
+            %0: bool
+            %1: QString
+            %2: bool
+            %3: QString
+            %4: QString
+            %5: QString
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .3
+        .1:
+            %1 = read_property [foo]: Foo*, "text"
+            return %1: QString
+        .2:
+            br .8
+        .3:
+            %2 = read_property [foo2]: Foo*, "checked"
+            br_cond %2: bool, .4, .5
+        .4:
+            %3 = read_property [foo2]: Foo*, "text"
+            br .7
+        .5:
+            %4 = read_property [foo3]: Foo*, "text"
+            return %4: QString
+        .6:
+            br .7
+        .7:
+            br .8
+        .8:
+            %5 = read_property [foo4]: Foo*, "text"
+            return %5: QString
+        "###);
+    }
+
+    #[test]
+    fn return_with_trailing_garbage() {
+        insta::assert_snapshot!(
+            dump(r###"{
+            if (foo.checked) {
+                return foo.text;
+                return;
+            } else {
+                { return foo2.text; }
+                foo3.text;
+            }
+            foo4.text;
+        }"###), @r###"
+            %0: bool
+            %1: QString
+            %2: QString
+            %3: QString
+            %4: QString
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .4
+        .1:
+            %1 = read_property [foo]: Foo*, "text"
+            return %1: QString
+        .2:
+            return _: void
+        .3:
+            br .6
+        .4:
+            %2 = read_property [foo2]: Foo*, "text"
+            return %2: QString
+        .5:
+            %3 = read_property [foo3]: Foo*, "text"
+            br .6
+        .6:
+            %4 = read_property [foo4]: Foo*, "text"
+            return %4: QString
         "###);
     }
 }

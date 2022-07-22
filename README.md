@@ -210,7 +210,7 @@ Major TODOs
   - [x] cycle detection
   - [x] `if` statement
   - [ ] `switch` statement
-  - [ ] `return` statement
+  - [x] `return` statement
   - [x] `let` binding
   - [x] multiple statements
   - [ ] signal parameters: `on<Signal>: function(...) {}`
