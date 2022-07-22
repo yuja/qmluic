@@ -108,9 +108,9 @@ impl<'a, T: TypeSpace<'a>> RefSpace<'a> for T {
 
 /// Translates each expression node to [`Self::Item`].
 pub trait ExpressionVisitor<'a> {
-    type Item: DescribeType<'a>; // TODO: do we want to check type error by walk()?
+    type Item: DescribeType<'a> + Clone; // TODO: do we want to check type error by walk()?
     type Local: Copy;
-    type Label;
+    type Label: Copy;
     type Error: ToString;
 
     fn visit_integer(
@@ -227,6 +227,14 @@ pub trait ExpressionVisitor<'a> {
         consequence_ref: Self::Label,
         alternative_ref: Option<Self::Label>,
     ) -> Result<(), Self::Error>;
+    fn visit_switch_statement(
+        &mut self,
+        cases: Vec<(Self::Item, Self::Label, Self::Label)>,
+        default: Option<(usize, Self::Label)>,
+        head_ref: Self::Label,
+        exit_ref: Self::Label,
+    ) -> Result<(), Self::Error>;
+    fn visit_break_statement(&mut self, exit_ref: Self::Label) -> Result<(), Self::Error>;
     fn visit_return_statement(&mut self, value: Option<Self::Item>) -> Result<(), Self::Error>;
 
     fn mark_branch_point(&mut self) -> Self::Label;
@@ -258,13 +266,14 @@ where
     V: ExpressionVisitor<'a>,
 {
     let mut locals = HashMap::new();
-    walk_stmt(ctx, &mut locals, node, source, visitor, diagnostics)
+    walk_stmt(ctx, &mut locals, None, node, source, visitor, diagnostics)
 }
 
 /// Walks statement nodes recursively.
 fn walk_stmt<'a, C, V>(
     ctx: &C,
     locals: &mut HashMap<String, (V::Local, LexicalDeclarationKind)>,
+    break_label: Option<V::Label>,
     node: Node,
     source: &str,
     visitor: &mut V,
@@ -281,7 +290,15 @@ where
         }
         Statement::Block(ns) => {
             let mut locals = locals.clone(); // inner scope inheriting outer
-            walk_stmt_nodes(ctx, &mut locals, &ns, source, visitor, diagnostics)
+            walk_stmt_nodes(
+                ctx,
+                &mut locals,
+                break_label,
+                &ns,
+                source,
+                visitor,
+                diagnostics,
+            )
         }
         Statement::LexicalDeclaration(x) => {
             for decl in &x.variables {
@@ -305,10 +322,18 @@ where
         Statement::If(x) => {
             let condition = walk_rvalue(ctx, locals, x.condition, source, visitor, diagnostics)?;
             let condition_label = visitor.mark_branch_point();
-            walk_stmt(ctx, locals, x.consequence, source, visitor, diagnostics)?;
+            walk_stmt(
+                ctx,
+                locals,
+                break_label,
+                x.consequence,
+                source,
+                visitor,
+                diagnostics,
+            )?;
             let consequence_label = visitor.mark_branch_point();
             let alternative_label = if let Some(n) = x.alternative {
-                walk_stmt(ctx, locals, n, source, visitor, diagnostics)?;
+                walk_stmt(ctx, locals, break_label, n, source, visitor, diagnostics)?;
                 Some(visitor.mark_branch_point())
             } else {
                 None
@@ -322,11 +347,80 @@ where
                 ),
             )
         }
-        Statement::Switch(_) => {
-            todo!();
+        Statement::Switch(x) => {
+            let left = walk_rvalue(ctx, locals, x.value, source, visitor, diagnostics)?;
+            // allocate empty block where "break" will be directed
+            let head_ref = visitor.mark_branch_point();
+            let exit_ref = visitor.mark_branch_point();
+            let break_label = Some(exit_ref);
+            let cases: Vec<_> = x
+                .cases
+                .iter()
+                .filter_map(|c| {
+                    let right = walk_rvalue(ctx, locals, c.value, source, visitor, diagnostics)?;
+                    let condition = diagnostics.consume_node_err(
+                        c.value,
+                        visitor.visit_binary_expression(
+                            BinaryOperator::StrictEqual,
+                            left.clone(),
+                            right,
+                            c.value.byte_range(),
+                        ),
+                    )?;
+                    let condition_label = visitor.mark_branch_point();
+                    walk_stmt_nodes(
+                        ctx,
+                        locals,
+                        break_label,
+                        &c.body,
+                        source,
+                        visitor,
+                        diagnostics,
+                    )?;
+                    let body_label = visitor.mark_branch_point();
+                    Some((condition, condition_label, body_label))
+                })
+                .collect();
+            let default = if let Some(d) = &x.default {
+                walk_stmt_nodes(
+                    ctx,
+                    locals,
+                    break_label,
+                    &d.body,
+                    source,
+                    visitor,
+                    diagnostics,
+                )?;
+                let body_label = visitor.mark_branch_point();
+                Some((d.position, body_label))
+            } else {
+                None
+            };
+            if x.cases.len() == cases.len() {
+                diagnostics.consume_node_err(
+                    node,
+                    visitor.visit_switch_statement(cases, default, head_ref, exit_ref),
+                )
+            } else {
+                None
+            }
         }
-        Statement::Break(_) => {
-            todo!();
+        Statement::Break(l) => {
+            if let Some(n) = l {
+                diagnostics.push(Diagnostic::error(
+                    n.node().byte_range(),
+                    "labeled break is not supported",
+                ));
+                None
+            } else if let Some(l) = break_label {
+                diagnostics.consume_node_err(node, visitor.visit_break_statement(l))
+            } else {
+                diagnostics.push(Diagnostic::error(
+                    node.byte_range(),
+                    "break not in loop or switch statement",
+                ));
+                None
+            }
         }
         Statement::Return(x) => {
             let value = if let Some(n) = x {
@@ -342,6 +436,7 @@ where
 fn walk_stmt_nodes<'a, C, V>(
     ctx: &C,
     locals: &mut HashMap<String, (V::Local, LexicalDeclarationKind)>,
+    break_label: Option<V::Label>,
     nodes: &[Node],
     source: &str,
     visitor: &mut V,
@@ -354,7 +449,7 @@ where
     let mut res = Some(());
     for &n in nodes {
         // visit all to report as many errors as possible
-        let r = walk_stmt(ctx, locals, n, source, visitor, diagnostics);
+        let r = walk_stmt(ctx, locals, break_label, n, source, visitor, diagnostics);
         res = res.and(r);
     }
     res
