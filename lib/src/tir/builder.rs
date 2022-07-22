@@ -496,11 +496,45 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         head_ref: Self::Label,
         exit_ref: Self::Label,
     ) -> Result<(), Self::Error> {
-        todo!();
+        // order of blocks: ...|exit|case0|body0|case1|body1|...|default body|
+        let last_case_body_ref = cases.last().map(|&(_, _, b)| b).unwrap_or(exit_ref);
+        let last_body_ref = default.map(|(_, b)| b).unwrap_or(last_case_body_ref);
+
+        // connect fall-through paths: |body0|case1|body1|     |default body|
+        //                                   +-----^         --^            +-->
+        let mut fall_through_list: Vec<_> = cases.iter().map(|&(_, c, b)| (c, b)).collect();
+        if let Some((pos, body_ref)) = default {
+            fall_through_list.insert(pos, (last_case_body_ref, body_ref));
+        }
+        fall_through_list.push((last_body_ref, BasicBlockRef(usize::MAX)));
+        for (&(_, body_ref), &(next_case_ref, _)) in fall_through_list.iter().tuple_windows() {
+            self.get_basic_block_mut(body_ref)
+                .finalize(Terminator::Br(next_case_ref.next())); // next body start
+        }
+
+        // connect case branches
+        for (condition, condition_ref, body_ref) in cases {
+            self.get_basic_block_mut(condition_ref)
+                .finalize(Terminator::BrCond(
+                    condition,
+                    condition_ref.next(), // body start
+                    body_ref.next(),      // next condition start, default body start, or end
+                ));
+        }
+
+        // connect enter/exit paths
+        self.get_basic_block_mut(head_ref)
+            .finalize(Terminator::Br(exit_ref.next())); // first case/default start
+        self.get_basic_block_mut(exit_ref)
+            .finalize(Terminator::Br(last_body_ref.next())); // end
+        Ok(())
     }
 
     fn visit_break_statement(&mut self, exit_ref: Self::Label) -> Result<(), Self::Error> {
-        todo!();
+        self.current_basic_block_mut()
+            .finalize(Terminator::Br(exit_ref));
+        self.code.basic_blocks.push(BasicBlock::empty()); // unreachable code may be inserted here
+        Ok(())
     }
 
     fn visit_return_statement(&mut self, value: Option<Self::Item>) -> Result<(), Self::Error> {
@@ -2053,6 +2087,473 @@ mod tests {
         .6:
             %4 = read_property [foo4]: Foo*, "text"
             return %4: QString
+        "###);
+    }
+
+    #[test]
+    fn switch_basic() {
+        insta::assert_snapshot!(
+            dump(r###"{
+            let s = foo.text;
+            switch (s) {
+            case "foo2":
+                foo2.text;
+                break;
+            case "foo3":
+                foo3.text;
+                break;
+            default:
+                foo.text;
+            }
+        }"###), @r###"
+            %0: QString
+            %1: QString
+            %2: bool
+            %3: QString
+            %4: bool
+            %5: QString
+            %6: QString
+        .0:
+            %0 = read_property [foo]: Foo*, "text"
+            %1 = copy %0: QString
+            br .2
+        .1:
+            unreachable
+        .2:
+            %2 = binary_op '==', %1: QString, "foo2": QString
+            br_cond %2: bool, .3, .5
+        .3:
+            %3 = read_property [foo2]: Foo*, "text"
+            return %3: QString
+        .4:
+            br .6
+        .5:
+            %4 = binary_op '==', %1: QString, "foo3": QString
+            br_cond %4: bool, .6, .8
+        .6:
+            %5 = read_property [foo3]: Foo*, "text"
+            return %5: QString
+        .7:
+            br .8
+        .8:
+            %6 = read_property [foo]: Foo*, "text"
+            return %6: QString
+        .9:
+            unreachable
+        "###);
+    }
+
+    #[test]
+    fn switch_default_only() {
+        insta::assert_snapshot!(
+            dump(r###"{
+            switch (foo.currentIndex) {
+            default:
+                foo.done(0);
+            }
+            foo.done(-1);
+        }"###), @r###"
+            %0: int
+        .0:
+            %0 = read_property [foo]: Foo*, "currentIndex"
+            br .2
+        .1:
+            br .3
+        .2:
+            call_method [foo]: Foo*, "done", {0: integer}
+            br .3
+        .3:
+            call_method [foo]: Foo*, "done", {-1: integer}
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn switch_case_only() {
+        insta::assert_snapshot!(
+            dump(r###"{
+            switch (foo.currentIndex) {
+            case 1:
+                foo.done(1);
+                break;
+            }
+            foo.done(-1);
+        }"###), @r###"
+            %0: int
+            %1: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "currentIndex"
+            br .2
+        .1:
+            br .5
+        .2:
+            %1 = binary_op '==', %0: int, 1: integer
+            br_cond %1: bool, .3, .5
+        .3:
+            call_method [foo]: Foo*, "done", {1: integer}
+            br .1
+        .4:
+            br .5
+        .5:
+            call_method [foo]: Foo*, "done", {-1: integer}
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn switch_default_first_fall_through() {
+        insta::assert_snapshot!(
+            dump(r###"{
+            switch (foo.currentIndex) {
+            default:
+                foo.done(0);
+            case 1:
+                foo.done(1);
+            case 2:
+                foo.done(2);
+            }
+            foo.done(-1);
+        }"###), @r###"
+            %0: int
+            %1: bool
+            %2: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "currentIndex"
+            br .2
+        .1:
+            br .7
+        .2:
+            %1 = binary_op '==', %0: int, 1: integer
+            br_cond %1: bool, .3, .4
+        .3:
+            call_method [foo]: Foo*, "done", {1: integer}
+            br .5
+        .4:
+            %2 = binary_op '==', %0: int, 2: integer
+            br_cond %2: bool, .5, .6
+        .5:
+            call_method [foo]: Foo*, "done", {2: integer}
+            br .7
+        .6:
+            call_method [foo]: Foo*, "done", {0: integer}
+            br .3
+        .7:
+            call_method [foo]: Foo*, "done", {-1: integer}
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn switch_default_mid_fall_through() {
+        insta::assert_snapshot!(
+            dump(r###"{
+            switch (foo.currentIndex) {
+            case 1:
+                foo.done(1);
+            default:
+                foo.done(0);
+            case 2:
+                foo.done(2);
+            }
+            foo.done(-1);
+        }"###), @r###"
+            %0: int
+            %1: bool
+            %2: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "currentIndex"
+            br .2
+        .1:
+            br .7
+        .2:
+            %1 = binary_op '==', %0: int, 1: integer
+            br_cond %1: bool, .3, .4
+        .3:
+            call_method [foo]: Foo*, "done", {1: integer}
+            br .6
+        .4:
+            %2 = binary_op '==', %0: int, 2: integer
+            br_cond %2: bool, .5, .6
+        .5:
+            call_method [foo]: Foo*, "done", {2: integer}
+            br .7
+        .6:
+            call_method [foo]: Foo*, "done", {0: integer}
+            br .5
+        .7:
+            call_method [foo]: Foo*, "done", {-1: integer}
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn switch_default_end_fall_through() {
+        insta::assert_snapshot!(
+            dump(r###"{
+            switch (foo.currentIndex) {
+            case 1:
+                foo.done(1);
+            case 2:
+                foo.done(2);
+            default:
+                foo.done(0);
+            }
+            foo.done(-1);
+        }"###), @r###"
+            %0: int
+            %1: bool
+            %2: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "currentIndex"
+            br .2
+        .1:
+            br .7
+        .2:
+            %1 = binary_op '==', %0: int, 1: integer
+            br_cond %1: bool, .3, .4
+        .3:
+            call_method [foo]: Foo*, "done", {1: integer}
+            br .5
+        .4:
+            %2 = binary_op '==', %0: int, 2: integer
+            br_cond %2: bool, .5, .6
+        .5:
+            call_method [foo]: Foo*, "done", {2: integer}
+            br .6
+        .6:
+            call_method [foo]: Foo*, "done", {0: integer}
+            br .7
+        .7:
+            call_method [foo]: Foo*, "done", {-1: integer}
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn switch_empty_fall_through() {
+        insta::assert_snapshot!(
+            dump(r###"{
+            switch (foo.currentIndex) {
+            case 1:
+            case 2:
+                foo.done(1);
+                break;
+            case 3:
+                foo.done(3);
+                break;
+            }
+            foo.done(-1);
+        }"###), @r###"
+            %0: int
+            %1: bool
+            %2: bool
+            %3: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "currentIndex"
+            br .2
+        .1:
+            br .10
+        .2:
+            %1 = binary_op '==', %0: int, 1: integer
+            br_cond %1: bool, .3, .4
+        .3:
+            br .5
+        .4:
+            %2 = binary_op '==', %0: int, 2: integer
+            br_cond %2: bool, .5, .7
+        .5:
+            call_method [foo]: Foo*, "done", {1: integer}
+            br .1
+        .6:
+            br .8
+        .7:
+            %3 = binary_op '==', %0: int, 3: integer
+            br_cond %3: bool, .8, .10
+        .8:
+            call_method [foo]: Foo*, "done", {3: integer}
+            br .1
+        .9:
+            br .10
+        .10:
+            call_method [foo]: Foo*, "done", {-1: integer}
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn switch_return() {
+        insta::assert_snapshot!(
+            dump(r###"{
+            switch (foo.currentIndex) {
+            case 0:
+                return "0";
+            case 1:
+                return "1";
+            default:
+                return "default";
+            }
+            "unreachable"
+        }"###), @r###"
+            %0: int
+            %1: bool
+            %2: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "currentIndex"
+            br .2
+        .1:
+            br .10
+        .2:
+            %1 = binary_op '==', %0: int, 0: integer
+            br_cond %1: bool, .3, .5
+        .3:
+            return "0": QString
+        .4:
+            br .6
+        .5:
+            %2 = binary_op '==', %0: int, 1: integer
+            br_cond %2: bool, .6, .8
+        .6:
+            return "1": QString
+        .7:
+            br .8
+        .8:
+            return "default": QString
+        .9:
+            br .10
+        .10:
+            return "unreachable": QString
+        "###);
+    }
+
+    #[test]
+    fn switch_conditional_break() {
+        insta::assert_snapshot!(
+            dump(r###"{
+            switch (foo.currentIndex) {
+            case 2:
+                if (foo2.checked)
+                    break;
+                return "2";
+            case 3:
+                if (foo3.checked)
+                    break;
+                return "3";
+            default:
+                if (foo.checked)
+                    break;
+                return "default";
+            }
+            "break"
+        }"###), @r###"
+            %0: int
+            %1: bool
+            %2: bool
+            %3: bool
+            %4: bool
+            %5: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "currentIndex"
+            br .2
+        .1:
+            br .19
+        .2:
+            %1 = binary_op '==', %0: int, 2: integer
+            br_cond %1: bool, .3, .8
+        .3:
+            %2 = read_property [foo2]: Foo*, "checked"
+            br_cond %2: bool, .4, .6
+        .4:
+            br .1
+        .5:
+            br .6
+        .6:
+            return "2": QString
+        .7:
+            br .9
+        .8:
+            %3 = binary_op '==', %0: int, 3: integer
+            br_cond %3: bool, .9, .14
+        .9:
+            %4 = read_property [foo3]: Foo*, "checked"
+            br_cond %4: bool, .10, .12
+        .10:
+            br .1
+        .11:
+            br .12
+        .12:
+            return "3": QString
+        .13:
+            br .14
+        .14:
+            %5 = read_property [foo]: Foo*, "checked"
+            br_cond %5: bool, .15, .17
+        .15:
+            br .1
+        .16:
+            br .17
+        .17:
+            return "default": QString
+        .18:
+            br .19
+        .19:
+            return "break": QString
+        "###);
+    }
+
+    #[test]
+    fn switch_ternary_in_left_value() {
+        insta::assert_snapshot!(
+            dump(r###"{
+            switch (foo.checked ? foo.currentIndex : foo2.currentIndex) {
+            case 1:
+                foo.done(1);
+                break;
+            case 2:
+                foo.done(2);
+                break;
+            }
+            foo.done(-1);
+        }"###), @r###"
+            %0: bool
+            %1: int
+            %2: int
+            %3: int
+            %4: bool
+            %5: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .2
+        .1:
+            %1 = read_property [foo]: Foo*, "currentIndex"
+            %3 = copy %1: int
+            br .3
+        .2:
+            %2 = read_property [foo2]: Foo*, "currentIndex"
+            %3 = copy %2: int
+            br .3
+        .3:
+            br .5
+        .4:
+            br .11
+        .5:
+            %4 = binary_op '==', %3: int, 1: integer
+            br_cond %4: bool, .6, .8
+        .6:
+            call_method [foo]: Foo*, "done", {1: integer}
+            br .4
+        .7:
+            br .9
+        .8:
+            %5 = binary_op '==', %3: int, 2: integer
+            br_cond %5: bool, .9, .11
+        .9:
+            call_method [foo]: Foo*, "done", {2: integer}
+            br .4
+        .10:
+            br .11
+        .11:
+            call_method [foo]: Foo*, "done", {-1: integer}
+            return _: void
         "###);
     }
 }
