@@ -1597,7 +1597,7 @@ mod tests {
         .2:
             return "no": QString
         .3:
-            return _: void
+            unreachable
         "###);
     }
 
@@ -1613,7 +1613,7 @@ mod tests {
         .2:
             return false: bool
         .3:
-            return _: void
+            unreachable
         "###);
     }
 
@@ -1647,7 +1647,7 @@ mod tests {
             call_method [foo]: Foo*, "done", {1: integer}
             return "no": QString
         .3:
-            return _: void
+            unreachable
         "###);
     }
 
@@ -1666,7 +1666,7 @@ mod tests {
             call_method [foo]: Foo*, "done", {1: integer}
             return false: bool
         .3:
-            return _: void
+            unreachable
         "###);
     }
 
@@ -1703,9 +1703,9 @@ mod tests {
             %4 = read_property [foo3]: Foo*, "text"
             return %4: QString
         .5:
-            return _: void
+            unreachable
         .6:
-            return _: void
+            unreachable
         "###);
     }
 
@@ -1767,7 +1767,25 @@ mod tests {
             call_method [foo]: Foo*, "done", {1: integer}
             return _: void
         .6:
+            unreachable
+        "###);
+    }
+
+    #[test]
+    fn if_else_statement_empty_body() {
+        insta::assert_snapshot!(
+            dump("if (foo.checked) {} else {}"),
+            @r###"
+            %0: bool
+        .0:
+            %0 = read_property [foo]: Foo*, "checked"
+            br_cond %0: bool, .1, .2
+        .1:
             return _: void
+        .2:
+            return _: void
+        .3:
+            unreachable
         "###);
     }
 }

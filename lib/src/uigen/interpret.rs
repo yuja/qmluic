@@ -113,6 +113,7 @@ pub(super) fn evaluate_code(code: &CodeBody) -> Option<EvaluatedValue> {
             Terminator::Br(r) => block = visit_block(*r)?,
             Terminator::BrCond(..) => return None, // unsupported
             Terminator::Return(a) => return to_evaluated_value(&locals, a, StringKind::NoTr),
+            Terminator::Unreachable => unreachable!(),
         }
     }
 }
