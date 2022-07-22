@@ -466,32 +466,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         &mut self,
         (condition, condition_ref): (Self::Item, Self::Label),
         consequence_ref: Self::Label,
-        _byte_range: Range<usize>,
-    ) -> Result<(), Self::Error> {
-        if condition.type_desc() != TypeDesc::BOOL {
-            return Err(ExpressionError::IncompatibleConditionType(
-                condition.type_desc().qualified_name().into(),
-            ));
-        }
-        // Unlike if-else, we can simply discard the consequence's completion value,
-        // as there should be no compatible value type without an alternative path.
-        self.get_basic_block_mut(condition_ref)
-            .finalize(Terminator::BrCond(
-                condition,
-                condition_ref.next(),   // consequence start
-                consequence_ref.next(), // end
-            ));
-        self.get_basic_block_mut(consequence_ref)
-            .finalize(Terminator::Br(consequence_ref.next())); // end
-        Ok(())
-    }
-
-    fn visit_if_else_statement(
-        &mut self,
-        (condition, condition_ref): (Self::Item, Self::Label),
-        consequence_ref: Self::Label,
-        alternative_ref: Self::Label,
-        _byte_range: Range<usize>,
+        alternative_ref: Option<Self::Label>,
     ) -> Result<(), Self::Error> {
         if condition.type_desc() != TypeDesc::BOOL {
             return Err(ExpressionError::IncompatibleConditionType(
@@ -502,12 +477,15 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
             .finalize(Terminator::BrCond(
                 condition,
                 condition_ref.next(),   // consequence start
-                consequence_ref.next(), // alternative start
+                consequence_ref.next(), // alternative start or end
             ));
+        let end_ref = alternative_ref.unwrap_or(consequence_ref).next();
         self.get_basic_block_mut(consequence_ref)
-            .finalize(Terminator::Br(alternative_ref.next())); // end
-        self.get_basic_block_mut(alternative_ref)
-            .finalize(Terminator::Br(alternative_ref.next())); // end
+            .finalize(Terminator::Br(end_ref));
+        if let Some(l) = alternative_ref {
+            self.get_basic_block_mut(l)
+                .finalize(Terminator::Br(end_ref));
+        }
         Ok(())
     }
 
