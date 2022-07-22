@@ -489,6 +489,20 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         Ok(())
     }
 
+    fn visit_switch_statement(
+        &mut self,
+        cases: Vec<(Self::Item, Self::Label, Self::Label)>,
+        default: Option<(usize, Self::Label)>,
+        head_ref: Self::Label,
+        exit_ref: Self::Label,
+    ) -> Result<(), Self::Error> {
+        todo!();
+    }
+
+    fn visit_break_statement(&mut self, exit_ref: Self::Label) -> Result<(), Self::Error> {
+        todo!();
+    }
+
     fn visit_return_statement(&mut self, value: Option<Self::Item>) -> Result<(), Self::Error> {
         let value = value
             .map(ensure_concrete_string)
