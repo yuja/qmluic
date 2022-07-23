@@ -9,6 +9,7 @@ use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::Node;
 use crate::tir;
 use crate::typemap::{NamedType, PrimitiveType, TypeKind, TypeSpace};
+use crate::typeutil::TypeError;
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::collections::HashMap;
 use std::fmt;
@@ -300,8 +301,8 @@ fn parse_as_value_type(
                 }
                 (_, Ok(())) => Some(SerializableValue::Simple(res.unwrap_into_simple_value())),
                 (
-                    Err(tir::TypeError::IncompatibleTypes(expected1, actual)),
-                    Err(tir::TypeError::IncompatibleTypes(expected2, _)),
+                    Err(TypeError::IncompatibleTypes(expected1, actual)),
+                    Err(TypeError::IncompatibleTypes(expected2, _)),
                 ) => {
                     diagnostics.push(Diagnostic::error(
                         node.byte_range(),
@@ -384,7 +385,7 @@ pub(super) fn verify_code_return_type(
 ) -> Option<()> {
     match code.verify_return_type(expected) {
         Ok(()) => Some(()),
-        Err(tir::TypeError::IncompatibleTypes(expected, actual)) => {
+        Err(TypeError::IncompatibleTypes(expected, actual)) => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
                 format!("expression type mismatch (expected: {expected}, actual: {actual})"),

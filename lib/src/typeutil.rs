@@ -26,14 +26,14 @@ fn is_compatible_enum(left: &Enum, right: &Enum) -> Result<bool, TypeMapError> {
             .map_or(false, |en| &en == left))
 }
 
-pub(super) fn deduce_concrete_type<'a>(
+pub fn deduce_concrete_type<'a>(
     left: TypeDesc<'a>,
     right: TypeDesc<'a>,
 ) -> Result<TypeKind<'a>, TypeError> {
     deduce_type(left, right).and_then(to_concrete_type)
 }
 
-pub(super) fn to_concrete_type(t: TypeDesc) -> Result<TypeKind, TypeError> {
+pub fn to_concrete_type(t: TypeDesc) -> Result<TypeKind, TypeError> {
     match t {
         TypeDesc::Concrete(ty) => Ok(ty),
         TypeDesc::ConstInteger => Ok(TypeKind::INT), // fallback to default
@@ -42,7 +42,7 @@ pub(super) fn to_concrete_type(t: TypeDesc) -> Result<TypeKind, TypeError> {
     }
 }
 
-pub(super) fn to_concrete_list_type(elem_t: TypeDesc) -> Result<TypeKind, TypeError> {
+pub fn to_concrete_list_type(elem_t: TypeDesc) -> Result<TypeKind, TypeError> {
     match to_concrete_type(elem_t)? {
         TypeKind::STRING => Ok(TypeKind::STRING_LIST),
         TypeKind::Pointer(t) => Ok(TypeKind::PointerList(t)),
@@ -50,10 +50,7 @@ pub(super) fn to_concrete_list_type(elem_t: TypeDesc) -> Result<TypeKind, TypeEr
     }
 }
 
-pub(super) fn deduce_type<'a>(
-    left: TypeDesc<'a>,
-    right: TypeDesc<'a>,
-) -> Result<TypeDesc<'a>, TypeError> {
+pub fn deduce_type<'a>(left: TypeDesc<'a>, right: TypeDesc<'a>) -> Result<TypeDesc<'a>, TypeError> {
     match (left, right) {
         (left, right) if left == right => Ok(left),
         (l @ (TypeDesc::INT | TypeDesc::UINT), TypeDesc::ConstInteger) => Ok(l),
@@ -92,10 +89,7 @@ pub(super) fn deduce_type<'a>(
     }
 }
 
-pub(super) fn verify_concrete_type(
-    expected: &TypeKind,
-    actual: &TypeDesc,
-) -> Result<(), TypeError> {
+pub fn verify_concrete_type(expected: &TypeKind, actual: &TypeDesc) -> Result<(), TypeError> {
     match (expected, actual) {
         (expected, TypeDesc::Concrete(ty)) if expected == ty => Ok(()),
         (&TypeKind::INT | &TypeKind::UINT, TypeDesc::ConstInteger) => Ok(()),

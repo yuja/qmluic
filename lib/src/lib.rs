@@ -12,4 +12,5 @@ pub mod qtname;
 pub mod tir;
 pub mod typedexpr;
 pub mod typemap;
+pub mod typeutil;
 pub mod uigen;

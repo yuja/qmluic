@@ -5,7 +5,6 @@ use super::core::{
     Rvalue, ShiftOp, Statement, Terminator, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp, UnaryOp,
     Void,
 };
-use super::typeutil::{self, TypeError};
 use crate::diagnostic::Diagnostics;
 use crate::qmlast::{BinaryOperator, Node, UnaryOperator};
 use crate::typedexpr::{
@@ -15,6 +14,7 @@ use crate::typedexpr::{
 use crate::typemap::{
     Class, Enum, MethodMatches, NamedType, PrimitiveType, Property, TypeKind, TypeMapError,
 };
+use crate::typeutil::{self, TypeError};
 use itertools::Itertools as _;
 use std::num::TryFromIntError;
 use std::ops::Range;
