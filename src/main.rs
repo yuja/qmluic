@@ -337,7 +337,10 @@ fn generate_ui_file(
     log::debug!("building ui for {source:?}");
     let mut diagnostics = Diagnostics::new();
     let (form, ui_support_opt) = match uigen::build(ctx, doc, &mut diagnostics) {
-        Some(x) if diagnostics.is_empty() => x,
+        Some(x) if !diagnostics.has_error() => {
+            reporting::print_diagnostics(doc, &diagnostics)?; // emit warnings if any
+            x
+        }
         _ => {
             reporting::print_diagnostics(doc, &diagnostics)?;
             return Err(CommandError::DiagnosticGenerated);

@@ -40,6 +40,7 @@ pub fn make_reportable_diagnostics(
     diagnostics.iter().map(|diag| {
         let severity = match diag.kind() {
             DiagnosticKind::Error => Severity::Error,
+            DiagnosticKind::Warning => Severity::Warning,
         };
         let labels = if diag.labels().is_empty() {
             vec![Label::primary((), diag.byte_range())]

@@ -269,10 +269,10 @@ mod tests {
                 &self.type_map.get_module(&self.module_id).unwrap(),
                 &mut diagnostics,
             );
-            if diagnostics.is_empty() {
-                Ok(tree.unwrap())
-            } else {
+            if diagnostics.has_error() {
                 Err(diagnostics)
+            } else {
+                Ok(tree.unwrap())
             }
         }
     }

@@ -137,6 +137,7 @@ pub fn translate_doc(
     let (form, ui_support_opt) = match uigen::build(&ctx, doc, &mut diagnostics) {
         Some(x) if diagnostics.is_empty() => x,
         _ => {
+            // may be only warnings, but we do want to test warning outputs
             return Err(format_reportable_diagnostics(
                 doc,
                 reporting::make_reportable_diagnostics(&diagnostics),

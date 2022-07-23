@@ -6,9 +6,10 @@ use std::ops::Range;
 use std::slice;
 
 /// Type (or level) of diagnostic message.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum DiagnosticKind {
     Error,
+    Warning,
 }
 
 /// Diagnostic message.
@@ -40,6 +41,14 @@ impl Diagnostic {
         S: Into<String>,
     {
         Self::new(DiagnosticKind::Error, byte_range, message)
+    }
+
+    /// Creates new warning message.
+    pub fn warning<S>(byte_range: Range<usize>, message: S) -> Self
+    where
+        S: Into<String>,
+    {
+        Self::new(DiagnosticKind::Warning, byte_range, message)
     }
 
     /// Builds diagnostic with the given label attached.
@@ -134,6 +143,12 @@ impl Diagnostics {
         self.diagnostics.is_empty()
     }
 
+    pub fn has_error(&self) -> bool {
+        self.diagnostics
+            .iter()
+            .any(|d| d.kind() == DiagnosticKind::Error)
+    }
+
     pub fn len(&self) -> usize {
         self.diagnostics.len()
     }
@@ -199,6 +214,10 @@ impl ProjectDiagnostics {
     pub fn is_empty(&self) -> bool {
         // push() guarantees that each file store is not empty
         self.file_diagnostics.is_empty()
+    }
+
+    pub fn has_error(&self) -> bool {
+        self.file_diagnostics.iter().any(|(_, ds)| ds.has_error())
     }
 
     pub fn iter(&self) -> slice::Iter<'_, (Utf8PathBuf, Diagnostics)> {
