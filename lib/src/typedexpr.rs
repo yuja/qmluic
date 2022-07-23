@@ -113,6 +113,10 @@ pub trait ExpressionVisitor<'a> {
     type Label: Copy;
     type Error: ToString;
 
+    /// Creates an item that represents a valid, but not meaningful value. `return;` statement
+    /// will generate this value.
+    fn make_void(&self, byte_range: Range<usize>) -> Self::Item;
+
     fn visit_integer(
         &mut self,
         value: u64,
@@ -235,7 +239,7 @@ pub trait ExpressionVisitor<'a> {
         exit_ref: Self::Label,
     ) -> Result<(), Self::Error>;
     fn visit_break_statement(&mut self, exit_ref: Self::Label) -> Result<(), Self::Error>;
-    fn visit_return_statement(&mut self, value: Option<Self::Item>) -> Result<(), Self::Error>;
+    fn visit_return_statement(&mut self, value: Self::Item) -> Result<(), Self::Error>;
 
     fn mark_branch_point(&mut self) -> Self::Label;
 }
@@ -424,9 +428,9 @@ where
         }
         Statement::Return(x) => {
             let value = if let Some(n) = x {
-                Some(walk_rvalue(ctx, locals, n, source, visitor, diagnostics)?)
+                walk_rvalue(ctx, locals, n, source, visitor, diagnostics)?
             } else {
-                None
+                visitor.make_void(node.byte_range())
             };
             diagnostics.consume_node_err(node, visitor.visit_return_statement(value))
         }

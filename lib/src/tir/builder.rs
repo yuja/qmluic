@@ -92,6 +92,10 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
     type Label = BasicBlockRef;
     type Error = ExpressionError;
 
+    fn make_void(&self, byte_range: Range<usize>) -> Self::Item {
+        Operand::Void(Void::new(byte_range))
+    }
+
     fn visit_integer(
         &mut self,
         value: u64,
@@ -537,10 +541,8 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         Ok(())
     }
 
-    fn visit_return_statement(&mut self, value: Option<Self::Item>) -> Result<(), Self::Error> {
-        let value = value
-            .map(ensure_concrete_string)
-            .unwrap_or_else(|| Operand::Void(Void::new(0..0)));
+    fn visit_return_statement(&mut self, value: Self::Item) -> Result<(), Self::Error> {
+        let value = ensure_concrete_string(value);
         self.current_basic_block_mut()
             .finalize(Terminator::Return(value));
         self.code.basic_blocks.push(BasicBlock::empty()); // unreachable code may be inserted here
@@ -793,7 +795,9 @@ where
     let mut builder = CodeBuilder::new();
     typedexpr::walk(ctx, node, source, &mut builder, diagnostics)?;
     let current_ref = builder.current_basic_block_ref();
-    builder.code.finalize_completion_values(current_ref);
+    builder
+        .code
+        .finalize_completion_values(current_ref, node.byte_range());
     Some(builder.code)
 }
 
