@@ -132,7 +132,12 @@ fn make_doc_module_space<'a>(
             ));
             continue;
         }
-        // TODO: warn that version field is ignored
+        if imp.version().is_some() {
+            diagnostics.push(Diagnostic::warning(
+                imp.node().byte_range(),
+                "import version is ignored",
+            ));
+        }
         // TODO: anchor diagnostic message onto imp.source() node
         let id = match imp.source() {
             UiImportSource::Identifier(x) => {
