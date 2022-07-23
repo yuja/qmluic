@@ -17,6 +17,25 @@ fn test_root_must_be_widget() {
 }
 
 #[test]
+fn test_duplicated_id() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QWidget {
+        QWidget { id: foo }
+        QWidget { id: foo }
+    }
+    "###).unwrap_err(), @r###"
+    error: duplicated object id: foo
+      ┌─ <unknown>:4:19
+      │
+    3 │     QWidget { id: foo }
+      │                   --- id is first defined here
+    4 │     QWidget { id: foo }
+      │                   ^^^ duplicated id is defined here
+    "###);
+}
+
+#[test]
 fn test_reserved_word_workaround() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets

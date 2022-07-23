@@ -104,12 +104,21 @@ impl<'a, 't> ObjectTree<'a, 't> {
                     Entry::Vacant(e) => {
                         e.insert(index);
                     }
-                    Entry::Occupied(_) => {
-                        // TODO: add note pointing to the previous object id
-                        diagnostics.push(Diagnostic::error(
-                            id.node().byte_range(),
-                            "duplicated object id",
-                        ));
+                    Entry::Occupied(e) => {
+                        let old_id = self.nodes[*e.get()]
+                            .obj
+                            .object_id()
+                            .expect("indexed object must have id");
+                        diagnostics.push(
+                            Diagnostic::error(
+                                id.node().byte_range(),
+                                format!("duplicated object id: {}", e.key()),
+                            )
+                            .with_labels([
+                                (old_id.node().byte_range(), "id is first defined here"),
+                                (id.node().byte_range(), "duplicated id is defined here"),
+                            ]),
+                        );
                     }
                 }
             }
