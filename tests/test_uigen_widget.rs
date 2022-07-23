@@ -111,6 +111,35 @@ fn test_unobservable_property() {
 }
 
 #[test]
+fn test_incompatible_return_type() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QWidget {
+            windowTitle: {
+                switch (edit.text) {
+                case "hello":
+                    return "world";
+                }
+            }
+            QLineEdit { id: edit }
+        }
+        "###,
+    );
+    insta::assert_snapshot!(
+        common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap_err(), @r###"
+    error: cannot deduce return type from 'QString' and 'void'
+      ┌─ <unknown>:8:6
+      │
+    6 │             return "world";
+      │                    ------- type: QString
+    7 │         }
+    8 │     }
+      │      ^ type: void
+    "###);
+}
+
+#[test]
 fn test_assign_double() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets

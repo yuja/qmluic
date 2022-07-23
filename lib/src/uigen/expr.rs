@@ -9,7 +9,7 @@ use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::Node;
 use crate::tir;
 use crate::typemap::{NamedType, PrimitiveType, TypeKind, TypeSpace};
-use crate::typeutil::TypeError;
+use crate::typeutil::{self, TypeError};
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::collections::HashMap;
 use std::fmt;
@@ -287,9 +287,13 @@ fn parse_as_value_type(
         }
         NamedType::Class(cls) if cls == &ctx.classes.key_sequence => {
             let standard_key_en = &ctx.classes.key_sequence_standard_key;
+            let return_t = code.resolve_return_type(diagnostics)?;
             match (
-                code.verify_return_type(&TypeKind::Just(NamedType::Enum(standard_key_en.clone()))),
-                code.verify_return_type(&TypeKind::STRING),
+                typeutil::verify_concrete_type(
+                    &TypeKind::Just(NamedType::Enum(standard_key_en.clone())),
+                    &return_t,
+                ),
+                typeutil::verify_concrete_type(&TypeKind::STRING, &return_t),
             ) {
                 (Ok(()), _) => {
                     let expr = res.unwrap_enum_set().join("|");
@@ -383,7 +387,8 @@ pub(super) fn verify_code_return_type(
     expected: &TypeKind,
     diagnostics: &mut Diagnostics,
 ) -> Option<()> {
-    match code.verify_return_type(expected) {
+    let return_t = code.resolve_return_type(diagnostics)?;
+    match typeutil::verify_concrete_type(expected, &return_t) {
         Ok(()) => Some(()),
         Err(TypeError::IncompatibleTypes(expected, actual)) => {
             diagnostics.push(Diagnostic::error(

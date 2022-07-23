@@ -1,5 +1,6 @@
 //! Type-checked intermediate representation of expressions.
 
+use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::typedexpr::{BuiltinFunctionKind, BuiltinMethodKind, DescribeType, TypeDesc};
 use crate::typemap::{Class, Enum, Method, NamedType, Property, TypeKind};
 use crate::typeutil::{self, TypeError};
@@ -14,7 +15,7 @@ pub struct CodeBody<'a> {
     pub locals: Vec<Local<'a>>,
 }
 
-impl CodeBody<'_> {
+impl<'a> CodeBody<'a> {
     pub(super) fn empty() -> Self {
         CodeBody {
             basic_blocks: vec![BasicBlock::empty()],
@@ -22,16 +23,54 @@ impl CodeBody<'_> {
         }
     }
 
-    /// Checks if the return type is compatible with the given type.
-    ///
-    /// If not compatible, `TypeError::IncompatibleTypes(expected, actual)` will be returned.
-    pub fn verify_return_type(&self, expected: &TypeKind) -> Result<(), TypeError> {
-        for b in self.basic_blocks.iter() {
-            if let Terminator::Return(a) = b.terminator() {
-                typeutil::verify_concrete_type(expected, &a.type_desc())?;
+    /// Resolves return type of this code.
+    pub fn resolve_return_type(&self, diagnostics: &mut Diagnostics) -> Option<TypeDesc<'a>> {
+        let operands: Vec<_> = self
+            .basic_blocks
+            .iter()
+            .filter_map(|b| {
+                if let Terminator::Return(a) = b.terminator() {
+                    Some(a)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        if let Some(a) = operands.first() {
+            let mut known = a.type_desc();
+            for (i, a) in operands.iter().enumerate().skip(1) {
+                known = match typeutil::deduce_type(known, a.type_desc()) {
+                    Ok(t) => t,
+                    Err(TypeError::IncompatibleTypes(l, r)) => {
+                        diagnostics.push(
+                            Diagnostic::error(
+                                a.byte_range(),
+                                format!("cannot deduce return type from '{l}' and '{r}'"),
+                            )
+                            .with_labels(operands[..=i].iter().map(
+                                |a| {
+                                    (
+                                        a.byte_range(),
+                                        format!("type: {}", a.type_desc().qualified_name()),
+                                    )
+                                },
+                            )),
+                        );
+                        return None;
+                    }
+                    Err(e) => {
+                        diagnostics.push(Diagnostic::error(a.byte_range(), e.to_string()));
+                        return None;
+                    }
+                };
             }
+            Some(known)
+        } else {
+            // If there were no return terminator, the code would never return (e.g. infinite
+            // loop if we'd supported loop statement.) Let's pick void in that case since we
+            // have no "never" type.
+            Some(TypeDesc::VOID)
         }
-        Ok(())
     }
 
     /// Patches up terminators from the specified block so that the completion values
