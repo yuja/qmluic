@@ -2,33 +2,36 @@ use codespan_reporting::diagnostic::{Label, Severity};
 use codespan_reporting::files::SimpleFile;
 use codespan_reporting::term;
 use qmluic::diagnostic::{DiagnosticKind, Diagnostics};
-use qmluic::qmldoc::{SyntaxErrorKind, UiDocument};
+use qmluic::qmldoc::{SyntaxError, SyntaxErrorKind, UiDocument};
 use termcolor::{ColorChoice, StandardStream};
 
 type ReportableDiagnostic = codespan_reporting::diagnostic::Diagnostic<()>;
 
 pub fn print_syntax_errors(doc: &UiDocument) -> anyhow::Result<()> {
     let errors = doc.collect_syntax_errors();
-    print_reportable_diagnostics(
-        doc,
-        errors.iter().map(|e| {
-            let d = ReportableDiagnostic::error();
-            match e.kind() {
-                SyntaxErrorKind::Error => d
-                    .with_message("syntax error")
-                    .with_labels(vec![Label::primary((), e.byte_range())]),
-                _ => d
-                    .with_message(format!("syntax error: {}", e))
-                    .with_labels(vec![
-                        Label::primary((), e.byte_range()).with_message(e.to_string())
-                    ]),
-            }
-        }),
-    )
+    print_reportable_diagnostics(doc, make_reportable_syntax_errors(&errors))
 }
 
 pub fn print_diagnostics(doc: &UiDocument, diagnostics: &Diagnostics) -> anyhow::Result<()> {
     print_reportable_diagnostics(doc, make_reportable_diagnostics(diagnostics))
+}
+
+pub fn make_reportable_syntax_errors<'a>(
+    errors: &'a [SyntaxError],
+) -> impl Iterator<Item = ReportableDiagnostic> + 'a {
+    errors.iter().map(|e| {
+        let d = ReportableDiagnostic::error();
+        match e.kind() {
+            SyntaxErrorKind::Error => d
+                .with_message("syntax error")
+                .with_labels(vec![Label::primary((), e.byte_range())]),
+            _ => d
+                .with_message(format!("syntax error: {}", e))
+                .with_labels(vec![
+                    Label::primary((), e.byte_range()).with_message(e.to_string())
+                ]),
+        }
+    })
 }
 
 pub fn make_reportable_diagnostics(
