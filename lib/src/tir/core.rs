@@ -36,7 +36,11 @@ impl CodeBody<'_> {
 
     /// Patches up terminators from the specified block so that the completion values
     /// will be returned.
-    pub(super) fn finalize_completion_values(&mut self, start_ref: BasicBlockRef) {
+    pub(super) fn finalize_completion_values(
+        &mut self,
+        start_ref: BasicBlockRef,
+        byte_range: Range<usize>,
+    ) {
         let start_block = &mut self.basic_blocks[start_ref.0];
         assert!(start_block.terminator.is_none());
         if let Some(a) = start_block.completion_value.take() {
@@ -72,7 +76,8 @@ impl CodeBody<'_> {
                 b.terminator = Some(Terminator::Return(a));
             } else {
                 b.terminator = if reachable[i] {
-                    Some(Terminator::Return(Operand::Void(Void::new(0..0))))
+                    let end = byte_range.end; // implicit return should be at end
+                    Some(Terminator::Return(Operand::Void(Void::new(end..end))))
                 } else {
                     Some(Terminator::Unreachable)
                 };
