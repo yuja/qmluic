@@ -1,8 +1,8 @@
 //! Type-checked intermediate representation of expressions.
 
-use super::typeutil::{self, TypeError};
 use crate::typedexpr::{BuiltinFunctionKind, BuiltinMethodKind, DescribeType, TypeDesc};
 use crate::typemap::{Class, Enum, Method, NamedType, Property, TypeKind};
+use crate::typeutil::{self, TypeError};
 use std::fmt;
 use std::mem;
 use std::ops::Range;
