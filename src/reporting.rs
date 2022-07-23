@@ -5,7 +5,7 @@ use qmluic::diagnostic::{DiagnosticKind, Diagnostics};
 use qmluic::qmldoc::{SyntaxError, SyntaxErrorKind, UiDocument};
 use termcolor::{ColorChoice, StandardStream};
 
-type ReportableDiagnostic = codespan_reporting::diagnostic::Diagnostic<()>;
+pub type ReportableDiagnostic = codespan_reporting::diagnostic::Diagnostic<()>;
 
 pub fn print_syntax_errors(doc: &UiDocument) -> anyhow::Result<()> {
     let errors = doc.collect_syntax_errors();

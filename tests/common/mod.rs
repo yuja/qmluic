@@ -10,7 +10,7 @@ use qmluic::qmldoc::{UiDocument, UiDocumentsCache};
 use qmluic::qtname::FileNameRules;
 use qmluic::typemap::{ModuleData, ModuleId, TypeMap};
 use qmluic::uigen::{self, BuildContext, DynamicBindingHandling, XmlWriter};
-use qmluic_cli::reporting;
+use qmluic_cli::reporting::{self, ReportableDiagnostic};
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -101,7 +101,13 @@ pub fn translate_doc(
     doc: &UiDocument,
     dynamic_binding_handling: DynamicBindingHandling,
 ) -> Result<(String, String), String> {
-    assert!(!doc.has_syntax_error());
+    if doc.has_syntax_error() {
+        return Err(format_reportable_diagnostics(
+            doc,
+            reporting::make_reportable_syntax_errors(&doc.collect_syntax_errors()),
+        ));
+    }
+
     let mut type_map = TypeMap::with_primitive_types();
     let mut classes = load_metatypes();
     metatype_tweak::apply_all(&mut classes);
@@ -130,7 +136,12 @@ pub fn translate_doc(
     let mut diagnostics = Diagnostics::new();
     let (form, ui_support_opt) = match uigen::build(&ctx, doc, &mut diagnostics) {
         Some(x) if diagnostics.is_empty() => x,
-        _ => return Err(format_diagnostics(doc, &diagnostics)),
+        _ => {
+            return Err(format_reportable_diagnostics(
+                doc,
+                reporting::make_reportable_diagnostics(&diagnostics),
+            ));
+        }
     };
     let mut form_buf = Vec::new();
     form.serialize_to_xml(&mut XmlWriter::new_with_indent(&mut form_buf, b' ', 1))
@@ -160,7 +171,10 @@ fn load_metatypes() -> Vec<metatype::Class> {
         .collect()
 }
 
-fn format_diagnostics(doc: &UiDocument, diagnostics: &Diagnostics) -> String {
+fn format_reportable_diagnostics(
+    doc: &UiDocument,
+    diagnostics: impl IntoIterator<Item = ReportableDiagnostic>,
+) -> String {
     let mut buf = Vec::new();
     let mut writer = NoColor::new(&mut buf);
     let config = term::Config::default();
@@ -170,7 +184,7 @@ fn format_diagnostics(doc: &UiDocument, diagnostics: &Diagnostics) -> String {
             .unwrap_or("<unknown>"),
         doc.source(),
     );
-    for d in reporting::make_reportable_diagnostics(diagnostics) {
+    for d in diagnostics {
         term::emit(&mut writer, &config, &files, &d).unwrap();
     }
     str::from_utf8(&buf).unwrap().trim_end().to_owned()
