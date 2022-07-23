@@ -103,7 +103,12 @@ fn make_doc_component_data(
             ));
             continue;
         }
-        // TODO: warn that version field is ignored
+        if imp.version().is_some() {
+            diagnostics.push(Diagnostic::warning(
+                imp.node().byte_range(),
+                "import version is ignored",
+            ));
+        }
         match imp.source() {
             UiImportSource::Identifier(x) => {
                 let s = x.to_string(doc.source());

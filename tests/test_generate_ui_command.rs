@@ -151,3 +151,28 @@ fn test_syntax_error_missing() {
 
     assert!(!env.join("syntaxerror.ui").exists());
 }
+
+#[test]
+fn test_warning() {
+    let env = TestEnv::prepare();
+    env.write_dedent(
+        "Warning.qml",
+        r###"
+        import qmluic.QtWidgets 6.2
+        QDialog {}
+        "###,
+    );
+
+    let a = env.generate_ui_cmd(["Warning.qml"]).assert().success();
+    insta::assert_snapshot!(env.replace_base_path(str::from_utf8(&a.get_output().stderr).unwrap()), @r###"
+    processing Warning.qml
+    warning: import version is ignored
+      ┌─ $BASE_PATH/Warning.qml:1:1
+      │
+    1 │ import qmluic.QtWidgets 6.2
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    "###);
+
+    assert!(env.join("warning.ui").exists());
+}
