@@ -1,4 +1,4 @@
-use codespan_reporting::diagnostic::{Label, Severity};
+use codespan_reporting::diagnostic::{Label, LabelStyle, Severity};
 use codespan_reporting::files::SimpleFile;
 use codespan_reporting::term;
 use qmluic::diagnostic::{DiagnosticKind, Diagnostics};
@@ -41,9 +41,24 @@ pub fn make_reportable_diagnostics(
         let severity = match diag.kind() {
             DiagnosticKind::Error => Severity::Error,
         };
+        let labels = if diag.labels().is_empty() {
+            vec![Label::primary((), diag.byte_range())]
+        } else {
+            diag.labels()
+                .iter()
+                .map(|(r, s)| {
+                    let k = if r == &diag.byte_range() {
+                        LabelStyle::Primary
+                    } else {
+                        LabelStyle::Secondary
+                    };
+                    Label::new(k, (), r.clone()).with_message(s)
+                })
+                .collect()
+        };
         ReportableDiagnostic::new(severity)
             .with_message(diag.message())
-            .with_labels(vec![Label::primary((), diag.byte_range())])
+            .with_labels(labels)
     })
 }
 
