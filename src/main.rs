@@ -14,6 +14,7 @@ use qmluic::qtname::FileNameRules;
 use qmluic::typemap::{ModuleData, ModuleId, TypeMap};
 use qmluic::uigen::{self, BuildContext, DynamicBindingHandling, XmlWriter};
 use qmluic_cli::{reporting, QtPaths, QtVersion, UiViewer};
+use std::collections::HashSet;
 use std::fs;
 use std::io::{self, BufWriter, Write as _};
 use std::path::Path;
@@ -294,8 +295,15 @@ fn generate_ui(helper: &CommandHelper, args: &GenerateUiArgs) -> Result<(), Comm
         &mut project_diagnostics,
     )
     .map_err(anyhow::Error::from)?;
-    for (p, ds) in project_diagnostics.iter() {
-        reporting::print_diagnostics(docs_cache.get(p).unwrap(), ds)?;
+    if !project_diagnostics.is_empty() {
+        // for the specified sources, more detailed diagnostics will be emitted later
+        let sources: HashSet<_> = args.sources.iter().map(qmldir::normalize_path).collect();
+        for (p, ds) in project_diagnostics
+            .iter()
+            .filter(|(p, _)| !sources.contains(p))
+        {
+            reporting::print_diagnostics(docs_cache.get(p).unwrap(), ds)?;
+        }
     }
 
     let file_name_rules = FileNameRules {
