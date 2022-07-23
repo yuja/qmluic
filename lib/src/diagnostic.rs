@@ -17,6 +17,7 @@ pub struct Diagnostic {
     kind: DiagnosticKind,
     byte_range: Range<usize>,
     message: String,
+    labels: Vec<(Range<usize>, String)>,
 }
 
 impl Diagnostic {
@@ -29,6 +30,7 @@ impl Diagnostic {
             kind,
             byte_range,
             message: message.into(),
+            labels: Vec::new(),
         }
     }
 
@@ -38,6 +40,25 @@ impl Diagnostic {
         S: Into<String>,
     {
         Self::new(DiagnosticKind::Error, byte_range, message)
+    }
+
+    /// Builds diagnostic with the given label attached.
+    pub fn with_label<S>(mut self, byte_range: Range<usize>, message: S) -> Self
+    where
+        S: Into<String>,
+    {
+        self.push_label(byte_range, message);
+        self
+    }
+
+    /// Builds diagnostic with the given labels attached.
+    pub fn with_labels<I, S>(mut self, labels: I) -> Self
+    where
+        I: IntoIterator<Item = (Range<usize>, S)>,
+        S: Into<String>,
+    {
+        self.extend_labels(labels);
+        self
     }
 
     pub fn kind(&self) -> DiagnosticKind {
@@ -61,6 +82,28 @@ impl Diagnostic {
 
     pub fn message(&self) -> &str {
         &self.message
+    }
+
+    pub fn labels(&self) -> &[(Range<usize>, String)] {
+        &self.labels
+    }
+
+    /// Add a label to this diagnostic.
+    pub fn push_label<S>(&mut self, byte_range: Range<usize>, message: S)
+    where
+        S: Into<String>,
+    {
+        self.labels.push((byte_range, message.into()));
+    }
+
+    /// Add labels to this diagnostic.
+    pub fn extend_labels<I, S>(&mut self, labels: I)
+    where
+        I: IntoIterator<Item = (Range<usize>, S)>,
+        S: Into<String>,
+    {
+        self.labels
+            .extend(labels.into_iter().map(|(r, s)| (r, s.into())));
     }
 }
 
