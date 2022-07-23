@@ -28,17 +28,20 @@ pub fn print_syntax_errors(doc: &UiDocument) -> anyhow::Result<()> {
 }
 
 pub fn print_diagnostics(doc: &UiDocument, diagnostics: &Diagnostics) -> anyhow::Result<()> {
-    print_reportable_diagnostics(
-        doc,
-        diagnostics.iter().map(|diag| {
-            let severity = match diag.kind() {
-                DiagnosticKind::Error => Severity::Error,
-            };
-            ReportableDiagnostic::new(severity)
-                .with_message(diag.message())
-                .with_labels(vec![Label::primary((), diag.byte_range())])
-        }),
-    )
+    print_reportable_diagnostics(doc, make_reportable_diagnostics(diagnostics))
+}
+
+pub fn make_reportable_diagnostics(
+    diagnostics: &Diagnostics,
+) -> impl Iterator<Item = ReportableDiagnostic> + '_ {
+    diagnostics.iter().map(|diag| {
+        let severity = match diag.kind() {
+            DiagnosticKind::Error => Severity::Error,
+        };
+        ReportableDiagnostic::new(severity)
+            .with_message(diag.message())
+            .with_labels(vec![Label::primary((), diag.byte_range())])
+    })
 }
 
 fn print_reportable_diagnostics<I>(doc: &UiDocument, diagnostics: I) -> anyhow::Result<()>

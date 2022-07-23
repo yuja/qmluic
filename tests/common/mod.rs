@@ -1,9 +1,8 @@
 use assert_cmd::Command;
 use camino::Utf8Path;
-use codespan_reporting::diagnostic::{Label, Severity};
 use codespan_reporting::files::SimpleFile;
 use codespan_reporting::term;
-use qmluic::diagnostic::{DiagnosticKind, Diagnostics, ProjectDiagnostics};
+use qmluic::diagnostic::{Diagnostics, ProjectDiagnostics};
 use qmluic::metatype;
 use qmluic::metatype_tweak;
 use qmluic::qmldir;
@@ -11,6 +10,7 @@ use qmluic::qmldoc::{UiDocument, UiDocumentsCache};
 use qmluic::qtname::FileNameRules;
 use qmluic::typemap::{ModuleData, ModuleId, TypeMap};
 use qmluic::uigen::{self, BuildContext, DynamicBindingHandling, XmlWriter};
+use qmluic_cli::reporting;
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -170,15 +170,8 @@ fn format_diagnostics(doc: &UiDocument, diagnostics: &Diagnostics) -> String {
             .unwrap_or("<unknown>"),
         doc.source(),
     );
-
-    for diag in diagnostics {
-        let severity = match diag.kind() {
-            DiagnosticKind::Error => Severity::Error,
-        };
-        let cdiag = codespan_reporting::diagnostic::Diagnostic::new(severity)
-            .with_message(diag.message())
-            .with_labels(vec![Label::primary((), diag.byte_range())]);
-        term::emit(&mut writer, &config, &files, &cdiag).unwrap();
+    for d in reporting::make_reportable_diagnostics(diagnostics) {
+        term::emit(&mut writer, &config, &files, &d).unwrap();
     }
     str::from_utf8(&buf).unwrap().trim_end().to_owned()
 }
