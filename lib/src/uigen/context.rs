@@ -1,8 +1,9 @@
 use super::objcode::ObjectCodeMap;
 use crate::objtree::{ObjectNode, ObjectTree};
+use crate::opcode::BuiltinFunctionKind;
 use crate::qmldoc::UiDocument;
 use crate::qtname::FileNameRules;
-use crate::typedexpr::{BuiltinFunctionKind, RefKind, RefSpace};
+use crate::typedexpr::{RefKind, RefSpace};
 use crate::typemap::{
     Class, Enum, ImportedModuleSpace, ModuleId, NamedType, TypeMap, TypeMapError, TypeSpace,
 };

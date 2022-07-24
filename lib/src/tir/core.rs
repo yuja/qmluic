@@ -1,7 +1,8 @@
 //! Type-checked intermediate representation of expressions.
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::typedexpr::{BuiltinFunctionKind, BuiltinMethodKind, DescribeType, TypeDesc};
+use crate::opcode::{BuiltinFunctionKind, BuiltinMethodKind};
+use crate::typedexpr::{DescribeType, TypeDesc};
 use crate::typemap::{Class, Enum, Method, NamedType, Property, TypeKind};
 use crate::typeutil::{self, TypeError};
 use std::fmt;

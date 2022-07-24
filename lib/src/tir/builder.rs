@@ -6,11 +6,9 @@ use super::core::{
     Void,
 };
 use crate::diagnostic::Diagnostics;
+use crate::opcode::{BuiltinFunctionKind, BuiltinMethodKind};
 use crate::qmlast::{BinaryOperator, Node, UnaryOperator};
-use crate::typedexpr::{
-    self, BuiltinFunctionKind, BuiltinMethodKind, DescribeType, ExpressionVisitor, RefSpace,
-    TypeDesc,
-};
+use crate::typedexpr::{self, DescribeType, ExpressionVisitor, RefSpace, TypeDesc};
 use crate::typemap::{
     Class, Enum, MethodMatches, NamedType, PrimitiveType, Property, TypeKind, TypeMapError,
 };

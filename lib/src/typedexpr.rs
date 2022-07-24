@@ -1,6 +1,7 @@
 //! Expression tree visitor with type information.
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
+use crate::opcode::{BuiltinFunctionKind, BuiltinMethodKind};
 use crate::qmlast::{
     BinaryOperator, Expression, Identifier, LexicalDeclarationKind, Node, Statement, UnaryOperator,
 };
@@ -48,20 +49,6 @@ impl<'a> TypeDesc<'a> {
 /// Provides type of the translated item.
 pub trait DescribeType<'a> {
     fn type_desc(&self) -> TypeDesc<'a>;
-}
-
-/// Builtin functions.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum BuiltinFunctionKind {
-    /// `qsTr()`
-    Tr,
-}
-
-/// Builtin methods.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum BuiltinMethodKind {
-    /// `QString::arg()`
-    Arg,
 }
 
 /// Resolved type/object reference.
