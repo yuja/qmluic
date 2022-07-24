@@ -9,7 +9,7 @@ use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::Node;
 use crate::tir;
 use crate::typemap::{NamedType, PrimitiveType, TypeKind, TypeSpace};
-use crate::typeutil::{self, TypeError};
+use crate::typeutil;
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::collections::HashMap;
 use std::fmt;
@@ -288,38 +288,33 @@ fn parse_as_value_type(
         NamedType::Class(cls) if cls == &ctx.classes.key_sequence => {
             let standard_key_en = &ctx.classes.key_sequence_standard_key;
             let return_t = code.resolve_return_type(diagnostics)?;
-            match (
-                typeutil::verify_concrete_type(
-                    &TypeKind::Just(NamedType::Enum(standard_key_en.clone())),
-                    &return_t,
-                ),
-                typeutil::verify_concrete_type(&TypeKind::STRING, &return_t),
-            ) {
-                (Ok(()), _) => {
-                    let expr = res.unwrap_enum_set().join("|");
-                    if standard_key_en.is_flag() {
-                        Some(SerializableValue::Simple(SimpleValue::Set(expr)))
-                    } else {
-                        Some(SerializableValue::Simple(SimpleValue::Enum(expr)))
-                    }
+            let mut matches = |expected: &TypeKind| {
+                typeutil::is_assignable(expected, &return_t)
+                    .map_err(|e| {
+                        diagnostics.push(Diagnostic::error(node.byte_range(), e.to_string()))
+                    })
+                    .ok()
+            };
+            if matches(&TypeKind::Just(NamedType::Enum(standard_key_en.clone())))? {
+                let expr = res.unwrap_enum_set().join("|");
+                if standard_key_en.is_flag() {
+                    Some(SerializableValue::Simple(SimpleValue::Set(expr)))
+                } else {
+                    Some(SerializableValue::Simple(SimpleValue::Enum(expr)))
                 }
-                (_, Ok(())) => Some(SerializableValue::Simple(res.unwrap_into_simple_value())),
-                (
-                    Err(TypeError::IncompatibleTypes(expected1, actual)),
-                    Err(TypeError::IncompatibleTypes(expected2, _)),
-                ) => {
-                    diagnostics.push(Diagnostic::error(
-                        node.byte_range(),
-                        format!(
-                            "expression type mismatch (expected: {expected1} | {expected2}, actual: {actual})"
-                        ),
-                    ));
-                    None
-                }
-                (Err(err), Err(_)) => {
-                    diagnostics.push(Diagnostic::error(node.byte_range(), err.to_string()));
-                    None
-                }
+            } else if matches(&TypeKind::STRING)? {
+                Some(SerializableValue::Simple(res.unwrap_into_simple_value()))
+            } else {
+                diagnostics.push(Diagnostic::error(
+                    node.byte_range(),
+                    format!(
+                        "expression type mismatch (expected: {} | {}, actual: {})",
+                        standard_key_en.qualified_cxx_name(),
+                        TypeKind::STRING.qualified_cxx_name(),
+                        return_t.qualified_name(),
+                    ),
+                ));
+                None
             }
         }
         NamedType::Class(cls) if cls == &ctx.classes.pixmap => {
@@ -388,19 +383,21 @@ pub(super) fn verify_code_return_type(
     diagnostics: &mut Diagnostics,
 ) -> Option<()> {
     let return_t = code.resolve_return_type(diagnostics)?;
-    match typeutil::verify_concrete_type(expected, &return_t) {
-        Ok(()) => Some(()),
-        Err(TypeError::IncompatibleTypes(expected, actual)) => {
-            diagnostics.push(Diagnostic::error(
-                node.byte_range(),
-                format!("expression type mismatch (expected: {expected}, actual: {actual})"),
-            ));
-            None
-        }
-        Err(err) => {
-            diagnostics.push(Diagnostic::error(node.byte_range(), err.to_string()));
-            None
-        }
+    if typeutil::is_assignable(expected, &return_t)
+        .map_err(|e| diagnostics.push(Diagnostic::error(node.byte_range(), e.to_string())))
+        .ok()?
+    {
+        Some(())
+    } else {
+        diagnostics.push(Diagnostic::error(
+            node.byte_range(),
+            format!(
+                "expression type mismatch (expected: {}, actual: {})",
+                expected.qualified_cxx_name(),
+                return_t.qualified_name()
+            ),
+        ));
+        None
     }
 }
 

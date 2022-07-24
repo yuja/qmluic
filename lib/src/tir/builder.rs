@@ -192,8 +192,13 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
     ) -> Result<Self::Item, Self::Error> {
         let ty = &self.code.locals[name.0].ty; // name must be valid
         let right = ensure_concrete_string(right);
-        typeutil::verify_concrete_type(ty, &right.type_desc())
-            .map_err(|e| to_operation_type_error("=", e))?;
+        if !typeutil::is_assignable(ty, &right.type_desc())? {
+            return Err(ExpressionError::OperationOnIncompatibleTypes(
+                "=".to_owned(),
+                ty.qualified_cxx_name().into(),
+                right.type_desc().qualified_name().into(),
+            ));
+        }
         self.push_statement(Statement::Assign(name, Rvalue::Copy(right)));
         // TODO: or return rvalue?, but property assignment doesn't because it would have
         // to re-read property
@@ -237,9 +242,15 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         if !property.is_writable() {
             return Err(ExpressionError::UnwritableProperty);
         }
+        let ty = property.value_type()?;
         let right = ensure_concrete_string(right);
-        typeutil::verify_concrete_type(&property.value_type()?, &right.type_desc())
-            .map_err(|e| to_operation_type_error("=", e))?;
+        if !typeutil::is_assignable(&ty, &right.type_desc())? {
+            return Err(ExpressionError::OperationOnIncompatibleTypes(
+                "=".to_owned(),
+                ty.qualified_cxx_name().into(),
+                right.type_desc().qualified_name().into(),
+            ));
+        }
         // TODO: should we allow chained assignment?
         // TODO: do we want to break binding? maybe no, but document the behavior difference
         Ok(self.emit_result(
@@ -264,7 +275,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
                     .argument_types()
                     .zip(&arguments)
                     .try_fold(true, |acc, (ty, v)| {
-                        Ok(acc && typeutil::verify_concrete_type(&ty?, &v.type_desc()).is_ok())
+                        Ok(acc && typeutil::is_assignable(&ty?, &v.type_desc()).unwrap_or(false))
                     });
                 if compatible? {
                     matched_index = Some(i);
