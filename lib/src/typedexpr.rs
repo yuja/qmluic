@@ -93,7 +93,7 @@ impl<'a, T: TypeSpace<'a>> RefSpace<'a> for T {
 
 /// Translates each expression node to [`Self::Item`].
 pub trait ExpressionVisitor<'a> {
-    type Item: DescribeType<'a> + Clone; // TODO: do we want to check type error by walk()?
+    type Item: DescribeType<'a> + Clone;
     type Local: Copy;
     type Label: Copy;
     type Error: ToString;
@@ -568,38 +568,29 @@ where
                 .map(|&n| walk_rvalue(ctx, locals, n, source, visitor, diagnostics))
                 .collect::<Option<Vec<_>>>()?;
             match walk_expr(ctx, locals, x.function, source, visitor, diagnostics)? {
-                Intermediate::BoundMethod(it, ms) => {
-                    // TODO: look up overloaded methods and confine type error here?
-                    diagnostics
-                        .consume_node_err(
-                            node,
-                            visitor.visit_object_method_call(it, ms, arguments, node.byte_range()),
-                        )
-                        .map(Intermediate::Item)
-                }
-                Intermediate::BoundBuiltinMethod(it, f) => {
-                    // TODO: confine type error?
-                    diagnostics
-                        .consume_node_err(
-                            node,
-                            visitor.visit_object_builtin_method_call(
-                                it,
-                                f,
-                                arguments,
-                                node.byte_range(),
-                            ),
-                        )
-                        .map(Intermediate::Item)
-                }
-                Intermediate::BuiltinFunction(f) => {
-                    // TODO: confine type error?
-                    diagnostics
-                        .consume_node_err(
-                            node,
-                            visitor.visit_builtin_call(f, arguments, node.byte_range()),
-                        )
-                        .map(Intermediate::Item)
-                }
+                Intermediate::BoundMethod(it, ms) => diagnostics
+                    .consume_node_err(
+                        node,
+                        visitor.visit_object_method_call(it, ms, arguments, node.byte_range()),
+                    )
+                    .map(Intermediate::Item),
+                Intermediate::BoundBuiltinMethod(it, f) => diagnostics
+                    .consume_node_err(
+                        node,
+                        visitor.visit_object_builtin_method_call(
+                            it,
+                            f,
+                            arguments,
+                            node.byte_range(),
+                        ),
+                    )
+                    .map(Intermediate::Item),
+                Intermediate::BuiltinFunction(f) => diagnostics
+                    .consume_node_err(
+                        node,
+                        visitor.visit_builtin_call(f, arguments, node.byte_range()),
+                    )
+                    .map(Intermediate::Item),
                 Intermediate::Item(_)
                 | Intermediate::Local(..)
                 | Intermediate::BoundProperty(..)
@@ -653,7 +644,6 @@ where
                     ))
                 })
                 .ok()?;
-            // TODO: confine type error?
             diagnostics
                 .consume_node_err(
                     node,
@@ -672,7 +662,6 @@ where
                     ))
                 })
                 .ok()?;
-            // TODO: confine type error?
             diagnostics
                 .consume_node_err(
                     node,
