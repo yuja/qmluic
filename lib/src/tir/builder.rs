@@ -1,12 +1,14 @@
 use super::ceval;
 use super::core::{
-    BasicBlock, BasicBlockRef, BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, BinaryOp, CodeBody,
-    ComparisonOp, Constant, ConstantValue, EnumVariant, Local, LocalRef, NamedObject, Operand,
-    Rvalue, ShiftOp, Statement, Terminator, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp, UnaryOp,
-    Void,
+    BasicBlock, BasicBlockRef, CodeBody, Constant, ConstantValue, EnumVariant, Local, LocalRef,
+    NamedObject, Operand, Rvalue, Statement, Terminator, Void,
 };
 use crate::diagnostic::Diagnostics;
-use crate::opcode::{BuiltinFunctionKind, BuiltinMethodKind};
+use crate::opcode::{
+    BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, BinaryOp, BuiltinFunctionKind,
+    BuiltinMethodKind, ComparisonOp, ShiftOp, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp,
+    UnaryOp,
+};
 use crate::qmlast::{BinaryOperator, Node, UnaryOperator};
 use crate::typedexpr::{self, DescribeType, ExpressionVisitor, RefSpace, TypeDesc};
 use crate::typemap::{

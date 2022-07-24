@@ -1,9 +1,6 @@
 use super::expr::{SimpleValue, StringKind};
-use crate::opcode::BuiltinFunctionKind;
-use crate::tir::{
-    BasicBlockRef, BinaryBitwiseOp, BinaryOp, CodeBody, ConstantValue, Operand, Rvalue, Statement,
-    Terminator,
-};
+use crate::opcode::{BinaryBitwiseOp, BinaryOp, BuiltinFunctionKind};
+use crate::tir::{BasicBlockRef, CodeBody, ConstantValue, Operand, Rvalue, Statement, Terminator};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(super) enum EvaluatedValue {

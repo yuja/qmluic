@@ -5,9 +5,10 @@
 //! support translation.
 
 use super::builder::ExpressionError;
-use super::core::{
-    BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, ComparisonOp, ConstantValue, ShiftOp,
-    UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp,
+use super::core::ConstantValue;
+use crate::opcode::{
+    BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, ComparisonOp, ShiftOp, UnaryArithOp,
+    UnaryBitwiseOp, UnaryLogicalOp,
 };
 use crate::typedexpr::DescribeType;
 
