@@ -89,28 +89,27 @@ pub fn deduce_type<'a>(left: TypeDesc<'a>, right: TypeDesc<'a>) -> Result<TypeDe
     }
 }
 
-pub fn verify_concrete_type(expected: &TypeKind, actual: &TypeDesc) -> Result<(), TypeError> {
-    match (expected, actual) {
-        (expected, TypeDesc::Concrete(ty)) if expected == ty => Ok(()),
-        (&TypeKind::INT | &TypeKind::UINT, TypeDesc::ConstInteger) => Ok(()),
+/// Checks if the `actual` can be assigned to the variable of the `expected` type.
+pub fn is_assignable(expected: &TypeKind, actual: &TypeDesc) -> Result<bool, TypeMapError> {
+    let r = match (expected, actual) {
+        (expected, TypeDesc::Concrete(ty)) if expected == ty => true,
+        (&TypeKind::INT | &TypeKind::UINT, TypeDesc::ConstInteger) => true,
         (
             TypeKind::Just(NamedType::Enum(e)),
             TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(a))),
-        ) if is_compatible_enum(e, a)? => Ok(()),
+        ) if is_compatible_enum(e, a)? => true,
         (
             TypeKind::Pointer(NamedType::Class(e)),
             TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(a))),
-        ) if a.is_derived_from(e) => Ok(()),
+        ) if a.is_derived_from(e) => true,
         // TODO: covariant type is allowed to support QList<QAction*|QMenu*>, but it
         // should only work at list construction.
         (
             TypeKind::PointerList(NamedType::Class(e)),
             TypeDesc::Concrete(TypeKind::PointerList(NamedType::Class(a))),
-        ) if a.is_derived_from(e) => Ok(()),
-        (&TypeKind::STRING_LIST | TypeKind::PointerList(_), TypeDesc::EmptyList) => Ok(()),
-        (expected, actual) => Err(TypeError::IncompatibleTypes(
-            expected.qualified_cxx_name().into(),
-            actual.qualified_name().into(),
-        )),
-    }
+        ) if a.is_derived_from(e) => true,
+        (&TypeKind::STRING_LIST | TypeKind::PointerList(_), TypeDesc::EmptyList) => true,
+        _ => false,
+    };
+    Ok(r)
 }
