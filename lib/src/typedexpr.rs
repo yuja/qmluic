@@ -1,10 +1,8 @@
 //! Expression tree visitor with type information.
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::opcode::{BuiltinFunctionKind, BuiltinMethodKind};
-use crate::qmlast::{
-    BinaryOperator, Expression, Identifier, LexicalDeclarationKind, Node, Statement, UnaryOperator,
-};
+use crate::opcode::{BinaryOp, BuiltinFunctionKind, BuiltinMethodKind, ComparisonOp, UnaryOp};
+use crate::qmlast::{Expression, Identifier, LexicalDeclarationKind, Node, Statement};
 use crate::typemap::{
     Class, Enum, MethodMatches, NamedType, PrimitiveType, Property, TypeKind, TypeMapError,
     TypeSpace,
@@ -192,13 +190,13 @@ pub trait ExpressionVisitor<'a> {
     ) -> Result<Self::Item, Self::Error>;
     fn visit_unary_expression(
         &mut self,
-        operator: UnaryOperator,
+        unary: UnaryOp,
         argument: Self::Item,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error>;
     fn visit_binary_expression(
         &mut self,
-        operator: BinaryOperator,
+        binary: BinaryOp,
         left: Self::Item,
         right: Self::Item,
         byte_range: Range<usize>,
@@ -352,7 +350,7 @@ where
                     let condition = diagnostics.consume_node_err(
                         c.value,
                         visitor.visit_binary_expression(
-                            BinaryOperator::StrictEqual,
+                            BinaryOp::Comparison(ComparisonOp::Equal),
                             left.clone(),
                             right,
                             c.value.byte_range(),
@@ -647,22 +645,38 @@ where
         }
         Expression::Unary(x) => {
             let argument = walk_rvalue(ctx, locals, x.argument, source, visitor, diagnostics)?;
+            let unary = UnaryOp::try_from(x.operator)
+                .map_err(|()| {
+                    diagnostics.push(Diagnostic::error(
+                        node.byte_range(),
+                        format!("unsupported operation '{}'", x.operator),
+                    ))
+                })
+                .ok()?;
             // TODO: confine type error?
             diagnostics
                 .consume_node_err(
                     node,
-                    visitor.visit_unary_expression(x.operator, argument, node.byte_range()),
+                    visitor.visit_unary_expression(unary, argument, node.byte_range()),
                 )
                 .map(Intermediate::Item)
         }
         Expression::Binary(x) => {
             let left = walk_rvalue(ctx, locals, x.left, source, visitor, diagnostics)?;
             let right = walk_rvalue(ctx, locals, x.right, source, visitor, diagnostics)?;
+            let binary = BinaryOp::try_from(x.operator)
+                .map_err(|()| {
+                    diagnostics.push(Diagnostic::error(
+                        node.byte_range(),
+                        format!("unsupported operation '{}'", x.operator),
+                    ))
+                })
+                .ok()?;
             // TODO: confine type error?
             diagnostics
                 .consume_node_err(
                     node,
-                    visitor.visit_binary_expression(x.operator, left, right, node.byte_range()),
+                    visitor.visit_binary_expression(binary, left, right, node.byte_range()),
                 )
                 .map(Intermediate::Item)
         }

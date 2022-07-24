@@ -5,7 +5,7 @@ use super::core::{
 };
 use crate::diagnostic::Diagnostics;
 use crate::opcode::{BinaryArithOp, BinaryOp, BuiltinFunctionKind, BuiltinMethodKind, UnaryOp};
-use crate::qmlast::{BinaryOperator, Node, UnaryOperator};
+use crate::qmlast::Node;
 use crate::typedexpr::{self, DescribeType, ExpressionVisitor, RefSpace, TypeDesc};
 use crate::typemap::{
     Class, Enum, MethodMatches, NamedType, PrimitiveType, Property, TypeKind, TypeMapError,
@@ -381,12 +381,10 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
 
     fn visit_unary_expression(
         &mut self,
-        operator: UnaryOperator,
+        unary: UnaryOp,
         argument: Self::Item,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
-        let unary = UnaryOp::try_from(operator)
-            .map_err(|()| ExpressionError::UnsupportedOperation(operator.to_string()))?;
         match argument {
             Operand::Constant(a) => match unary {
                 UnaryOp::Arith(op) => ceval::eval_unary_arith_expression(op, a.value),
@@ -400,13 +398,11 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
 
     fn visit_binary_expression(
         &mut self,
-        operator: BinaryOperator,
+        binary: BinaryOp,
         left: Self::Item,
         right: Self::Item,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
-        let binary = BinaryOp::try_from(operator)
-            .map_err(|()| ExpressionError::UnsupportedOperation(operator.to_string()))?;
         match (left, right) {
             (Operand::Constant(l), Operand::Constant(r)) => match binary {
                 BinaryOp::Arith(op) => ceval::eval_binary_arith_expression(op, l.value, r.value),
