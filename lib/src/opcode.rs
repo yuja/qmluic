@@ -1,5 +1,6 @@
 //! Function and operator constants.
 
+use crate::qmlast::{BinaryOperator, UnaryOperator};
 use std::fmt;
 
 /// Builtin functions.
@@ -22,6 +23,21 @@ pub enum UnaryOp {
     Arith(UnaryArithOp),
     Bitwise(UnaryBitwiseOp),
     Logical(UnaryLogicalOp),
+}
+
+impl TryFrom<UnaryOperator> for UnaryOp {
+    type Error = ();
+
+    fn try_from(operator: UnaryOperator) -> Result<Self, Self::Error> {
+        use UnaryOperator::*;
+        match operator {
+            LogicalNot => Ok(UnaryOp::Logical(UnaryLogicalOp::Not)),
+            BitwiseNot => Ok(UnaryOp::Bitwise(UnaryBitwiseOp::Not)),
+            Minus => Ok(UnaryOp::Arith(UnaryArithOp::Minus)),
+            Plus => Ok(UnaryOp::Arith(UnaryArithOp::Plus)),
+            Typeof | Void | Delete => Err(()),
+        }
+    }
 }
 
 impl fmt::Display for UnaryOp {
@@ -93,6 +109,37 @@ pub enum BinaryOp {
     Shift(ShiftOp),
     Logical(BinaryLogicalOp),
     Comparison(ComparisonOp),
+}
+
+impl TryFrom<BinaryOperator> for BinaryOp {
+    type Error = ();
+
+    fn try_from(operator: BinaryOperator) -> Result<Self, Self::Error> {
+        use BinaryOperator::*;
+        match operator {
+            LogicalAnd => Ok(BinaryOp::Logical(BinaryLogicalOp::And)),
+            LogicalOr => Ok(BinaryOp::Logical(BinaryLogicalOp::Or)),
+            RightShift => Ok(BinaryOp::Shift(ShiftOp::RightShift)),
+            UnsignedRightShift => Err(()),
+            LeftShift => Ok(BinaryOp::Shift(ShiftOp::LeftShift)),
+            BitwiseAnd => Ok(BinaryOp::Bitwise(BinaryBitwiseOp::And)),
+            BitwiseXor => Ok(BinaryOp::Bitwise(BinaryBitwiseOp::Xor)),
+            BitwiseOr => Ok(BinaryOp::Bitwise(BinaryBitwiseOp::Or)),
+            Add => Ok(BinaryOp::Arith(BinaryArithOp::Add)),
+            Sub => Ok(BinaryOp::Arith(BinaryArithOp::Sub)),
+            Mul => Ok(BinaryOp::Arith(BinaryArithOp::Mul)),
+            Div => Ok(BinaryOp::Arith(BinaryArithOp::Div)),
+            Rem => Ok(BinaryOp::Arith(BinaryArithOp::Rem)),
+            Exp => Err(()),
+            Equal | StrictEqual => Ok(BinaryOp::Comparison(ComparisonOp::Equal)),
+            NotEqual | StrictNotEqual => Ok(BinaryOp::Comparison(ComparisonOp::NotEqual)),
+            LessThan => Ok(BinaryOp::Comparison(ComparisonOp::LessThan)),
+            LessThanEqual => Ok(BinaryOp::Comparison(ComparisonOp::LessThanEqual)),
+            GreaterThan => Ok(BinaryOp::Comparison(ComparisonOp::GreaterThan)),
+            GreaterThanEqual => Ok(BinaryOp::Comparison(ComparisonOp::GreaterThanEqual)),
+            NullishCoalesce | Instanceof | In => Err(()),
+        }
+    }
 }
 
 impl fmt::Display for BinaryOp {

@@ -4,11 +4,7 @@ use super::core::{
     NamedObject, Operand, Rvalue, Statement, Terminator, Void,
 };
 use crate::diagnostic::Diagnostics;
-use crate::opcode::{
-    BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, BinaryOp, BuiltinFunctionKind,
-    BuiltinMethodKind, ComparisonOp, ShiftOp, UnaryArithOp, UnaryBitwiseOp, UnaryLogicalOp,
-    UnaryOp,
-};
+use crate::opcode::{BinaryArithOp, BinaryOp, BuiltinFunctionKind, BuiltinMethodKind, UnaryOp};
 use crate::qmlast::{BinaryOperator, Node, UnaryOperator};
 use crate::typedexpr::{self, DescribeType, ExpressionVisitor, RefSpace, TypeDesc};
 use crate::typemap::{
@@ -389,7 +385,8 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         argument: Self::Item,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
-        let unary = UnaryOp::try_from(operator)?;
+        let unary = UnaryOp::try_from(operator)
+            .map_err(|()| ExpressionError::UnsupportedOperation(operator.to_string()))?;
         match argument {
             Operand::Constant(a) => match unary {
                 UnaryOp::Arith(op) => ceval::eval_unary_arith_expression(op, a.value),
@@ -408,7 +405,8 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         right: Self::Item,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
-        let binary = BinaryOp::try_from(operator)?;
+        let binary = BinaryOp::try_from(operator)
+            .map_err(|()| ExpressionError::UnsupportedOperation(operator.to_string()))?;
         match (left, right) {
             (Operand::Constant(l), Operand::Constant(r)) => match binary {
                 BinaryOp::Arith(op) => ceval::eval_binary_arith_expression(op, l.value, r.value),
@@ -652,52 +650,6 @@ impl<'a> CodeBuilder<'a> {
             }
         }
         .map(|ty| self.emit_result(ty, Rvalue::BinaryOp(binary, left, right), byte_range))
-    }
-}
-
-impl UnaryOp {
-    fn try_from(operator: UnaryOperator) -> Result<Self, ExpressionError> {
-        use UnaryOperator::*;
-        match operator {
-            LogicalNot => Ok(UnaryOp::Logical(UnaryLogicalOp::Not)),
-            BitwiseNot => Ok(UnaryOp::Bitwise(UnaryBitwiseOp::Not)),
-            Minus => Ok(UnaryOp::Arith(UnaryArithOp::Minus)),
-            Plus => Ok(UnaryOp::Arith(UnaryArithOp::Plus)),
-            Typeof | Void | Delete => {
-                Err(ExpressionError::UnsupportedOperation(operator.to_string()))
-            }
-        }
-    }
-}
-
-impl BinaryOp {
-    fn try_from(operator: BinaryOperator) -> Result<Self, ExpressionError> {
-        use BinaryOperator::*;
-        match operator {
-            LogicalAnd => Ok(BinaryOp::Logical(BinaryLogicalOp::And)),
-            LogicalOr => Ok(BinaryOp::Logical(BinaryLogicalOp::Or)),
-            RightShift => Ok(BinaryOp::Shift(ShiftOp::RightShift)),
-            UnsignedRightShift => Err(ExpressionError::UnsupportedOperation(operator.to_string())),
-            LeftShift => Ok(BinaryOp::Shift(ShiftOp::LeftShift)),
-            BitwiseAnd => Ok(BinaryOp::Bitwise(BinaryBitwiseOp::And)),
-            BitwiseXor => Ok(BinaryOp::Bitwise(BinaryBitwiseOp::Xor)),
-            BitwiseOr => Ok(BinaryOp::Bitwise(BinaryBitwiseOp::Or)),
-            Add => Ok(BinaryOp::Arith(BinaryArithOp::Add)),
-            Sub => Ok(BinaryOp::Arith(BinaryArithOp::Sub)),
-            Mul => Ok(BinaryOp::Arith(BinaryArithOp::Mul)),
-            Div => Ok(BinaryOp::Arith(BinaryArithOp::Div)),
-            Rem => Ok(BinaryOp::Arith(BinaryArithOp::Rem)),
-            Exp => Err(ExpressionError::UnsupportedOperation(operator.to_string())),
-            Equal | StrictEqual => Ok(BinaryOp::Comparison(ComparisonOp::Equal)),
-            NotEqual | StrictNotEqual => Ok(BinaryOp::Comparison(ComparisonOp::NotEqual)),
-            LessThan => Ok(BinaryOp::Comparison(ComparisonOp::LessThan)),
-            LessThanEqual => Ok(BinaryOp::Comparison(ComparisonOp::LessThanEqual)),
-            GreaterThan => Ok(BinaryOp::Comparison(ComparisonOp::GreaterThan)),
-            GreaterThanEqual => Ok(BinaryOp::Comparison(ComparisonOp::GreaterThanEqual)),
-            NullishCoalesce | Instanceof | In => {
-                Err(ExpressionError::UnsupportedOperation(operator.to_string()))
-            }
-        }
     }
 }
 
