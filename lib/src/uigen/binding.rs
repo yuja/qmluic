@@ -5,6 +5,7 @@ use crate::objtree::{ObjectNode, ObjectTree};
 use crate::opcode::{BuiltinFunctionKind, BuiltinMethodKind};
 use crate::qtname::{self, FileNameRules, UniqueNameGenerator};
 use crate::tir;
+use crate::typedexpr::DescribeType as _;
 use crate::typemap::{TypeKind, TypeSpace};
 use itertools::Itertools as _;
 use std::io;
@@ -598,31 +599,35 @@ impl CxxCodeBodyTranslator {
             },
             Rvalue::CallBuiltinMethod(obj, f, args) => match f {
                 BuiltinMethodKind::Arg => format!(
-                    "{}.arg({})",
+                    "{}{}arg({})",
                     self.format_operand(obj),
+                    member_access_op(obj),
                     args.iter().map(|a| self.format_operand(a)).join(", ")
                 ),
             },
             Rvalue::CallMethod(obj, meth, args) => {
                 format!(
-                    "{}->{}({})",
+                    "{}{}{}({})",
                     self.format_operand(obj),
+                    member_access_op(obj),
                     meth.name(),
                     args.iter().map(|a| self.format_operand(a)).join(", ")
                 )
             }
             Rvalue::ReadProperty(obj, prop) => {
                 format!(
-                    "{}->{}()",
+                    "{}{}{}()",
                     self.format_operand(obj),
+                    member_access_op(obj),
                     prop.read_func_name()
                         .expect("unreadable property must be rejected by TIR builder")
                 )
             }
             Rvalue::WriteProperty(obj, prop, r) => {
                 format!(
-                    "{}->{}({})",
+                    "{}{}{}({})",
                     self.format_operand(obj),
+                    member_access_op(obj),
                     prop.write_func_name()
                         .expect("unwritable property must be rejected by TIR builder"),
                     self.format_operand(r)
@@ -659,5 +664,13 @@ impl CxxCodeBodyTranslator {
             Operand::NamedObject(x) => self.format_named_object_ref(&x.name),
             Operand::Void(_) => "void()".to_owned(),
         }
+    }
+}
+
+fn member_access_op(a: &tir::Operand) -> &'static str {
+    if a.type_desc().is_pointer() {
+        "->"
+    } else {
+        "."
     }
 }

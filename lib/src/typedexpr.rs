@@ -42,6 +42,10 @@ impl<'a> TypeDesc<'a> {
             TypeDesc::Concrete(k) => k.qualified_cxx_name(),
         }
     }
+
+    pub fn is_pointer(&self) -> bool {
+        matches!(self, TypeDesc::Concrete(TypeKind::Pointer(_)))
+    }
 }
 
 /// Provides type of the translated item.
