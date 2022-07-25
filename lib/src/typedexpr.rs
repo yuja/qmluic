@@ -788,13 +788,9 @@ where
                 None
             }
         },
-        // gadget types
-        TypeDesc::Concrete(TypeKind::Just(NamedType::Class(_))) => {
-            diagnostics.push(not_found());
-            None
-        }
-        // object types
-        TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(cls))) => {
+        // gadget or object types
+        TypeDesc::Concrete(TypeKind::Just(NamedType::Class(cls)))
+        | TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(cls))) => {
             if let Some(r) = cls.get_property(name) {
                 match r {
                     Ok(p) => Some(Intermediate::BoundProperty(item, p)),
