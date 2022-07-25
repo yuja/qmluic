@@ -448,37 +448,33 @@ impl CxxCodeBodyTranslator {
         let mut sender_signals = Vec::new();
         for s in code.basic_blocks.iter().flat_map(|b| &b.statements) {
             match s {
-                Statement::Assign(_, r) | Statement::Exec(r) => {
-                    if let Rvalue::ReadProperty(a, prop) = r {
-                        match a {
-                            Operand::NamedObject(obj) => {
-                                if let Some(f) = prop.notify_signal_name() {
-                                    let sender = self.format_named_object_ref(&obj.name);
-                                    let signal = format!(
-                                        "{}::{}",
-                                        prop.object_class().qualified_cxx_name(),
-                                        f
-                                    );
-                                    sender_signals.push((sender, signal));
-                                } else {
-                                    diagnostics.push(Diagnostic::error(
-                                        a.byte_range(),
-                                        format!("unobservable property: {}", prop.name()),
-                                    ));
-                                }
-                            }
-                            Operand::Local(_) => {
+                Statement::Assign(_, r) | Statement::Exec(r) => match r {
+                    Rvalue::ReadProperty(a, prop) if a.type_desc().is_pointer() => match a {
+                        Operand::NamedObject(obj) => {
+                            if let Some(f) = prop.notify_signal_name() {
+                                let sender = self.format_named_object_ref(&obj.name);
+                                let signal =
+                                    format!("{}::{}", prop.object_class().qualified_cxx_name(), f);
+                                sender_signals.push((sender, signal));
+                            } else {
                                 diagnostics.push(Diagnostic::error(
                                     a.byte_range(),
-                                    "chained object property is not supported",
+                                    format!("unobservable property: {}", prop.name()),
                                 ));
                             }
-                            Operand::Constant(_) | Operand::EnumVariant(_) | Operand::Void(_) => {
-                                panic!("invald read_property: {r:?}");
-                            }
                         }
-                    }
-                }
+                        Operand::Local(_) => {
+                            diagnostics.push(Diagnostic::error(
+                                a.byte_range(),
+                                "chained object property is not supported",
+                            ));
+                        }
+                        Operand::Constant(_) | Operand::EnumVariant(_) | Operand::Void(_) => {
+                            panic!("invald read_property: {r:?}");
+                        }
+                    },
+                    _ => {}
+                },
             }
         }
         sender_signals
