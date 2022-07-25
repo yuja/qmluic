@@ -501,3 +501,48 @@ fn test_gadget_property_write_expr() {
     let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
     insta::assert_snapshot!(ui_support_h);
 }
+
+#[test]
+fn test_gadget_property_write_to_rvalue() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QFontComboBox {
+            onCurrentFontChanged: {
+                currentFont.pointSize = 100;
+            }
+        }
+        "###,
+    );
+    insta::assert_snapshot!(
+        common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap_err(), @r###"
+    error: rvalue gadget property is not assignable
+      ┌─ <unknown>:4:9
+      │
+    4 │         currentFont.pointSize = 100;
+      │         ^^^^^^^^^^^^^^^^^^^^^
+    "###);
+}
+
+#[test]
+fn test_gadget_property_write_to_rvalue_via_local() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QFontComboBox {
+            onCurrentFontChanged: {
+                let obj = this;
+                obj.currentFont.pointSize = 100;
+            }
+        }
+        "###,
+    );
+    insta::assert_snapshot!(
+        common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap_err(), @r###"
+    error: rvalue gadget property is not assignable
+      ┌─ <unknown>:5:9
+      │
+    5 │         obj.currentFont.pointSize = 100;
+      │         ^^^^^^^^^^^^^^^^^^^^^^^^^
+    "###);
+}
