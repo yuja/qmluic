@@ -237,11 +237,27 @@ pub trait ExpressionVisitor<'a> {
 enum Intermediate<'a, T, L> {
     Item(T),
     Local(L, LexicalDeclarationKind),
-    BoundProperty(T, Property<'a>),
+    BoundProperty(T, Property<'a>, ReceiverKind),
     BoundMethod(T, MethodMatches<'a>),
     BoundBuiltinMethod(T, BuiltinMethodKind),
     BuiltinFunction(BuiltinFunctionKind),
     Type(NamedType<'a>),
+}
+
+/// Category of expression.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ExprKind {
+    Lvalue,
+    Rvalue,
+}
+
+/// Receiver category of bound property.
+///
+/// Object (or pointer) property is always assignable, but rvalue gadget property isn't.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ReceiverKind {
+    Object,
+    Gadget(ExprKind),
 }
 
 /// Walks statement nodes recursively from the specified `node`.
@@ -464,7 +480,7 @@ where
     match walk_expr(ctx, locals, node, source, visitor, diagnostics)? {
         Intermediate::Item(x) => Some(x),
         Intermediate::Local(l, _) => diagnostics.consume_node_err(node, visitor.visit_local_ref(l)),
-        Intermediate::BoundProperty(it, p) => diagnostics.consume_node_err(
+        Intermediate::BoundProperty(it, p, _) => diagnostics.consume_node_err(
             node,
             visitor.visit_object_property(it, p, node.byte_range()),
         ),
@@ -538,18 +554,18 @@ where
         Expression::Member(x) => {
             match walk_expr(ctx, locals, x.object, source, visitor, diagnostics)? {
                 Intermediate::Item(it) => {
-                    process_item_property(it, x.property, source, diagnostics)
+                    process_item_property(it, x.property, ExprKind::Rvalue, source, diagnostics)
                 }
                 Intermediate::Local(l, _) => {
                     let it = diagnostics.consume_node_err(node, visitor.visit_local_ref(l))?;
-                    process_item_property(it, x.property, source, diagnostics)
+                    process_item_property(it, x.property, ExprKind::Lvalue, source, diagnostics)
                 }
-                Intermediate::BoundProperty(it, p) => {
+                Intermediate::BoundProperty(it, p, _) => {
                     let obj = diagnostics.consume_node_err(
                         x.object,
                         visitor.visit_object_property(it, p, x.object.byte_range()),
                     )?;
-                    process_item_property(obj, x.property, source, diagnostics)
+                    process_item_property(obj, x.property, ExprKind::Rvalue, source, diagnostics)
                 }
                 Intermediate::BoundMethod(..)
                 | Intermediate::BoundBuiltinMethod(..)
@@ -622,12 +638,23 @@ where
                         None
                     }
                 },
-                Intermediate::BoundProperty(it, p) => diagnostics
+                Intermediate::BoundProperty(
+                    it,
+                    p,
+                    ReceiverKind::Object | ReceiverKind::Gadget(ExprKind::Lvalue),
+                ) => diagnostics
                     .consume_node_err(
                         node,
                         visitor.visit_object_property_assignment(it, p, right, node.byte_range()),
                     )
                     .map(Intermediate::Item),
+                Intermediate::BoundProperty(_, _, ReceiverKind::Gadget(ExprKind::Rvalue)) => {
+                    diagnostics.push(Diagnostic::error(
+                        x.left.byte_range(),
+                        "rvalue gadget property is not assignable",
+                    ));
+                    None
+                }
                 Intermediate::Item(_)
                 | Intermediate::BoundMethod(..)
                 | Intermediate::BoundBuiltinMethod(..)
@@ -733,7 +760,7 @@ where
                     id.node(),
                     visitor.visit_object_ref(obj_cls, &obj_name, id.node().byte_range()),
                 )
-                .map(|item| Intermediate::BoundProperty(item, p)),
+                .map(|item| Intermediate::BoundProperty(item, p, ReceiverKind::Object)),
             Ok(RefKind::ObjectMethod(obj_cls, obj_name, m)) => diagnostics
                 .consume_node_err(
                     id.node(),
@@ -760,6 +787,7 @@ where
 fn process_item_property<'a, T, L>(
     item: T,
     id: Identifier,
+    item_kind: ExprKind,
     source: &str,
     diagnostics: &mut Diagnostics,
 ) -> Option<Intermediate<'a, T, L>>
@@ -768,7 +796,7 @@ where
 {
     let not_found = || Diagnostic::error(id.node().byte_range(), "no property/method found");
     let name = id.to_str(source);
-    match item.type_desc() {
+    match &item.type_desc() {
         // simple value types
         TypeDesc::ConstInteger
         | TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(
@@ -778,7 +806,7 @@ where
             diagnostics.push(not_found());
             None
         }
-        TypeDesc::ConstString | TypeDesc::STRING => match name {
+        TypeDesc::ConstString | &TypeDesc::STRING => match name {
             "arg" => Some(Intermediate::BoundBuiltinMethod(
                 item,
                 BuiltinMethodKind::Arg,
@@ -789,11 +817,16 @@ where
             }
         },
         // gadget or object types
-        TypeDesc::Concrete(TypeKind::Just(NamedType::Class(cls)))
-        | TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(cls))) => {
+        t @ (TypeDesc::Concrete(TypeKind::Just(NamedType::Class(cls)))
+        | TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(cls)))) => {
+            let k = if t.is_pointer() {
+                ReceiverKind::Object
+            } else {
+                ReceiverKind::Gadget(item_kind)
+            };
             if let Some(r) = cls.get_property(name) {
                 match r {
-                    Ok(p) => Some(Intermediate::BoundProperty(item, p)),
+                    Ok(p) => Some(Intermediate::BoundProperty(item, p, k)),
                     Err(e) => {
                         diagnostics.push(Diagnostic::error(
                             id.node().byte_range(),
