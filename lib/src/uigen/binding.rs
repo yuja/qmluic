@@ -46,6 +46,8 @@ impl UiSupportCode {
         let mut callbacks = Vec::new();
         for (obj_node, code_map) in object_tree.flat_iter().zip(object_code_maps) {
             // TODO: exclude pseudo node like QActionSeparator
+            let receiver = binding_code_translator
+                .format_named_object_ref(&tir::NamedObjectRef(obj_node.name().to_owned()));
             let dyn_props = code_map
                 .properties()
                 .iter()
@@ -74,14 +76,8 @@ impl UiSupportCode {
                         return None;
                     }
                 };
-                CxxBinding::build(
-                    &binding_code_translator,
-                    name,
-                    obj_node,
-                    property_code,
-                    value_function,
-                    diagnostics,
-                )
+                let update = CxxUpdateBinding::build(property_code, value_function, diagnostics)?;
+                Some(CxxBinding::new(name, &receiver, update))
             }));
 
             callbacks.extend(
@@ -213,38 +209,21 @@ impl UiSupportCode {
 #[derive(Clone, Debug)]
 struct CxxBinding {
     function_name_suffix: String,
-    write_method: String,
-    value_function: CxxBindingValueFunction,
+    receiver: String,
+    update: CxxUpdateBinding,
 }
 
 impl CxxBinding {
-    fn build(
-        code_translator: &CxxCodeBodyTranslator,
+    fn new(
         function_name_suffix: String,
-        obj_node: ObjectNode,
-        property_code: &PropertyCode,
-        value_function: CxxBindingValueFunction,
-        diagnostics: &mut Diagnostics,
-    ) -> Option<Self> {
-        let write_method = if let Some(f) = property_code.desc().write_func_name() {
-            format!(
-                "{}->{}",
-                code_translator
-                    .format_named_object_ref(&tir::NamedObjectRef(obj_node.name().to_owned())),
-                f,
-            )
-        } else {
-            diagnostics.push(Diagnostic::error(
-                property_code.binding_node().byte_range(),
-                "not a writable property",
-            ));
-            return None;
-        };
-        Some(CxxBinding {
+        receiver: impl Into<String>,
+        update: CxxUpdateBinding,
+    ) -> Self {
+        CxxBinding {
             function_name_suffix,
-            write_method,
-            value_function,
-        })
+            receiver: receiver.into(),
+            update,
+        }
     }
 
     fn name(&self) -> &str {
@@ -262,7 +241,7 @@ impl CxxBinding {
     fn write_setup_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
         writeln!(writer, "{indent}void {}()", self.setup_function_name())?;
         writeln!(writer, "{indent}{{")?;
-        for (sender, signal) in self.value_function.sender_signals().unique() {
+        for (sender, signal) in self.update.value_function.sender_signals().unique() {
             writeln!(
                 writer,
                 "{indent}    QObject::connect({}, &{}, this->root_, [this]() {{ this->{}(); }});",
@@ -290,16 +269,11 @@ impl CxxBinding {
         )?;
         writeln!(writer, "{indent}    {guard} |= {mask};")?;
         writeln!(writer, "#endif")?;
-        match &self.value_function {
-            CxxBindingValueFunction::Expr(f) => {
-                writeln!(
-                    writer,
-                    "{indent}    {}(this->{}());",
-                    self.write_method,
-                    f.function_name()
-                )?;
-            }
-        }
+        writeln!(
+            writer,
+            "{indent}    {};",
+            self.update.format_expression(&self.receiver, "->")
+        )?;
         writeln!(writer, "#ifndef QT_NO_DEBUG")?;
         writeln!(writer, "{indent}    {guard} &= ~{mask};")?;
         writeln!(writer, "#endif")?;
@@ -308,7 +282,50 @@ impl CxxBinding {
     }
 
     fn write_value_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
-        self.value_function.write_function(writer, indent)
+        self.update.value_function.write_function(writer, indent)
+    }
+}
+
+/// C++ expression to update dynamic property binding.
+#[derive(Clone, Debug)]
+struct CxxUpdateBinding {
+    write: String,
+    value_function: CxxBindingValueFunction,
+}
+
+impl CxxUpdateBinding {
+    fn build(
+        property_code: &PropertyCode,
+        value_function: CxxBindingValueFunction,
+        diagnostics: &mut Diagnostics,
+    ) -> Option<Self> {
+        let write = if let Some(f) = property_code.desc().write_func_name() {
+            f.to_owned()
+        } else {
+            diagnostics.push(Diagnostic::error(
+                property_code.binding_node().byte_range(),
+                "not a writable property",
+            ));
+            return None;
+        };
+        Some(CxxUpdateBinding {
+            write,
+            value_function,
+        })
+    }
+
+    fn format_expression(&self, receiver: &str, op: &str) -> String {
+        match &self.value_function {
+            CxxBindingValueFunction::Expr(f) => {
+                format!(
+                    "{}{}{}(this->{}())",
+                    receiver,
+                    op,
+                    self.write,
+                    f.function_name()
+                )
+            }
+        }
     }
 }
 
