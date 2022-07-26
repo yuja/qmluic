@@ -546,3 +546,20 @@ fn test_gadget_property_write_to_rvalue_via_local() {
       │         ^^^^^^^^^^^^^^^^^^^^^^^^^
     "###);
 }
+
+#[test]
+fn test_gadget_binding() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QLabel {
+             font.family: familyEdit.text
+             font.pointSize: sizeEdit.value
+             QLineEdit { id: familyEdit }
+             QSpinBox { id: sizeEdit }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
