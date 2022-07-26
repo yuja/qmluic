@@ -32,6 +32,7 @@ QDialog {
                 QSpinBox {
                     id: textFontSizeEdit
                     alignment: Qt.AlignRight | Qt.AlignTrailing | Qt.AlignVCenter
+                    value: 9
                     maximum: 999
                 }
 
@@ -56,7 +57,11 @@ QDialog {
                 QVBoxLayout {
                     QLabel {
                         text: "The quick brown fox jumps over the lazy dog."
-                        font: textFontFamilyEdit.currentFont  // TODO: point size
+                        font: {
+                            let font = textFontFamilyEdit.currentFont;
+                            font.pointSize = textFontSizeEdit.value;
+                            return font;
+                        }
                         alignment: {
                             switch (textAlignmentEdit.currentIndex) {
                             case 0:
@@ -71,6 +76,7 @@ QDialog {
                                 return Qt.AlignLeft;
                             }
                         }
+                        wordWrap: true
                     }
                 }
             }
