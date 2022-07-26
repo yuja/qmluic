@@ -51,38 +51,38 @@ impl UiSupportCode {
                 .iter()
                 .filter(|(_, p)| !p.is_evaluated_constant())
                 .sorted_by_key(|&(k, _)| k);
-            bindings.extend(dyn_props.filter_map(
-                |(_, property_code)| match property_code.kind() {
+            bindings.extend(dyn_props.filter_map(|(_, property_code)| {
+                let prefix = qtname::to_ascii_capitalized(obj_node.name())
+                    + &qtname::to_ascii_capitalized(property_code.desc().name());
+                let name = name_gen.generate(&prefix);
+                let value_function = match property_code.kind() {
                     PropertyCodeKind::Expr(ty, code) => {
                         expr::verify_code_return_type(property_code.node(), code, ty, diagnostics)?;
-                        let prefix = qtname::to_ascii_capitalized(obj_node.name())
-                            + &qtname::to_ascii_capitalized(property_code.desc().name());
-                        let name = name_gen.generate(&prefix);
-                        let value_function = CxxEvalExprFunction::build(
+                        CxxBindingValueFunction::Expr(CxxEvalExprFunction::build(
                             &binding_code_translator,
                             &name,
                             ty,
                             code,
                             diagnostics,
-                        );
-                        CxxBinding::build(
-                            &binding_code_translator,
-                            name,
-                            obj_node,
-                            property_code,
-                            value_function,
-                            diagnostics,
-                        )
+                        ))
                     }
                     PropertyCodeKind::GadgetMap(..) | PropertyCodeKind::ObjectMap(..) => {
                         diagnostics.push(Diagnostic::error(
                             property_code.node().byte_range(),
                             "dynamic map binding is not supported",
                         ));
-                        None
+                        return None;
                     }
-                },
-            ));
+                };
+                CxxBinding::build(
+                    &binding_code_translator,
+                    name,
+                    obj_node,
+                    property_code,
+                    value_function,
+                    diagnostics,
+                )
+            }));
 
             callbacks.extend(
                 code_map
@@ -214,7 +214,7 @@ impl UiSupportCode {
 struct CxxBinding {
     function_name_suffix: String,
     write_method: String,
-    value_function: CxxEvalExprFunction,
+    value_function: CxxBindingValueFunction,
 }
 
 impl CxxBinding {
@@ -223,7 +223,7 @@ impl CxxBinding {
         function_name_suffix: String,
         obj_node: ObjectNode,
         property_code: &PropertyCode,
-        value_function: CxxEvalExprFunction,
+        value_function: CxxBindingValueFunction,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let write_method = if let Some(f) = property_code.desc().write_func_name() {
@@ -290,12 +290,16 @@ impl CxxBinding {
         )?;
         writeln!(writer, "{indent}    {guard} |= {mask};")?;
         writeln!(writer, "#endif")?;
-        writeln!(
-            writer,
-            "{indent}    {}(this->{}());",
-            self.write_method,
-            self.value_function.function_name()
-        )?;
+        match &self.value_function {
+            CxxBindingValueFunction::Expr(f) => {
+                writeln!(
+                    writer,
+                    "{indent}    {}(this->{}());",
+                    self.write_method,
+                    f.function_name()
+                )?;
+            }
+        }
         writeln!(writer, "#ifndef QT_NO_DEBUG")?;
         writeln!(writer, "{indent}    {guard} &= ~{mask};")?;
         writeln!(writer, "#endif")?;
@@ -305,6 +309,25 @@ impl CxxBinding {
 
     fn write_value_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
         self.value_function.write_function(writer, indent)
+    }
+}
+
+#[derive(Clone, Debug)]
+enum CxxBindingValueFunction {
+    Expr(CxxEvalExprFunction),
+}
+
+impl CxxBindingValueFunction {
+    fn sender_signals(&self) -> Box<dyn Iterator<Item = &(String, String)> + '_> {
+        match self {
+            CxxBindingValueFunction::Expr(f) => Box::new(f.sender_signals()),
+        }
+    }
+
+    fn write_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+        match self {
+            CxxBindingValueFunction::Expr(f) => f.write_function(writer, indent),
+        }
     }
 }
 
