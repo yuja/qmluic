@@ -132,6 +132,20 @@ expression: ui_xml
           </property>
          </widget>
         </item>
+        <item>
+         <widget class="QLabel" name="label5">
+          <property name="font">
+           <font>
+           </font>
+          </property>
+          <property name="text">
+           <string notr="true">The quick brown fox jumps over the lazy dog.</string>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
        </layout>
       </widget>
      </item>
