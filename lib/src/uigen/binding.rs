@@ -58,13 +58,19 @@ impl UiSupportCode {
                         let prefix = qtname::to_ascii_capitalized(obj_node.name())
                             + &qtname::to_ascii_capitalized(property_code.desc().name());
                         let name = name_gen.generate(&prefix);
+                        let value_function = CxxEvalExprFunction::build(
+                            &binding_code_translator,
+                            &name,
+                            ty,
+                            code,
+                            diagnostics,
+                        );
                         CxxBinding::build(
                             &binding_code_translator,
                             name,
                             obj_node,
                             property_code,
-                            ty,
-                            code,
+                            value_function,
                             diagnostics,
                         )
                     }
@@ -169,7 +175,7 @@ impl UiSupportCode {
         for b in &self.bindings {
             b.write_setup_function(writer, indent)?;
             b.write_update_function(writer, indent)?;
-            b.write_eval_function(writer, indent)?;
+            b.write_value_function(writer, indent)?;
         }
         Ok(())
     }
@@ -207,10 +213,8 @@ impl UiSupportCode {
 #[derive(Clone, Debug)]
 struct CxxBinding {
     function_name_suffix: String,
-    value_type: String,
-    sender_signals: Vec<(String, String)>,
     write_method: String,
-    eval_function_body: Vec<u8>,
+    value_function: CxxEvalExprFunction,
 }
 
 impl CxxBinding {
@@ -219,11 +223,9 @@ impl CxxBinding {
         function_name_suffix: String,
         obj_node: ObjectNode,
         property_code: &PropertyCode,
-        value_ty: &TypeKind,
-        code: &tir::CodeBody,
+        value_function: CxxEvalExprFunction,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let sender_signals = code_translator.collect_sender_signals(code, diagnostics);
         let write_method = if let Some(f) = property_code.desc().write_func_name() {
             format!(
                 "{}->{}",
@@ -238,16 +240,10 @@ impl CxxBinding {
             ));
             return None;
         };
-        let mut eval_function_body = Vec::new();
-        code_translator
-            .translate(&mut eval_function_body, code)
-            .expect("write to bytes shouldn't fail");
         Some(CxxBinding {
             function_name_suffix,
-            value_type: value_ty.qualified_cxx_name().into(),
-            sender_signals,
             write_method,
-            eval_function_body,
+            value_function,
         })
     }
 
@@ -263,14 +259,10 @@ impl CxxBinding {
         format!("update{}", self.function_name_suffix)
     }
 
-    fn eval_function_name(&self) -> String {
-        format!("eval{}", self.function_name_suffix)
-    }
-
     fn write_setup_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
         writeln!(writer, "{indent}void {}()", self.setup_function_name())?;
         writeln!(writer, "{indent}{{")?;
-        for (sender, signal) in self.sender_signals.iter().unique() {
+        for (sender, signal) in self.value_function.sender_signals().unique() {
             writeln!(
                 writer,
                 "{indent}    QObject::connect({}, &{}, this->root_, [this]() {{ this->{}(); }});",
@@ -302,7 +294,7 @@ impl CxxBinding {
             writer,
             "{indent}    {}(this->{}());",
             self.write_method,
-            self.eval_function_name()
+            self.value_function.function_name()
         )?;
         writeln!(writer, "#ifndef QT_NO_DEBUG")?;
         writeln!(writer, "{indent}    {guard} &= ~{mask};")?;
@@ -311,15 +303,58 @@ impl CxxBinding {
         writeln!(writer)
     }
 
-    fn write_eval_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+    fn write_value_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+        self.value_function.write_function(writer, indent)
+    }
+}
+
+/// C++ function to evaluate binding expression.
+#[derive(Clone, Debug)]
+struct CxxEvalExprFunction {
+    name: String,
+    value_type: String,
+    sender_signals: Vec<(String, String)>,
+    body: Vec<u8>,
+}
+
+impl CxxEvalExprFunction {
+    fn build(
+        code_translator: &CxxCodeBodyTranslator,
+        name: impl Into<String>,
+        value_ty: &TypeKind,
+        code: &tir::CodeBody,
+        diagnostics: &mut Diagnostics,
+    ) -> Self {
+        let sender_signals = code_translator.collect_sender_signals(code, diagnostics);
+        let mut body = Vec::new();
+        code_translator
+            .translate(&mut body, code)
+            .expect("write to bytes shouldn't fail");
+        CxxEvalExprFunction {
+            name: name.into(),
+            value_type: value_ty.qualified_cxx_name().into(),
+            sender_signals,
+            body,
+        }
+    }
+
+    fn function_name(&self) -> String {
+        format!("eval{}", self.name)
+    }
+
+    fn sender_signals(&self) -> impl Iterator<Item = &(String, String)> {
+        self.sender_signals.iter()
+    }
+
+    fn write_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
         writeln!(
             writer,
             "{indent}{} {}() const",
             self.value_type,
-            self.eval_function_name()
+            self.function_name()
         )?;
         writeln!(writer, "{indent}{{")?;
-        writer.write_all(&self.eval_function_body)?;
+        writer.write_all(&self.body)?;
         writeln!(writer, "{indent}}}")?;
         writeln!(writer)
     }
