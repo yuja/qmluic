@@ -78,6 +78,16 @@ QDialog {
                         }
                         wordWrap: true
                     }
+
+                    // This is another way to bind font properties. Since QFont may have
+                    // multiple families, it's probably better to overwrite font.pointSize
+                    // instead of setting properties separately. See the example above.
+                    QLabel {
+                        text: "The quick brown fox jumps over the lazy dog."
+                        font.family: textFontFamilyEdit.currentFont.family
+                        font.pointSize: textFontSizeEdit.value
+                        wordWrap: true
+                    }
                 }
             }
         }
