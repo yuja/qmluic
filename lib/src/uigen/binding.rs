@@ -6,8 +6,9 @@ use crate::opcode::{BuiltinFunctionKind, BuiltinMethodKind};
 use crate::qtname::{self, FileNameRules, UniqueNameGenerator};
 use crate::tir;
 use crate::typedexpr::DescribeType as _;
-use crate::typemap::{TypeKind, TypeSpace};
+use crate::typemap::{Class, TypeKind, TypeSpace};
 use itertools::Itertools as _;
+use std::collections::HashMap;
 use std::io;
 
 /// C++ code to set up dynamic property bindings.
@@ -68,10 +69,20 @@ impl UiSupportCode {
                             diagnostics,
                         ))
                     }
-                    PropertyCodeKind::GadgetMap(..) | PropertyCodeKind::ObjectMap(..) => {
+                    PropertyCodeKind::GadgetMap(cls, map) => {
+                        CxxBindingValueFunction::GadgetMap(CxxEvalGadgetMapFunction::build(
+                            &binding_code_translator,
+                            &mut name_gen,
+                            &name,
+                            cls,
+                            map,
+                            diagnostics,
+                        ))
+                    }
+                    PropertyCodeKind::ObjectMap(..) => {
                         diagnostics.push(Diagnostic::error(
                             property_code.node().byte_range(),
-                            "dynamic map binding is not supported",
+                            "nested dynamic binding is not supported",
                         ));
                         return None;
                     }
@@ -289,6 +300,7 @@ impl CxxBinding {
 /// C++ expression to update dynamic property binding.
 #[derive(Clone, Debug)]
 struct CxxUpdateBinding {
+    read: String,
     write: String,
     value_function: CxxBindingValueFunction,
 }
@@ -299,6 +311,15 @@ impl CxxUpdateBinding {
         value_function: CxxBindingValueFunction,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
+        let read = if let Some(f) = property_code.desc().read_func_name() {
+            f.to_owned()
+        } else {
+            diagnostics.push(Diagnostic::error(
+                property_code.binding_node().byte_range(),
+                "not a readable property",
+            ));
+            return None;
+        };
         let write = if let Some(f) = property_code.desc().write_func_name() {
             f.to_owned()
         } else {
@@ -309,6 +330,7 @@ impl CxxUpdateBinding {
             return None;
         };
         Some(CxxUpdateBinding {
+            read,
             write,
             value_function,
         })
@@ -325,6 +347,18 @@ impl CxxUpdateBinding {
                     f.function_name()
                 )
             }
+            CxxBindingValueFunction::GadgetMap(f) => {
+                format!(
+                    "{}{}{}(this->{}({}{}{}()))",
+                    receiver,
+                    op,
+                    self.write,
+                    f.function_name(),
+                    receiver,
+                    op,
+                    self.read
+                )
+            }
         }
     }
 }
@@ -332,18 +366,21 @@ impl CxxUpdateBinding {
 #[derive(Clone, Debug)]
 enum CxxBindingValueFunction {
     Expr(CxxEvalExprFunction),
+    GadgetMap(CxxEvalGadgetMapFunction),
 }
 
 impl CxxBindingValueFunction {
     fn sender_signals(&self) -> Box<dyn Iterator<Item = &(String, String)> + '_> {
         match self {
             CxxBindingValueFunction::Expr(f) => Box::new(f.sender_signals()),
+            CxxBindingValueFunction::GadgetMap(f) => Box::new(f.sender_signals()),
         }
     }
 
     fn write_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
         match self {
             CxxBindingValueFunction::Expr(f) => f.write_function(writer, indent),
+            CxxBindingValueFunction::GadgetMap(f) => f.write_function(writer, indent),
         }
     }
 }
@@ -397,6 +434,104 @@ impl CxxEvalExprFunction {
         writer.write_all(&self.body)?;
         writeln!(writer, "{indent}}}")?;
         writeln!(writer)
+    }
+}
+
+/// C++ function to evaluate gadget map binding expressions.
+#[derive(Clone, Debug)]
+struct CxxEvalGadgetMapFunction {
+    name: String,
+    value_type: String,
+    bindings: Vec<CxxUpdateBinding>,
+}
+
+impl CxxEvalGadgetMapFunction {
+    fn build(
+        code_translator: &CxxCodeBodyTranslator,
+        name_gen: &mut UniqueNameGenerator,
+        name: impl Into<String>,
+        value_cls: &Class,
+        properties_map: &HashMap<&str, PropertyCode>,
+        diagnostics: &mut Diagnostics,
+    ) -> Self {
+        let name = name.into();
+        let bindings = properties_map
+            .iter()
+            .sorted_by_key(|&(k, _)| k)
+            .filter_map(|(_, property_code)| {
+                let sub_name = name_gen.generate(
+                    name.clone() + &qtname::to_ascii_capitalized(property_code.desc().name()),
+                );
+                let value_function = match property_code.kind() {
+                    PropertyCodeKind::Expr(ty, code) => {
+                        expr::verify_code_return_type(property_code.node(), code, ty, diagnostics)?;
+                        CxxBindingValueFunction::Expr(CxxEvalExprFunction::build(
+                            code_translator,
+                            sub_name,
+                            ty,
+                            code,
+                            diagnostics,
+                        ))
+                    }
+                    PropertyCodeKind::GadgetMap(cls, map) => {
+                        CxxBindingValueFunction::GadgetMap(CxxEvalGadgetMapFunction::build(
+                            code_translator,
+                            name_gen,
+                            sub_name,
+                            cls,
+                            map,
+                            diagnostics,
+                        ))
+                    }
+                    PropertyCodeKind::ObjectMap(..) => {
+                        diagnostics.push(Diagnostic::error(
+                            property_code.node().byte_range(),
+                            "nested dynamic binding is not supported",
+                        ));
+                        return None;
+                    }
+                };
+                CxxUpdateBinding::build(property_code, value_function, diagnostics)
+            })
+            .collect();
+
+        CxxEvalGadgetMapFunction {
+            name,
+            value_type: value_cls.qualified_cxx_name().into(),
+            bindings,
+        }
+    }
+
+    fn function_name(&self) -> String {
+        format!("eval{}", self.name)
+    }
+
+    fn sender_signals(&self) -> impl Iterator<Item = &(String, String)> {
+        self.bindings
+            .iter()
+            .flat_map(|b| b.value_function.sender_signals())
+    }
+
+    fn write_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+        writeln!(
+            writer,
+            "{indent}{} {}({} a) const",
+            self.value_type,
+            self.function_name(),
+            self.value_type
+        )?;
+        writeln!(writer, "{indent}{{")?;
+        for b in &self.bindings {
+            writeln!(writer, "{indent}    {};", b.format_expression("a", "."))?;
+        }
+        writeln!(writer, "{indent}    return a;")?;
+        writeln!(writer, "{indent}}}")?;
+        writeln!(writer)?;
+
+        for b in &self.bindings {
+            b.value_function.write_function(writer, indent)?;
+        }
+        Ok(())
     }
 }
 

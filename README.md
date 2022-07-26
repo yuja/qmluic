@@ -207,7 +207,7 @@ Major TODOs
   - [x] method/slot call
   - [x] property setter
   - [x] gadget property expression
-  - [ ] grouped/gadget property binding
+  - [x] grouped/gadget property binding
   - [x] cycle detection
   - [x] `if` statement
   - [x] `switch` statement

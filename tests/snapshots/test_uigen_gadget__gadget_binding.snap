@@ -1,0 +1,75 @@
+---
+source: tests/test_uigen_gadget.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_mytype.h"
+
+namespace UiSupport {
+class MyType
+{
+public:
+    MyType(QLabel *root, Ui::MyType *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+        this->setupLabelFont();
+        this->updateLabelFont();
+    }
+
+private:
+    enum class BindingIndex : unsigned {
+        LabelFont,
+    };
+
+    void setupLabelFont()
+    {
+        QObject::connect(this->ui_->familyEdit, &QLineEdit::textChanged, this->root_, [this]() { this->updateLabelFont(); });
+        QObject::connect(this->ui_->sizeEdit, &QSpinBox::valueChanged, this->root_, [this]() { this->updateLabelFont(); });
+    }
+
+    void updateLabelFont()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::LabelFont);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->root_->setFont(this->evalLabelFont(this->root_->font()));
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    QFont evalLabelFont(QFont a) const
+    {
+        a.setFamily(this->evalLabelFontFamily());
+        a.setPointSize(this->evalLabelFontPointSize());
+        return a;
+    }
+
+    QString evalLabelFontFamily() const
+    {
+        QString a0;
+    b0:
+        a0 = this->ui_->familyEdit->text();
+        return a0;
+    }
+
+    int evalLabelFontPointSize() const
+    {
+        int a0;
+    b0:
+        a0 = this->ui_->sizeEdit->value();
+        return a0;
+    }
+
+    QLabel *const root_;
+    Ui::MyType *const ui_;
+#ifndef QT_NO_DEBUG
+    quint32 bindingGuard_[1] = {0};
+#endif
+
+};
+} // namespace UiSupport
+
