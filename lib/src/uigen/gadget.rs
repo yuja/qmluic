@@ -1,5 +1,6 @@
 use super::context::{KnownClasses, ObjectContext};
-use super::expr::{self, SerializableValue, SimpleValue, StringKind};
+use super::expr::{self, SerializableValue, SimpleValue};
+use super::interpret::StringKind;
 use super::objcode::PropertyCode;
 use super::property;
 use super::xmlutil;

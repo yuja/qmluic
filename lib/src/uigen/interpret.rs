@@ -1,4 +1,4 @@
-use super::expr::{SimpleValue, StringKind};
+use super::expr::SimpleValue;
 use crate::opcode::{BinaryBitwiseOp, BinaryOp, BuiltinFunctionKind};
 use crate::tir::{BasicBlockRef, CodeBody, ConstantValue, Operand, Rvalue, Statement, Terminator};
 
@@ -13,6 +13,15 @@ pub(super) enum EvaluatedValue {
     ObjectRef(String),
     ObjectRefList(Vec<String>),
     EmptyList,
+}
+
+/// Marker of bare or translatable string.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StringKind {
+    /// Bare string.
+    NoTr,
+    /// String wrapped with `qsTr()`.
+    Tr,
 }
 
 impl EvaluatedValue {
