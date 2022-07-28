@@ -117,6 +117,12 @@ private:
         return;
     }
 
+    struct PropertyObserver
+    {
+        QMetaObject::Connection connection;
+        QObject *object = nullptr;
+    };
+
     QMainWindow *const root_;
     Ui::MainWindow *const ui_;
 #ifndef QT_NO_DEBUG

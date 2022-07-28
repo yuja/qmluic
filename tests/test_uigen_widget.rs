@@ -283,6 +283,23 @@ fn test_indirect_property_binding() {
 }
 
 #[test]
+fn test_dynamic_property_source() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QWidget {
+            windowTitle: (source.checked ? edit1 : edit2).text
+            QCheckBox { id: source }
+            QLineEdit { id: edit1 }
+            QLineEdit { id: edit2 }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
 fn test_dynamic_binding_type_mismatch() {
     let doc = common::parse_doc(
         r###"

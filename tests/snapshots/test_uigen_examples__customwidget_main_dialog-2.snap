@@ -19,6 +19,12 @@ private:
     enum class BindingIndex : unsigned {
     };
 
+    struct PropertyObserver
+    {
+        QMetaObject::Connection connection;
+        QObject *object = nullptr;
+    };
+
     QDialog *const root_;
     Ui::MainDialog *const ui_;
 

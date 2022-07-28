@@ -33,6 +33,12 @@ private:
         return;
     }
 
+    struct PropertyObserver
+    {
+        QMetaObject::Connection connection;
+        QObject *object = nullptr;
+    };
+
     QDialog *const root_;
     Ui::MyType *const ui_;
 
