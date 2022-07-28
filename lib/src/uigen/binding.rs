@@ -199,8 +199,18 @@ impl UiSupportCode {
     }
 
     fn write_fields<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+        writeln!(writer, "{indent}struct PropertyObserver")?;
+        writeln!(writer, "{indent}{{")?;
+        writeln!(writer, "{indent}    QMetaObject::Connection connection;")?;
+        writeln!(writer, "{indent}    QObject *object = nullptr;")?;
+        writeln!(writer, "{indent}}};")?;
+        writeln!(writer)?;
+
         writeln!(writer, "{indent}{} *const root_;", self.root_class)?;
         writeln!(writer, "{indent}{} *const ui_;", self.ui_class)?;
+        for b in &self.bindings {
+            b.write_field(writer, indent)?;
+        }
         if !self.bindings.is_empty() {
             // don't emit 0-sized array
             writeln!(writer, "#ifndef QT_NO_DEBUG")?;
@@ -292,7 +302,13 @@ impl CxxBinding {
     }
 
     fn write_value_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
-        self.update.value_function.write_function(writer, indent)
+        self.update
+            .value_function
+            .write_function(writer, indent, &self.update_function_name())
+    }
+
+    fn write_field<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+        self.update.value_function.write_field(writer, indent)
     }
 }
 
@@ -376,10 +392,26 @@ impl CxxBindingValueFunction {
         }
     }
 
-    fn write_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+    fn write_function<W: io::Write>(
+        &self,
+        writer: &mut W,
+        indent: &str,
+        update_function_name: &str,
+    ) -> io::Result<()> {
         match self {
-            CxxBindingValueFunction::Expr(f) => f.write_function(writer, indent),
-            CxxBindingValueFunction::GadgetMap(f) => f.write_function(writer, indent),
+            CxxBindingValueFunction::Expr(f) => {
+                f.write_function(writer, indent, update_function_name)
+            }
+            CxxBindingValueFunction::GadgetMap(f) => {
+                f.write_function(writer, indent, update_function_name)
+            }
+        }
+    }
+
+    fn write_field<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+        match self {
+            CxxBindingValueFunction::Expr(f) => f.write_field(writer, indent),
+            CxxBindingValueFunction::GadgetMap(f) => f.write_field(writer, indent),
         }
     }
 }
@@ -390,6 +422,7 @@ struct CxxEvalExprFunction {
     name: String,
     value_type: String,
     sender_signals: Vec<(String, String)>,
+    property_observer_count: usize,
     body: Vec<u8>,
 }
 
@@ -420,6 +453,7 @@ impl CxxEvalExprFunction {
             name: name.into(),
             value_type: value_ty.qualified_cxx_name().into(),
             sender_signals,
+            property_observer_count: code.property_observer_count,
             body,
         }
     }
@@ -428,11 +462,20 @@ impl CxxEvalExprFunction {
         format!("eval{}", self.name)
     }
 
+    fn property_observer_name(&self) -> String {
+        format!("observed{}_", self.name)
+    }
+
     fn sender_signals(&self) -> impl Iterator<Item = &(String, String)> {
         self.sender_signals.iter()
     }
 
-    fn write_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+    fn write_function<W: io::Write>(
+        &self,
+        writer: &mut W,
+        indent: &str,
+        update_function_name: &str,
+    ) -> io::Result<()> {
         writeln!(
             writer,
             "{indent}{} {}()",
@@ -440,9 +483,35 @@ impl CxxEvalExprFunction {
             self.function_name()
         )?;
         writeln!(writer, "{indent}{{")?;
+        if self.property_observer_count > 0 {
+            writeln!(
+                writer,
+                "{indent}    auto &observed = {};",
+                self.property_observer_name()
+            )?;
+            writeln!(
+                writer,
+                "{indent}    const auto update = [this]() {{ this->{}(); }};",
+                update_function_name
+            )?;
+        }
         writer.write_all(&self.body)?;
         writeln!(writer, "{indent}}}")?;
         writeln!(writer)
+    }
+
+    fn write_field<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+        if self.property_observer_count > 0 {
+            // don't emit 0-sized array
+            writeln!(
+                writer,
+                "{}PropertyObserver {}[{}];",
+                indent,
+                self.property_observer_name(),
+                self.property_observer_count
+            )?;
+        }
+        Ok(())
     }
 }
 
@@ -520,7 +589,12 @@ impl CxxEvalGadgetMapFunction {
             .flat_map(|b| b.value_function.sender_signals())
     }
 
-    fn write_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+    fn write_function<W: io::Write>(
+        &self,
+        writer: &mut W,
+        indent: &str,
+        update_function_name: &str,
+    ) -> io::Result<()> {
         writeln!(
             writer,
             "{indent}{} {}({} a)",
@@ -537,7 +611,15 @@ impl CxxEvalGadgetMapFunction {
         writeln!(writer)?;
 
         for b in &self.bindings {
-            b.value_function.write_function(writer, indent)?;
+            b.value_function
+                .write_function(writer, indent, update_function_name)?;
+        }
+        Ok(())
+    }
+
+    fn write_field<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+        for b in &self.bindings {
+            b.value_function.write_field(writer, indent)?;
         }
         Ok(())
     }
@@ -733,7 +815,41 @@ impl CxxCodeBodyTranslator {
                 self.format_rvalue(r)
             ),
             Statement::Exec(r) => writeln!(w, "{}{};", self.body_indent, self.format_rvalue(r)),
-            Statement::ObserveProperty(..) => todo!(),
+            Statement::ObserveProperty(h, l, prop) => {
+                // Note that minimizing the signal/slot connections is NOT the goal of the dynamic
+                // subscription. Uninteresting connection may be left if this statement is out
+                // of the execution path.
+                let observer = self.format_property_observer_ref(*h);
+                let sender = self.format_local_ref(*l);
+                // observer.object may point to deleted object, where new object could be
+                // allocated. observer.connection should be invalidated in such cases.
+                writeln!(
+                    w,
+                    "{}if (Q_UNLIKELY(!{}.connection || {}.object != {})) {{",
+                    self.body_indent, observer, observer, sender
+                )?;
+                writeln!(
+                    w,
+                    "{}    QObject::disconnect({}.connection);",
+                    self.body_indent, observer
+                )?;
+                writeln!(
+                    w,
+                    "{}    {}.connection = QObject::connect({}, &{}::{}, this->root_, update);",
+                    self.body_indent,
+                    observer,
+                    sender,
+                    prop.object_class().qualified_cxx_name(),
+                    prop.notify_signal_name()
+                        .expect("property must be observable"),
+                )?;
+                writeln!(
+                    w,
+                    "{}    {}.object = {};",
+                    self.body_indent, observer, sender
+                )?;
+                writeln!(w, "{}}}", self.body_indent)
+            }
         }
     }
 
@@ -751,6 +867,10 @@ impl CxxCodeBodyTranslator {
         } else {
             format!("this->ui_->{}", r.0)
         }
+    }
+
+    fn format_property_observer_ref(&self, r: tir::PropertyObserverRef) -> String {
+        format!("observed[{}]", r.0)
     }
 
     fn format_rvalue(&self, rv: &tir::Rvalue) -> String {

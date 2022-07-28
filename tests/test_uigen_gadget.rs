@@ -563,3 +563,23 @@ fn test_gadget_binding() {
     let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
     insta::assert_snapshot!(ui_support_h);
 }
+
+#[test]
+fn test_dynamic_gadget_property_sources() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QLabel {
+             font.family: (check.checked ? family1Edit : family2Edit).text
+             font.pointSize: (check.checked ? size1Edit : size2Edit).value
+             QCheckBox { id: check }
+             QLineEdit { id: family1Edit }
+             QSpinBox { id: size1Edit }
+             QLineEdit { id: family2Edit }
+             QSpinBox { id: size2Edit }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}

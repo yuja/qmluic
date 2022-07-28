@@ -124,6 +124,12 @@ private:
         return;
     }
 
+    struct PropertyObserver
+    {
+        QMetaObject::Connection connection;
+        QObject *object = nullptr;
+    };
+
     QDialog *const root_;
     Ui::HgEmailDialog *const ui_;
 #ifndef QT_NO_DEBUG
