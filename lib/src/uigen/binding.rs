@@ -402,10 +402,11 @@ impl CxxEvalExprFunction {
         code: &tir::CodeBody,
         diagnostics: &mut Diagnostics,
     ) -> Self {
-        let sender_signals = code_translator.collect_sender_signals(code, diagnostics);
+        let mut code = code.clone();
+        let sender_signals = code_translator.collect_sender_signals(&mut code, diagnostics);
         let mut body = Vec::new();
         code_translator
-            .translate(&mut body, code)
+            .translate(&mut body, &code)
             .expect("write to bytes shouldn't fail");
         CxxEvalExprFunction {
             name: name.into(),
@@ -651,7 +652,7 @@ impl CxxCodeBodyTranslator {
 
     fn collect_sender_signals(
         &self,
-        code: &tir::CodeBody,
+        code: &mut tir::CodeBody,
         diagnostics: &mut Diagnostics,
     ) -> Vec<(String, String)> {
         let static_deps = tir::analyze_code_property_dependency(code, diagnostics);
