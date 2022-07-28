@@ -1,6 +1,6 @@
 use super::context::ObjectContext;
 use super::gadget::{Gadget, GadgetKind, ModelItem, PaletteColorGroup};
-use super::interpret::EvaluatedValue;
+use super::interpret::{EvaluatedValue, StringKind};
 use super::objcode::{PropertyCode, PropertyCodeKind};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
@@ -218,15 +218,6 @@ impl fmt::Display for SimpleValue {
             }
         }
     }
-}
-
-/// Marker of bare or translatable string.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum StringKind {
-    /// Bare string.
-    NoTr,
-    /// String wrapped with `qsTr()`.
-    Tr,
 }
 
 fn serialize_string_list_to_xml<W, T>(
