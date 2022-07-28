@@ -184,6 +184,8 @@ pub enum Statement<'a> {
     Assign(LocalRef, Rvalue<'a>),
     /// `<rvalue>`
     Exec(Rvalue<'a>),
+    /// `disconnect(<observer>); <observer> = connect(<local>, <property>...)`
+    ObserveProperty(PropertyObserverRef, LocalRef, Property<'a>),
 }
 
 /// Last instruction to exit from `BasicBlock`.
@@ -363,6 +365,10 @@ impl Void {
         Void { byte_range }
     }
 }
+
+/// Index of dynamic object property observer.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct PropertyObserverRef(pub usize);
 
 /// Variant for rvalue expressions.
 #[derive(Clone, Debug, PartialEq)]

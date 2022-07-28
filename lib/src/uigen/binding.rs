@@ -744,6 +744,7 @@ impl CxxCodeBodyTranslator {
                 self.format_rvalue(r)
             ),
             Statement::Exec(r) => writeln!(w, "{}{};", self.body_indent, self.format_rvalue(r)),
+            Statement::ObserveProperty(..) => todo!(),
         }
     }
 

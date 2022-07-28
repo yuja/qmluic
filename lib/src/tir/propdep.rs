@@ -59,6 +59,7 @@ fn analyze_block<'a>(
                 }
                 _ => {}
             },
+            Statement::ObserveProperty(..) => {}
         }
 
         // update locals *after* inspecting rvalue
@@ -75,7 +76,7 @@ fn analyze_block<'a>(
                     _ => None,
                 };
             }
-            Statement::Exec(_) => {}
+            Statement::Exec(_) | Statement::ObserveProperty(..) => {}
         }
     }
 }

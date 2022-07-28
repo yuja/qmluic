@@ -40,6 +40,13 @@ fn dump_statement<W: io::Write>(w: &mut W, stmt: &Statement) -> io::Result<()> {
     match stmt {
         Statement::Assign(l, r) => writeln!(w, "    %{} = {}", l.0, format_rvalue(r)),
         Statement::Exec(r) => writeln!(w, "    {}", format_rvalue(r)),
+        Statement::ObserveProperty(h, l, prop) => writeln!(
+            w,
+            "    ^{} = observe_property %{}, {:?}",
+            h.0,
+            l.0,
+            prop.name()
+        ),
     }
 }
 

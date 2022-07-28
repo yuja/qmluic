@@ -109,6 +109,7 @@ pub fn evaluate_code(code: &CodeBody) -> Option<EvaluatedValue> {
                     }
                 }
                 Statement::Exec(_) => {} // uninteresting as a constant expression
+                Statement::ObserveProperty(..) => {}
             }
         }
 
