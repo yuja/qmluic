@@ -13,6 +13,7 @@ use std::ops::Range;
 pub struct CodeBody<'a> {
     pub basic_blocks: Vec<BasicBlock<'a>>,
     pub locals: Vec<Local<'a>>,
+    pub property_observer_count: usize,
 }
 
 impl<'a> CodeBody<'a> {
@@ -20,6 +21,7 @@ impl<'a> CodeBody<'a> {
         CodeBody {
             basic_blocks: vec![BasicBlock::empty()],
             locals: vec![],
+            property_observer_count: 0,
         }
     }
 
@@ -125,6 +127,12 @@ impl<'a> CodeBody<'a> {
                 }
             }
         }
+    }
+
+    pub(super) fn alloc_property_observer(&mut self) -> PropertyObserverRef {
+        let n = self.property_observer_count;
+        self.property_observer_count += 1;
+        PropertyObserverRef(n)
     }
 }
 
