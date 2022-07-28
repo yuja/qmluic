@@ -654,40 +654,18 @@ impl CxxCodeBodyTranslator {
         code: &tir::CodeBody,
         diagnostics: &mut Diagnostics,
     ) -> Vec<(String, String)> {
-        use tir::{Operand, Rvalue, Statement};
-        let mut sender_signals = Vec::new();
-        for s in code.basic_blocks.iter().flat_map(|b| &b.statements) {
-            match s {
-                Statement::Assign(_, r) | Statement::Exec(r) => match r {
-                    Rvalue::ReadProperty(a, prop) if a.type_desc().is_pointer() => match a {
-                        Operand::NamedObject(obj) => {
-                            if let Some(f) = prop.notify_signal_name() {
-                                let sender = self.format_named_object_ref(&obj.name);
-                                let signal =
-                                    format!("{}::{}", prop.object_class().qualified_cxx_name(), f);
-                                sender_signals.push((sender, signal));
-                            } else {
-                                diagnostics.push(Diagnostic::error(
-                                    a.byte_range(),
-                                    format!("unobservable property: {}", prop.name()),
-                                ));
-                            }
-                        }
-                        Operand::Local(_) => {
-                            diagnostics.push(Diagnostic::error(
-                                a.byte_range(),
-                                "chained object property is not supported",
-                            ));
-                        }
-                        Operand::Constant(_) | Operand::EnumVariant(_) | Operand::Void(_) => {
-                            panic!("invald read_property: {r:?}");
-                        }
-                    },
-                    _ => {}
-                },
-            }
-        }
-        sender_signals
+        let static_deps = tir::analyze_code_property_dependency(code, diagnostics);
+        static_deps
+            .iter()
+            .map(|(obj, prop)| {
+                let sender = self.format_named_object_ref(obj);
+                let class = prop.object_class().qualified_cxx_name();
+                let signal = prop
+                    .notify_signal_name()
+                    .expect("static dependency property must be observable");
+                (sender, format!("{class}::{signal}"))
+            })
+            .collect()
     }
 
     fn write_locals<W: io::Write>(&self, w: &mut W, locals: &[tir::Local]) -> io::Result<()> {
