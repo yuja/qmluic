@@ -1,8 +1,10 @@
+//! Minimal TIR interpreter designed for .ui generation pass.
+
+use super::{BasicBlockRef, CodeBody, ConstantValue, Operand, Rvalue, Statement, Terminator};
 use crate::opcode::{BinaryBitwiseOp, BinaryOp, BuiltinFunctionKind};
-use crate::tir::{BasicBlockRef, CodeBody, ConstantValue, Operand, Rvalue, Statement, Terminator};
 
 #[derive(Clone, Debug, PartialEq)]
-pub(super) enum EvaluatedValue {
+pub enum EvaluatedValue {
     Bool(bool),
     Integer(i64),
     Float(f64),
@@ -63,7 +65,7 @@ impl EvaluatedValue {
 }
 
 /// Evaluates TIR code to constant value.
-pub(super) fn evaluate_code(code: &CodeBody) -> Option<EvaluatedValue> {
+pub fn evaluate_code(code: &CodeBody) -> Option<EvaluatedValue> {
     // fast path for simple constant expression
     if let Terminator::Return(a @ Operand::Constant(_)) = code.basic_blocks[0].terminator() {
         return to_evaluated_value(&[], a, StringKind::NoTr);

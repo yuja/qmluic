@@ -1,11 +1,11 @@
 //! Code storage for UI object.
 
 use super::context::ObjectContext;
-use super::interpret::{self, EvaluatedValue};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectNode;
 use crate::qmlast::{Node, UiBindingMap, UiBindingValue};
 use crate::qtname;
+use crate::tir::interpret::EvaluatedValue;
 use crate::tir::{self, CodeBody};
 use crate::typemap::{
     Class, Method, MethodKind, MethodMatches, NamedType, Property, TypeKind, TypeSpace as _,
@@ -326,7 +326,7 @@ impl<'a, 't, 's> PropertyCode<'a, 't, 's> {
 
     fn evaluate_uncached(&self) -> Option<EvaluatedValue> {
         match &self.kind {
-            PropertyCodeKind::Expr(_, code) => interpret::evaluate_code(code),
+            PropertyCodeKind::Expr(_, code) => tir::evaluate_code(code),
             PropertyCodeKind::GadgetMap(..) | PropertyCodeKind::ObjectMap(..) => None,
         }
     }
