@@ -220,6 +220,19 @@ impl fmt::Display for SimpleValue {
     }
 }
 
+impl EvaluatedValue {
+    fn unwrap_into_simple_value(self) -> SimpleValue {
+        match self {
+            EvaluatedValue::Bool(v) => SimpleValue::Bool(v),
+            EvaluatedValue::Integer(v) => SimpleValue::Number(v as f64),
+            EvaluatedValue::Float(v) => SimpleValue::Number(v),
+            EvaluatedValue::String(s, k) => SimpleValue::String(s, k),
+            // enum can't be mapped to SimpleValue without type information
+            _ => panic!("evaluated type must be simple value"),
+        }
+    }
+}
+
 fn serialize_string_list_to_xml<W, T>(
     writer: &mut XmlWriter<W>,
     tag_name: T,

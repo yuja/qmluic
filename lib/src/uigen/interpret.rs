@@ -1,4 +1,3 @@
-use super::expr::SimpleValue;
 use crate::opcode::{BinaryBitwiseOp, BinaryOp, BuiltinFunctionKind};
 use crate::tir::{BasicBlockRef, CodeBody, ConstantValue, Operand, Rvalue, Statement, Terminator};
 
@@ -25,17 +24,6 @@ pub enum StringKind {
 }
 
 impl EvaluatedValue {
-    pub fn unwrap_into_simple_value(self) -> SimpleValue {
-        match self {
-            EvaluatedValue::Bool(v) => SimpleValue::Bool(v),
-            EvaluatedValue::Integer(v) => SimpleValue::Number(v as f64),
-            EvaluatedValue::Float(v) => SimpleValue::Number(v),
-            EvaluatedValue::String(s, k) => SimpleValue::String(s, k),
-            // enum can't be mapped to SimpleValue without type information
-            _ => panic!("evaluated type must be simple value"),
-        }
-    }
-
     pub fn unwrap_string(self) -> (String, StringKind) {
         match self {
             EvaluatedValue::String(s, k) => (s, k),
