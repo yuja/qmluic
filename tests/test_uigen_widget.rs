@@ -263,6 +263,26 @@ fn test_explicit_this_property_binding() {
 }
 
 #[test]
+fn test_indirect_property_binding() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QWidget {
+            QCheckBox { id: source }
+            QWidget {
+                visible: {
+                    let w = source;
+                    w.checked
+                }
+            }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
 fn test_dynamic_binding_type_mismatch() {
     let doc = common::parse_doc(
         r###"
