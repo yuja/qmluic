@@ -13,42 +13,42 @@ public:
 
     void setup()
     {
-        this->setupLabel4Alignment();
-        this->setupLabel4Font();
-        this->setupLabel5Font();
+        this->setupLabel6Alignment();
+        this->setupLabel6Font();
+        this->setupLabel7Font();
         this->setupButtonBoxAccepted();
         this->setupButtonBoxRejected();
-        this->updateLabel4Alignment();
-        this->updateLabel4Font();
-        this->updateLabel5Font();
+        this->updateLabel6Alignment();
+        this->updateLabel6Font();
+        this->updateLabel7Font();
     }
 
 private:
     enum class BindingIndex : unsigned {
-        Label4Alignment,
-        Label4Font,
-        Label5Font,
+        Label6Alignment,
+        Label6Font,
+        Label7Font,
     };
 
-    void setupLabel4Alignment()
+    void setupLabel6Alignment()
     {
-        QObject::connect(this->ui_->textAlignmentEdit, &QComboBox::currentIndexChanged, this->root_, [this]() { this->updateLabel4Alignment(); });
+        QObject::connect(this->ui_->textAlignmentEdit, &QComboBox::currentIndexChanged, this->root_, [this]() { this->updateLabel6Alignment(); });
     }
 
-    void updateLabel4Alignment()
+    void updateLabel6Alignment()
     {
 #ifndef QT_NO_DEBUG
-        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Label4Alignment);
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Label6Alignment);
         Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
         this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
 #endif
-        this->ui_->label4->setAlignment(this->evalLabel4Alignment());
+        this->ui_->label6->setAlignment(this->evalLabel6Alignment());
 #ifndef QT_NO_DEBUG
         this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
 #endif
     }
 
-    Qt::Alignment evalLabel4Alignment()
+    Qt::Alignment evalLabel6Alignment()
     {
         int a0;
         bool a1;
@@ -108,82 +108,166 @@ private:
         Q_UNREACHABLE();
     }
 
-    void setupLabel4Font()
+    void setupLabel6Font()
     {
-        QObject::connect(this->ui_->textFontFamilyEdit, &QFontComboBox::currentFontChanged, this->root_, [this]() { this->updateLabel4Font(); });
-        QObject::connect(this->ui_->textFontSizeEdit, &QSpinBox::valueChanged, this->root_, [this]() { this->updateLabel4Font(); });
+        QObject::connect(this->ui_->textFontRadio, &QAbstractButton::toggled, this->root_, [this]() { this->updateLabel6Font(); });
     }
 
-    void updateLabel4Font()
+    void updateLabel6Font()
     {
 #ifndef QT_NO_DEBUG
-        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Label4Font);
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Label6Font);
         Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
         this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
 #endif
-        this->ui_->label4->setFont(this->evalLabel4Font());
+        this->ui_->label6->setFont(this->evalLabel6Font());
 #ifndef QT_NO_DEBUG
         this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
 #endif
     }
 
-    QFont evalLabel4Font()
+    QFont evalLabel6Font()
     {
-        QFont a0;
-        QFont a1;
-        int a2;
+        auto &observed = observedLabel6Font_;
+        const auto update = [this]() { this->updateLabel6Font(); };
+        bool a0;
+        QFontComboBox* a1;
+        QFontComboBox* a2;
+        bool a3;
+        QSpinBox* a4;
+        QSpinBox* a5;
+        QFont a6;
+        QFont a7;
+        int a8;
     b0:
-        a0 = this->ui_->textFontFamilyEdit->currentFont();
-        a1 = a0;
-        a2 = this->ui_->textFontSizeEdit->value();
-        a1.setPointSize(a2);
-        return a1;
+        a0 = this->ui_->textFontRadio->isChecked();
+        if (a0)
+            goto b1;
+        else
+            goto b2;
     b1:
+        a1 = this->ui_->textFontFamilyEdit;
+        goto b3;
+    b2:
+        a1 = this->ui_->altFontFamilyEdit;
+        goto b3;
+    b3:
+        a2 = a1;
+        a3 = this->ui_->textFontRadio->isChecked();
+        if (a3)
+            goto b4;
+        else
+            goto b5;
+    b4:
+        a4 = this->ui_->textFontSizeEdit;
+        goto b6;
+    b5:
+        a4 = this->ui_->altFontSizeEdit;
+        goto b6;
+    b6:
+        a5 = a4;
+        if (Q_UNLIKELY(!observed[0].connection || observed[0].object != a2)) {
+            QObject::disconnect(observed[0].connection);
+            observed[0].connection = QObject::connect(a2, &QFontComboBox::currentFontChanged, this->root_, update);
+            observed[0].object = a2;
+        }
+        a6 = a2->currentFont();
+        a7 = a6;
+        if (Q_UNLIKELY(!observed[1].connection || observed[1].object != a5)) {
+            QObject::disconnect(observed[1].connection);
+            observed[1].connection = QObject::connect(a5, &QSpinBox::valueChanged, this->root_, update);
+            observed[1].object = a5;
+        }
+        a8 = a5->value();
+        a7.setPointSize(a8);
+        return a7;
+    b7:
         Q_UNREACHABLE();
     }
 
-    void setupLabel5Font()
+    void setupLabel7Font()
     {
-        QObject::connect(this->ui_->textFontFamilyEdit, &QFontComboBox::currentFontChanged, this->root_, [this]() { this->updateLabel5Font(); });
-        QObject::connect(this->ui_->textFontSizeEdit, &QSpinBox::valueChanged, this->root_, [this]() { this->updateLabel5Font(); });
+        QObject::connect(this->ui_->textFontRadio, &QAbstractButton::toggled, this->root_, [this]() { this->updateLabel7Font(); });
     }
 
-    void updateLabel5Font()
+    void updateLabel7Font()
     {
 #ifndef QT_NO_DEBUG
-        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Label5Font);
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::Label7Font);
         Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
         this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
 #endif
-        this->ui_->label5->setFont(this->evalLabel5Font(this->ui_->label5->font()));
+        this->ui_->label7->setFont(this->evalLabel7Font(this->ui_->label7->font()));
 #ifndef QT_NO_DEBUG
         this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
 #endif
     }
 
-    QFont evalLabel5Font(QFont a)
+    QFont evalLabel7Font(QFont a)
     {
-        a.setFamily(this->evalLabel5FontFamily());
-        a.setPointSize(this->evalLabel5FontPointSize());
+        a.setFamily(this->evalLabel7FontFamily());
+        a.setPointSize(this->evalLabel7FontPointSize());
         return a;
     }
 
-    QString evalLabel5FontFamily()
+    QString evalLabel7FontFamily()
     {
-        QFont a0;
-        QString a1;
+        auto &observed = observedLabel7FontFamily_;
+        const auto update = [this]() { this->updateLabel7Font(); };
+        bool a0;
+        QFontComboBox* a1;
+        QFont a2;
+        QString a3;
     b0:
-        a0 = this->ui_->textFontFamilyEdit->currentFont();
-        a1 = a0.family();
-        return a1;
+        a0 = this->ui_->textFontRadio->isChecked();
+        if (a0)
+            goto b1;
+        else
+            goto b2;
+    b1:
+        a1 = this->ui_->textFontFamilyEdit;
+        goto b3;
+    b2:
+        a1 = this->ui_->altFontFamilyEdit;
+        goto b3;
+    b3:
+        if (Q_UNLIKELY(!observed[0].connection || observed[0].object != a1)) {
+            QObject::disconnect(observed[0].connection);
+            observed[0].connection = QObject::connect(a1, &QFontComboBox::currentFontChanged, this->root_, update);
+            observed[0].object = a1;
+        }
+        a2 = a1->currentFont();
+        a3 = a2.family();
+        return a3;
     }
 
-    int evalLabel5FontPointSize()
+    int evalLabel7FontPointSize()
     {
-        int a0;
+        auto &observed = observedLabel7FontPointSize_;
+        const auto update = [this]() { this->updateLabel7Font(); };
+        bool a0;
+        QSpinBox* a1;
+        int a2;
     b0:
-        a0 = this->ui_->textFontSizeEdit->value();
-        return a0;
+        a0 = this->ui_->textFontRadio->isChecked();
+        if (a0)
+            goto b1;
+        else
+            goto b2;
+    b1:
+        a1 = this->ui_->textFontSizeEdit;
+        goto b3;
+    b2:
+        a1 = this->ui_->altFontSizeEdit;
+        goto b3;
+    b3:
+        if (Q_UNLIKELY(!observed[0].connection || observed[0].object != a1)) {
+            QObject::disconnect(observed[0].connection);
+            observed[0].connection = QObject::connect(a1, &QSpinBox::valueChanged, this->root_, update);
+            observed[0].object = a1;
+        }
+        a2 = a1->value();
+        return a2;
     }
 
     void setupButtonBoxAccepted()
@@ -218,6 +302,9 @@ private:
 
     QDialog *const root_;
     Ui::SettingsDialog *const ui_;
+    PropertyObserver observedLabel6Font_[2];
+    PropertyObserver observedLabel7FontFamily_[1];
+    PropertyObserver observedLabel7FontPointSize_[1];
 #ifndef QT_NO_DEBUG
     quint32 bindingGuard_[1] = {0};
 #endif

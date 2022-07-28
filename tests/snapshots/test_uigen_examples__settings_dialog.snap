@@ -85,11 +85,52 @@ expression: ui_xml
      <item column="0" row="2">
       <widget class="QLabel" name="label3">
        <property name="text">
-        <string>Text alignment:</string>
+        <string>Alternate font:</string>
        </property>
       </widget>
      </item>
      <item column="1" row="2">
+      <layout class="QHBoxLayout" name="hboxLayout2">
+       <item>
+        <widget class="QFontComboBox" name="altFontFamilyEdit">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QSpinBox" name="altFontSizeEdit">
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+         <property name="maximum">
+          <number>999</number>
+         </property>
+         <property name="value">
+          <number>9</number>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="label4">
+         <property name="text">
+          <string>pt</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item column="0" row="3">
+      <widget class="QLabel" name="label5">
+       <property name="text">
+        <string>Text alignment:</string>
+       </property>
+      </widget>
+     </item>
+     <item column="1" row="3">
       <widget class="QComboBox" name="textAlignmentEdit">
        <item>
         <property name="text">
@@ -113,7 +154,7 @@ expression: ui_xml
        </item>
       </widget>
      </item>
-     <item column="1" row="3">
+     <item column="1" row="4">
       <widget class="QFrame" name="frame">
        <property name="frameShadow">
         <enum>QFrame::Plain</enum>
@@ -123,7 +164,35 @@ expression: ui_xml
        </property>
        <layout class="QVBoxLayout" name="vboxLayout">
         <item>
-         <widget class="QLabel" name="label4">
+         <layout class="QHBoxLayout" name="hboxLayout3">
+          <item>
+           <widget class="QRadioButton" name="textFontRadio">
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+            <property name="text">
+             <string>Text font</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QRadioButton" name="radioButton">
+            <property name="text">
+             <string>Alternate font</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="spacerItem">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QLabel" name="label6">
           <property name="text">
            <string notr="true">The quick brown fox jumps over the lazy dog.</string>
           </property>
@@ -133,7 +202,7 @@ expression: ui_xml
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="label5">
+         <widget class="QLabel" name="label7">
           <property name="font">
            <font>
            </font>
@@ -152,7 +221,7 @@ expression: ui_xml
     </layout>
    </item>
    <item>
-    <spacer name="spacerItem">
+    <spacer name="spacerItem1">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
      </property>
