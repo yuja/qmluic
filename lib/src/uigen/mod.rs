@@ -13,7 +13,6 @@ mod context;
 mod expr;
 mod form;
 mod gadget;
-mod interpret;
 mod layout;
 mod objcode;
 mod object;

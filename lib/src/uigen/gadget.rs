@@ -1,6 +1,5 @@
 use super::context::{KnownClasses, ObjectContext};
 use super::expr::{self, SerializableValue, SimpleValue};
-use super::interpret::StringKind;
 use super::objcode::PropertyCode;
 use super::property;
 use super::xmlutil;
@@ -8,6 +7,7 @@ use super::{XmlResult, XmlWriter};
 use crate::color::Color;
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qtname;
+use crate::tir::interpret::StringKind;
 use crate::typemap::Class;
 use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};

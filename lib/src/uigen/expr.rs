@@ -1,6 +1,5 @@
 use super::context::ObjectContext;
 use super::gadget::{Gadget, GadgetKind, ModelItem, PaletteColorGroup};
-use super::interpret::{EvaluatedValue, StringKind};
 use super::objcode::{PropertyCode, PropertyCodeKind};
 use super::xmlutil;
 use super::{XmlResult, XmlWriter};
@@ -8,6 +7,7 @@ use crate::color::Color;
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::Node;
 use crate::tir;
+use crate::tir::interpret::{EvaluatedValue, StringKind};
 use crate::typemap::{NamedType, PrimitiveType, TypeKind, TypeSpace};
 use crate::typeutil;
 use quick_xml::events::{BytesStart, BytesText, Event};
