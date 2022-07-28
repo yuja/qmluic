@@ -39,6 +39,28 @@ QDialog {
                 QLabel { text: qsTr("pt") }
             }
 
+            QLabel { text: qsTr("Alternate font:") }
+            QHBoxLayout {
+                QFontComboBox {
+                    id: altFontFamilyEdit
+                    sizePolicy {
+                        horizontalPolicy: QSizePolicy.Expanding
+                        verticalPolicy: QSizePolicy.Fixed
+                        horizontalStretch: 0
+                        verticalStretch: 0
+                    }
+                }
+
+                QSpinBox {
+                    id: altFontSizeEdit
+                    alignment: Qt.AlignRight | Qt.AlignTrailing | Qt.AlignVCenter
+                    value: 9
+                    maximum: 999
+                }
+
+                QLabel { text: qsTr("pt") }
+            }
+
             QLabel { text: qsTr("Text alignment:") }
             QComboBox {
                 id: textAlignmentEdit
@@ -54,12 +76,31 @@ QDialog {
                 QLayout.column: 1
                 frameShape: QFrame.StyledPanel
                 frameShadow: QFrame.Plain
+
                 QVBoxLayout {
+                    QHBoxLayout {
+                        QRadioButton {
+                            id: textFontRadio
+                            text: qsTr("Text font")
+                            checked: true
+                        }
+
+                        QRadioButton {
+                            text: qsTr("Alternate font")
+                        }
+
+                        QSpacerItem { orientation: Qt.Horizontal }
+                    }
+
                     QLabel {
                         text: "The quick brown fox jumps over the lazy dog."
                         font: {
-                            let font = textFontFamilyEdit.currentFont;
-                            font.pointSize = textFontSizeEdit.value;
+                            let fontEdit = textFontRadio.checked ? textFontFamilyEdit
+                                                                 : altFontFamilyEdit;
+                            let sizeEdit = textFontRadio.checked ? textFontSizeEdit
+                                                                 : altFontSizeEdit;
+                            let font = fontEdit.currentFont;
+                            font.pointSize = sizeEdit.value;
                             return font;
                         }
                         alignment: {
@@ -84,8 +125,10 @@ QDialog {
                     // instead of setting properties separately. See the example above.
                     QLabel {
                         text: "The quick brown fox jumps over the lazy dog."
-                        font.family: textFontFamilyEdit.currentFont.family
-                        font.pointSize: textFontSizeEdit.value
+                        font.family: (textFontRadio.checked ? textFontFamilyEdit
+                                                            : altFontFamilyEdit).currentFont.family
+                        font.pointSize: (textFontRadio.checked ? textFontSizeEdit
+                                                               : altFontSizeEdit).value
                         wordWrap: true
                     }
                 }
