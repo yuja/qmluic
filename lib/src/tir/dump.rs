@@ -1,7 +1,9 @@
 use super::core::{
-    BasicBlock, CodeBody, ConstantValue, Local, Operand, Rvalue, Statement, Terminator,
+    BasicBlock, CodeBody, ConstantValue, Local, NamedObjectRef, Operand, Rvalue, Statement,
+    Terminator,
 };
 use crate::typedexpr::DescribeType;
+use crate::typemap::Property;
 use itertools::Itertools as _;
 use std::io;
 
@@ -12,12 +14,26 @@ pub fn dump_code_body<W: io::Write>(w: &mut W, code: &CodeBody) -> io::Result<()
         writeln!(w, ".{}:", i)?;
         dump_basic_block(w, b)?;
     }
+    if !code.static_property_deps.is_empty() {
+        writeln!(w, "static_property_deps:")?;
+        dump_static_property_deps(w, &code.static_property_deps)?;
+    }
     Ok(())
 }
 
 fn dump_locals<W: io::Write>(w: &mut W, locals: &[Local]) -> io::Result<()> {
     for a in locals {
         writeln!(w, "    %{}: {}", a.name.0, a.ty.qualified_cxx_name())?;
+    }
+    Ok(())
+}
+
+fn dump_static_property_deps<W: io::Write>(
+    w: &mut W,
+    deps: &[(NamedObjectRef, Property)],
+) -> io::Result<()> {
+    for (n, prop) in deps {
+        writeln!(w, "    [{}], {:?}", n.0, prop.name())?;
     }
     Ok(())
 }
