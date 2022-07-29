@@ -66,7 +66,6 @@ impl UiSupportCode {
                             &name,
                             ty,
                             code,
-                            diagnostics,
                         ))
                     }
                     PropertyCodeKind::GadgetMap(cls, map) => {
@@ -400,13 +399,11 @@ impl CxxEvalExprFunction {
         name: impl Into<String>,
         value_ty: &TypeKind,
         code: &tir::CodeBody,
-        diagnostics: &mut Diagnostics,
     ) -> Self {
-        let mut code = code.clone();
-        let sender_signals = code_translator.collect_sender_signals(&mut code, diagnostics);
+        let sender_signals = code_translator.collect_sender_signals(code);
         let mut body = Vec::new();
         code_translator
-            .translate(&mut body, &code)
+            .translate(&mut body, code)
             .expect("write to bytes shouldn't fail");
         CxxEvalExprFunction {
             name: name.into(),
@@ -471,7 +468,6 @@ impl CxxEvalGadgetMapFunction {
                             sub_name,
                             ty,
                             code,
-                            diagnostics,
                         ))
                     }
                     PropertyCodeKind::GadgetMap(cls, map) => {
@@ -650,12 +646,7 @@ impl CxxCodeBodyTranslator {
         Ok(())
     }
 
-    fn collect_sender_signals(
-        &self,
-        code: &mut tir::CodeBody,
-        diagnostics: &mut Diagnostics,
-    ) -> Vec<(String, String)> {
-        tir::analyze_code_property_dependency(code, diagnostics);
+    fn collect_sender_signals(&self, code: &tir::CodeBody) -> Vec<(String, String)> {
         code.static_property_deps
             .iter()
             .map(|(obj, prop)| {
