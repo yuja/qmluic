@@ -400,7 +400,18 @@ impl CxxEvalExprFunction {
         value_ty: &TypeKind,
         code: &tir::CodeBody,
     ) -> Self {
-        let sender_signals = code_translator.collect_sender_signals(code);
+        let sender_signals = code
+            .static_property_deps
+            .iter()
+            .map(|(obj, prop)| {
+                let sender = code_translator.format_named_object_ref(obj);
+                let class = prop.object_class().qualified_cxx_name();
+                let signal = prop
+                    .notify_signal_name()
+                    .expect("static dependency property must be observable");
+                (sender, format!("{class}::{signal}"))
+            })
+            .collect();
         let mut body = Vec::new();
         code_translator
             .translate(&mut body, code)
@@ -644,20 +655,6 @@ impl CxxCodeBodyTranslator {
             self.write_basic_block(w, b)?;
         }
         Ok(())
-    }
-
-    fn collect_sender_signals(&self, code: &tir::CodeBody) -> Vec<(String, String)> {
-        code.static_property_deps
-            .iter()
-            .map(|(obj, prop)| {
-                let sender = self.format_named_object_ref(obj);
-                let class = prop.object_class().qualified_cxx_name();
-                let signal = prop
-                    .notify_signal_name()
-                    .expect("static dependency property must be observable");
-                (sender, format!("{class}::{signal}"))
-            })
-            .collect()
     }
 
     fn write_locals<W: io::Write>(&self, w: &mut W, locals: &[tir::Local]) -> io::Result<()> {
