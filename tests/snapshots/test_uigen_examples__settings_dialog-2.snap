@@ -48,7 +48,7 @@ private:
 #endif
     }
 
-    Qt::Alignment evalLabel4Alignment() const
+    Qt::Alignment evalLabel4Alignment()
     {
         int a0;
         bool a1;
@@ -127,7 +127,7 @@ private:
 #endif
     }
 
-    QFont evalLabel4Font() const
+    QFont evalLabel4Font()
     {
         QFont a0;
         QFont a1;
@@ -161,14 +161,14 @@ private:
 #endif
     }
 
-    QFont evalLabel5Font(QFont a) const
+    QFont evalLabel5Font(QFont a)
     {
         a.setFamily(this->evalLabel5FontFamily());
         a.setPointSize(this->evalLabel5FontPointSize());
         return a;
     }
 
-    QString evalLabel5FontFamily() const
+    QString evalLabel5FontFamily()
     {
         QFont a0;
         QString a1;
@@ -178,7 +178,7 @@ private:
         return a1;
     }
 
-    int evalLabel5FontPointSize() const
+    int evalLabel5FontPointSize()
     {
         int a0;
     b0:

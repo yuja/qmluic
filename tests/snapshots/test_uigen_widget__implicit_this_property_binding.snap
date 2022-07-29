@@ -40,7 +40,7 @@ private:
 #endif
     }
 
-    bool evalCheckBoxChecked() const
+    bool evalCheckBoxChecked()
     {
         QString a0;
         bool a1;

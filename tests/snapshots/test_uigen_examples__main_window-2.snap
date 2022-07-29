@@ -44,7 +44,7 @@ private:
 #endif
     }
 
-    int evalFormStackCurrentIndex() const
+    int evalFormStackCurrentIndex()
     {
         int a0;
     b0:
@@ -71,7 +71,7 @@ private:
 #endif
     }
 
-    QString evalRootWindowTitle() const
+    QString evalRootWindowTitle()
     {
         int a0;
         bool a1;

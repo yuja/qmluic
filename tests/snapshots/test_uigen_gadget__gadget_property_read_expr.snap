@@ -40,7 +40,7 @@ private:
 #endif
     }
 
-    QString evalLabelText() const
+    QString evalLabelText()
     {
         QFont a0;
         QString a1;
