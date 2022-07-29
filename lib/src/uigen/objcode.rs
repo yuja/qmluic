@@ -356,7 +356,8 @@ impl<'a, 't, 's> PropertyCodeKind<'a, 't, 's> {
             UiBindingValue::Node(n) => {
                 // TODO: wanna verify return type, but can't because static uigen has
                 // various implicit conversion rules (e.g. string -> color.)
-                let code = tir::build(ctx, *n, ctx.source, diagnostics)?;
+                let mut code = tir::build(ctx, *n, ctx.source, diagnostics)?;
+                tir::analyze_code_property_dependency(&mut code, diagnostics);
                 Some(PropertyCodeKind::Expr(ty, code))
             }
             UiBindingValue::Map(n, m) => match ty {
