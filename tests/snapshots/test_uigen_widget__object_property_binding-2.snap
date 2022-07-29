@@ -40,7 +40,7 @@ private:
 #endif
     }
 
-    bool evalWidgetVisible() const
+    bool evalWidgetVisible()
     {
         bool a0;
     b0:

@@ -43,7 +43,7 @@ private:
 #endif
     }
 
-    QString evalLabelText() const
+    QString evalLabelText()
     {
         int a0;
         QString a1;
@@ -70,7 +70,7 @@ private:
 #endif
     }
 
-    QString evalLabel1Text() const
+    QString evalLabel1Text()
     {
         QString a0;
     b0:

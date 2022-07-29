@@ -41,7 +41,7 @@ private:
 #endif
     }
 
-    QFont evalLabelFont() const
+    QFont evalLabelFont()
     {
         QFont a0;
         QFont a1;

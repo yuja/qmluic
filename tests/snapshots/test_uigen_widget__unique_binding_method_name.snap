@@ -43,7 +43,7 @@ private:
 #endif
     }
 
-    QString evalMainWindowTitle() const
+    QString evalMainWindowTitle()
     {
         QString a0;
     b0:
@@ -69,7 +69,7 @@ private:
 #endif
     }
 
-    QString evalMainWindowTitle1() const
+    QString evalMainWindowTitle1()
     {
         QString a0;
     b0:

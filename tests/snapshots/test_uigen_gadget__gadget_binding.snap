@@ -41,14 +41,14 @@ private:
 #endif
     }
 
-    QFont evalLabelFont(QFont a) const
+    QFont evalLabelFont(QFont a)
     {
         a.setFamily(this->evalLabelFontFamily());
         a.setPointSize(this->evalLabelFontPointSize());
         return a;
     }
 
-    QString evalLabelFontFamily() const
+    QString evalLabelFontFamily()
     {
         QString a0;
     b0:
@@ -56,7 +56,7 @@ private:
         return a0;
     }
 
-    int evalLabelFontPointSize() const
+    int evalLabelFontPointSize()
     {
         int a0;
     b0:

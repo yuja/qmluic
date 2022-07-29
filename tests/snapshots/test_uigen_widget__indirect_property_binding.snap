@@ -40,7 +40,7 @@ private:
 #endif
     }
 
-    bool evalWidgetVisible() const
+    bool evalWidgetVisible()
     {
         QCheckBox* a0;
         bool a1;

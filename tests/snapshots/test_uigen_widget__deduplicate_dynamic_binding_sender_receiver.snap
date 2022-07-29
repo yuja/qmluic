@@ -40,7 +40,7 @@ private:
 #endif
     }
 
-    bool evalEditEnabled() const
+    bool evalEditEnabled()
     {
         QString a0;
         bool a1;

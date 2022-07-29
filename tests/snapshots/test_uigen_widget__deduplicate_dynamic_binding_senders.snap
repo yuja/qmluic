@@ -41,7 +41,7 @@ private:
 #endif
     }
 
-    QString evalDialogWindowTitle() const
+    QString evalDialogWindowTitle()
     {
         int a0;
         bool a1;

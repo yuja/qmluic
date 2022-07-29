@@ -435,7 +435,7 @@ impl CxxEvalExprFunction {
     fn write_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
         writeln!(
             writer,
-            "{indent}{} {}() const",
+            "{indent}{} {}()",
             self.value_type,
             self.function_name()
         )?;
@@ -523,7 +523,7 @@ impl CxxEvalGadgetMapFunction {
     fn write_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
         writeln!(
             writer,
-            "{indent}{} {}({} a) const",
+            "{indent}{} {}({} a)",
             self.value_type,
             self.function_name(),
             self.value_type
