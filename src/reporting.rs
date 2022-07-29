@@ -1,8 +1,13 @@
+use camino::{Utf8Path, Utf8PathBuf};
 use codespan_reporting::diagnostic::{Label, LabelStyle, Severity};
 use codespan_reporting::files::SimpleFile;
 use codespan_reporting::term;
 use qmluic::diagnostic::{DiagnosticKind, Diagnostics};
 use qmluic::qmldoc::{SyntaxError, SyntaxErrorKind, UiDocument};
+use std::borrow::Cow;
+use std::env;
+use std::iter;
+use std::path::Path;
 use termcolor::{ColorChoice, StandardStream};
 
 pub type ReportableDiagnostic = codespan_reporting::diagnostic::Diagnostic<()>;
@@ -77,4 +82,52 @@ where
         term::emit(&mut stderr.lock(), &config, &files, &d)?;
     }
     Ok(())
+}
+
+/// Turns the given `path` into relative path from the `start`.
+///
+/// Both `path` and `start` are supposed to be absolute paths.
+///
+/// ```
+/// # use camino::Utf8Path;
+/// # use std::path::Path;
+/// # use qmluic_cli::reporting::*;
+/// assert_eq!(make_relative_path(Utf8Path::new("/foo"), Path::new("/foo")),
+///            Utf8Path::new("."));
+/// assert_eq!(make_relative_path(Utf8Path::new("/foo/bar"), Path::new("/foo")),
+///            Utf8Path::new("bar"));
+/// assert_eq!(make_relative_path(Utf8Path::new("/foo"), Path::new("/foo/bar")),
+///            Utf8Path::new(".."));
+/// assert_eq!(make_relative_path(Utf8Path::new("/foo/bar"), Path::new("/foo/foo/baz")),
+///            Utf8Path::new("../../bar"));
+/// assert_eq!(make_relative_path(Utf8Path::new("/foo/bar"), Path::new("/baz")),
+///            Utf8Path::new("../foo/bar"));
+/// ```
+pub fn make_relative_path(path: &Utf8Path, start: impl AsRef<Path>) -> Cow<Utf8Path> {
+    // find common prefix
+    for (i, base) in start.as_ref().ancestors().enumerate() {
+        if let Ok(p) = path.strip_prefix(base) {
+            if i == 0 && p.as_str().is_empty() {
+                return Cow::Borrowed(".".into());
+            } else if i == 0 {
+                return Cow::Borrowed(p);
+            } else {
+                let mut rel_path = Utf8PathBuf::from_iter(iter::repeat("..").take(i));
+                rel_path.push(p);
+                return Cow::Owned(rel_path);
+            }
+        }
+    }
+
+    // no way to make it relative (e.g. different Windows drive letter?)
+    Cow::Borrowed(path)
+}
+
+/// Turns the given `path` into relative path from the current working directory.
+pub fn make_cwd_relative_path(path: &Utf8Path) -> Cow<Utf8Path> {
+    if let Ok(cwd) = env::current_dir() {
+        make_relative_path(path, cwd)
+    } else {
+        Cow::Borrowed(path)
+    }
 }
