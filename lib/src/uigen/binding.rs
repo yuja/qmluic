@@ -655,8 +655,8 @@ impl CxxCodeBodyTranslator {
         code: &mut tir::CodeBody,
         diagnostics: &mut Diagnostics,
     ) -> Vec<(String, String)> {
-        let static_deps = tir::analyze_code_property_dependency(code, diagnostics);
-        static_deps
+        tir::analyze_code_property_dependency(code, diagnostics);
+        code.static_property_deps
             .iter()
             .map(|(obj, prop)| {
                 let sender = self.format_named_object_ref(obj);
