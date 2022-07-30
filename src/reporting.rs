@@ -74,8 +74,9 @@ where
 {
     let stderr = StandardStream::stderr(ColorChoice::Auto);
     let config = term::Config::default();
+    let rel_path = doc.path().map(make_cwd_relative_path);
     let files = SimpleFile::new(
-        doc.path().map(|p| p.as_str()).unwrap_or("<unknown>"),
+        rel_path.unwrap_or_else(|| Cow::Borrowed("<unknown>".into())),
         doc.source(),
     );
     for d in diagnostics {
