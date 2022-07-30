@@ -60,12 +60,6 @@ impl TestEnv {
             .args(args);
         cmd
     }
-
-    pub fn replace_base_path(&self, data: impl AsRef<str>) -> String {
-        let norm_path = self.base_path().canonicalize().unwrap();
-        let pat = norm_path.as_os_str().to_str().unwrap();
-        data.as_ref().replace(pat, "$BASE_PATH").replace('\\', "/")
-    }
 }
 
 pub fn dedent(data: impl AsRef<str>) -> String {
