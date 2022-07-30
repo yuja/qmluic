@@ -126,7 +126,8 @@ pub fn make_relative_path(path: &Utf8Path, start: impl AsRef<Path>) -> Cow<Utf8P
 
 /// Turns the given `path` into relative path from the current working directory.
 pub fn make_cwd_relative_path(path: &Utf8Path) -> Cow<Utf8Path> {
-    if let Ok(cwd) = env::current_dir() {
+    // qmldir::normalize_path() uses canonicalize(), which disagree with the cwd on Windows.
+    if let Ok(cwd) = env::current_dir().and_then(|p| p.canonicalize()) {
         make_relative_path(path, cwd)
     } else {
         Cow::Borrowed(path)
