@@ -92,7 +92,7 @@ fn test_property_error() {
     insta::assert_snapshot!(env.replace_base_path(str::from_utf8(&a.get_output().stderr).unwrap()), @r###"
     processing PropError.qml
     error: unknown property of class 'QDialog': unknown
-      ┌─ $BASE_PATH/PropError.qml:3:5
+      ┌─ PropError.qml:3:5
       │
     3 │     unknown: ""
       │     ^^^^^^^^^^^
@@ -117,7 +117,7 @@ fn test_syntax_error_general() {
     insta::assert_snapshot!(env.replace_base_path(str::from_utf8(&a.get_output().stderr).unwrap()), @r###"
     processing SyntaxError.qml
     error: syntax error
-      ┌─ $BASE_PATH/SyntaxError.qml:2:24
+      ┌─ SyntaxError.qml:2:24
       │
     2 │ QDialog { windowTitle: "what" "ever" }
       │                        ^^^^^^
@@ -142,7 +142,7 @@ fn test_syntax_error_missing() {
     insta::assert_snapshot!(env.replace_base_path(str::from_utf8(&a.get_output().stderr).unwrap()), @r###"
     processing SyntaxError.qml
     error: syntax error: missing }
-      ┌─ $BASE_PATH/SyntaxError.qml:2:30
+      ┌─ SyntaxError.qml:2:30
       │
     2 │ QDialog { windowTitle: "what"
       │                              ^ missing }
@@ -167,7 +167,7 @@ fn test_warning() {
     insta::assert_snapshot!(env.replace_base_path(str::from_utf8(&a.get_output().stderr).unwrap()), @r###"
     processing Warning.qml
     warning: import version is ignored
-      ┌─ $BASE_PATH/Warning.qml:1:1
+      ┌─ Warning.qml:1:1
       │
     1 │ import qmluic.QtWidgets 6.2
       │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^
