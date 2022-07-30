@@ -55,7 +55,7 @@ fn test_output_directory_absolute() {
         .generate_ui_cmd(["-O", "out", env.join("Foo.qml").to_str().unwrap()])
         .assert()
         .failure();
-    insta::assert_snapshot!(env.replace_base_path(str::from_utf8(&a.get_output().stderr).unwrap()), @r###"
+    insta::assert_snapshot!(str::from_utf8(&a.get_output().stderr).unwrap(), @r###"
     error: source file paths must be relative if --output-directory is specified
     "###);
 }
@@ -70,7 +70,7 @@ fn test_output_directory_escaped() {
         .current_dir(env.join("dir"))
         .assert()
         .failure();
-    insta::assert_snapshot!(env.replace_base_path(str::from_utf8(&a.get_output().stderr).unwrap()), @r###"
+    insta::assert_snapshot!(str::from_utf8(&a.get_output().stderr).unwrap(), @r###"
     error: source file paths must be relative if --output-directory is specified
     "###);
 }
@@ -89,7 +89,7 @@ fn test_property_error() {
     );
 
     let a = env.generate_ui_cmd(["PropError.qml"]).assert().failure();
-    insta::assert_snapshot!(env.replace_base_path(str::from_utf8(&a.get_output().stderr).unwrap()), @r###"
+    insta::assert_snapshot!(str::from_utf8(&a.get_output().stderr).unwrap(), @r###"
     processing PropError.qml
     error: unknown property of class 'QDialog': unknown
       ┌─ PropError.qml:3:5
@@ -114,7 +114,7 @@ fn test_syntax_error_general() {
     );
 
     let a = env.generate_ui_cmd(["SyntaxError.qml"]).assert().failure();
-    insta::assert_snapshot!(env.replace_base_path(str::from_utf8(&a.get_output().stderr).unwrap()), @r###"
+    insta::assert_snapshot!(str::from_utf8(&a.get_output().stderr).unwrap(), @r###"
     processing SyntaxError.qml
     error: syntax error
       ┌─ SyntaxError.qml:2:24
@@ -139,7 +139,7 @@ fn test_syntax_error_missing() {
     );
 
     let a = env.generate_ui_cmd(["SyntaxError.qml"]).assert().failure();
-    insta::assert_snapshot!(env.replace_base_path(str::from_utf8(&a.get_output().stderr).unwrap()), @r###"
+    insta::assert_snapshot!(str::from_utf8(&a.get_output().stderr).unwrap(), @r###"
     processing SyntaxError.qml
     error: syntax error: missing }
       ┌─ SyntaxError.qml:2:30
@@ -164,7 +164,7 @@ fn test_warning() {
     );
 
     let a = env.generate_ui_cmd(["Warning.qml"]).assert().success();
-    insta::assert_snapshot!(env.replace_base_path(str::from_utf8(&a.get_output().stderr).unwrap()), @r###"
+    insta::assert_snapshot!(str::from_utf8(&a.get_output().stderr).unwrap(), @r###"
     processing Warning.qml
     warning: import version is ignored
       ┌─ Warning.qml:1:1
