@@ -9,7 +9,7 @@ use crate::typedexpr::DescribeType as _;
 use crate::typemap::{Class, TypeKind, TypeSpace};
 use itertools::Itertools as _;
 use std::collections::HashMap;
-use std::io;
+use std::io::{self, Write as _};
 
 /// C++ code to set up dynamic property bindings.
 #[derive(Clone, Debug)]
@@ -117,111 +117,110 @@ impl UiSupportCode {
     /// Writes C++ header content.
     pub fn write_header<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
         // TODO: code style options, factor out code generator?
-        writeln!(writer, "#pragma once")?;
+        let mut w = CodeWriter::new(writer);
+        writeln!(w, "#pragma once")?;
         for f in &self.quote_includes {
-            writeln!(writer, r###"#include "{f}""###)?;
+            writeln!(w, r###"#include "{f}""###)?;
         }
-        writeln!(writer)?;
-        writeln!(writer, "namespace UiSupport {{")?;
+        writeln!(w)?;
+        writeln!(w, "namespace UiSupport {{")?;
 
-        writeln!(writer, "class {}", self.self_class)?;
-        writeln!(writer, "{{")?;
-        writeln!(writer, "public:")?;
-        self.write_constructor(writer, "    ")?;
-        self.write_setup_function(writer, "    ")?;
-        writeln!(writer, "private:")?;
-        self.write_binding_index(writer, "    ")?;
-        self.write_binding_functions(writer, "    ")?;
-        self.write_callback_functions(writer, "    ")?;
-        self.write_fields(writer, "    ")?;
-        writeln!(writer, "}};")?;
+        writeln!(w, "class {}", self.self_class)?;
+        writeln!(w, "{{")?;
+        writeln!(w, "public:")?;
+        self.write_constructor(&mut w.indented())?;
+        self.write_setup_function(&mut w.indented())?;
+        writeln!(w, "private:")?;
+        self.write_binding_index(&mut w.indented())?;
+        self.write_binding_functions(&mut w.indented())?;
+        self.write_callback_functions(&mut w.indented())?;
+        self.write_fields(&mut w.indented())?;
+        writeln!(w, "}};")?;
 
-        writeln!(writer, "}} // namespace UiSupport")
+        writeln!(w, "}} // namespace UiSupport")
     }
 
-    fn write_constructor<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+    fn write_constructor<W: io::Write>(&self, w: &mut CodeWriter<W>) -> io::Result<()> {
         writeln!(
-            writer,
-            "{indent}{}({} *root, {} *ui): root_(root), ui_(ui) {{}}",
+            w,
+            "{}({} *root, {} *ui): root_(root), ui_(ui) {{}}",
             self.self_class, self.root_class, self.ui_class,
         )?;
-        writeln!(writer)
+        writeln!(w)
     }
 
-    fn write_setup_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
-        writeln!(writer, "{indent}void setup()")?;
-        writeln!(writer, "{indent}{{")?;
+    fn write_setup_function<W: io::Write>(&self, w: &mut CodeWriter<W>) -> io::Result<()> {
+        writeln!(w, "void setup()")?;
+        writeln!(w, "{{")?;
+        w.indent();
         for b in &self.bindings {
-            writeln!(writer, "{indent}    this->{}();", b.setup_function_name())?;
+            writeln!(w, "this->{}();", b.setup_function_name())?;
         }
         for c in &self.callbacks {
-            writeln!(writer, "{indent}    this->{}();", c.setup_function_name())?;
+            writeln!(w, "this->{}();", c.setup_function_name())?;
         }
         for b in &self.bindings {
-            writeln!(writer, "{indent}    this->{}();", b.update_function_name())?;
+            writeln!(w, "this->{}();", b.update_function_name())?;
         }
-        writeln!(writer, "{indent}}}")?;
-        writeln!(writer)
+        w.unindent();
+        writeln!(w, "}}")?;
+        writeln!(w)
     }
 
-    fn write_binding_index<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
-        writeln!(writer, "{indent}enum class BindingIndex : unsigned {{")?;
+    fn write_binding_index<W: io::Write>(&self, w: &mut CodeWriter<W>) -> io::Result<()> {
+        writeln!(w, "enum class BindingIndex : unsigned {{")?;
+        w.indent();
         for b in &self.bindings {
-            writeln!(writer, "{indent}    {},", b.name())?;
+            writeln!(w, "{},", b.name())?;
         }
-        writeln!(writer, "{indent}}};")?;
-        writeln!(writer)
+        w.unindent();
+        writeln!(w, "}};")?;
+        writeln!(w)
     }
 
-    fn write_binding_functions<W: io::Write>(
-        &self,
-        writer: &mut W,
-        indent: &str,
-    ) -> io::Result<()> {
+    fn write_binding_functions<W: io::Write>(&self, w: &mut CodeWriter<W>) -> io::Result<()> {
         for b in &self.bindings {
-            b.write_setup_function(writer, indent)?;
-            b.write_update_function(writer, indent)?;
-            b.write_value_function(writer, indent)?;
+            b.write_setup_function(w)?;
+            b.write_update_function(w)?;
+            b.write_value_function(w)?;
         }
         Ok(())
     }
 
-    fn write_callback_functions<W: io::Write>(
-        &self,
-        writer: &mut W,
-        indent: &str,
-    ) -> io::Result<()> {
+    fn write_callback_functions<W: io::Write>(&self, w: &mut CodeWriter<W>) -> io::Result<()> {
         for c in &self.callbacks {
-            c.write_setup_function(writer, indent)?;
-            c.write_callback_function(writer, indent)?;
+            c.write_setup_function(w)?;
+            c.write_callback_function(w)?;
         }
         Ok(())
     }
 
-    fn write_fields<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
-        writeln!(writer, "{indent}struct PropertyObserver")?;
-        writeln!(writer, "{indent}{{")?;
-        writeln!(writer, "{indent}    QMetaObject::Connection connection;")?;
-        writeln!(writer, "{indent}    QObject *object = nullptr;")?;
-        writeln!(writer, "{indent}}};")?;
-        writeln!(writer)?;
+    fn write_fields<W: io::Write>(&self, w: &mut CodeWriter<W>) -> io::Result<()> {
+        writeln!(w, "struct PropertyObserver")?;
+        writeln!(w, "{{")?;
+        w.indent();
+        writeln!(w, "QMetaObject::Connection connection;")?;
+        writeln!(w, "QObject *object = nullptr;")?;
+        w.unindent();
+        writeln!(w, "}};")?;
+        writeln!(w)?;
 
-        writeln!(writer, "{indent}{} *const root_;", self.root_class)?;
-        writeln!(writer, "{indent}{} *const ui_;", self.ui_class)?;
+        writeln!(w, "{} *const root_;", self.root_class)?;
+        writeln!(w, "{} *const ui_;", self.ui_class)?;
         for b in &self.bindings {
-            b.write_field(writer, indent)?;
+            b.write_field(w)?;
         }
         if !self.bindings.is_empty() {
             // don't emit 0-sized array
-            writeln!(writer, "#ifndef QT_NO_DEBUG")?;
+            writeln!(w, "#ifndef QT_NO_DEBUG")?;
             writeln!(
-                writer,
-                "{indent}quint32 bindingGuard_[{}] = {{0}};",
+                w,
+                "quint32 bindingGuard_[{}] = {{0}};",
                 (self.bindings.len() + 31) / 32
             )?;
-            writeln!(writer, "#endif")?;
+            writeln!(w, "#endif")?;
         }
-        writeln!(writer)
+        writeln!(w)
     }
 }
 
@@ -258,57 +257,61 @@ impl CxxBinding {
         format!("update{}", self.function_name_suffix)
     }
 
-    fn write_setup_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
-        writeln!(writer, "{indent}void {}()", self.setup_function_name())?;
-        writeln!(writer, "{indent}{{")?;
+    fn write_setup_function<W: io::Write>(&self, w: &mut CodeWriter<W>) -> io::Result<()> {
+        writeln!(w, "void {}()", self.setup_function_name())?;
+        writeln!(w, "{{")?;
+        w.indent();
         for (sender, signal) in self.update.value_function.sender_signals().unique() {
             writeln!(
-                writer,
-                "{indent}    QObject::connect({}, &{}, this->root_, [this]() {{ this->{}(); }});",
+                w,
+                "QObject::connect({}, &{}, this->root_, [this]() {{ this->{}(); }});",
                 sender,
                 signal,
                 self.update_function_name()
             )?;
         }
-        writeln!(writer, "{indent}}}")?;
-        writeln!(writer)
+        w.unindent();
+        writeln!(w, "}}")?;
+        writeln!(w)
     }
 
-    fn write_update_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+    fn write_update_function<W: io::Write>(&self, w: &mut CodeWriter<W>) -> io::Result<()> {
         let index = format!("static_cast<unsigned>(BindingIndex::{})", self.name());
         let guard = "this->bindingGuard_[index >> 5]";
         let mask = "(1U << (index & 0x1f))";
-        writeln!(writer, "{indent}void {}()", self.update_function_name())?;
-        writeln!(writer, "{indent}{{")?;
-        writeln!(writer, "#ifndef QT_NO_DEBUG")?;
-        writeln!(writer, "{indent}    constexpr unsigned index = {index};")?;
+        writeln!(w, "void {}()", self.update_function_name())?;
+        writeln!(w, "{{")?;
+        writeln!(w, "#ifndef QT_NO_DEBUG")?;
+        w.indent();
+        writeln!(w, "constexpr unsigned index = {index};")?;
         writeln!(
-            writer,
-            "{indent}    Q_ASSERT_X(!({guard} & {mask}), __func__, {what:?});",
+            w,
+            "Q_ASSERT_X(!({guard} & {mask}), __func__, {what:?});",
             what = "binding loop detected"
         )?;
-        writeln!(writer, "{indent}    {guard} |= {mask};")?;
-        writeln!(writer, "#endif")?;
+        writeln!(w, "{guard} |= {mask};")?;
+        writeln!(w, "#endif")?;
         writeln!(
-            writer,
-            "{indent}    {};",
+            w,
+            "{};",
             self.update.format_expression(&self.receiver, "->")
         )?;
-        writeln!(writer, "#ifndef QT_NO_DEBUG")?;
-        writeln!(writer, "{indent}    {guard} &= ~{mask};")?;
-        writeln!(writer, "#endif")?;
-        writeln!(writer, "{indent}}}")?;
-        writeln!(writer)
+        writeln!(w, "#ifndef QT_NO_DEBUG")?;
+        writeln!(w, "{guard} &= ~{mask};")?;
+        writeln!(w, "#endif")?;
+        w.unindent();
+        writeln!(w, "}}")?;
+        writeln!(w)
     }
 
-    fn write_value_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+    fn write_value_function<W: io::Write>(&self, w: &mut CodeWriter<W>) -> io::Result<()> {
         self.update
             .value_function
-            .write_function(writer, indent, &self.update_function_name())
+            .write_function(w, &self.update_function_name())
     }
 
-    fn write_field<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
-        self.update.value_function.write_field(writer, indent)
+    fn write_field<W: io::Write>(&self, w: &mut CodeWriter<W>) -> io::Result<()> {
+        self.update.value_function.write_field(w)
     }
 }
 
@@ -394,24 +397,19 @@ impl CxxBindingValueFunction {
 
     fn write_function<W: io::Write>(
         &self,
-        writer: &mut W,
-        indent: &str,
+        w: &mut CodeWriter<W>,
         update_function_name: &str,
     ) -> io::Result<()> {
         match self {
-            CxxBindingValueFunction::Expr(f) => {
-                f.write_function(writer, indent, update_function_name)
-            }
-            CxxBindingValueFunction::GadgetMap(f) => {
-                f.write_function(writer, indent, update_function_name)
-            }
+            CxxBindingValueFunction::Expr(f) => f.write_function(w, update_function_name),
+            CxxBindingValueFunction::GadgetMap(f) => f.write_function(w, update_function_name),
         }
     }
 
-    fn write_field<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+    fn write_field<W: io::Write>(&self, w: &mut CodeWriter<W>) -> io::Result<()> {
         match self {
-            CxxBindingValueFunction::Expr(f) => f.write_field(writer, indent),
-            CxxBindingValueFunction::GadgetMap(f) => f.write_field(writer, indent),
+            CxxBindingValueFunction::Expr(f) => f.write_field(w),
+            CxxBindingValueFunction::GadgetMap(f) => f.write_field(w),
         }
     }
 }
@@ -446,8 +444,10 @@ impl CxxEvalExprFunction {
             })
             .collect();
         let mut body = Vec::new();
+        let mut writer = CodeWriter::new(&mut body);
+        writer.set_indent_level(1);
         code_translator
-            .translate(&mut body, code)
+            .translate(&mut writer, code)
             .expect("write to bytes shouldn't fail");
         CxxEvalExprFunction {
             name: name.into(),
@@ -472,41 +472,31 @@ impl CxxEvalExprFunction {
 
     fn write_function<W: io::Write>(
         &self,
-        writer: &mut W,
-        indent: &str,
+        w: &mut CodeWriter<W>,
         update_function_name: &str,
     ) -> io::Result<()> {
-        writeln!(
-            writer,
-            "{indent}{} {}()",
-            self.value_type,
-            self.function_name()
-        )?;
-        writeln!(writer, "{indent}{{")?;
+        writeln!(w, "{} {}()", self.value_type, self.function_name())?;
+        writeln!(w, "{{")?;
         if self.property_observer_count > 0 {
+            let mut w = w.indented();
+            writeln!(w, "auto &observed = {};", self.property_observer_name())?;
             writeln!(
-                writer,
-                "{indent}    auto &observed = {};",
-                self.property_observer_name()
-            )?;
-            writeln!(
-                writer,
-                "{indent}    const auto update = [this]() {{ this->{}(); }};",
+                w,
+                "const auto update = [this]() {{ this->{}(); }};",
                 update_function_name
             )?;
         }
-        writer.write_all(&self.body)?;
-        writeln!(writer, "{indent}}}")?;
-        writeln!(writer)
+        w.get_mut().write_all(&self.body)?;
+        writeln!(w, "}}")?;
+        writeln!(w)
     }
 
-    fn write_field<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+    fn write_field<W: io::Write>(&self, w: &mut CodeWriter<W>) -> io::Result<()> {
         if self.property_observer_count > 0 {
             // don't emit 0-sized array
             writeln!(
-                writer,
-                "{}PropertyObserver {}[{}];",
-                indent,
+                w,
+                "PropertyObserver {}[{}];",
                 self.property_observer_name(),
                 self.property_observer_count
             )?;
@@ -591,35 +581,35 @@ impl CxxEvalGadgetMapFunction {
 
     fn write_function<W: io::Write>(
         &self,
-        writer: &mut W,
-        indent: &str,
+        w: &mut CodeWriter<W>,
         update_function_name: &str,
     ) -> io::Result<()> {
         writeln!(
-            writer,
-            "{indent}{} {}({} a)",
+            w,
+            "{} {}({} a)",
             self.value_type,
             self.function_name(),
             self.value_type
         )?;
-        writeln!(writer, "{indent}{{")?;
+        writeln!(w, "{{")?;
+        w.indent();
         for b in &self.bindings {
-            writeln!(writer, "{indent}    {};", b.format_expression("a", "."))?;
+            writeln!(w, "{};", b.format_expression("a", "."))?;
         }
-        writeln!(writer, "{indent}    return a;")?;
-        writeln!(writer, "{indent}}}")?;
-        writeln!(writer)?;
+        writeln!(w, "return a;")?;
+        w.unindent();
+        writeln!(w, "}}")?;
+        writeln!(w)?;
 
         for b in &self.bindings {
-            b.value_function
-                .write_function(writer, indent, update_function_name)?;
+            b.value_function.write_function(w, update_function_name)?;
         }
         Ok(())
     }
 
-    fn write_field<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
+    fn write_field<W: io::Write>(&self, w: &mut CodeWriter<W>) -> io::Result<()> {
         for b in &self.bindings {
-            b.value_function.write_field(writer, indent)?;
+            b.value_function.write_field(w)?;
         }
         Ok(())
     }
@@ -649,8 +639,10 @@ impl CxxCallback {
             callback_code.desc().name()
         );
         let mut callback_function_body = Vec::new();
+        let mut writer = CodeWriter::new(&mut callback_function_body);
+        writer.set_indent_level(1);
         code_translator
-            .translate(&mut callback_function_body, callback_code.code())
+            .translate(&mut writer, callback_code.code())
             .expect("write to bytes shouldn't fail");
         CxxCallback {
             name,
@@ -668,30 +660,26 @@ impl CxxCallback {
         format!("on{}", self.name)
     }
 
-    fn write_setup_function<W: io::Write>(&self, writer: &mut W, indent: &str) -> io::Result<()> {
-        writeln!(writer, "{indent}void {}()", self.setup_function_name())?;
-        writeln!(writer, "{indent}{{")?;
+    fn write_setup_function<W: io::Write>(&self, w: &mut CodeWriter<W>) -> io::Result<()> {
+        writeln!(w, "void {}()", self.setup_function_name())?;
+        writeln!(w, "{{")?;
         writeln!(
-            writer,
-            "{indent}    QObject::connect({}, &{}, this->root_, [this]() {{ this->{}(); }});",
+            w.indented(),
+            "QObject::connect({}, &{}, this->root_, [this]() {{ this->{}(); }});",
             self.sender,
             self.signal,
             self.callback_function_name()
         )?;
-        writeln!(writer, "{indent}}}")?;
-        writeln!(writer)
+        writeln!(w, "}}")?;
+        writeln!(w)
     }
 
-    fn write_callback_function<W: io::Write>(
-        &self,
-        writer: &mut W,
-        indent: &str,
-    ) -> io::Result<()> {
-        writeln!(writer, "{indent}void {}()", self.callback_function_name())?;
-        writeln!(writer, "{indent}{{")?;
-        writer.write_all(&self.callback_function_body)?;
-        writeln!(writer, "{indent}}}")?;
-        writeln!(writer)
+    fn write_callback_function<W: io::Write>(&self, w: &mut CodeWriter<W>) -> io::Result<()> {
+        writeln!(w, "void {}()", self.callback_function_name())?;
+        writeln!(w, "{{")?;
+        w.get_mut().write_all(&self.callback_function_body)?;
+        writeln!(w, "}}")?;
+        writeln!(w)
     }
 }
 
@@ -700,8 +688,6 @@ struct CxxCodeBodyTranslator {
     root_object_name: tir::NamedObjectRef,
     tr_context: String,
     return_kind: CxxCodeReturnKind,
-    label_indent: String,
-    body_indent: String,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -720,31 +706,31 @@ impl CxxCodeBodyTranslator {
             root_object_name: tir::NamedObjectRef(root_object_name.into()),
             tr_context: tr_context.into(),
             return_kind,
-            label_indent: " ".repeat(4),
-            body_indent: " ".repeat(8),
         }
     }
 
-    fn translate<W: io::Write>(&self, w: &mut W, code: &tir::CodeBody) -> io::Result<()> {
-        self.write_locals(w, &code.locals)?;
+    fn translate<W: io::Write>(
+        &self,
+        w: &mut CodeWriter<W>,
+        code: &tir::CodeBody,
+    ) -> io::Result<()> {
+        self.write_locals(&mut w.indented(), &code.locals)?;
         for (i, b) in code.basic_blocks.iter().enumerate() {
-            writeln!(
-                w,
-                "{}{}:",
-                self.label_indent,
-                self.format_basic_block_ref(tir::BasicBlockRef(i))
-            )?;
-            self.write_basic_block(w, b)?;
+            writeln!(w, "{}:", self.format_basic_block_ref(tir::BasicBlockRef(i)))?;
+            self.write_basic_block(&mut w.indented(), b)?;
         }
         Ok(())
     }
 
-    fn write_locals<W: io::Write>(&self, w: &mut W, locals: &[tir::Local]) -> io::Result<()> {
+    fn write_locals<W: io::Write>(
+        &self,
+        w: &mut CodeWriter<W>,
+        locals: &[tir::Local],
+    ) -> io::Result<()> {
         for a in locals {
             writeln!(
                 w,
-                "{}{} {};",
-                self.body_indent,
+                "{} {};",
                 a.ty.qualified_cxx_name(),
                 self.format_local_ref(a.name)
             )?;
@@ -754,7 +740,7 @@ impl CxxCodeBodyTranslator {
 
     fn write_basic_block<W: io::Write>(
         &self,
-        w: &mut W,
+        w: &mut CodeWriter<W>,
         block: &tir::BasicBlock,
     ) -> io::Result<()> {
         use tir::{Operand, Terminator};
@@ -762,59 +748,42 @@ impl CxxCodeBodyTranslator {
             self.write_statement(w, s)?;
         }
         match block.terminator() {
-            Terminator::Br(x) => writeln!(
-                w,
-                "{}goto {};",
-                self.body_indent,
-                self.format_basic_block_ref(*x)
-            )?,
+            Terminator::Br(x) => writeln!(w, "goto {};", self.format_basic_block_ref(*x))?,
             Terminator::BrCond(x, y, z) => {
-                writeln!(w, "{}if ({})", self.body_indent, self.format_operand(x))?;
-                writeln!(
-                    w,
-                    "{}    goto {};",
-                    self.body_indent,
-                    self.format_basic_block_ref(*y)
-                )?;
-                writeln!(w, "{}else", self.body_indent)?;
-                writeln!(
-                    w,
-                    "{}    goto {};",
-                    self.body_indent,
-                    self.format_basic_block_ref(*z)
-                )?;
+                writeln!(w, "if ({})", self.format_operand(x))?;
+                writeln!(w.indented(), "goto {};", self.format_basic_block_ref(*y))?;
+                writeln!(w, "else")?;
+                writeln!(w.indented(), "goto {};", self.format_basic_block_ref(*z))?;
             }
-            Terminator::Return(Operand::Void(_)) => writeln!(w, "{}return;", self.body_indent)?,
+            Terminator::Return(Operand::Void(_)) => writeln!(w, "return;")?,
             Terminator::Return(x) => match self.return_kind {
                 CxxCodeReturnKind::Value => {
-                    writeln!(w, "{}return {};", self.body_indent, self.format_operand(x))?;
+                    writeln!(w, "return {};", self.format_operand(x))?;
                 }
                 CxxCodeReturnKind::Void => {
-                    writeln!(
-                        w,
-                        "{}static_cast<void>({});",
-                        self.body_indent,
-                        self.format_operand(x)
-                    )?;
-                    writeln!(w, "{}return;", self.body_indent)?;
+                    writeln!(w, "static_cast<void>({});", self.format_operand(x))?;
+                    writeln!(w, "return;")?;
                 }
             },
-            Terminator::Unreachable => writeln!(w, "{}Q_UNREACHABLE();", self.body_indent)?,
+            Terminator::Unreachable => writeln!(w, "Q_UNREACHABLE();")?,
         }
         Ok(())
     }
 
-    fn write_statement<W: io::Write>(&self, w: &mut W, stmt: &tir::Statement) -> io::Result<()> {
+    fn write_statement<W: io::Write>(
+        &self,
+        w: &mut CodeWriter<W>,
+        stmt: &tir::Statement,
+    ) -> io::Result<()> {
         use tir::Statement;
         match stmt {
             Statement::Assign(l, r) => writeln!(
                 w,
-                "{}{} = {};",
-                self.body_indent,
+                "{} = {};",
                 self.format_local_ref(*l),
                 self.format_rvalue(r)
             ),
-            Statement::Exec(r) => writeln!(w, "{}{};", self.body_indent, self.format_rvalue(r)),
+            Statement::Exec(r) => writeln!(w, "{};", self.format_rvalue(r)),
             Statement::ObserveProperty(h, l, prop) => {
                 // Note that minimizing the signal/slot connections is NOT the goal of the dynamic
                 // subscription. Uninteresting connection may be left if this statement is out
@@ -825,30 +794,23 @@ impl CxxCodeBodyTranslator {
                 // allocated. observer.connection should be invalidated in such cases.
                 writeln!(
                     w,
-                    "{}if (Q_UNLIKELY(!{}.connection || {}.object != {})) {{",
-                    self.body_indent, observer, observer, sender
+                    "if (Q_UNLIKELY(!{}.connection || {}.object != {})) {{",
+                    observer, observer, sender
                 )?;
+                w.indent();
+                writeln!(w, "QObject::disconnect({}.connection);", observer)?;
                 writeln!(
                     w,
-                    "{}    QObject::disconnect({}.connection);",
-                    self.body_indent, observer
-                )?;
-                writeln!(
-                    w,
-                    "{}    {}.connection = QObject::connect({}, &{}::{}, this->root_, update);",
-                    self.body_indent,
+                    "{}.connection = QObject::connect({}, &{}::{}, this->root_, update);",
                     observer,
                     sender,
                     prop.object_class().qualified_cxx_name(),
                     prop.notify_signal_name()
                         .expect("property must be observable"),
                 )?;
-                writeln!(
-                    w,
-                    "{}    {}.object = {};",
-                    self.body_indent, observer, sender
-                )?;
-                writeln!(w, "{}}}", self.body_indent)
+                writeln!(w, "{}.object = {};", observer, sender)?;
+                w.unindent();
+                writeln!(w, "}}")
             }
         }
     }
@@ -966,5 +928,68 @@ fn member_access_op(a: &tir::Operand) -> &'static str {
         "->"
     } else {
         "."
+    }
+}
+
+#[derive(Debug)]
+struct CodeWriter<'w, W: io::Write> {
+    inner: &'w mut W,
+    indent_level: u32,
+    line_start: bool,
+}
+
+impl<'w, W: io::Write> CodeWriter<'w, W> {
+    pub fn new(inner: &'w mut W) -> Self {
+        CodeWriter {
+            inner,
+            indent_level: 0,
+            line_start: true,
+        }
+    }
+
+    pub fn indented(&mut self) -> CodeWriter<W> {
+        CodeWriter {
+            inner: self.inner,
+            indent_level: self.indent_level + 1,
+            line_start: true,
+        }
+    }
+
+    pub fn set_indent_level(&mut self, level: u32) {
+        self.indent_level = level;
+    }
+
+    pub fn indent(&mut self) {
+        self.indent_level += 1;
+    }
+
+    pub fn unindent(&mut self) {
+        self.indent_level -= 1;
+    }
+
+    pub fn get_mut(&mut self) -> &mut W {
+        self.inner
+    }
+}
+
+impl<'w, W: io::Write> io::Write for CodeWriter<'w, W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        // assumes buf doesn't contain '\n' in the middle
+        let was_line_start = self.line_start;
+        self.line_start = false;
+        if was_line_start && !(buf.starts_with(b"\n") || buf.starts_with(b"#")) {
+            for _ in 0..self.indent_level {
+                self.inner.write_all(b"    ")?;
+            }
+        }
+        let n = self.inner.write(buf)?;
+        if n == buf.len() {
+            self.line_start = buf.ends_with(b"\n");
+        }
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.inner.flush()
     }
 }
