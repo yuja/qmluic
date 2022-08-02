@@ -8,7 +8,7 @@ use super::dump;
 use crate::diagnostic::Diagnostics;
 use crate::metatype;
 use crate::opcode::BuiltinFunctionKind;
-use crate::qmlast::{UiObjectDefinition, UiProgram};
+use crate::qmlast::{Node, UiObjectDefinition, UiProgram};
 use crate::qmldoc::UiDocument;
 use crate::typedexpr::{RefKind, RefSpace};
 use crate::typemap::{
@@ -85,6 +85,22 @@ impl Env {
     }
 
     pub fn try_build(&self, expr_source: &str) -> Result<CodeBody, Diagnostics> {
+        self.try_build_with(expr_source, builder::build)
+    }
+
+    pub fn build_callback(&self, expr_source: &str) -> CodeBody {
+        self.try_build_callback(expr_source).unwrap()
+    }
+
+    pub fn try_build_callback(&self, expr_source: &str) -> Result<CodeBody, Diagnostics> {
+        self.try_build_with(expr_source, builder::build_callback)
+    }
+
+    fn try_build_with<'a>(
+        &'a self,
+        expr_source: &str,
+        build: impl FnOnce(&Context<'a>, Node, &str, &mut Diagnostics) -> Option<CodeBody<'a>>,
+    ) -> Result<CodeBody<'a>, Diagnostics> {
         let mut type_space = ImportedModuleSpace::new(&self.type_map);
         assert!(type_space.import_module(ModuleId::Builtins));
         assert!(type_space.import_module(&self.module_id));
@@ -97,7 +113,7 @@ impl Env {
         let node = map.get("a").unwrap().get_node().unwrap();
 
         let mut diagnostics = Diagnostics::new();
-        builder::build(&ctx, node, doc.source(), &mut diagnostics).ok_or(diagnostics)
+        build(&ctx, node, doc.source(), &mut diagnostics).ok_or(diagnostics)
     }
 }
 

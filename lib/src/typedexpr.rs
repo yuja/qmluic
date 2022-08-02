@@ -2,7 +2,9 @@
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::opcode::{BinaryOp, BuiltinFunctionKind, BuiltinMethodKind, ComparisonOp, UnaryOp};
-use crate::qmlast::{Expression, Identifier, LexicalDeclarationKind, Node, Statement};
+use crate::qmlast::{
+    Expression, Function, FunctionBody, Identifier, LexicalDeclarationKind, Node, Statement,
+};
 use crate::typemap::{
     Class, Enum, MethodMatches, NamedType, PrimitiveType, Property, TypeKind, TypeMapError,
     TypeSpace,
@@ -462,6 +464,69 @@ where
         res = res.and(r);
     }
     res
+}
+
+/// Walks statement or unnamed function block from the specified `node`.
+///
+/// `ctx` is the space where an identifier expression is resolved.
+pub fn walk_callback<'a, C, V>(
+    ctx: &C,
+    node: Node,
+    source: &str,
+    visitor: &mut V,
+    diagnostics: &mut Diagnostics,
+) -> Option<()>
+where
+    C: RefSpace<'a>,
+    V: ExpressionVisitor<'a>,
+{
+    match diagnostics.consume_err(Statement::from_node(node))? {
+        // explicitly test the node kind since any expression surrounded by parentheses
+        // shouldn't be parsed as a top-level function block.
+        Statement::Expression(n) if n.kind() == "function" || n.kind() == "arrow_function" => {
+            walk_callback_function(ctx, n, source, visitor, diagnostics)
+        }
+        _ => walk(ctx, node, source, visitor, diagnostics),
+    }
+}
+
+fn walk_callback_function<'a, C, V>(
+    ctx: &C,
+    node: Node,
+    source: &str,
+    visitor: &mut V,
+    diagnostics: &mut Diagnostics,
+) -> Option<()>
+where
+    C: RefSpace<'a>,
+    V: ExpressionVisitor<'a>,
+{
+    let func = diagnostics.consume_err(Function::from_node(node))?;
+    if let Some(n) = func.name {
+        diagnostics.push(Diagnostic::error(
+            n.node().byte_range(),
+            "named function isn't allowed",
+        ));
+        return None;
+    }
+    if let Some(n) = func.return_ty {
+        diagnostics.push(Diagnostic::warning(
+            n.node().byte_range(),
+            "return type is ignored (which may be changed later)",
+        ));
+    }
+
+    let mut locals = HashMap::new();
+    assert!(func.parameters.is_empty()); // TODO
+    match func.body {
+        FunctionBody::Expression(n) => {
+            let value = walk_rvalue(ctx, &mut locals, n, source, visitor, diagnostics)?;
+            diagnostics.consume_node_err(n, visitor.visit_expression_statement(value))
+        }
+        FunctionBody::Statement(n) => {
+            walk_stmt(ctx, &mut locals, None, n, source, visitor, diagnostics)
+        }
+    }
 }
 
 /// Walks expression nodes recursively and returns item to be used as an rvalue.
