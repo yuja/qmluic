@@ -247,6 +247,13 @@ impl<'tree> FormalParameter<'tree> {
             .transpose()?;
         Ok(FormalParameter { name, ty })
     }
+
+    pub fn node(&self) -> Node<'tree> {
+        self.name
+            .node()
+            .parent()
+            .expect("formal parameter name node should have parent")
+    }
 }
 
 // TODO: maybe introduce an AST type dedicated for type expression?
