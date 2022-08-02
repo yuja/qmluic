@@ -443,6 +443,7 @@ impl CxxEvalExprFunction {
                 (sender, format!("{class}::{signal}"))
             })
             .collect();
+        assert_eq!(code.parameter_count, 0);
         let mut body = Vec::new();
         let mut writer = CodeWriter::new(&mut body);
         writer.set_indent_level(1);
@@ -638,11 +639,13 @@ impl CxxCallback {
             callback_code.desc().object_class().qualified_cxx_name(),
             callback_code.desc().name()
         );
+        let code = callback_code.code();
+        assert_eq!(code.parameter_count, 0); // TODO
         let mut callback_function_body = Vec::new();
         let mut writer = CodeWriter::new(&mut callback_function_body);
         writer.set_indent_level(1);
         code_translator
-            .translate(&mut writer, callback_code.code())
+            .translate(&mut writer, code)
             .expect("write to bytes shouldn't fail");
         CxxCallback {
             name,

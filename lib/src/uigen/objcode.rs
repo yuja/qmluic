@@ -410,6 +410,7 @@ impl<'a, 't> CallbackCode<'a, 't> {
                 return None;
             }
         };
+        // TODO: verify parameter types
         Some(CallbackCode {
             desc,
             node: value.node(),

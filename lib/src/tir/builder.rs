@@ -207,6 +207,26 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         Ok(Operand::Void(Void::new(byte_range)))
     }
 
+    fn visit_function_parameter(
+        &mut self,
+        ty: TypeKind<'a>,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Local, Self::Error> {
+        assert_eq!(
+            self.code.locals.len(),
+            self.code.parameter_count,
+            "function parameters must be declared prior to any local declarations"
+        );
+        let a = self.alloca(ty, byte_range).map_err(|_| {
+            ExpressionError::OperationOnUnsupportedType(
+                "function parameter".to_owned(),
+                "void".to_owned(),
+            )
+        })?;
+        self.code.parameter_count = self.code.locals.len();
+        Ok(a.name)
+    }
+
     fn visit_object_ref(
         &mut self,
         cls: Class<'a>,
@@ -2436,6 +2456,7 @@ mod tests {
             call_method [foo]: Foo*, "done", {0: integer}
             return _: void
         "###);
+        assert_eq!(code.parameter_count, 0);
     }
 
     #[test]
@@ -2447,6 +2468,7 @@ mod tests {
             call_method [foo]: Foo*, "done", {0: integer}
             return _: void
         "###);
+        assert_eq!(code.parameter_count, 0);
     }
 
     #[test]
@@ -2462,6 +2484,25 @@ mod tests {
             call_method [foo]: Foo*, "done", {0: integer}
             return _: void
         "###);
+        assert_eq!(code.parameter_count, 0);
+    }
+
+    #[test]
+    fn callback_function_with_arg() {
+        let env = Env::new();
+        let code = env.build_callback(
+            r###"function(obj: Foo, code: int) {
+                obj.done(code);
+            }"###,
+        );
+        insta::assert_snapshot!(dump_code(&code), @r###"
+            %0: Foo*
+            %1: int
+        .0:
+            call_method %0: Foo*, "done", {%1: int}
+            return _: void
+        "###);
+        assert_eq!(code.parameter_count, 2);
     }
 
     #[test]
@@ -2473,6 +2514,7 @@ mod tests {
             call_method [foo]: Foo*, "done", {0: integer}
             return _: void
         "###);
+        assert_eq!(code.parameter_count, 0);
     }
 
     #[test]

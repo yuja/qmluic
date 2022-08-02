@@ -164,6 +164,11 @@ pub trait ExpressionVisitor<'a> {
         right: Self::Item,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error>;
+    fn visit_function_parameter(
+        &mut self,
+        ty: TypeKind<'a>,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Local, Self::Error>;
 
     fn visit_object_ref(
         &mut self,
@@ -528,7 +533,31 @@ where
     }
 
     let mut locals = HashMap::new();
-    assert!(func.parameters.is_empty()); // TODO
+    for param in &func.parameters {
+        let name = param.name.to_str(source);
+        if locals.contains_key(name) {
+            diagnostics.push(Diagnostic::error(
+                param.name.node().byte_range(),
+                format!("redefinition of parameter: {name}"),
+            ));
+        } else if let Some(n) = &param.ty {
+            let ty = process_type_annotation(ctx, n, source, diagnostics)?;
+            let local = diagnostics.consume_node_err(
+                param.node(),
+                visitor.visit_function_parameter(ty, param.node().byte_range()),
+            )?;
+            locals.insert(name.to_owned(), (local, LexicalDeclarationKind::Let));
+        } else {
+            diagnostics.push(Diagnostic::error(
+                param.node().byte_range(),
+                "function parameter must have type annotation",
+            ));
+        }
+    }
+    if locals.len() != func.parameters.len() {
+        return None;
+    }
+
     match func.body {
         FunctionBody::Expression(n) => {
             let value = walk_rvalue(ctx, &mut locals, n, source, visitor, diagnostics)?;
