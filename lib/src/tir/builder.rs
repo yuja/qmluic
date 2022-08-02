@@ -760,6 +760,28 @@ where
     Some(builder.code)
 }
 
+/// Translates callback AST nodes into type-checked IR.
+///
+/// If the top-level node is a function, a callback body having the specified function
+/// parameters will be built. Otherwise this function is identical to `build()`.
+pub fn build_callback<'a, C>(
+    ctx: &C,
+    node: Node,
+    source: &str,
+    diagnostics: &mut Diagnostics,
+) -> Option<CodeBody<'a>>
+where
+    C: RefSpace<'a>,
+{
+    let mut builder = CodeBuilder::new();
+    typedexpr::walk_callback(ctx, node, source, &mut builder, diagnostics)?;
+    let current_ref = builder.current_basic_block_ref();
+    builder
+        .code
+        .finalize_completion_values(current_ref, node.byte_range());
+    Some(builder.code)
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::testenv::*;
@@ -2397,5 +2419,63 @@ mod tests {
             call_method [foo]: Foo*, "done", {-1: integer}
             return _: void
         "###);
+    }
+
+    #[test]
+    fn callback_block() {
+        let env = Env::new();
+        let code = env.build_callback(
+            r###"{
+                foo.done(0)
+            }"###,
+        );
+        insta::assert_snapshot!(dump_code(&code), @r###"
+        .0:
+            call_method [foo]: Foo*, "done", {0: integer}
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn callback_expr() {
+        let env = Env::new();
+        let code = env.build_callback("foo.done(0)");
+        insta::assert_snapshot!(dump_code(&code), @r###"
+        .0:
+            call_method [foo]: Foo*, "done", {0: integer}
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn callback_function_no_arg() {
+        let env = Env::new();
+        let code = env.build_callback(
+            r###"function() {
+                foo.done(0)
+            }"###,
+        );
+        insta::assert_snapshot!(dump_code(&code), @r###"
+        .0:
+            call_method [foo]: Foo*, "done", {0: integer}
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn callback_arrow_function_no_arg_no_block() {
+        let env = Env::new();
+        let code = env.build_callback("() => foo.done(0)");
+        insta::assert_snapshot!(dump_code(&code), @r###"
+        .0:
+            call_method [foo]: Foo*, "done", {0: integer}
+            return _: void
+        "###);
+    }
+
+    #[test]
+    fn callback_function_parenthesized() {
+        let env = Env::new();
+        assert!(env.try_build_callback("(function() {})").is_err());
     }
 }
