@@ -10,9 +10,9 @@ use crate::metatype;
 use crate::opcode::BuiltinFunctionKind;
 use crate::qmlast::{Node, UiObjectDefinition, UiProgram};
 use crate::qmldoc::UiDocument;
-use crate::typedexpr::{RefKind, RefSpace};
+use crate::typedexpr::{RefKind, RefSpace, TypeAnnotationSpace};
 use crate::typemap::{
-    Class, ImportedModuleSpace, ModuleData, ModuleId, NamedType, TypeMap, TypeMapError,
+    Class, ImportedModuleSpace, ModuleData, ModuleId, NamedType, TypeKind, TypeMap, TypeMapError,
     TypeSpace as _,
 };
 
@@ -137,6 +137,23 @@ impl<'a> RefSpace<'a> for Context<'a> {
 
     fn this_object(&self) -> Option<(Class<'a>, String)> {
         None
+    }
+}
+
+impl<'a> TypeAnnotationSpace<'a> for Context<'a> {
+    fn get_annotated_type_scoped(
+        &self,
+        scoped_name: &str,
+    ) -> Option<Result<TypeKind<'a>, TypeMapError>> {
+        self.type_space.get_type_scoped(scoped_name).map(|r| {
+            r.map(|ty| {
+                if ty.name() == "Foo" {
+                    TypeKind::Pointer(ty)
+                } else {
+                    TypeKind::Just(ty)
+                }
+            })
+        })
     }
 }
 

@@ -3,12 +3,14 @@
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::opcode::{BinaryOp, BuiltinFunctionKind, BuiltinMethodKind, ComparisonOp, UnaryOp};
 use crate::qmlast::{
-    Expression, Function, FunctionBody, Identifier, LexicalDeclarationKind, Node, Statement,
+    Expression, Function, FunctionBody, Identifier, LexicalDeclarationKind, NestedIdentifier, Node,
+    Statement,
 };
 use crate::typemap::{
     Class, Enum, MethodMatches, NamedType, PrimitiveType, Property, TypeKind, TypeMapError,
     TypeSpace,
 };
+use itertools::Itertools as _;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -78,6 +80,15 @@ pub trait RefSpace<'a> {
     fn get_ref(&self, name: &str) -> Option<Result<RefKind<'a>, TypeMapError>>;
     /// Looks up "this" object type and name.
     fn this_object(&self) -> Option<(Class<'a>, String)>;
+}
+
+/// Context which supports type annotation lookup.
+pub trait TypeAnnotationSpace<'a> {
+    /// Looks up type by scoped name and wraps it with the appropriate `TypeKind`.
+    fn get_annotated_type_scoped(
+        &self,
+        scoped_name: &str,
+    ) -> Option<Result<TypeKind<'a>, TypeMapError>>;
 }
 
 impl<'a, T: TypeSpace<'a>> RefSpace<'a> for T {
@@ -273,7 +284,7 @@ pub fn walk<'a, C, V>(
     diagnostics: &mut Diagnostics,
 ) -> Option<()>
 where
-    C: RefSpace<'a>,
+    C: RefSpace<'a> + TypeAnnotationSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
     let mut locals = HashMap::new();
@@ -291,7 +302,7 @@ fn walk_stmt<'a, C, V>(
     diagnostics: &mut Diagnostics,
 ) -> Option<()>
 where
-    C: RefSpace<'a>,
+    C: RefSpace<'a> + TypeAnnotationSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
     match diagnostics.consume_err(Statement::from_node(node))? {
@@ -454,7 +465,7 @@ fn walk_stmt_nodes<'a, C, V>(
     diagnostics: &mut Diagnostics,
 ) -> Option<()>
 where
-    C: RefSpace<'a>,
+    C: RefSpace<'a> + TypeAnnotationSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
     let mut res = Some(());
@@ -477,7 +488,7 @@ pub fn walk_callback<'a, C, V>(
     diagnostics: &mut Diagnostics,
 ) -> Option<()>
 where
-    C: RefSpace<'a>,
+    C: RefSpace<'a> + TypeAnnotationSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
     match diagnostics.consume_err(Statement::from_node(node))? {
@@ -498,7 +509,7 @@ fn walk_callback_function<'a, C, V>(
     diagnostics: &mut Diagnostics,
 ) -> Option<()>
 where
-    C: RefSpace<'a>,
+    C: RefSpace<'a> + TypeAnnotationSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
     let func = diagnostics.consume_err(Function::from_node(node))?;
@@ -539,7 +550,7 @@ fn walk_rvalue<'a, C, V>(
     diagnostics: &mut Diagnostics,
 ) -> Option<V::Item>
 where
-    C: RefSpace<'a>,
+    C: RefSpace<'a> + TypeAnnotationSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
     match walk_expr(ctx, locals, node, source, visitor, diagnostics)? {
@@ -575,7 +586,7 @@ fn walk_expr<'a, C, V>(
     diagnostics: &mut Diagnostics,
 ) -> Option<Intermediate<'a, V::Item, V::Local>>
 where
-    C: RefSpace<'a>,
+    C: RefSpace<'a> + TypeAnnotationSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
     match diagnostics.consume_err(Expression::from_node(node, source))? {
@@ -943,6 +954,33 @@ where
             | NamedType::QmlComponent(_),
         )) => {
             diagnostics.push(not_found());
+            None
+        }
+    }
+}
+
+fn process_type_annotation<'a, C>(
+    ctx: &C,
+    id: &NestedIdentifier,
+    source: &str,
+    diagnostics: &mut Diagnostics,
+) -> Option<TypeKind<'a>>
+where
+    C: TypeAnnotationSpace<'a>,
+{
+    // TODO: look up qualified name without joining
+    let scoped_name = id.components().iter().map(|n| n.to_str(source)).join("::");
+    match ctx.get_annotated_type_scoped(&scoped_name) {
+        Some(Ok(ty)) => Some(ty),
+        Some(Err(e)) => {
+            diagnostics.push(Diagnostic::error(
+                id.node().byte_range(),
+                format!("type resolution failed: {e}"),
+            ));
+            None
+        }
+        None => {
+            diagnostics.push(Diagnostic::error(id.node().byte_range(), "undefined type"));
             None
         }
     }

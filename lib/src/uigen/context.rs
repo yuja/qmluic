@@ -3,9 +3,10 @@ use crate::objtree::{ObjectNode, ObjectTree};
 use crate::opcode::BuiltinFunctionKind;
 use crate::qmldoc::UiDocument;
 use crate::qtname::FileNameRules;
-use crate::typedexpr::{RefKind, RefSpace};
+use crate::typedexpr::{RefKind, RefSpace, TypeAnnotationSpace};
 use crate::typemap::{
-    Class, Enum, ImportedModuleSpace, ModuleId, NamedType, TypeMap, TypeMapError, TypeSpace,
+    Class, Enum, ImportedModuleSpace, ModuleId, NamedType, TypeKind, TypeMap, TypeMapError,
+    TypeSpace,
 };
 use thiserror::Error;
 
@@ -71,6 +72,7 @@ pub(super) struct KnownClasses<'a> {
     pub list_widget: Class<'a>,
     pub margins: Class<'a>,
     pub menu: Class<'a>,
+    pub object: Class<'a>,
     pub palette: Class<'a>,
     pub pixmap: Class<'a>,
     pub push_button: Class<'a>,
@@ -130,6 +132,7 @@ impl<'a> BuildContext<'a> {
             list_widget: get_class("QListWidget")?,
             margins: get_class("QMargins")?,
             menu: get_class("QMenu")?,
+            object: get_class("QObject")?,
             palette: get_class("QPalette")?,
             pixmap: get_class("QPixmap")?,
             push_button: get_class("QPushButton")?,
@@ -229,6 +232,26 @@ impl<'a> RefSpace<'a> for ObjectContext<'a, '_, '_> {
     fn this_object(&self) -> Option<(Class<'a>, String)> {
         let me = &self.obj_node;
         Some((me.class().clone(), me.name().to_owned()))
+    }
+}
+
+impl<'a> TypeAnnotationSpace<'a> for ObjectContext<'a, '_, '_> {
+    fn get_annotated_type_scoped(
+        &self,
+        scoped_name: &str,
+    ) -> Option<Result<TypeKind<'a>, TypeMapError>> {
+        self.type_space.get_type_scoped(scoped_name).map(|r| {
+            r.map(|ty| match ty {
+                NamedType::Class(cls) if cls.is_derived_from(&self.classes.object) => {
+                    TypeKind::Pointer(NamedType::Class(cls))
+                }
+                NamedType::QmlComponent(_) => TypeKind::Pointer(ty),
+                NamedType::Class(_)
+                | NamedType::Enum(_)
+                | NamedType::Namespace(_)
+                | NamedType::Primitive(_) => TypeKind::Just(ty),
+            })
+        })
     }
 }
 
