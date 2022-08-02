@@ -14,6 +14,8 @@ pub enum Expression<'tree> {
     String(String),
     Bool(bool),
     Array(Vec<Node<'tree>>),
+    Function(Function<'tree>),
+    ArrowFunction(Function<'tree>),
     Member(MemberExpression<'tree>),
     Call(CallExpression<'tree>),
     Assignment(AssignmentExpression<'tree>),
@@ -59,6 +61,8 @@ impl<'tree> Expression<'tree> {
                     .collect();
                 Expression::Array(items)
             }
+            "function" => Function::with_cursor(cursor).map(Expression::Function)?,
+            "arrow_function" => Function::with_cursor(cursor).map(Expression::ArrowFunction)?,
             "member_expression" => {
                 let object = astutil::get_child_by_field_name(node, "object")?;
                 let property =
@@ -116,6 +120,123 @@ impl<'tree> Expression<'tree> {
             }
         };
         Ok(expr)
+    }
+}
+
+/// Represents a function or arrow function expression.
+#[derive(Clone, Debug)]
+pub struct Function<'tree> {
+    pub name: Option<Identifier<'tree>>,
+    pub parameters: Vec<FormalParameter<'tree>>,
+    pub return_ty: Option<Node<'tree>>,
+    pub body: FunctionBody<'tree>,
+}
+
+impl<'tree> Function<'tree> {
+    pub fn from_node(node: Node<'tree>) -> Result<Self, ParseError<'tree>> {
+        Self::with_cursor(&mut node.walk())
+    }
+
+    fn with_cursor(cursor: &mut TreeCursor<'tree>) -> Result<Self, ParseError<'tree>> {
+        let node = cursor.node();
+        match node.kind() {
+            "function" => {
+                // reject unsupported keywords like 'async'
+                if let Some(n) = node.children(cursor).find(|n| !n.is_extra()) {
+                    if n.kind() != "function" {
+                        return Err(ParseError::new(n, ParseErrorKind::UnexpectedNodeKind));
+                    }
+                }
+                let name = node
+                    .child_by_field_name("name")
+                    .map(Identifier::from_node)
+                    .transpose()?;
+                let parameters = astutil::get_child_by_field_name(node, "parameters")?
+                    .named_children(cursor)
+                    .filter(|n| !n.is_extra())
+                    .map(FormalParameter::from_node)
+                    .collect::<Result<Vec<_>, _>>()?;
+                let return_ty = node.child_by_field_name("return_type");
+                let body_node = astutil::get_child_by_field_name(node, "body")?;
+                Ok(Function {
+                    name,
+                    parameters,
+                    return_ty,
+                    body: FunctionBody::Statement(body_node),
+                })
+            }
+            "arrow_function" => {
+                // reject unsupported keywords like 'async'
+                if let Some((i, n)) = node
+                    .children(cursor)
+                    .enumerate()
+                    .find(|(_, n)| !n.is_extra())
+                {
+                    if !matches!(
+                        node.field_name_for_child(i as u32),
+                        Some("parameter" | "parameters")
+                    ) {
+                        return Err(ParseError::new(n, ParseErrorKind::UnexpectedNodeKind));
+                    }
+                }
+                let parameters = if let Some(n) = node.child_by_field_name("parameter") {
+                    vec![FormalParameter {
+                        name: Identifier::from_node(n)?,
+                        ty: None,
+                    }]
+                } else {
+                    astutil::get_child_by_field_name(node, "parameters")?
+                        .named_children(cursor)
+                        .filter(|n| !n.is_extra())
+                        .map(FormalParameter::from_node)
+                        .collect::<Result<Vec<_>, _>>()?
+                };
+                let return_ty = node.child_by_field_name("return_type");
+                let body_node = astutil::get_child_by_field_name(node, "body")?;
+                let body = if body_node.kind() == "statement_block" {
+                    FunctionBody::Statement(body_node)
+                } else {
+                    FunctionBody::Expression(body_node)
+                };
+                Ok(Function {
+                    name: None,
+                    parameters,
+                    return_ty,
+                    body,
+                })
+            }
+            _ => Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind)),
+        }
+    }
+}
+
+/// Variant for function body.
+///
+/// If the function isn't an arrow function, the body should be `Statement` kind.
+#[derive(Clone, Copy, Debug)]
+pub enum FunctionBody<'tree> {
+    Expression(Node<'tree>),
+    Statement(Node<'tree>),
+}
+
+/// Represents a function parameter.
+///
+/// This does not support destructuring pattern, default initializer, etc.
+#[derive(Clone, Debug)]
+pub struct FormalParameter<'tree> {
+    pub name: Identifier<'tree>,
+    pub ty: Option<Node<'tree>>,
+}
+
+impl<'tree> FormalParameter<'tree> {
+    fn from_node(node: Node<'tree>) -> Result<Self, ParseError<'tree>> {
+        if node.kind() != "required_parameter" {
+            return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
+        }
+        let name =
+            astutil::get_child_by_field_name(node, "pattern").and_then(Identifier::from_node)?;
+        let ty = node.child_by_field_name("type");
+        Ok(FormalParameter { name, ty })
     }
 }
 
@@ -370,6 +491,12 @@ mod tests {
         impl_unwrap_fn!(unwrap_string, Expression::String, String);
         impl_unwrap_fn!(unwrap_bool, Expression::Bool, bool);
         impl_unwrap_fn!(unwrap_array, Expression::Array, Vec<Node<'tree>>);
+        impl_unwrap_fn!(unwrap_function, Expression::Function, Function<'tree>);
+        impl_unwrap_fn!(
+            unwrap_arrow_function,
+            Expression::ArrowFunction,
+            Function<'tree>
+        );
         impl_unwrap_fn!(unwrap_member, Expression::Member, MemberExpression<'tree>);
         impl_unwrap_fn!(unwrap_call, Expression::Call, CallExpression<'tree>);
         impl_unwrap_fn!(
@@ -454,6 +581,102 @@ mod tests {
         assert!(extract_expr(&doc, "paren1").is_ok());
         assert!(extract_expr(&doc, "paren2").is_ok());
         assert!(extract_expr(&doc, "paren_comment").is_ok());
+    }
+
+    #[test]
+    fn function() {
+        let doc = parse(
+            r###"
+            Foo {
+                unnamed_no_arg: /*garbage*/ function /*garbage*/ (/*garbage*/) { 0 }
+                unnamed_one_arg: function (/*garbage*/ a) {}
+                named_no_arg: function foo() {}
+                named_arg_typed: function foo(a: int, /*garbage*/ b: bool): string {}
+                async_fn: async function foo() {}
+            }
+            "###,
+        );
+
+        let x = unwrap_expr(&doc, "unnamed_no_arg").unwrap_function();
+        assert!(x.name.is_none());
+        assert!(x.parameters.is_empty());
+        assert!(x.return_ty.is_none());
+        assert!(matches!(x.body, FunctionBody::Statement(_)));
+
+        let x = unwrap_expr(&doc, "unnamed_one_arg").unwrap_function();
+        assert!(x.name.is_none());
+        assert_eq!(x.parameters.len(), 1);
+        assert_eq!(x.parameters[0].name.to_str(doc.source()), "a");
+        assert!(x.parameters[0].ty.is_none());
+        assert!(x.return_ty.is_none());
+
+        let x = unwrap_expr(&doc, "named_no_arg").unwrap_function();
+        assert_eq!(x.name.unwrap().to_str(doc.source()), "foo");
+        assert!(x.parameters.is_empty());
+        assert!(x.return_ty.is_none());
+
+        let x = unwrap_expr(&doc, "named_arg_typed").unwrap_function();
+        assert_eq!(x.name.unwrap().to_str(doc.source()), "foo");
+        assert_eq!(x.parameters.len(), 2);
+        assert_eq!(x.parameters[0].name.to_str(doc.source()), "a");
+        assert!(x.parameters[0].ty.is_some());
+        assert_eq!(x.parameters[1].name.to_str(doc.source()), "b");
+        assert!(x.parameters[1].ty.is_some());
+        assert!(x.return_ty.is_some());
+
+        assert!(extract_expr(&doc, "async_fn").is_err());
+    }
+
+    #[test]
+    fn arrow_function() {
+        let doc = parse(
+            r###"
+            Foo {
+                no_arg_expr: /*garbage*/ (/*garbage*/) => /*garbage*/ 0
+                no_arg_stmt: /*garbage*/ (/*garbage*/) => { 0 }
+                bare_arg: /*garbage*/ a => a
+                one_arg: (/*garbage*/ a) => {}
+                arg_typed: (a: int, /*garbage*/ b: bool): string => {}
+                async_bare: async a => a
+                async_paren: async () => {}
+            }
+            "###,
+        );
+
+        let x = unwrap_expr(&doc, "no_arg_expr").unwrap_arrow_function();
+        assert!(x.name.is_none());
+        assert!(x.parameters.is_empty());
+        assert!(x.return_ty.is_none());
+        assert!(matches!(x.body, FunctionBody::Expression(_)));
+
+        let x = unwrap_expr(&doc, "no_arg_stmt").unwrap_arrow_function();
+        assert!(x.name.is_none());
+        assert!(x.parameters.is_empty());
+        assert!(x.return_ty.is_none());
+        assert!(matches!(x.body, FunctionBody::Statement(_)));
+
+        let x = unwrap_expr(&doc, "bare_arg").unwrap_arrow_function();
+        assert_eq!(x.parameters.len(), 1);
+        assert_eq!(x.parameters[0].name.to_str(doc.source()), "a");
+        assert!(x.parameters[0].ty.is_none());
+        assert!(x.return_ty.is_none());
+
+        let x = unwrap_expr(&doc, "one_arg").unwrap_arrow_function();
+        assert_eq!(x.parameters.len(), 1);
+        assert_eq!(x.parameters[0].name.to_str(doc.source()), "a");
+        assert!(x.parameters[0].ty.is_none());
+        assert!(x.return_ty.is_none());
+
+        let x = unwrap_expr(&doc, "arg_typed").unwrap_arrow_function();
+        assert_eq!(x.parameters.len(), 2);
+        assert_eq!(x.parameters[0].name.to_str(doc.source()), "a");
+        assert!(x.parameters[0].ty.is_some());
+        assert_eq!(x.parameters[1].name.to_str(doc.source()), "b");
+        assert!(x.parameters[1].ty.is_some());
+        assert!(x.return_ty.is_some());
+
+        assert!(extract_expr(&doc, "async_bare").is_err());
+        assert!(extract_expr(&doc, "async_paren").is_err());
     }
 
     #[test]
