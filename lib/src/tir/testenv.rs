@@ -12,7 +12,8 @@ use crate::qmlast::{UiObjectDefinition, UiProgram};
 use crate::qmldoc::UiDocument;
 use crate::typedexpr::{RefKind, RefSpace};
 use crate::typemap::{
-    Class, ModuleData, ModuleId, NamedType, Namespace, TypeMap, TypeMapError, TypeSpace as _,
+    Class, ImportedModuleSpace, ModuleData, ModuleId, NamedType, TypeMap, TypeMapError,
+    TypeSpace as _,
 };
 
 pub(super) struct Env {
@@ -84,9 +85,10 @@ impl Env {
     }
 
     pub fn try_build(&self, expr_source: &str) -> Result<CodeBody, Diagnostics> {
-        let ctx = Context {
-            type_space: self.type_map.get_module(&self.module_id).unwrap(),
-        };
+        let mut type_space = ImportedModuleSpace::new(&self.type_map);
+        assert!(type_space.import_module(ModuleId::Builtins));
+        assert!(type_space.import_module(&self.module_id));
+        let ctx = Context { type_space };
 
         let doc = UiDocument::parse(format!("A {{ a: {expr_source}}}"), "MyType", None);
         let program = UiProgram::from_node(doc.root_node(), doc.source()).unwrap();
@@ -100,7 +102,7 @@ impl Env {
 }
 
 struct Context<'a> {
-    type_space: Namespace<'a>,
+    type_space: ImportedModuleSpace<'a>,
 }
 
 impl<'a> RefSpace<'a> for Context<'a> {
