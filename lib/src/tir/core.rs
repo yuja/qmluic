@@ -13,6 +13,8 @@ use std::ops::Range;
 pub struct CodeBody<'a> {
     pub basic_blocks: Vec<BasicBlock<'a>>,
     pub locals: Vec<Local<'a>>,
+    /// Number of local variables which should be provided as arguments by caller.
+    pub parameter_count: usize,
     /// List of static object/property dependencies, which will be collected by
     /// `analyze_code_property_dependency()`.
     pub static_property_deps: Vec<(NamedObjectRef, Property<'a>)>,
@@ -24,6 +26,7 @@ impl<'a> CodeBody<'a> {
         CodeBody {
             basic_blocks: vec![BasicBlock::empty()],
             locals: vec![],
+            parameter_count: 0,
             static_property_deps: vec![],
             property_observer_count: 0,
         }
