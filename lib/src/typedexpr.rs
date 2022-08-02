@@ -551,6 +551,13 @@ where
                 .consume_node_err(node, visitor.visit_array(elements, node.byte_range()))
                 .map(Intermediate::Item)
         }
+        Expression::Function(_) | Expression::ArrowFunction(_) => {
+            diagnostics.push(Diagnostic::error(
+                node.byte_range(),
+                "unsupported expression",
+            ));
+            None
+        }
         Expression::Member(x) => {
             match walk_expr(ctx, locals, x.object, source, visitor, diagnostics)? {
                 Intermediate::Item(it) => {
