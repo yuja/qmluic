@@ -215,6 +215,7 @@ Major TODOs
   - [x] `let` binding
   - [x] multiple statements
   - [ ] signal parameters: `on<Signal>: function(...) {}`
+  - [ ] value type naming: `QString` vs `string`
 - [ ] export helper functions from C++
 
 Comparison to DeclarativeWidgets
