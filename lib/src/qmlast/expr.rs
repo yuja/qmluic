@@ -1,5 +1,5 @@
 use super::astutil::{self, Number};
-use super::term::Identifier;
+use super::term::{Identifier, NestedIdentifier};
 use super::{ParseError, ParseErrorKind};
 use std::fmt;
 use tree_sitter::{Node, TreeCursor};
@@ -128,7 +128,7 @@ impl<'tree> Expression<'tree> {
 pub struct Function<'tree> {
     pub name: Option<Identifier<'tree>>,
     pub parameters: Vec<FormalParameter<'tree>>,
-    pub return_ty: Option<Node<'tree>>,
+    pub return_ty: Option<NestedIdentifier<'tree>>,
     pub body: FunctionBody<'tree>,
 }
 
@@ -156,7 +156,10 @@ impl<'tree> Function<'tree> {
                     .filter(|n| !n.is_extra())
                     .map(FormalParameter::from_node)
                     .collect::<Result<Vec<_>, _>>()?;
-                let return_ty = node.child_by_field_name("return_type");
+                let return_ty = node
+                    .child_by_field_name("return_type")
+                    .map(extract_type_annotation)
+                    .transpose()?;
                 let body_node = astutil::get_child_by_field_name(node, "body")?;
                 Ok(Function {
                     name,
@@ -191,7 +194,10 @@ impl<'tree> Function<'tree> {
                         .map(FormalParameter::from_node)
                         .collect::<Result<Vec<_>, _>>()?
                 };
-                let return_ty = node.child_by_field_name("return_type");
+                let return_ty = node
+                    .child_by_field_name("return_type")
+                    .map(extract_type_annotation)
+                    .transpose()?;
                 let body_node = astutil::get_child_by_field_name(node, "body")?;
                 let body = if body_node.kind() == "statement_block" {
                     FunctionBody::Statement(body_node)
@@ -225,7 +231,7 @@ pub enum FunctionBody<'tree> {
 #[derive(Clone, Debug)]
 pub struct FormalParameter<'tree> {
     pub name: Identifier<'tree>,
-    pub ty: Option<Node<'tree>>,
+    pub ty: Option<NestedIdentifier<'tree>>,
 }
 
 impl<'tree> FormalParameter<'tree> {
@@ -235,9 +241,19 @@ impl<'tree> FormalParameter<'tree> {
         }
         let name =
             astutil::get_child_by_field_name(node, "pattern").and_then(Identifier::from_node)?;
-        let ty = node.child_by_field_name("type");
+        let ty = node
+            .child_by_field_name("type")
+            .map(extract_type_annotation)
+            .transpose()?;
         Ok(FormalParameter { name, ty })
     }
+}
+
+// TODO: maybe introduce an AST type dedicated for type expression?
+fn extract_type_annotation(node: Node) -> Result<NestedIdentifier, ParseError> {
+    let mut cursor = node.walk();
+    astutil::goto_first_named_child(&mut cursor)?;
+    NestedIdentifier::with_cursor(&mut cursor)
 }
 
 /// Represents a member expression.
@@ -591,7 +607,7 @@ mod tests {
                 unnamed_no_arg: /*garbage*/ function /*garbage*/ (/*garbage*/) { 0 }
                 unnamed_one_arg: function (/*garbage*/ a) {}
                 named_no_arg: function foo() {}
-                named_arg_typed: function foo(a: int, /*garbage*/ b: bool): string {}
+                named_arg_typed: function foo(a: int, /*garbage*/ b: bar.bool): string {}
                 async_fn: async function foo() {}
             }
             "###,
@@ -619,10 +635,19 @@ mod tests {
         assert_eq!(x.name.unwrap().to_str(doc.source()), "foo");
         assert_eq!(x.parameters.len(), 2);
         assert_eq!(x.parameters[0].name.to_str(doc.source()), "a");
-        assert!(x.parameters[0].ty.is_some());
+        assert_eq!(
+            x.parameters[0].ty.as_ref().unwrap().to_string(doc.source()),
+            "int"
+        );
         assert_eq!(x.parameters[1].name.to_str(doc.source()), "b");
-        assert!(x.parameters[1].ty.is_some());
-        assert!(x.return_ty.is_some());
+        assert_eq!(
+            x.parameters[1].ty.as_ref().unwrap().to_string(doc.source()),
+            "bar.bool"
+        );
+        assert_eq!(
+            x.return_ty.as_ref().unwrap().to_string(doc.source()),
+            "string"
+        );
 
         assert!(extract_expr(&doc, "async_fn").is_err());
     }
@@ -670,10 +695,19 @@ mod tests {
         let x = unwrap_expr(&doc, "arg_typed").unwrap_arrow_function();
         assert_eq!(x.parameters.len(), 2);
         assert_eq!(x.parameters[0].name.to_str(doc.source()), "a");
-        assert!(x.parameters[0].ty.is_some());
+        assert_eq!(
+            x.parameters[0].ty.as_ref().unwrap().to_string(doc.source()),
+            "int"
+        );
         assert_eq!(x.parameters[1].name.to_str(doc.source()), "b");
-        assert!(x.parameters[1].ty.is_some());
-        assert!(x.return_ty.is_some());
+        assert_eq!(
+            x.parameters[1].ty.as_ref().unwrap().to_string(doc.source()),
+            "bool"
+        );
+        assert_eq!(
+            x.return_ty.as_ref().unwrap().to_string(doc.source()),
+            "string"
+        );
 
         assert!(extract_expr(&doc, "async_bare").is_err());
         assert!(extract_expr(&doc, "async_paren").is_err());

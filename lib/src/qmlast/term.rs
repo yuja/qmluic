@@ -10,7 +10,11 @@ pub struct Identifier<'tree>(Node<'tree>);
 impl<'tree> Identifier<'tree> {
     pub fn from_node(node: Node<'tree>) -> Result<Self, ParseError<'tree>> {
         match node.kind() {
-            "identifier" | "property_identifier" | "statement_identifier" => Ok(Identifier(node)),
+            "identifier"
+            | "predefined_type"
+            | "property_identifier"
+            | "statement_identifier"
+            | "type_identifier" => Ok(Identifier(node)),
             _ => Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind)),
         }
     }
@@ -43,7 +47,10 @@ impl<'tree> NestedIdentifier<'tree> {
 
     pub(super) fn with_cursor(cursor: &mut TreeCursor<'tree>) -> Result<Self, ParseError<'tree>> {
         let mut depth: usize = 0;
-        while cursor.node().kind() == "nested_identifier" {
+        while matches!(
+            cursor.node().kind(),
+            "nested_identifier" | "nested_type_identifier"
+        ) {
             astutil::goto_first_named_child(cursor)?;
             depth += 1;
         }
@@ -57,7 +64,7 @@ impl<'tree> NestedIdentifier<'tree> {
             'pop: loop {
                 let node = cursor.node();
                 match node.kind() {
-                    "identifier" => {
+                    "identifier" | "type_identifier" => {
                         components.push(Identifier(node));
                     }
                     _ => astutil::handle_uninteresting_node(node)?,
