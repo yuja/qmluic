@@ -6,7 +6,9 @@ use super::core::{
 use crate::diagnostic::Diagnostics;
 use crate::opcode::{BinaryArithOp, BinaryOp, BuiltinFunctionKind, BuiltinMethodKind, UnaryOp};
 use crate::qmlast::Node;
-use crate::typedexpr::{self, DescribeType, ExpressionVisitor, RefSpace, TypeDesc};
+use crate::typedexpr::{
+    self, DescribeType, ExpressionVisitor, RefSpace, TypeAnnotationSpace, TypeDesc,
+};
 use crate::typemap::{
     Class, Enum, MethodMatches, NamedType, PrimitiveType, Property, TypeKind, TypeMapError,
 };
@@ -749,7 +751,7 @@ pub fn build<'a, C>(
     diagnostics: &mut Diagnostics,
 ) -> Option<CodeBody<'a>>
 where
-    C: RefSpace<'a>,
+    C: RefSpace<'a> + TypeAnnotationSpace<'a>,
 {
     let mut builder = CodeBuilder::new();
     typedexpr::walk(ctx, node, source, &mut builder, diagnostics)?;
@@ -771,7 +773,7 @@ pub fn build_callback<'a, C>(
     diagnostics: &mut Diagnostics,
 ) -> Option<CodeBody<'a>>
 where
-    C: RefSpace<'a>,
+    C: RefSpace<'a> + TypeAnnotationSpace<'a>,
 {
     let mut builder = CodeBuilder::new();
     typedexpr::walk_callback(ctx, node, source, &mut builder, diagnostics)?;
