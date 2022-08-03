@@ -127,6 +127,10 @@ impl<'a> RefSpace<'a> for Context<'a> {
 pub(super) fn dump(expr_source: &str) -> String {
     let env = Env::new();
     let code = env.build(expr_source);
+    dump_code(&code)
+}
+
+pub(super) fn dump_code(code: &CodeBody) -> String {
     let mut buf = Vec::new();
     dump::dump_code_body(&mut buf, &code).unwrap();
     String::from_utf8(buf).unwrap()
