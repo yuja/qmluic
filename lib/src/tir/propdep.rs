@@ -85,7 +85,6 @@ fn analyze_block<'a>(code: &mut CodeBody<'a>, block_index: usize, diagnostics: &
 
 #[cfg(test)]
 mod tests {
-    use super::super::dump;
     use super::super::testenv::*;
     use super::*;
 
@@ -93,12 +92,6 @@ mod tests {
         let mut diagnostics = Diagnostics::new();
         analyze_code_property_dependency(code, &mut diagnostics);
         assert!(!diagnostics.has_error());
-    }
-
-    fn dump_code(code: &CodeBody) -> String {
-        let mut buf = Vec::new();
-        dump::dump_code_body(&mut buf, &code).unwrap();
-        String::from_utf8(buf).unwrap()
     }
 
     #[test]
