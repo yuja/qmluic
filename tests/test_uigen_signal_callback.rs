@@ -169,6 +169,66 @@ fn test_upcast_callback_parameters() {
 }
 
 #[test]
+fn test_redefine_callback_parameters() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QLineEdit {
+            onCursorPositionChanged: (pos: int, pos: int) => {}
+        }
+        "###,
+    );
+    insta::assert_snapshot!(
+        common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap_err(), @r###"
+    error: redefinition of parameter: pos
+      ┌─ <unknown>:3:41
+      │
+    3 │     onCursorPositionChanged: (pos: int, pos: int) => {}
+      │                                         ^^^
+    "###);
+}
+
+#[test]
+fn test_callback_parameter_without_type_annotation() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QLineEdit {
+            onCursorPositionChanged: (pos) => {}
+        }
+        "###,
+    );
+    insta::assert_snapshot!(
+        common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap_err(), @r###"
+    error: function parameter must have type annotation
+      ┌─ <unknown>:3:31
+      │
+    3 │     onCursorPositionChanged: (pos) => {}
+      │                               ^^^
+    "###);
+}
+
+#[test]
+fn test_callback_parameter_of_void_type() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QLineEdit {
+            onCursorPositionChanged: (pos: void) => {}
+        }
+        "###,
+    );
+    insta::assert_snapshot!(
+        common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap_err(), @r###"
+    error: operation 'function parameter' on unsupported type: void
+      ┌─ <unknown>:3:31
+      │
+    3 │     onCursorPositionChanged: (pos: void) => {}
+      │                               ^^^^^^^^^
+    "###);
+}
+
+#[test]
 fn test_method_call_bad_arg_count() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
