@@ -15,6 +15,7 @@ public:
     {
         this->setupFormStackCurrentIndex();
         this->setupRootWindowTitle();
+        this->setupFileNameEditTextHighlighted();
         this->setupAction_QuitTriggered();
         this->updateFormStackCurrentIndex();
         this->updateRootWindowTitle();
@@ -101,6 +102,18 @@ private:
         a6 = QCoreApplication::translate("MainWindow", "Qmluic Example: %1");
         a7 = a6.arg(a5);
         return a7;
+    }
+
+    void setupFileNameEditTextHighlighted()
+    {
+        QObject::connect(this->ui_->fileNameEdit, &QComboBox::textHighlighted, this->root_, [this](QString a0) { this->onFileNameEditTextHighlighted(a0); });
+    }
+
+    void onFileNameEditTextHighlighted(QString a0)
+    {
+    b0:
+        this->ui_->statusbar->showMessage(a0, 1000);
+        return;
     }
 
     void setupAction_QuitTriggered()

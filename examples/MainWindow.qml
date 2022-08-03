@@ -42,6 +42,9 @@ QMainWindow {
                         "StaticItemModel.qml",
                         "VariousLayouts.qml",
                     ]
+                    onTextHighlighted: function(s: QString) {
+                        statusbar.showMessage(s, 1000);
+                    }
                 }
             }
 
