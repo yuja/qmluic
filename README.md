@@ -214,7 +214,7 @@ Major TODOs
   - [x] `return` statement
   - [x] `let` binding
   - [x] multiple statements
-  - [ ] signal parameters: `on<Signal>: function(...) {}`
+  - [x] signal parameters: `on<Signal>: function(...) {}`
   - [ ] value type naming: `QString` vs `string`
 - [ ] export helper functions from C++
 

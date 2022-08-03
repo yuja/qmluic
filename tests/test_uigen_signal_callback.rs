@@ -96,6 +96,26 @@ fn test_default_argument_deduction() {
 }
 
 #[test]
+fn test_take_signal_parameter() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QDialog {
+            QLineEdit {
+                id: edit
+                onCursorPositionChanged: function(oldPos: int, newPos: int) {
+                    label.text = "old: %1, new: %2".arg(oldPos).arg(newPos);
+                }
+            }
+            QLabel { id: label }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
 fn test_method_call_bad_arg_count() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
