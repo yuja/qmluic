@@ -91,24 +91,37 @@ pub fn deduce_type<'a>(left: TypeDesc<'a>, right: TypeDesc<'a>) -> Result<TypeDe
 
 /// Checks if the `actual` can be assigned to the variable of the `expected` type.
 pub fn is_assignable(expected: &TypeKind, actual: &TypeDesc) -> Result<bool, TypeMapError> {
+    match (expected, actual) {
+        (expected, TypeDesc::Concrete(ty)) => is_concrete_assignable(expected, ty),
+        (&TypeKind::INT | &TypeKind::UINT, TypeDesc::ConstInteger) => Ok(true),
+        (&TypeKind::STRING_LIST | TypeKind::PointerList(_), TypeDesc::EmptyList) => Ok(true),
+        _ => Ok(false),
+    }
+}
+
+/// Checks if the `actual` can be assigned to the variable of the `expected` type.
+pub fn is_concrete_assignable(
+    expected: &TypeKind,
+    actual: &TypeKind,
+) -> Result<bool, TypeMapError> {
     let r = match (expected, actual) {
-        (expected, TypeDesc::Concrete(ty)) if expected == ty => true,
-        (&TypeKind::INT | &TypeKind::UINT, TypeDesc::ConstInteger) => true,
-        (
-            TypeKind::Just(NamedType::Enum(e)),
-            TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(a))),
-        ) if is_compatible_enum(e, a)? => true,
-        (
-            TypeKind::Pointer(NamedType::Class(e)),
-            TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(a))),
-        ) if a.is_derived_from(e) => true,
+        (expected, actual) if expected == actual => true,
+        (TypeKind::Just(NamedType::Enum(e)), TypeKind::Just(NamedType::Enum(a)))
+            if is_compatible_enum(e, a)? =>
+        {
+            true
+        }
+        (TypeKind::Pointer(NamedType::Class(e)), TypeKind::Pointer(NamedType::Class(a)))
+            if a.is_derived_from(e) =>
+        {
+            true
+        }
         // TODO: covariant type is allowed to support QList<QAction*|QMenu*>, but it
         // should only work at list construction.
         (
             TypeKind::PointerList(NamedType::Class(e)),
-            TypeDesc::Concrete(TypeKind::PointerList(NamedType::Class(a))),
+            TypeKind::PointerList(NamedType::Class(a)),
         ) if a.is_derived_from(e) => true,
-        (&TypeKind::STRING_LIST | TypeKind::PointerList(_), TypeDesc::EmptyList) => true,
         _ => false,
     };
     Ok(r)
