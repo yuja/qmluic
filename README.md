@@ -148,8 +148,7 @@ void UiSupport::MainWindow::setup() {
 (The generated code would be more verbose since QML/JS expression is first
 transformed to basic intermediate representation.)
 
-Syntax of supported binding expressions is quite limited right now. See
-the "Major TODOs" section for details.
+[A subset of QML/JS syntax is supported](docs/language.md).
 
 Building
 --------
@@ -196,25 +195,9 @@ Major TODOs
 - [ ] Live preview triggered by lsp
 - [ ] Live preview for multi-document file
 - [ ] Better support for static `QComboBox`/`QListWidget` items
-- [x] Support signal-slot connections (`on<Signal>` syntax)
 - [ ] Improve support for dynamic property bindings / signal callbacks
-  - [x] ternary operator
   - [ ] `.toString()`
-  - [x] `QString::arg()`
   - [ ] integer/string as bool
-  - [x] integer/floating point mess
-  - [x] implicit/explicit `this` property
-  - [x] method/slot call
-  - [x] property setter
-  - [x] gadget property expression
-  - [x] grouped/gadget property binding
-  - [x] cycle detection
-  - [x] `if` statement
-  - [x] `switch` statement
-  - [x] `return` statement
-  - [x] `let` binding
-  - [x] multiple statements
-  - [x] signal parameters: `on<Signal>: function(...) {}`
   - [ ] value type naming: `QString` vs `string`
 - [ ] export helper functions from C++
 
