@@ -1,0 +1,50 @@
+---
+source: tests/test_uigen_signal_callback.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_mytype.h"
+
+namespace UiSupport {
+class MyType
+{
+public:
+    MyType(QDialog *root, Ui::MyType *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+        this->setupEditCursorPositionChanged();
+    }
+
+private:
+    enum class BindingIndex : unsigned {
+    };
+
+    void setupEditCursorPositionChanged()
+    {
+        QObject::connect(this->ui_->edit, &QLineEdit::cursorPositionChanged, this->root_, [this](int a0, int a1) { this->onEditCursorPositionChanged(a0, a1); });
+    }
+
+    void onEditCursorPositionChanged(int a0, int a1)
+    {
+        QString a2;
+        QString a3;
+    b0:
+        a2 = QStringLiteral("old: %1, new: %2").arg(a0);
+        a3 = a2.arg(a1);
+        this->ui_->label->setText(a3);
+        return;
+    }
+
+    struct PropertyObserver
+    {
+        QMetaObject::Connection connection;
+        QObject *object = nullptr;
+    };
+
+    QDialog *const root_;
+    Ui::MyType *const ui_;
+
+};
+} // namespace UiSupport
+

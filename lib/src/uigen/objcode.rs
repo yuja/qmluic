@@ -401,7 +401,7 @@ impl<'a, 't> CallbackCode<'a, 't> {
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
         let code = match value {
-            UiBindingValue::Node(n) => tir::build(ctx, *n, ctx.source, diagnostics)?,
+            UiBindingValue::Node(n) => tir::build_callback(ctx, *n, ctx.source, diagnostics)?,
             UiBindingValue::Map(n, _) => {
                 diagnostics.push(Diagnostic::error(
                     n.byte_range(),

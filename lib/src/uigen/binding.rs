@@ -622,6 +622,7 @@ struct CxxCallback {
     name: String,
     sender: String,
     signal: String,
+    parameters: Vec<(String, String)>,
     callback_function_body: Vec<u8>,
 }
 
@@ -640,7 +641,16 @@ impl CxxCallback {
             callback_code.desc().name()
         );
         let code = callback_code.code();
-        assert_eq!(code.parameter_count, 0); // TODO
+        // TODO: use 'const T &' if parameter is gadget and not mutated
+        let parameters = code.locals[0..code.parameter_count]
+            .iter()
+            .map(|a| {
+                (
+                    a.ty.qualified_cxx_name().into(),
+                    code_translator.format_local_ref(a.name),
+                )
+            })
+            .collect();
         let mut callback_function_body = Vec::new();
         let mut writer = CodeWriter::new(&mut callback_function_body);
         writer.set_indent_level(1);
@@ -651,6 +661,7 @@ impl CxxCallback {
             name,
             sender,
             signal,
+            parameters,
             callback_function_body,
         }
     }
@@ -668,17 +679,30 @@ impl CxxCallback {
         writeln!(w, "{{")?;
         writeln!(
             w.indented(),
-            "QObject::connect({}, &{}, this->root_, [this]() {{ this->{}(); }});",
+            "QObject::connect({}, &{}, this->root_, [this]({}) {{ this->{}({}); }});",
             self.sender,
             self.signal,
-            self.callback_function_name()
+            self.parameters
+                .iter()
+                .map(|(t, n)| format!("{t} {n}"))
+                .join(", "),
+            self.callback_function_name(),
+            self.parameters.iter().map(|(_, n)| n).join(", "),
         )?;
         writeln!(w, "}}")?;
         writeln!(w)
     }
 
     fn write_callback_function<W: io::Write>(&self, w: &mut CodeWriter<W>) -> io::Result<()> {
-        writeln!(w, "void {}()", self.callback_function_name())?;
+        writeln!(
+            w,
+            "void {}({})",
+            self.callback_function_name(),
+            self.parameters
+                .iter()
+                .map(|(t, n)| format!("{t} {n}"))
+                .join(", "),
+        )?;
         writeln!(w, "{{")?;
         w.get_mut().write_all(&self.callback_function_body)?;
         writeln!(w, "}}")?;
@@ -717,7 +741,7 @@ impl CxxCodeBodyTranslator {
         w: &mut CodeWriter<W>,
         code: &tir::CodeBody,
     ) -> io::Result<()> {
-        self.write_locals(&mut w.indented(), &code.locals)?;
+        self.write_locals(&mut w.indented(), &code.locals[code.parameter_count..])?;
         for (i, b) in code.basic_blocks.iter().enumerate() {
             writeln!(w, "{}:", self.format_basic_block_ref(tir::BasicBlockRef(i)))?;
             self.write_basic_block(&mut w.indented(), b)?;
