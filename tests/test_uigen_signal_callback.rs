@@ -116,6 +116,59 @@ fn test_take_signal_parameter() {
 }
 
 #[test]
+fn test_too_many_callback_parameters() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QDialogButtonBox {
+            onClicked: (a: QAbstractButton, b: int) => {}
+        }
+        "###,
+    );
+    insta::assert_snapshot!(
+        common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap_err(), @r###"
+    error: too many callback arguments (expected: 0..1, actual: 2)
+      ┌─ <unknown>:3:37
+      │
+    3 │     onClicked: (a: QAbstractButton, b: int) => {}
+      │                                     ^^^^^^
+    "###);
+}
+
+#[test]
+fn test_incompatible_callback_parameters() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QDialogButtonBox {
+            onClicked: (a: QPushButton) => {}
+        }
+        "###,
+    );
+    insta::assert_snapshot!(
+        common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap_err(), @r###"
+    error: incompatible callback arguments (expected: QAbstractButton*, actual: QPushButton*)
+      ┌─ <unknown>:3:17
+      │
+    3 │     onClicked: (a: QPushButton) => {}
+      │                 ^^^^^^^^^^^^^^
+    "###);
+}
+
+#[test]
+fn test_upcast_callback_parameters() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QDialogButtonBox {
+            onClicked: (a: QWidget) => {}
+        }
+        "###,
+    );
+    assert!(common::translate_doc(&doc, DynamicBindingHandling::Generate).is_ok());
+}
+
+#[test]
 fn test_method_call_bad_arg_count() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets

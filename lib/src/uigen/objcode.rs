@@ -10,6 +10,7 @@ use crate::tir::{self, CodeBody};
 use crate::typemap::{
     Class, Method, MethodKind, MethodMatches, NamedType, Property, TypeKind, TypeSpace as _,
 };
+use crate::typeutil;
 use once_cell::sync::OnceCell;
 use std::collections::HashMap;
 
@@ -410,7 +411,9 @@ impl<'a, 't> CallbackCode<'a, 't> {
                 return None;
             }
         };
-        // TODO: verify parameter types
+        if !verify_callback_parameter_type(&desc, &code, diagnostics) {
+            return None;
+        }
         Some(CallbackCode {
             desc,
             node: value.node(),
@@ -438,4 +441,48 @@ impl<'a, 't> CallbackCode<'a, 't> {
     pub fn code(&self) -> &CodeBody<'a> {
         &self.code
     }
+}
+
+#[must_use]
+fn verify_callback_parameter_type(
+    desc: &Method,
+    code: &CodeBody,
+    diagnostics: &mut Diagnostics,
+) -> bool {
+    if code.parameter_count > desc.arguments_len() {
+        let s = code.locals[desc.arguments_len()].byte_range.start;
+        let e = code.locals[code.parameter_count - 1].byte_range.end;
+        diagnostics.push(Diagnostic::error(
+            s..e,
+            format!(
+                "too many callback arguments (expected: 0..{}, actual: {})",
+                desc.arguments_len(),
+                code.parameter_count,
+            ),
+        ));
+        return false;
+    }
+
+    let incompatible_args: Vec<_> = desc
+        .argument_types()
+        .zip(&code.locals[..code.parameter_count])
+        .filter(|(rty, a)| {
+            !rty.as_ref()
+                .ok()
+                .and_then(|ty| typeutil::is_concrete_assignable(&a.ty, ty).ok())
+                .unwrap_or(false)
+        })
+        .collect();
+    for (rty, a) in &incompatible_args {
+        let msg = match rty {
+            Ok(ty) => format!(
+                "incompatible callback arguments (expected: {}, actual: {})",
+                ty.qualified_cxx_name(),
+                a.ty.qualified_cxx_name(),
+            ),
+            Err(e) => format!("type resolution failed: {e}"),
+        };
+        diagnostics.push(Diagnostic::error(a.byte_range.clone(), msg));
+    }
+    incompatible_args.is_empty()
 }
