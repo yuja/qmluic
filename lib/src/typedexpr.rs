@@ -10,6 +10,7 @@ use crate::typemap::{
     Class, Enum, MethodMatches, NamedType, PrimitiveType, Property, TypeKind, TypeMapError,
     TypeSpace,
 };
+use crate::typeutil;
 use itertools::Itertools as _;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -155,7 +156,7 @@ pub trait ExpressionVisitor<'a> {
     fn visit_local_ref(&mut self, name: Self::Local) -> Result<Self::Item, Self::Error>;
     fn visit_local_declaration(
         &mut self,
-        value: Self::Item,
+        ty: TypeKind<'a>,
         byte_range: Range<usize>,
     ) -> Result<Self::Local, Self::Error>;
     fn visit_local_assignment(
@@ -331,9 +332,15 @@ where
             for decl in &x.variables {
                 if let Some(n) = decl.value {
                     let value = walk_rvalue(ctx, locals, n, source, visitor, diagnostics)?;
+                    let ty = diagnostics
+                        .consume_node_err(n, typeutil::to_concrete_type(value.type_desc()))?;
                     let local = diagnostics.consume_node_err(
-                        decl.name.node(),
-                        visitor.visit_local_declaration(value, decl.name.node().byte_range()),
+                        decl.node(),
+                        visitor.visit_local_declaration(ty, decl.node().byte_range()),
+                    )?;
+                    diagnostics.consume_node_err(
+                        decl.node(),
+                        visitor.visit_local_assignment(local, value, decl.node().byte_range()),
                     )?;
                     locals.insert(decl.name.to_str(source).to_owned(), (local, x.kind));
                 } else {
