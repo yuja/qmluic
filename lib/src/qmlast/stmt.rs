@@ -146,6 +146,13 @@ impl<'tree> VariableDeclarator<'tree> {
         let value = node.child_by_field_name("value");
         Ok(VariableDeclarator { name, ty, value })
     }
+
+    pub fn node(&self) -> Node<'tree> {
+        self.name
+            .node()
+            .parent()
+            .expect("variable declarator name node should have parent")
+    }
 }
 
 /// Represents an "if" statement.
