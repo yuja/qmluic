@@ -153,6 +153,13 @@ impl<'tree> NestedIdentifier<'tree> {
     }
 }
 
+// TODO: maybe introduce an AST type dedicated for type expression?
+pub(super) fn extract_type_annotation(node: Node) -> Result<NestedIdentifier, ParseError> {
+    let mut cursor = node.walk();
+    astutil::goto_first_named_child(&mut cursor)?;
+    NestedIdentifier::with_cursor(&mut cursor)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

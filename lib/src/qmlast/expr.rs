@@ -1,5 +1,5 @@
 use super::astutil::{self, Number};
-use super::term::{Identifier, NestedIdentifier};
+use super::term::{self, Identifier, NestedIdentifier};
 use super::{ParseError, ParseErrorKind};
 use std::fmt;
 use tree_sitter::{Node, TreeCursor};
@@ -170,7 +170,7 @@ impl<'tree> Function<'tree> {
                     .collect::<Result<Vec<_>, _>>()?;
                 let return_ty = node
                     .child_by_field_name("return_type")
-                    .map(extract_type_annotation)
+                    .map(term::extract_type_annotation)
                     .transpose()?;
                 let body_node = astutil::get_child_by_field_name(node, "body")?;
                 Ok(Function {
@@ -202,7 +202,7 @@ impl<'tree> Function<'tree> {
                 };
                 let return_ty = node
                     .child_by_field_name("return_type")
-                    .map(extract_type_annotation)
+                    .map(term::extract_type_annotation)
                     .transpose()?;
                 let body_node = astutil::get_child_by_field_name(node, "body")?;
                 let body = if body_node.kind() == "statement_block" {
@@ -249,7 +249,7 @@ impl<'tree> FormalParameter<'tree> {
             astutil::get_child_by_field_name(node, "pattern").and_then(Identifier::from_node)?;
         let ty = node
             .child_by_field_name("type")
-            .map(extract_type_annotation)
+            .map(term::extract_type_annotation)
             .transpose()?;
         Ok(FormalParameter { name, ty })
     }
@@ -260,13 +260,6 @@ impl<'tree> FormalParameter<'tree> {
             .parent()
             .expect("formal parameter name node should have parent")
     }
-}
-
-// TODO: maybe introduce an AST type dedicated for type expression?
-fn extract_type_annotation(node: Node) -> Result<NestedIdentifier, ParseError> {
-    let mut cursor = node.walk();
-    astutil::goto_first_named_child(&mut cursor)?;
-    NestedIdentifier::with_cursor(&mut cursor)
 }
 
 /// Represents a member expression.
