@@ -171,18 +171,15 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
 
     fn visit_local_declaration(
         &mut self,
-        value: Self::Item,
+        ty: TypeKind<'a>,
         byte_range: Range<usize>,
     ) -> Result<Self::Local, Self::Error> {
-        let value = ensure_concrete_string(value);
-        let ty = to_concrete_type("=", value.type_desc())?;
         let a = self.alloca(ty, byte_range).map_err(|_| {
             ExpressionError::OperationOnUnsupportedType(
-                "=".to_owned(),
-                value.type_desc().qualified_name().into(),
+                "local declaration".to_owned(),
+                "void".to_owned(),
             )
         })?;
-        self.push_statement(Statement::Assign(a.name, Rvalue::Copy(value)));
         Ok(a.name)
     }
 
