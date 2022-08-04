@@ -6,7 +6,6 @@ mod core;
 mod dump;
 pub mod interpret;
 mod propdep;
-mod testenv;
 
 pub use self::builder::{build, build_callback}; // re-export
 pub use self::core::*; // re-export

@@ -1,22 +1,18 @@
 //! Environment and utility for TIR tests.
 
-#![cfg(test)]
-
-use super::builder;
-use super::core::CodeBody;
-use super::dump;
-use crate::diagnostic::Diagnostics;
-use crate::metatype;
-use crate::opcode::BuiltinFunctionKind;
-use crate::qmlast::{Node, UiObjectDefinition, UiProgram};
-use crate::qmldoc::UiDocument;
-use crate::typedexpr::{RefKind, RefSpace, TypeAnnotationSpace};
-use crate::typemap::{
+use qmluic::diagnostic::Diagnostics;
+use qmluic::metatype;
+use qmluic::opcode::BuiltinFunctionKind;
+use qmluic::qmlast::{Node, UiObjectDefinition, UiProgram};
+use qmluic::qmldoc::UiDocument;
+use qmluic::tir::{self, CodeBody};
+use qmluic::typedexpr::{RefKind, RefSpace, TypeAnnotationSpace};
+use qmluic::typemap::{
     Class, ImportedModuleSpace, ModuleData, ModuleId, NamedType, TypeKind, TypeMap, TypeMapError,
     TypeSpace as _,
 };
 
-pub(super) struct Env {
+pub struct Env {
     type_map: TypeMap,
     module_id: ModuleId<'static>,
 }
@@ -85,7 +81,7 @@ impl Env {
     }
 
     pub fn try_build(&self, expr_source: &str) -> Result<CodeBody, Diagnostics> {
-        self.try_build_with(expr_source, builder::build)
+        self.try_build_with(expr_source, tir::build)
     }
 
     pub fn build_callback(&self, expr_source: &str) -> CodeBody {
@@ -93,7 +89,7 @@ impl Env {
     }
 
     pub fn try_build_callback(&self, expr_source: &str) -> Result<CodeBody, Diagnostics> {
-        self.try_build_with(expr_source, builder::build_callback)
+        self.try_build_with(expr_source, tir::build_callback)
     }
 
     fn try_build_with<'a>(
@@ -157,14 +153,14 @@ impl<'a> TypeAnnotationSpace<'a> for Context<'a> {
     }
 }
 
-pub(super) fn dump(expr_source: &str) -> String {
+pub fn dump(expr_source: &str) -> String {
     let env = Env::new();
     let code = env.build(expr_source);
     dump_code(&code)
 }
 
-pub(super) fn dump_code(code: &CodeBody) -> String {
+pub fn dump_code(code: &CodeBody) -> String {
     let mut buf = Vec::new();
-    dump::dump_code_body(&mut buf, &code).unwrap();
+    tir::dump_code_body(&mut buf, &code).unwrap();
     String::from_utf8(buf).unwrap()
 }
