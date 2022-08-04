@@ -1,5 +1,5 @@
 use super::astutil;
-use super::term::Identifier;
+use super::term::{self, Identifier, NestedIdentifier};
 use super::{ParseError, ParseErrorKind};
 use tree_sitter::{Node, TreeCursor};
 
@@ -128,6 +128,7 @@ impl LexicalDeclarationKind {
 #[derive(Clone, Debug)]
 pub struct VariableDeclarator<'tree> {
     pub name: Identifier<'tree>,
+    pub ty: Option<NestedIdentifier<'tree>>,
     pub value: Option<Node<'tree>>,
 }
 
@@ -138,8 +139,12 @@ impl<'tree> VariableDeclarator<'tree> {
         }
         let name =
             astutil::get_child_by_field_name(node, "name").and_then(Identifier::from_node)?;
+        let ty = node
+            .child_by_field_name("type")
+            .map(term::extract_type_annotation)
+            .transpose()?;
         let value = node.child_by_field_name("value");
-        Ok(VariableDeclarator { name, value })
+        Ok(VariableDeclarator { name, ty, value })
     }
 }
 
@@ -325,6 +330,7 @@ mod tests {
             Foo {
                 let_one: { let x = 1 }
                 let_uninit: { let x }
+                let_typed: { let x: int }
                 const_two: { const x = 1, y = 2 }
             }
             "###,
@@ -334,20 +340,34 @@ mod tests {
         assert_eq!(x.kind, LexicalDeclarationKind::Let);
         assert_eq!(x.variables.len(), 1);
         assert_eq!(x.variables[0].name.to_str(doc.source()), "x");
+        assert!(x.variables[0].ty.is_none());
         assert!(Expression::from_node(x.variables[0].value.unwrap(), doc.source()).is_ok());
 
         let x = unwrap_block_stmt(&doc, "let_uninit").unwrap_lexical_declaration();
         assert_eq!(x.kind, LexicalDeclarationKind::Let);
         assert_eq!(x.variables.len(), 1);
         assert_eq!(x.variables[0].name.to_str(doc.source()), "x");
+        assert!(x.variables[0].ty.is_none());
+        assert!(x.variables[0].value.is_none());
+
+        let x = unwrap_block_stmt(&doc, "let_typed").unwrap_lexical_declaration();
+        assert_eq!(x.kind, LexicalDeclarationKind::Let);
+        assert_eq!(x.variables.len(), 1);
+        assert_eq!(x.variables[0].name.to_str(doc.source()), "x");
+        assert_eq!(
+            x.variables[0].ty.as_ref().unwrap().to_string(doc.source()),
+            "int"
+        );
         assert!(x.variables[0].value.is_none());
 
         let x = unwrap_block_stmt(&doc, "const_two").unwrap_lexical_declaration();
         assert_eq!(x.kind, LexicalDeclarationKind::Const);
         assert_eq!(x.variables.len(), 2);
         assert_eq!(x.variables[0].name.to_str(doc.source()), "x");
+        assert!(x.variables[0].ty.is_none());
         assert!(Expression::from_node(x.variables[0].value.unwrap(), doc.source()).is_ok());
         assert_eq!(x.variables[1].name.to_str(doc.source()), "y");
+        assert!(x.variables[1].ty.is_none());
         assert!(Expression::from_node(x.variables[1].value.unwrap(), doc.source()).is_ok());
     }
 
