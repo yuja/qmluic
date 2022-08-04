@@ -330,25 +330,39 @@ where
         }
         Statement::LexicalDeclaration(x) => {
             for decl in &x.variables {
-                if let Some(n) = decl.value {
-                    let value = walk_rvalue(ctx, locals, n, source, visitor, diagnostics)?;
-                    let ty = diagnostics
-                        .consume_node_err(n, typeutil::to_concrete_type(value.type_desc()))?;
-                    let local = diagnostics.consume_node_err(
-                        decl.node(),
-                        visitor.visit_local_declaration(ty, decl.node().byte_range()),
-                    )?;
-                    diagnostics.consume_node_err(
-                        decl.node(),
-                        visitor.visit_local_assignment(local, value, decl.node().byte_range()),
-                    )?;
-                    locals.insert(decl.name.to_str(source).to_owned(), (local, x.kind));
-                } else {
+                let rvalue_node = if let Some(n) = decl.value {
+                    let v = walk_rvalue(ctx, locals, n, source, visitor, diagnostics)?;
+                    Some((v, n))
+                } else if x.kind == LexicalDeclarationKind::Const {
                     diagnostics.push(Diagnostic::error(
-                        node.byte_range(),
-                        "variable declaration without initializer is not supported",
+                        decl.node().byte_range(),
+                        "const declaration must have initializer",
                     ));
                     return None;
+                } else {
+                    None
+                };
+                let ty = if let Some(n) = &decl.ty {
+                    process_type_annotation(ctx, n, source, diagnostics)?
+                } else if let Some((v, n)) = &rvalue_node {
+                    diagnostics.consume_node_err(*n, typeutil::to_concrete_type(v.type_desc()))?
+                } else {
+                    diagnostics.push(Diagnostic::error(
+                        decl.node().byte_range(),
+                        "variable declaration must have type annotation or initializer",
+                    ));
+                    return None;
+                };
+                let local = diagnostics.consume_node_err(
+                    decl.node(),
+                    visitor.visit_local_declaration(ty, decl.node().byte_range()),
+                )?;
+                locals.insert(decl.name.to_str(source).to_owned(), (local, x.kind));
+                if let Some((v, _)) = rvalue_node {
+                    diagnostics.consume_node_err(
+                        decl.node(),
+                        visitor.visit_local_assignment(local, v, decl.node().byte_range()),
+                    )?;
                 }
             }
             Some(())
