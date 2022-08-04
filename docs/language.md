@@ -113,7 +113,7 @@ Builtin functions and methods
 Statements
 ----------
 
-* `let` / `const` (initial value is required)
+* `let` / `const` (type annotation or initial value is required)
 * `if` / `else`
 * `switch` / `case` / `default` / `break`
   (case expression is tested by `==` operator)

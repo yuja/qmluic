@@ -133,9 +133,41 @@ fn local_declaration_in_nested_block() {
 }
 
 #[test]
+fn local_declaration_without_value_but_type_annotation() {
+    insta::assert_snapshot!(dump("{ let s: int; s = 0 }"), @r###"
+        %0: int
+    .0:
+        %0 = copy 0: integer
+        return _: void
+    "###);
+}
+
+#[test]
+fn local_declaration_with_value_and_type_annotation() {
+    insta::assert_snapshot!(dump("{ let s: uint = 0 }"), @r###"
+        %0: uint
+    .0:
+        %0 = copy 0: integer
+        return _: void
+    "###);
+}
+
+#[test]
 fn local_declaration_with_void() {
     let env = Env::new();
     assert!(env.try_build("{ let a = foo.done() }").is_err());
+}
+
+#[test]
+fn local_declaration_type_mismatch() {
+    let env = Env::new();
+    assert!(env.try_build("{ let a: int = 'whatever') }").is_err());
+}
+
+#[test]
+fn const_declaration_without_value_but_type_annotation() {
+    let env = Env::new();
+    assert!(env.try_build("{ const a: int }").is_err());
 }
 
 #[test]
