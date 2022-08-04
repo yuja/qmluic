@@ -25,6 +25,18 @@ pub(super) fn children_with_field_name<'s, 'tree>(
     })
 }
 
+pub(super) fn children_between_field_names<'s, 'tree>(
+    node: Node<'tree>,
+    cursor: &'s mut TreeCursor<'tree>,
+    left_field_name: &'s str,
+    right_field_name: &'s str,
+) -> impl Iterator<Item = (Node<'tree>, Option<&'static str>)> + 's {
+    children_with_field_name(node, cursor)
+        .skip_while(move |(_, f)| !f.map(|s| s == left_field_name).unwrap_or(false))
+        .skip(1) // skip node pointed by left_field_name
+        .take_while(move |(_, f)| !f.map(|s| s == right_field_name).unwrap_or(false))
+}
+
 pub(super) fn node_text<'tree, 'source>(node: Node<'tree>, source: &'source str) -> &'source str {
     node.utf8_text(source.as_bytes())
         .expect("source range must be valid utf-8 string")

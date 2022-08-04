@@ -67,7 +67,13 @@ impl<'tree> Expression<'tree> {
                 let object = astutil::get_child_by_field_name(node, "object")?;
                 let property =
                     Identifier::from_node(astutil::get_child_by_field_name(node, "property")?)?;
-                // TODO: <object>?.<property>
+                // reject optional chaining: <object>?.<property>
+                if let Some((n, _)) =
+                    astutil::children_between_field_names(node, cursor, "object", "property")
+                        .find(|(n, _)| !n.is_extra() && n.kind() != ".")
+                {
+                    return Err(ParseError::new(n, ParseErrorKind::UnexpectedNodeKind));
+                }
                 Expression::Member(MemberExpression { object, property })
             }
             "call_expression" => {
@@ -76,7 +82,13 @@ impl<'tree> Expression<'tree> {
                     .named_children(cursor)
                     .filter(|n| !n.is_extra())
                     .collect();
-                // TODO: <func>?.(<arg>...)
+                // reject optional chaining: <function>?.(<arguments>)
+                if let Some((n, _)) =
+                    astutil::children_between_field_names(node, cursor, "function", "arguments")
+                        .find(|(n, _)| !n.is_extra())
+                {
+                    return Err(ParseError::new(n, ParseErrorKind::UnexpectedNodeKind));
+                }
                 Expression::Call(CallExpression {
                     function,
                     arguments,
@@ -719,10 +731,12 @@ mod tests {
         let doc = parse(
             r###"
             Foo {
-                member: foo.bar
+                member: foo /*garbage*/ .  /*garbage*/ bar
+                member_opt: foo?.bar
             }
             "###,
         );
+
         let x = unwrap_expr(&doc, "member").unwrap_member();
         assert_eq!(
             Identifier::from_node(x.object)
@@ -731,6 +745,8 @@ mod tests {
             "foo"
         );
         assert_eq!(x.property.to_str(doc.source()), "bar");
+
+        assert!(extract_expr(&doc, "member_opt").is_err());
     }
 
     #[test]
@@ -738,10 +754,12 @@ mod tests {
         let doc = parse(
             r###"
             Foo {
-                call: foo(1, /*garbage*/ 2)
+                call: foo /*garbage*/ (1, /*garbage*/ 2)
+                call_opt: foo.bar?.()
             }
             "###,
         );
+
         let x = unwrap_expr(&doc, "call").unwrap_call();
         assert_eq!(
             Identifier::from_node(x.function)
@@ -750,6 +768,8 @@ mod tests {
             "foo"
         );
         assert_eq!(x.arguments.len(), 2);
+
+        assert!(extract_expr(&doc, "call_opt").is_err());
     }
 
     #[test]
