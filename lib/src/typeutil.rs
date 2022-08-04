@@ -37,7 +37,7 @@ pub fn to_concrete_type(t: TypeDesc) -> Result<TypeKind, TypeError> {
     match t {
         TypeDesc::Concrete(ty) => Ok(ty),
         TypeDesc::ConstInteger => Ok(TypeKind::INT), // fallback to default
-        TypeDesc::ConstString => panic!("should have been converted to concrete string"),
+        TypeDesc::ConstString => Ok(TypeKind::STRING),
         t @ TypeDesc::EmptyList => Err(TypeError::UndeterminedType(t.qualified_name().into())),
     }
 }
@@ -55,6 +55,8 @@ pub fn deduce_type<'a>(left: TypeDesc<'a>, right: TypeDesc<'a>) -> Result<TypeDe
         (left, right) if left == right => Ok(left),
         (l @ (TypeDesc::INT | TypeDesc::UINT), TypeDesc::ConstInteger) => Ok(l),
         (TypeDesc::ConstInteger, r @ (TypeDesc::INT | TypeDesc::UINT)) => Ok(r),
+        (l @ TypeDesc::STRING, TypeDesc::ConstString) => Ok(l),
+        (TypeDesc::ConstString, r @ TypeDesc::STRING) => Ok(r),
         (
             TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(l))),
             TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(r))),
@@ -94,6 +96,7 @@ pub fn is_assignable(expected: &TypeKind, actual: &TypeDesc) -> Result<bool, Typ
     match (expected, actual) {
         (expected, TypeDesc::Concrete(ty)) => is_concrete_assignable(expected, ty),
         (&TypeKind::INT | &TypeKind::UINT, TypeDesc::ConstInteger) => Ok(true),
+        (&TypeKind::STRING, TypeDesc::ConstString) => Ok(true),
         (&TypeKind::STRING_LIST | TypeKind::PointerList(_), TypeDesc::EmptyList) => Ok(true),
         _ => Ok(false),
     }
