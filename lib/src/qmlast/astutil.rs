@@ -11,6 +11,20 @@ pub(super) fn get_child_by_field_name<'tree>(
         .ok_or_else(|| ParseError::new(node, ParseErrorKind::MissingField(name)))
 }
 
+/// Like `Node::children()`, but emits node with its optional field name.
+pub(super) fn children_with_field_name<'s, 'tree>(
+    node: Node<'tree>,
+    cursor: &'s mut TreeCursor<'tree>,
+) -> impl ExactSizeIterator<Item = (Node<'tree>, Option<&'static str>)> + 's {
+    cursor.reset(node);
+    cursor.goto_first_child(); // would fail if node.child_count() == 0
+    (0..node.child_count()).into_iter().map(|_| {
+        let item = (cursor.node(), cursor.field_name());
+        cursor.goto_next_sibling();
+        item
+    })
+}
+
 pub(super) fn node_text<'tree, 'source>(node: Node<'tree>, source: &'source str) -> &'source str {
     node.utf8_text(source.as_bytes())
         .expect("source range must be valid utf-8 string")

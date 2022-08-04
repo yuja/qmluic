@@ -170,17 +170,11 @@ impl<'tree> Function<'tree> {
             }
             "arrow_function" => {
                 // reject unsupported keywords like 'async'
-                if let Some((i, n)) = node
-                    .children(cursor)
-                    .enumerate()
-                    .find(|(_, n)| !n.is_extra())
+                if let Some((n, _)) = astutil::children_with_field_name(node, cursor)
+                    .take_while(|(_, f)| !matches!(f, Some("parameter" | "parameters")))
+                    .find(|(n, _)| !n.is_extra())
                 {
-                    if !matches!(
-                        node.field_name_for_child(i as u32),
-                        Some("parameter" | "parameters")
-                    ) {
-                        return Err(ParseError::new(n, ParseErrorKind::UnexpectedNodeKind));
-                    }
+                    return Err(ParseError::new(n, ParseErrorKind::UnexpectedNodeKind));
                 }
                 let parameters = if let Some(n) = node.child_by_field_name("parameter") {
                     vec![FormalParameter {
