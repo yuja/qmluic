@@ -533,6 +533,80 @@ fn type_cast_implicit_integer() {
 }
 
 #[test]
+fn type_cast_integer_literal_as_double() {
+    insta::assert_snapshot!(dump("1 as double"), @r###"
+        %0: double
+    .0:
+        %0 = static_cast 'double', 1: integer
+        return %0: double
+    "###);
+}
+
+#[test]
+fn type_cast_double_as_integer() {
+    insta::assert_snapshot!(dump("1e3 as uint"), @r###"
+        %0: uint
+    .0:
+        %0 = static_cast 'uint', 1000.0: double
+        return %0: uint
+    "###);
+}
+
+#[test]
+fn type_cast_dynamic_integer_as_uint() {
+    insta::assert_snapshot!(dump("foo.currentIndex as uint"), @r###"
+        %0: int
+        %1: uint
+    .0:
+        %0 = read_property [foo]: Foo*, "currentIndex"
+        %1 = static_cast 'uint', %0: int
+        return %1: uint
+    "###);
+}
+
+#[test]
+fn type_cast_dynamic_bool_as_int() {
+    insta::assert_snapshot!(dump("foo.checked as int"), @r###"
+        %0: bool
+        %1: int
+    .0:
+        %0 = read_property [foo]: Foo*, "checked"
+        %1 = static_cast 'int', %0: bool
+        return %1: int
+    "###);
+}
+
+#[test]
+fn type_cast_enum_as_int() {
+    insta::assert_snapshot!(dump("Foo.Bar0 as int"), @r###"
+        %0: int
+    .0:
+        %0 = static_cast 'int', 'Foo::Bar0': Foo::Bar
+        return %0: int
+    "###);
+}
+
+#[test]
+fn type_cast_literal_as_void() {
+    insta::assert_snapshot!(dump("0 as void"), @r###"
+    .0:
+        static_cast 'void', 0: integer
+        return _: void
+    "###);
+}
+
+#[test]
+fn type_cast_dynamic_expr_as_void() {
+    insta::assert_snapshot!(dump("foo.text as void"), @r###"
+        %0: QString
+    .0:
+        %0 = read_property [foo]: Foo*, "text"
+        static_cast 'void', %0: QString
+        return _: void
+    "###);
+}
+
+#[test]
 fn type_cast_invalid() {
     let env = Env::new();
     assert!(env.try_build("'' as Foo").is_err());

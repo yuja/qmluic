@@ -873,6 +873,11 @@ impl CxxCodeBodyTranslator {
                 op,
                 self.format_operand(r)
             ),
+            Rvalue::StaticCast(ty, a) => format!(
+                "static_cast<{}>({})",
+                ty.qualified_cxx_name(),
+                self.format_operand(a)
+            ),
             Rvalue::CallBuiltinFunction(f, args) => match f {
                 BuiltinFunctionKind::Tr => format!(
                     "QCoreApplication::translate({:?}, {})",

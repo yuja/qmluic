@@ -391,6 +391,21 @@ fn test_deduplicate_dynamic_binding_sender_receiver() {
 }
 
 #[test]
+fn test_dynamic_binding_with_static_cast() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QWidget {
+            QDoubleSpinBox { id: edit }
+            QComboBox { currentIndex: edit.value as int }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
 fn test_ternary_expression_type_mismatch() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
