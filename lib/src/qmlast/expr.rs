@@ -21,6 +21,7 @@ pub enum Expression<'tree> {
     Assignment(AssignmentExpression<'tree>),
     Unary(UnaryExpression<'tree>),
     Binary(BinaryExpression<'tree>),
+    As(AsExpression<'tree>),
     Ternary(TernaryExpression<'tree>),
     // TODO: ...
 }
@@ -114,6 +115,23 @@ impl<'tree> Expression<'tree> {
                     operator,
                     left,
                     right,
+                })
+            }
+            "as_expression" => {
+                let invalid_syntax = || ParseError::new(node, ParseErrorKind::InvalidSyntax);
+                let mut children = node.children(cursor).filter(|n| !n.is_extra());
+                let value = children.next().ok_or_else(invalid_syntax)?;
+                let as_node = children.next().ok_or_else(invalid_syntax)?;
+                let ty_node = children.next().ok_or_else(invalid_syntax)?;
+                if let Some(n) = children.next() {
+                    return Err(ParseError::new(n, ParseErrorKind::UnexpectedNodeKind));
+                }
+                if as_node.kind() != "as" {
+                    return Err(ParseError::new(as_node, ParseErrorKind::UnexpectedNodeKind));
+                }
+                Expression::As(AsExpression {
+                    value,
+                    ty: NestedIdentifier::from_node(ty_node)?,
                 })
             }
             "ternary_expression" => {
@@ -480,6 +498,13 @@ impl fmt::Display for BinaryOperator {
     }
 }
 
+/// Represents an `as` (or type cast) expression.
+#[derive(Clone, Debug)]
+pub struct AsExpression<'tree> {
+    pub value: Node<'tree>,
+    pub ty: NestedIdentifier<'tree>,
+}
+
 /// Represents a ternary (or conditional) expression.
 #[derive(Clone, Debug)]
 pub struct TernaryExpression<'tree> {
@@ -528,6 +553,7 @@ mod tests {
         );
         impl_unwrap_fn!(unwrap_unary, Expression::Unary, UnaryExpression<'tree>);
         impl_unwrap_fn!(unwrap_binary, Expression::Binary, BinaryExpression<'tree>);
+        impl_unwrap_fn!(unwrap_as, Expression::As, AsExpression<'tree>);
         impl_unwrap_fn!(
             unwrap_ternary,
             Expression::Ternary,
@@ -807,6 +833,20 @@ mod tests {
         let x = unwrap_expr(&doc, "add").unwrap_binary();
         assert_eq!(x.operator, BinaryOperator::Add);
         assert_ne!(x.left, x.right);
+    }
+
+    #[test]
+    fn as_expression() {
+        let doc = parse(
+            r###"
+            Foo {
+                as_: /*garbage*/ 1.0 /*garbage*/ as /*garbage*/ int /*garbage*/
+            }
+            "###,
+        );
+        let x = unwrap_expr(&doc, "as_").unwrap_as();
+        assert_ne!(x.value, x.ty.node());
+        assert_eq!(x.ty.to_string(doc.source()), "int");
     }
 
     #[test]

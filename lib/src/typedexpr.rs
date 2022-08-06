@@ -833,6 +833,7 @@ where
                 )
                 .map(Intermediate::Item)
         }
+        Expression::As(_) => todo!(),
         Expression::Ternary(x) => {
             let condition = walk_rvalue(ctx, locals, x.condition, source, visitor, diagnostics)?;
             let condition_label = visitor.mark_branch_point();
