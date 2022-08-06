@@ -91,15 +91,64 @@ pub fn deduce_type<'a>(left: TypeDesc<'a>, right: TypeDesc<'a>) -> Result<TypeDe
     }
 }
 
+/// Method of type conversion.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum TypeCastKind {
+    /// Exactly the Same type. No type conversion needed.
+    Noop,
+    /// Not the same type, but compatible. No explicit type conversion needed.
+    Implicit,
+    /// No valid type casting available.
+    Invalid,
+}
+
+/// Determine the method to convert the `actual` to the variable of the `expected` type.
+pub fn pick_type_cast(
+    expected: &TypeKind,
+    actual: &TypeDesc,
+) -> Result<TypeCastKind, TypeMapError> {
+    match (expected, actual) {
+        (expected, TypeDesc::Concrete(ty)) => pick_concrete_type_cast(expected, ty),
+        (&TypeKind::INT | &TypeKind::UINT, TypeDesc::ConstInteger) => Ok(TypeCastKind::Implicit),
+        (&TypeKind::STRING, TypeDesc::ConstString) => Ok(TypeCastKind::Implicit),
+        (&TypeKind::STRING_LIST | TypeKind::PointerList(_), TypeDesc::EmptyList) => {
+            Ok(TypeCastKind::Implicit)
+        }
+        _ => Ok(TypeCastKind::Invalid),
+    }
+}
+
+/// Determine the method to convert the concrete `actual` to the variable of the `expected` type.
+pub fn pick_concrete_type_cast(
+    expected: &TypeKind,
+    actual: &TypeKind,
+) -> Result<TypeCastKind, TypeMapError> {
+    match (expected, actual) {
+        (expected, actual) if expected == actual => Ok(TypeCastKind::Noop),
+        (TypeKind::Just(NamedType::Enum(e)), TypeKind::Just(NamedType::Enum(a)))
+            if is_compatible_enum(e, a)? =>
+        {
+            Ok(TypeCastKind::Implicit)
+        }
+        (TypeKind::Pointer(NamedType::Class(e)), TypeKind::Pointer(NamedType::Class(a)))
+            if a.is_derived_from(e) =>
+        {
+            Ok(TypeCastKind::Implicit)
+        }
+        // TODO: covariant type is allowed to support QList<QAction*|QMenu*>, but it
+        // should only work at list construction.
+        (
+            TypeKind::PointerList(NamedType::Class(e)),
+            TypeKind::PointerList(NamedType::Class(a)),
+        ) if a.is_derived_from(e) => Ok(TypeCastKind::Implicit),
+        _ => Ok(TypeCastKind::Invalid),
+    }
+}
+
 /// Checks if the `actual` can be assigned to the variable of the `expected` type.
 pub fn is_assignable(expected: &TypeKind, actual: &TypeDesc) -> Result<bool, TypeMapError> {
-    match (expected, actual) {
-        (expected, TypeDesc::Concrete(ty)) => is_concrete_assignable(expected, ty),
-        (&TypeKind::INT | &TypeKind::UINT, TypeDesc::ConstInteger) => Ok(true),
-        (&TypeKind::STRING, TypeDesc::ConstString) => Ok(true),
-        (&TypeKind::STRING_LIST | TypeKind::PointerList(_), TypeDesc::EmptyList) => Ok(true),
-        _ => Ok(false),
-    }
+    pick_type_cast(expected, actual)
+        .map(|k| matches!(k, TypeCastKind::Noop | TypeCastKind::Implicit))
 }
 
 /// Checks if the `actual` can be assigned to the variable of the `expected` type.
@@ -107,25 +156,6 @@ pub fn is_concrete_assignable(
     expected: &TypeKind,
     actual: &TypeKind,
 ) -> Result<bool, TypeMapError> {
-    let r = match (expected, actual) {
-        (expected, actual) if expected == actual => true,
-        (TypeKind::Just(NamedType::Enum(e)), TypeKind::Just(NamedType::Enum(a)))
-            if is_compatible_enum(e, a)? =>
-        {
-            true
-        }
-        (TypeKind::Pointer(NamedType::Class(e)), TypeKind::Pointer(NamedType::Class(a)))
-            if a.is_derived_from(e) =>
-        {
-            true
-        }
-        // TODO: covariant type is allowed to support QList<QAction*|QMenu*>, but it
-        // should only work at list construction.
-        (
-            TypeKind::PointerList(NamedType::Class(e)),
-            TypeKind::PointerList(NamedType::Class(a)),
-        ) if a.is_derived_from(e) => true,
-        _ => false,
-    };
-    Ok(r)
+    pick_concrete_type_cast(expected, actual)
+        .map(|k| matches!(k, TypeCastKind::Noop | TypeCastKind::Implicit))
 }
