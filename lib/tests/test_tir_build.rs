@@ -507,6 +507,38 @@ fn dynamic_string_comparison() {
 }
 
 #[test]
+fn type_cast_noop() {
+    insta::assert_snapshot!(dump("true as bool"), @r###"
+    .0:
+        return true: bool
+    "###);
+}
+
+#[test]
+fn type_cast_noop_string() {
+    insta::assert_snapshot!(dump("'foo' as QString"), @r###"
+    .0:
+        return "foo": QString
+    "###);
+}
+
+#[test]
+fn type_cast_implicit_integer() {
+    insta::assert_snapshot!(dump("1 as uint"), @r###"
+        %0: uint
+    .0:
+        %0 = copy 1: integer
+        return %0: uint
+    "###);
+}
+
+#[test]
+fn type_cast_invalid() {
+    let env = Env::new();
+    assert!(env.try_build("'' as Foo").is_err());
+}
+
+#[test]
 fn ternary_simple() {
     insta::assert_snapshot!(dump("foo.checked ? 1 : 2"), @r###"
         %0: bool
