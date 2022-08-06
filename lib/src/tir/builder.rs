@@ -460,6 +460,9 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         match typeutil::pick_type_cast(&ty, &value.type_desc())? {
             TypeCastKind::Noop => Ok(value),
             TypeCastKind::Implicit => Ok(self.emit_result(ty, Rvalue::Copy(value), byte_range)),
+            TypeCastKind::Static => {
+                Ok(self.emit_result(ty.clone(), Rvalue::StaticCast(ty, value), byte_range))
+            }
             TypeCastKind::Invalid => Err(ExpressionError::OperationOnIncompatibleTypes(
                 "as".to_owned(),
                 value.type_desc().qualified_name().into(),

@@ -393,6 +393,8 @@ pub enum Rvalue<'a> {
     UnaryOp(UnaryOp, Operand<'a>),
     /// `<left> <op> <right>`
     BinaryOp(BinaryOp, Operand<'a>, Operand<'a>),
+    /// `static_cast<ty>(<arg>)`
+    StaticCast(TypeKind<'a>, Operand<'a>),
     /// `<function>(<args>)`
     CallBuiltinFunction(BuiltinFunctionKind, Vec<Operand<'a>>),
     /// `<obj> -> <method>(<args>)`

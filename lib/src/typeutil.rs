@@ -98,6 +98,8 @@ pub enum TypeCastKind {
     Noop,
     /// Not the same type, but compatible. No explicit type conversion needed.
     Implicit,
+    /// Use `static_cast<T>()`.
+    Static,
     /// No valid type casting available.
     Invalid,
 }
@@ -110,10 +112,13 @@ pub fn pick_type_cast(
     match (expected, actual) {
         (expected, TypeDesc::Concrete(ty)) => pick_concrete_type_cast(expected, ty),
         (&TypeKind::INT | &TypeKind::UINT, TypeDesc::ConstInteger) => Ok(TypeCastKind::Implicit),
+        (&TypeKind::DOUBLE, TypeDesc::ConstInteger) => Ok(TypeCastKind::Static),
+        // TODO: should we allow bool <- integer cast?
         (&TypeKind::STRING, TypeDesc::ConstString) => Ok(TypeCastKind::Implicit),
         (&TypeKind::STRING_LIST | TypeKind::PointerList(_), TypeDesc::EmptyList) => {
             Ok(TypeCastKind::Implicit)
         }
+        (&TypeKind::VOID, _) => Ok(TypeCastKind::Static),
         _ => Ok(TypeCastKind::Invalid),
     }
 }
@@ -141,6 +146,16 @@ pub fn pick_concrete_type_cast(
             TypeKind::PointerList(NamedType::Class(e)),
             TypeKind::PointerList(NamedType::Class(a)),
         ) if a.is_derived_from(e) => Ok(TypeCastKind::Implicit),
+        (
+            &TypeKind::DOUBLE | &TypeKind::INT | &TypeKind::UINT,
+            &TypeKind::DOUBLE | &TypeKind::INT | &TypeKind::UINT,
+        ) => Ok(TypeCastKind::Static),
+        (&TypeKind::INT | &TypeKind::UINT, TypeKind::Just(NamedType::Enum(_))) => {
+            Ok(TypeCastKind::Static)
+        }
+        (&TypeKind::INT | &TypeKind::UINT, &TypeKind::BOOL) => Ok(TypeCastKind::Static),
+        // TODO: should we allow bool <- integer cast?
+        (&TypeKind::VOID, _) => Ok(TypeCastKind::Static),
         _ => Ok(TypeCastKind::Invalid),
     }
 }
