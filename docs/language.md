@@ -7,7 +7,7 @@ for editing, but the semantics is diverged from JavaScript.
 
 Notable differences are:
 
-* No implicit type conversion.
+* No implicit type conversion (except for object upcasting.)
 * Integer and floating point are distinct types.
 * Integer division returns an integer.
 
@@ -96,6 +96,13 @@ Operators
 * Shift: `>>`, `<<`
 * Binary logical: `&&`, `||`
 * Comparison: `==`, `!=`, `<`, `<=`, `>`, `>=`
+* Type cast: `<value> as <type>`
+  * numeric cast amongst `int` / `uint` / `double`
+  * `enum` to integer
+  * `bool` to integer
+  * discarding result: `<value> as void`
+  * TODO: `QVariant` cast will be added later
+  * TODO: `qobject_cast` for downcasting will be added later
 * Ternary: `... ? ... : ...`
 
 Operands are statically type checked. `<string> + <int>` is invalid for
