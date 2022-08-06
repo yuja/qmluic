@@ -12,7 +12,7 @@ use crate::typedexpr::{
 use crate::typemap::{
     Class, Enum, MethodMatches, NamedType, PrimitiveType, Property, TypeKind, TypeMapError,
 };
-use crate::typeutil::{self, TypeError};
+use crate::typeutil::{self, TypeCastKind, TypeError};
 use itertools::Itertools as _;
 use std::num::TryFromIntError;
 use std::ops::Range;
@@ -456,7 +456,16 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         ty: TypeKind<'a>,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error> {
-        todo!();
+        let value = ensure_concrete_string(value);
+        match typeutil::pick_type_cast(&ty, &value.type_desc())? {
+            TypeCastKind::Noop => Ok(value),
+            TypeCastKind::Implicit => Ok(self.emit_result(ty, Rvalue::Copy(value), byte_range)),
+            TypeCastKind::Invalid => Err(ExpressionError::OperationOnIncompatibleTypes(
+                "as".to_owned(),
+                value.type_desc().qualified_name().into(),
+                ty.qualified_cxx_name().into(),
+            )),
+        }
     }
 
     fn visit_ternary_expression(
