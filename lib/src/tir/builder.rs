@@ -450,6 +450,15 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         }
     }
 
+    fn visit_as_expression(
+        &mut self,
+        value: Self::Item,
+        ty: TypeKind<'a>,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error> {
+        todo!();
+    }
+
     fn visit_ternary_expression(
         &mut self,
         (condition, condition_ref): (Self::Item, Self::Label),

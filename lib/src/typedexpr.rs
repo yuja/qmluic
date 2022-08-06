@@ -224,6 +224,12 @@ pub trait ExpressionVisitor<'a> {
         right: Self::Item,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error>;
+    fn visit_as_expression(
+        &mut self,
+        value: Self::Item,
+        ty: TypeKind<'a>,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, Self::Error>;
     fn visit_ternary_expression(
         &mut self,
         condition: (Self::Item, Self::Label),
@@ -833,7 +839,16 @@ where
                 )
                 .map(Intermediate::Item)
         }
-        Expression::As(_) => todo!(),
+        Expression::As(x) => {
+            let value = walk_rvalue(ctx, locals, x.value, source, visitor, diagnostics)?;
+            let ty = process_type_annotation(ctx, &x.ty, source, diagnostics)?;
+            diagnostics
+                .consume_node_err(
+                    node,
+                    visitor.visit_as_expression(value, ty, node.byte_range()),
+                )
+                .map(Intermediate::Item)
+        }
         Expression::Ternary(x) => {
             let condition = walk_rvalue(ctx, locals, x.condition, source, visitor, diagnostics)?;
             let condition_label = visitor.mark_branch_point();
