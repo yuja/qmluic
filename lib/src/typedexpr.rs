@@ -674,6 +674,7 @@ where
         Expression::Bool(v) => diagnostics
             .consume_node_err(node, visitor.visit_bool(v, node.byte_range()))
             .map(Intermediate::Item),
+        Expression::Null => todo!(),
         Expression::Array(ns) => {
             let elements = ns
                 .iter()
