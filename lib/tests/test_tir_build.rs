@@ -507,6 +507,22 @@ fn dynamic_string_comparison() {
 }
 
 #[test]
+fn pointer_comparison() {
+    insta::assert_snapshot!(dump("foo == foo2"), @r###"
+        %0: bool
+    .0:
+        %0 = binary_op '==', [foo]: Foo*, [foo2]: Foo*
+        return %0: bool
+    "###);
+}
+
+#[test]
+fn incompatible_pointer_comparison() {
+    let env = Env::new();
+    assert!(env.try_build("foo == bar").is_err());
+}
+
+#[test]
 fn type_cast_noop() {
     insta::assert_snapshot!(dump("true as bool"), @r###"
     .0:

@@ -68,7 +68,8 @@ impl Env {
             }],
             ..Default::default()
         };
-        module_data.extend([foo_meta, metatype::Class::new("A")]);
+        let bar_meta = metatype::Class::new("Bar");
+        module_data.extend([foo_meta, bar_meta, metatype::Class::new("A")]);
         type_map.insert_module(module_id.clone(), module_data);
         Env {
             type_map,
@@ -126,6 +127,10 @@ impl<'a> RefSpace<'a> for Context<'a> {
                     _ => panic!("Foo must be of class type"),
                 }
             }
+            "bar" => match self.type_space.get_type("Bar").unwrap().unwrap() {
+                NamedType::Class(cls) => Some(Ok(RefKind::Object(cls))),
+                _ => panic!("Bar must be of class type"),
+            },
             "qsTr" => Some(Ok(RefKind::BuiltinFunction(BuiltinFunctionKind::Tr))),
             _ => self.type_space.get_ref(name),
         }
