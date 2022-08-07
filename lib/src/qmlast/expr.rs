@@ -13,6 +13,7 @@ pub enum Expression<'tree> {
     Float(f64),
     String(String),
     Bool(bool),
+    Null,
     Array(Vec<Node<'tree>>),
     Function(Function<'tree>),
     ArrowFunction(Function<'tree>),
@@ -55,6 +56,7 @@ impl<'tree> Expression<'tree> {
             "string" => Expression::String(astutil::parse_string(node, source)?),
             "true" => Expression::Bool(true),
             "false" => Expression::Bool(false),
+            "null" => Expression::Null,
             "array" => {
                 let items = node
                     .named_children(cursor)
@@ -593,6 +595,7 @@ mod tests {
                 escaped_string: "foo\nbar"
                 true_: true
                 false_: false
+                null_: null
                 array: [0, 1, /*garbage*/ 2]
                 paren1: (foo)
                 paren2: ((foo))
@@ -616,6 +619,7 @@ mod tests {
         );
         assert_eq!(unwrap_expr(&doc, "true_").unwrap_bool(), true);
         assert_eq!(unwrap_expr(&doc, "false_").unwrap_bool(), false);
+        assert!(matches!(unwrap_expr(&doc, "null_"), Expression::Null));
         assert_eq!(
             unwrap_expr(&doc, "array")
                 .unwrap_array()
