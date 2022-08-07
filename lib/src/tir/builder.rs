@@ -696,7 +696,8 @@ impl<'a> CodeBuilder<'a> {
                     | TypeKind::UINT
                     | TypeKind::DOUBLE
                     | TypeKind::STRING
-                    | TypeKind::Just(NamedType::Enum(_)) => Ok(TypeKind::BOOL),
+                    | TypeKind::Just(NamedType::Enum(_))
+                    | TypeKind::Pointer(_) => Ok(TypeKind::BOOL),
                     _ => Err(unsupported()),
                 }
             }
