@@ -945,6 +945,7 @@ impl CxxCodeBodyTranslator {
                 ConstantValue::Float(v) => format!("{v:e}"),
                 ConstantValue::CString(v) => format!("{v:?}"), // TODO: escape per C spec)
                 ConstantValue::QString(v) => format!("QStringLiteral({v:?})"),
+                ConstantValue::NullPointer => "nullptr".to_owned(),
                 ConstantValue::EmptyList => "{}".to_owned(),
             },
             Operand::EnumVariant(x) => x.cxx_expression(),

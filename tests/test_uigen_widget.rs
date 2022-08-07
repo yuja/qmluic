@@ -439,6 +439,25 @@ fn test_qstring_arg() {
 }
 
 #[test]
+fn test_nullable_property_sources() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QLabel {
+            text: {
+                let w = check.checked ? edit : null;
+                w !== null ? w.text : ""
+            }
+            QCheckBox { id: check }
+            QLineEdit { id: edit }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
 fn test_unique_binding_method_name() {
     let doc = common::parse_doc(
         r###"

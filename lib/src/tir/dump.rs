@@ -129,6 +129,7 @@ fn format_operand(a: &Operand) -> String {
             ConstantValue::Float(v) => format!("{:?}: {}", v, a.type_desc().qualified_name()),
             ConstantValue::CString(v) => format!("{:?}: {}", v, a.type_desc().qualified_name()),
             ConstantValue::QString(v) => format!("{:?}: {}", v, a.type_desc().qualified_name()),
+            ConstantValue::NullPointer => format!("nullptr: {}", a.type_desc().qualified_name()),
             ConstantValue::EmptyList => format!("{{}}: {}", a.type_desc().qualified_name()),
         },
         Operand::EnumVariant(x) => format!(

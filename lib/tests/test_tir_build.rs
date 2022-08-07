@@ -19,6 +19,14 @@ fn enum_ref() {
 }
 
 #[test]
+fn untyped_null_literal() {
+    insta::assert_snapshot!(dump("null"), @r###"
+    .0:
+        return nullptr: nullptr_t
+    "###);
+}
+
+#[test]
 fn empty_array_literal() {
     insta::assert_snapshot!(dump("[]"), @r###"
     .0:
@@ -38,10 +46,10 @@ fn string_array_literal() {
 
 #[test]
 fn object_array_literal() {
-    insta::assert_snapshot!(dump("[foo, foo2]"), @r###"
+    insta::assert_snapshot!(dump("[foo, foo2, null]"), @r###"
         %0: QList<Foo*>
     .0:
-        %0 = make_list {[foo]: Foo*, [foo2]: Foo*}
+        %0 = make_list {[foo]: Foo*, [foo2]: Foo*, nullptr: nullptr_t}
         return %0: QList<Foo*>
     "###);
 }
@@ -150,6 +158,22 @@ fn local_declaration_with_value_and_type_annotation() {
         %0 = copy 0: integer
         return _: void
     "###);
+}
+
+#[test]
+fn local_declaration_with_null_and_type_annotation() {
+    insta::assert_snapshot!(dump("{ let s: Foo = null }"), @r###"
+        %0: Foo*
+    .0:
+        %0 = copy nullptr: nullptr_t
+        return _: void
+    "###);
+}
+
+#[test]
+fn local_declaration_with_null_but_no_type_annotation() {
+    let env = Env::new();
+    assert!(env.try_build("{ let a = null }").is_err());
 }
 
 #[test]
@@ -507,11 +531,29 @@ fn dynamic_string_comparison() {
 }
 
 #[test]
+fn untyped_null_literal_comparison() {
+    insta::assert_snapshot!(dump("null == null"), @r###"
+    .0:
+        return true: bool
+    "###);
+}
+
+#[test]
 fn pointer_comparison() {
     insta::assert_snapshot!(dump("foo == foo2"), @r###"
         %0: bool
     .0:
         %0 = binary_op '==', [foo]: Foo*, [foo2]: Foo*
+        return %0: bool
+    "###);
+}
+
+#[test]
+fn pointer_to_null_literal_comparison() {
+    insta::assert_snapshot!(dump("foo == null"), @r###"
+        %0: bool
+    .0:
+        %0 = binary_op '==', [foo]: Foo*, nullptr: nullptr_t
         return %0: bool
     "###);
 }
