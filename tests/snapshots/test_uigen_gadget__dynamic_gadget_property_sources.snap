@@ -69,7 +69,9 @@ private:
     b3:
         if (Q_UNLIKELY(!observed[0].connection || observed[0].object != a1)) {
             QObject::disconnect(observed[0].connection);
-            observed[0].connection = QObject::connect(a1, &QLineEdit::textChanged, this->root_, update);
+            if (a1) {
+                observed[0].connection = QObject::connect(a1, &QLineEdit::textChanged, this->root_, update);
+            }
             observed[0].object = a1;
         }
         a2 = a1->text();
@@ -98,7 +100,9 @@ private:
     b3:
         if (Q_UNLIKELY(!observed[0].connection || observed[0].object != a1)) {
             QObject::disconnect(observed[0].connection);
-            observed[0].connection = QObject::connect(a1, &QSpinBox::valueChanged, this->root_, update);
+            if (a1) {
+                observed[0].connection = QObject::connect(a1, &QSpinBox::valueChanged, this->root_, update);
+            }
             observed[0].object = a1;
         }
         a2 = a1->value();

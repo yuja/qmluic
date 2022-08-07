@@ -168,14 +168,18 @@ private:
         a5 = a4;
         if (Q_UNLIKELY(!observed[0].connection || observed[0].object != a2)) {
             QObject::disconnect(observed[0].connection);
-            observed[0].connection = QObject::connect(a2, &QFontComboBox::currentFontChanged, this->root_, update);
+            if (a2) {
+                observed[0].connection = QObject::connect(a2, &QFontComboBox::currentFontChanged, this->root_, update);
+            }
             observed[0].object = a2;
         }
         a6 = a2->currentFont();
         a7 = a6;
         if (Q_UNLIKELY(!observed[1].connection || observed[1].object != a5)) {
             QObject::disconnect(observed[1].connection);
-            observed[1].connection = QObject::connect(a5, &QSpinBox::valueChanged, this->root_, update);
+            if (a5) {
+                observed[1].connection = QObject::connect(a5, &QSpinBox::valueChanged, this->root_, update);
+            }
             observed[1].object = a5;
         }
         a8 = a5->value();
@@ -233,7 +237,9 @@ private:
     b3:
         if (Q_UNLIKELY(!observed[0].connection || observed[0].object != a1)) {
             QObject::disconnect(observed[0].connection);
-            observed[0].connection = QObject::connect(a1, &QFontComboBox::currentFontChanged, this->root_, update);
+            if (a1) {
+                observed[0].connection = QObject::connect(a1, &QFontComboBox::currentFontChanged, this->root_, update);
+            }
             observed[0].object = a1;
         }
         a2 = a1->currentFont();
@@ -263,7 +269,9 @@ private:
     b3:
         if (Q_UNLIKELY(!observed[0].connection || observed[0].object != a1)) {
             QObject::disconnect(observed[0].connection);
-            observed[0].connection = QObject::connect(a1, &QSpinBox::valueChanged, this->root_, update);
+            if (a1) {
+                observed[0].connection = QObject::connect(a1, &QSpinBox::valueChanged, this->root_, update);
+            }
             observed[0].object = a1;
         }
         a2 = a1->value();

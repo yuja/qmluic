@@ -826,8 +826,9 @@ impl CxxCodeBodyTranslator {
                 )?;
                 w.indent();
                 writeln!(w, "QObject::disconnect({}.connection);", observer)?;
+                writeln!(w, "if ({}) {{", sender)?;
                 writeln!(
-                    w,
+                    w.indented(),
                     "{}.connection = QObject::connect({}, &{}::{}, this->root_, update);",
                     observer,
                     sender,
@@ -835,6 +836,7 @@ impl CxxCodeBodyTranslator {
                     prop.notify_signal_name()
                         .expect("property must be observable"),
                 )?;
+                writeln!(w, "}}")?;
                 writeln!(w, "{}.object = {};", observer, sender)?;
                 w.unindent();
                 writeln!(w, "}}")

@@ -72,7 +72,9 @@ private:
     b4:
         if (Q_UNLIKELY(!observed[0].connection || observed[0].object != a2)) {
             QObject::disconnect(observed[0].connection);
-            observed[0].connection = QObject::connect(a2, &QLineEdit::textChanged, this->root_, update);
+            if (a2) {
+                observed[0].connection = QObject::connect(a2, &QLineEdit::textChanged, this->root_, update);
+            }
             observed[0].object = a2;
         }
         a4 = a2->text();
