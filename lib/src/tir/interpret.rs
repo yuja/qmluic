@@ -134,6 +134,7 @@ fn to_evaluated_value(
             ConstantValue::Float(v) => Some(EvaluatedValue::Float(*v)),
             ConstantValue::CString(v) => Some(EvaluatedValue::String(v.clone(), k)),
             ConstantValue::QString(v) => Some(EvaluatedValue::String(v.clone(), k)),
+            ConstantValue::NullPointer => None,
             ConstantValue::EmptyList => Some(EvaluatedValue::EmptyList),
         },
         Operand::EnumVariant(x) => Some(EvaluatedValue::EnumSet(vec![x.cxx_expression()])),

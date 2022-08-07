@@ -36,6 +36,7 @@ pub(super) fn eval_unary_arith_expression(
         ConstantValue::Bool(_)
         | ConstantValue::CString(_)
         | ConstantValue::QString(_)
+        | ConstantValue::NullPointer
         | ConstantValue::EmptyList => Err(ExpressionError::UnsupportedOperation(op.to_string())),
     }
 }
@@ -56,6 +57,7 @@ pub(super) fn eval_unary_bitwise_expression(
         | ConstantValue::Float(_)
         | ConstantValue::CString(_)
         | ConstantValue::QString(_)
+        | ConstantValue::NullPointer
         | ConstantValue::EmptyList => Err(ExpressionError::UnsupportedOperation(op.to_string())),
     }
 }
@@ -76,6 +78,7 @@ pub(super) fn eval_unary_logical_expression(
         | ConstantValue::Float(_)
         | ConstantValue::CString(_)
         | ConstantValue::QString(_)
+        | ConstantValue::NullPointer
         | ConstantValue::EmptyList => Err(ExpressionError::UnsupportedOperation(op.to_string())),
     }
 }
@@ -249,6 +252,17 @@ pub(super) fn eval_comparison_expression(
                 LessThanEqual => l <= r,
                 GreaterThan => l > r,
                 GreaterThanEqual => l >= r,
+            };
+            Ok(ConstantValue::Bool(a))
+        }
+        (ConstantValue::NullPointer, ConstantValue::NullPointer) => {
+            let a = match op {
+                Equal => true,
+                NotEqual => false,
+                LessThan => false,
+                LessThanEqual => true,
+                GreaterThan => false,
+                GreaterThanEqual => true,
             };
             Ok(ConstantValue::Bool(a))
         }

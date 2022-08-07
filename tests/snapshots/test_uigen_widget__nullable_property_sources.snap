@@ -1,0 +1,103 @@
+---
+source: tests/test_uigen_widget.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_mytype.h"
+
+namespace UiSupport {
+class MyType
+{
+public:
+    MyType(QLabel *root, Ui::MyType *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+        this->setupLabelText();
+        this->updateLabelText();
+    }
+
+private:
+    enum class BindingIndex : unsigned {
+        LabelText,
+    };
+
+    void setupLabelText()
+    {
+        QObject::connect(this->ui_->check, &QAbstractButton::toggled, this->root_, [this]() { this->updateLabelText(); });
+    }
+
+    void updateLabelText()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::LabelText);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->root_->setText(this->evalLabelText());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    QString evalLabelText()
+    {
+        auto &observed = observedLabelText_;
+        const auto update = [this]() { this->updateLabelText(); };
+        bool a0;
+        QLineEdit* a1;
+        QLineEdit* a2;
+        bool a3;
+        QString a4;
+        QString a5;
+    b0:
+        a0 = this->ui_->check->isChecked();
+        if (a0)
+            goto b1;
+        else
+            goto b2;
+    b1:
+        a1 = this->ui_->edit;
+        goto b3;
+    b2:
+        a1 = nullptr;
+        goto b3;
+    b3:
+        a2 = a1;
+        a3 = a2 != nullptr;
+        if (a3)
+            goto b4;
+        else
+            goto b5;
+    b4:
+        if (Q_UNLIKELY(!observed[0].connection || observed[0].object != a2)) {
+            QObject::disconnect(observed[0].connection);
+            observed[0].connection = QObject::connect(a2, &QLineEdit::textChanged, this->root_, update);
+            observed[0].object = a2;
+        }
+        a4 = a2->text();
+        a5 = a4;
+        goto b6;
+    b5:
+        a5 = QStringLiteral("");
+        goto b6;
+    b6:
+        return a5;
+    }
+
+    struct PropertyObserver
+    {
+        QMetaObject::Connection connection;
+        QObject *object = nullptr;
+    };
+
+    QLabel *const root_;
+    Ui::MyType *const ui_;
+    PropertyObserver observedLabelText_[1];
+#ifndef QT_NO_DEBUG
+    quint32 bindingGuard_[1] = {0};
+#endif
+
+};
+} // namespace UiSupport
+

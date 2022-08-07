@@ -278,6 +278,8 @@ pub enum ConstantValue {
     CString(String),
     /// `QStringLiteral("")`
     QString(String),
+    /// `nullptr`
+    NullPointer,
     /// Empty list which element type is unknown.
     EmptyList,
 }
@@ -290,6 +292,7 @@ impl DescribeType<'static> for ConstantValue {
             ConstantValue::Float(_) => TypeDesc::DOUBLE,
             ConstantValue::CString(_) => TypeDesc::ConstString,
             ConstantValue::QString(_) => TypeDesc::STRING,
+            ConstantValue::NullPointer => TypeDesc::NullPointer,
             ConstantValue::EmptyList => TypeDesc::EmptyList,
         }
     }

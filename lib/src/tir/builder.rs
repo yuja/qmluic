@@ -131,7 +131,8 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
     }
 
     fn visit_null(&mut self, byte_range: Range<usize>) -> Result<Self::Item, Self::Error> {
-        todo!();
+        let v = ConstantValue::NullPointer;
+        Ok(Operand::Constant(Constant::new(v, byte_range)))
     }
 
     fn visit_enum(
