@@ -953,7 +953,15 @@ fn process_item_property<'a, T, L>(
 where
     T: DescribeType<'a>,
 {
-    let not_found = || Diagnostic::error(id.node().byte_range(), "no property/method found");
+    let not_found = || {
+        Diagnostic::error(
+            id.node().byte_range(),
+            format!(
+                "no property/method found in type '{}'",
+                item.type_desc().qualified_name()
+            ),
+        )
+    };
     let name = id.to_str(source);
     match &item.type_desc() {
         // simple value types
