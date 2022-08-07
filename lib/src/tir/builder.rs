@@ -130,6 +130,10 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         Ok(Operand::Constant(Constant::new(v, byte_range)))
     }
 
+    fn visit_null(&mut self, byte_range: Range<usize>) -> Result<Self::Item, Self::Error> {
+        todo!();
+    }
+
     fn visit_enum(
         &mut self,
         enum_ty: Enum<'a>,

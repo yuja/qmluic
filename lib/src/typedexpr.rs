@@ -140,6 +140,7 @@ pub trait ExpressionVisitor<'a> {
         value: bool,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, Self::Error>;
+    fn visit_null(&mut self, byte_range: Range<usize>) -> Result<Self::Item, Self::Error>;
     fn visit_enum(
         &mut self,
         enum_ty: Enum<'a>,
@@ -674,7 +675,9 @@ where
         Expression::Bool(v) => diagnostics
             .consume_node_err(node, visitor.visit_bool(v, node.byte_range()))
             .map(Intermediate::Item),
-        Expression::Null => todo!(),
+        Expression::Null => diagnostics
+            .consume_node_err(node, visitor.visit_null(node.byte_range()))
+            .map(Intermediate::Item),
         Expression::Array(ns) => {
             let elements = ns
                 .iter()
