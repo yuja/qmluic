@@ -358,7 +358,8 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
                             | PrimitiveType::QString
                             | PrimitiveType::Uint,
                         ))) => Ok(TypeKind::STRING),
-                        t @ (TypeDesc::EmptyList
+                        t @ (TypeDesc::NullPointer
+                        | TypeDesc::EmptyList
                         | TypeDesc::Concrete(TypeKind::Just(
                             NamedType::Class(_)
                             | NamedType::Enum(_)

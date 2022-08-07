@@ -24,6 +24,8 @@ pub enum TypeDesc<'a> {
     ConstInteger,
     /// String literal or constant expression without concrete type.
     ConstString,
+    /// Null pointer literal without concrete type.
+    NullPointer,
     /// Empty array literal or constant expression without concrete type.
     EmptyList,
     /// Type that has been determined.
@@ -43,13 +45,17 @@ impl<'a> TypeDesc<'a> {
         match self {
             TypeDesc::ConstInteger => "integer".into(),
             TypeDesc::ConstString => "string".into(),
+            TypeDesc::NullPointer => "nullptr_t".into(),
             TypeDesc::EmptyList => "list".into(),
             TypeDesc::Concrete(k) => k.qualified_cxx_name(),
         }
     }
 
     pub fn is_pointer(&self) -> bool {
-        matches!(self, TypeDesc::Concrete(TypeKind::Pointer(_)))
+        matches!(
+            self,
+            TypeDesc::NullPointer | TypeDesc::Concrete(TypeKind::Pointer(_))
+        )
     }
 }
 
@@ -1003,6 +1009,10 @@ where
                 diagnostics.push(not_found());
                 None
             }
+        }
+        TypeDesc::NullPointer => {
+            diagnostics.push(not_found());
+            None
         }
         // list types
         TypeDesc::EmptyList

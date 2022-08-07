@@ -38,7 +38,9 @@ pub fn to_concrete_type(t: TypeDesc) -> Result<TypeKind, TypeError> {
         TypeDesc::Concrete(ty) => Ok(ty),
         TypeDesc::ConstInteger => Ok(TypeKind::INT), // fallback to default
         TypeDesc::ConstString => Ok(TypeKind::STRING),
-        t @ TypeDesc::EmptyList => Err(TypeError::UndeterminedType(t.qualified_name().into())),
+        t @ (TypeDesc::NullPointer | TypeDesc::EmptyList) => {
+            Err(TypeError::UndeterminedType(t.qualified_name().into()))
+        }
     }
 }
 
@@ -76,6 +78,8 @@ pub fn deduce_type<'a>(left: TypeDesc<'a>, right: TypeDesc<'a>) -> Result<TypeDe
                     r.qualified_cxx_name().into(),
                 )
             }),
+        (l @ TypeDesc::Concrete(TypeKind::Pointer(_)), TypeDesc::NullPointer) => Ok(l),
+        (TypeDesc::NullPointer, r @ TypeDesc::Concrete(TypeKind::Pointer(_))) => Ok(r),
         (
             l @ (TypeDesc::STRING_LIST | TypeDesc::Concrete(TypeKind::PointerList(_))),
             TypeDesc::EmptyList,
@@ -115,6 +119,7 @@ pub fn pick_type_cast(
         (&TypeKind::DOUBLE, TypeDesc::ConstInteger) => Ok(TypeCastKind::Static),
         // TODO: should we allow bool <- integer cast?
         (&TypeKind::STRING, TypeDesc::ConstString) => Ok(TypeCastKind::Implicit),
+        (TypeKind::Pointer(_), TypeDesc::NullPointer) => Ok(TypeCastKind::Implicit),
         (&TypeKind::STRING_LIST | TypeKind::PointerList(_), TypeDesc::EmptyList) => {
             Ok(TypeCastKind::Implicit)
         }
