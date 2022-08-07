@@ -207,65 +207,26 @@ pub(super) fn eval_comparison_expression(
     left: ConstantValue,
     right: ConstantValue,
 ) -> Result<ConstantValue, ExpressionError> {
-    use ComparisonOp::*;
+    macro_rules! compare {
+        ($left:expr, $right:expr) => {{
+            let a = match op {
+                ComparisonOp::Equal => $left == $right,
+                ComparisonOp::NotEqual => $left != $right,
+                ComparisonOp::LessThan => $left < $right,
+                ComparisonOp::LessThanEqual => $left <= $right,
+                ComparisonOp::GreaterThan => $left > $right,
+                ComparisonOp::GreaterThanEqual => $left >= $right,
+            };
+            Ok(ConstantValue::Bool(a))
+        }};
+    }
     match (left, right) {
-        (ConstantValue::Bool(l), ConstantValue::Bool(r)) => {
-            #[allow(clippy::bool_comparison)]
-            let a = match op {
-                Equal => l == r,
-                NotEqual => l != r,
-                LessThan => l < r,
-                LessThanEqual => l <= r,
-                GreaterThan => l > r,
-                GreaterThanEqual => l >= r,
-            };
-            Ok(ConstantValue::Bool(a))
-        }
-        (ConstantValue::Integer(l), ConstantValue::Integer(r)) => {
-            let a = match op {
-                Equal => l == r,
-                NotEqual => l != r,
-                LessThan => l < r,
-                LessThanEqual => l <= r,
-                GreaterThan => l > r,
-                GreaterThanEqual => l >= r,
-            };
-            Ok(ConstantValue::Bool(a))
-        }
-        (ConstantValue::Float(l), ConstantValue::Float(r)) => {
-            let a = match op {
-                Equal => l == r,
-                NotEqual => l != r,
-                LessThan => l < r,
-                LessThanEqual => l <= r,
-                GreaterThan => l > r,
-                GreaterThanEqual => l >= r,
-            };
-            Ok(ConstantValue::Bool(a))
-        }
+        (ConstantValue::Bool(l), ConstantValue::Bool(r)) => compare!(l, r),
+        (ConstantValue::Integer(l), ConstantValue::Integer(r)) => compare!(l, r),
+        (ConstantValue::Float(l), ConstantValue::Float(r)) => compare!(l, r),
         (ConstantValue::CString(l), ConstantValue::CString(r))
-        | (ConstantValue::QString(l), ConstantValue::QString(r)) => {
-            let a = match op {
-                Equal => l == r,
-                NotEqual => l != r,
-                LessThan => l < r,
-                LessThanEqual => l <= r,
-                GreaterThan => l > r,
-                GreaterThanEqual => l >= r,
-            };
-            Ok(ConstantValue::Bool(a))
-        }
-        (ConstantValue::NullPointer, ConstantValue::NullPointer) => {
-            let a = match op {
-                Equal => true,
-                NotEqual => false,
-                LessThan => false,
-                LessThanEqual => true,
-                GreaterThan => false,
-                GreaterThanEqual => true,
-            };
-            Ok(ConstantValue::Bool(a))
-        }
+        | (ConstantValue::QString(l), ConstantValue::QString(r)) => compare!(l, r),
+        (ConstantValue::NullPointer, ConstantValue::NullPointer) => compare!((), ()),
         (left, right) => Err(ExpressionError::OperationOnIncompatibleTypes(
             op.to_string(),
             left.type_desc().qualified_name().into(),
