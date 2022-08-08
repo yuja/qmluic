@@ -349,10 +349,13 @@ fn parse_as_value_type(
             verify_code_return_type(node, code, expected_ty, diagnostics)?;
             extract_string_list(node, res, diagnostics)
         }
-        NamedType::Primitive(PrimitiveType::Void) => {
+        NamedType::Primitive(PrimitiveType::Void) | NamedType::Namespace(_) => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
-                "invalid expression type: void",
+                format!(
+                    "invalid expression type: {}",
+                    expected_ty.qualified_cxx_name(),
+                ),
             ));
             None
         }
@@ -360,17 +363,7 @@ fn parse_as_value_type(
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
                 format!(
-                    "unsupported constant value expression: class '{}'",
-                    expected_ty.qualified_cxx_name(),
-                ),
-            ));
-            None
-        }
-        NamedType::Namespace(_) => {
-            diagnostics.push(Diagnostic::error(
-                node.byte_range(),
-                format!(
-                    "unsupported constant value expression: namespace '{}'",
+                    "unsupported constant expression type: {}",
                     expected_ty.qualified_cxx_name(),
                 ),
             ));
