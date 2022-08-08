@@ -365,7 +365,11 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
                             NamedType::Class(_)
                             | NamedType::Enum(_)
                             | NamedType::Namespace(_)
-                            | NamedType::Primitive(PrimitiveType::QStringList | PrimitiveType::Void)
+                            | NamedType::Primitive(
+                                PrimitiveType::QStringList
+                                | PrimitiveType::QVariant
+                                | PrimitiveType::Void,
+                            )
                             | NamedType::QmlComponent(_),
                         ))
                         | TypeDesc::Concrete(

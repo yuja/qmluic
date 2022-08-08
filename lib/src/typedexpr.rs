@@ -39,6 +39,7 @@ impl<'a> TypeDesc<'a> {
     pub const UINT: Self = TypeDesc::Concrete(TypeKind::UINT);
     pub const STRING: Self = TypeDesc::Concrete(TypeKind::STRING);
     pub const STRING_LIST: Self = TypeDesc::Concrete(TypeKind::STRING_LIST);
+    pub const VARIANT: Self = TypeDesc::Concrete(TypeKind::VARIANT);
     pub const VOID: Self = TypeDesc::Concrete(TypeKind::VOID);
 
     pub fn qualified_name(&self) -> Cow<'_, str> {
@@ -967,7 +968,11 @@ where
         // simple value types
         TypeDesc::ConstInteger
         | TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(
-            PrimitiveType::Bool | PrimitiveType::Double | PrimitiveType::Int | PrimitiveType::Uint,
+            PrimitiveType::Bool
+            | PrimitiveType::Double
+            | PrimitiveType::Int
+            | PrimitiveType::QVariant
+            | PrimitiveType::Uint,
         )))
         | TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(_))) => {
             diagnostics.push(not_found());
