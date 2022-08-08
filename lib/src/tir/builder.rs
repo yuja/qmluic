@@ -473,6 +473,9 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
             TypeCastKind::Static => {
                 Ok(self.emit_result(ty.clone(), Rvalue::StaticCast(ty, value), byte_range))
             }
+            TypeCastKind::Variant => {
+                Ok(self.emit_result(ty.clone(), Rvalue::VariantCast(ty, value), byte_range))
+            }
             TypeCastKind::Invalid => Err(ExpressionError::OperationOnIncompatibleTypes(
                 "as".to_owned(),
                 value.type_desc().qualified_name().into(),

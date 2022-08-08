@@ -40,6 +40,13 @@ impl Env {
                     ..Default::default()
                 },
                 metatype::Property {
+                    name: "currentData".to_owned(),
+                    r#type: "QVariant".to_owned(),
+                    read: Some("currentData".to_owned()),
+                    notify: Some("currentDataChanged".to_owned()),
+                    ..Default::default()
+                },
+                metatype::Property {
                     name: "currentIndex".to_owned(),
                     r#type: "int".to_owned(),
                     read: Some("currentIndex".to_owned()),

@@ -104,6 +104,8 @@ pub enum TypeCastKind {
     Implicit,
     /// Use `static_cast<T>()`.
     Static,
+    /// Use `QVariant::value<T>()`.
+    Variant,
     /// No valid type casting available.
     Invalid,
 }
@@ -161,6 +163,7 @@ pub fn pick_concrete_type_cast(
         (&TypeKind::INT | &TypeKind::UINT, &TypeKind::BOOL) => Ok(TypeCastKind::Static),
         // TODO: should we allow bool <- integer cast?
         (&TypeKind::VOID, _) => Ok(TypeCastKind::Static),
+        (_, &TypeKind::VARIANT) => Ok(TypeCastKind::Variant), // TODO: check expected type
         _ => Ok(TypeCastKind::Invalid),
     }
 }

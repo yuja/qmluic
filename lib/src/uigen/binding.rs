@@ -880,6 +880,12 @@ impl CxxCodeBodyTranslator {
                 ty.qualified_cxx_name(),
                 self.format_operand(a)
             ),
+            Rvalue::VariantCast(ty, a) => format!(
+                "{}{}value<{}>()",
+                self.format_operand(a), // must be of QVariant type
+                member_access_op(a),
+                ty.qualified_cxx_name(),
+            ),
             Rvalue::CallBuiltinFunction(f, args) => match f {
                 BuiltinFunctionKind::Tr => format!(
                     "QCoreApplication::translate({:?}, {})",

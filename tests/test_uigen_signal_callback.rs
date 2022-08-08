@@ -390,3 +390,19 @@ fn test_if_else_complete() {
     let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
     insta::assert_snapshot!(ui_support_h);
 }
+
+#[test]
+fn test_variant_cast() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QComboBox {
+            onCurrentTextChanged: {
+                windowTitle = currentData as QString;
+            }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}

@@ -81,6 +81,11 @@ fn format_rvalue(rv: &Rvalue) -> String {
             ty.qualified_cxx_name(),
             format_operand(a)
         ),
+        Rvalue::VariantCast(ty, a) => format!(
+            "variant_cast '{}', {}",
+            ty.qualified_cxx_name(),
+            format_operand(a)
+        ),
         Rvalue::CallBuiltinFunction(f, args) => {
             format!(
                 "call_builtin_function {:?}, {{{}}}",
