@@ -78,6 +78,7 @@ types are defined.
 * `QPalette`
 * `QString`
 * `QStringList`
+* `QVariant`
 * `void`
 
 Not all types are usable in dynamic expression context. For example, there's
