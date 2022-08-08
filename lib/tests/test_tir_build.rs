@@ -665,6 +665,18 @@ fn type_cast_dynamic_expr_as_void() {
 }
 
 #[test]
+fn type_cast_variant_as_int() {
+    insta::assert_snapshot!(dump("foo.currentData as int"), @r###"
+        %0: QVariant
+        %1: int
+    .0:
+        %0 = read_property [foo]: Foo*, "currentData"
+        %1 = variant_cast 'int', %0: QVariant
+        return %1: int
+    "###);
+}
+
+#[test]
 fn type_cast_invalid() {
     let env = Env::new();
     assert!(env.try_build("'' as Foo").is_err());

@@ -102,7 +102,7 @@ Operators
   * `enum` to integer
   * `bool` to integer
   * discarding result: `<value> as void`
-  * TODO: `QVariant` cast will be added later
+  * extract stored value from `QVariant`
   * TODO: `qobject_cast` for downcasting will be added later
 * Ternary: `... ? ... : ...`
 
