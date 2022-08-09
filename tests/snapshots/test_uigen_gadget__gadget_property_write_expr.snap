@@ -24,8 +24,8 @@ private:
 
     void setupLabelFont()
     {
-        QObject::connect(this->ui_->fontEdit, &QFontComboBox::currentFontChanged, this->root_, [this]() { this->updateLabelFont(); });
-        QObject::connect(this->ui_->sizeEdit, &QSpinBox::valueChanged, this->root_, [this]() { this->updateLabelFont(); });
+        QObject::connect(this->ui_->fontEdit, QOverload<const QFont &>::of(&QFontComboBox::currentFontChanged), this->root_, [this]() { this->updateLabelFont(); });
+        QObject::connect(this->ui_->sizeEdit, QOverload<int>::of(&QSpinBox::valueChanged), this->root_, [this]() { this->updateLabelFont(); });
     }
 
     void updateLabelFont()

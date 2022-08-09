@@ -29,7 +29,7 @@ private:
 
     void setupFormStackCurrentIndex()
     {
-        QObject::connect(this->ui_->fileNameEdit, &QComboBox::currentIndexChanged, this->root_, [this]() { this->updateFormStackCurrentIndex(); });
+        QObject::connect(this->ui_->fileNameEdit, QOverload<int>::of(&QComboBox::currentIndexChanged), this->root_, [this]() { this->updateFormStackCurrentIndex(); });
     }
 
     void updateFormStackCurrentIndex()
@@ -55,8 +55,8 @@ private:
 
     void setupRootWindowTitle()
     {
-        QObject::connect(this->ui_->fileNameEdit, &QComboBox::currentIndexChanged, this->root_, [this]() { this->updateRootWindowTitle(); });
-        QObject::connect(this->ui_->fileNameEdit, &QComboBox::currentTextChanged, this->root_, [this]() { this->updateRootWindowTitle(); });
+        QObject::connect(this->ui_->fileNameEdit, QOverload<int>::of(&QComboBox::currentIndexChanged), this->root_, [this]() { this->updateRootWindowTitle(); });
+        QObject::connect(this->ui_->fileNameEdit, QOverload<const QString &>::of(&QComboBox::currentTextChanged), this->root_, [this]() { this->updateRootWindowTitle(); });
     }
 
     void updateRootWindowTitle()

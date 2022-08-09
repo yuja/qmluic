@@ -24,7 +24,7 @@ private:
 
     void setupEditEnabled()
     {
-        QObject::connect(this->root_, &QLineEdit::textChanged, this->root_, [this]() { this->updateEditEnabled(); });
+        QObject::connect(this->root_, QOverload<const QString &>::of(&QLineEdit::textChanged), this->root_, [this]() { this->updateEditEnabled(); });
     }
 
     void updateEditEnabled()

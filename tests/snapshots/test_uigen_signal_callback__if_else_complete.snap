@@ -24,7 +24,7 @@ private:
 
     void setupCheckBoxText()
     {
-        QObject::connect(this->root_, &QAbstractButton::toggled, this->root_, [this]() { this->updateCheckBoxText(); });
+        QObject::connect(this->root_, QOverload<bool>::of(&QAbstractButton::toggled), this->root_, [this]() { this->updateCheckBoxText(); });
     }
 
     void updateCheckBoxText()

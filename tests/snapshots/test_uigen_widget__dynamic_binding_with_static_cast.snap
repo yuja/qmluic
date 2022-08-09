@@ -24,7 +24,7 @@ private:
 
     void setupComboBoxCurrentIndex()
     {
-        QObject::connect(this->ui_->edit, &QDoubleSpinBox::valueChanged, this->root_, [this]() { this->updateComboBoxCurrentIndex(); });
+        QObject::connect(this->ui_->edit, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this->root_, [this]() { this->updateComboBoxCurrentIndex(); });
     }
 
     void updateComboBoxCurrentIndex()

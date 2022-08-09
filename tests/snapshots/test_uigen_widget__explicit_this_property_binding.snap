@@ -24,7 +24,7 @@ private:
 
     void setupCheckBoxChecked()
     {
-        QObject::connect(this->root_, &QWidget::windowTitleChanged, this->root_, [this]() { this->updateCheckBoxChecked(); });
+        QObject::connect(this->root_, QOverload<const QString &>::of(&QWidget::windowTitleChanged), this->root_, [this]() { this->updateCheckBoxChecked(); });
     }
 
     void updateCheckBoxChecked()

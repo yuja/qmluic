@@ -6,7 +6,7 @@ use crate::opcode::{BuiltinFunctionKind, BuiltinMethodKind};
 use crate::qtname::{self, FileNameRules, UniqueNameGenerator};
 use crate::tir;
 use crate::typedexpr::DescribeType as _;
-use crate::typemap::{Class, TypeKind, TypeSpace};
+use crate::typemap::{Class, Method, Property, TypeKind, TypeSpace};
 use itertools::Itertools as _;
 use std::collections::HashMap;
 use std::io::{self, Write as _};
@@ -264,7 +264,7 @@ impl CxxBinding {
         for (sender, signal) in self.update.value_function.sender_signals().unique() {
             writeln!(
                 w,
-                "QObject::connect({}, &{}, this->root_, [this]() {{ this->{}(); }});",
+                "QObject::connect({}, {}, this->root_, [this]() {{ this->{}(); }});",
                 sender,
                 signal,
                 self.update_function_name()
@@ -436,11 +436,7 @@ impl CxxEvalExprFunction {
             .iter()
             .map(|(obj, prop)| {
                 let sender = code_translator.format_named_object_ref(obj);
-                let class = prop.object_class().qualified_cxx_name();
-                let signal = prop
-                    .notify_signal_name()
-                    .expect("static dependency property must be observable");
-                (sender, format!("{class}::{signal}"))
+                (sender, format_notify_signal_pointer(prop))
             })
             .collect();
         assert_eq!(code.parameter_count, 0);
@@ -829,12 +825,8 @@ impl CxxCodeBodyTranslator {
                 writeln!(w, "if ({}) {{", sender)?;
                 writeln!(
                     w.indented(),
-                    "{}.connection = QObject::connect({}, &{}::{}, this->root_, update);",
-                    observer,
-                    sender,
-                    prop.object_class().qualified_cxx_name(),
-                    prop.notify_signal_name()
-                        .expect("property must be observable"),
+                    "{observer}.connection = QObject::connect({sender}, {signal}, this->root_, update);",
+                    signal = format_notify_signal_pointer(prop),
                 )?;
                 writeln!(w, "}}")?;
                 writeln!(w, "{}.object = {};", observer, sender)?;
@@ -970,6 +962,33 @@ fn member_access_op(a: &tir::Operand) -> &'static str {
     } else {
         "."
     }
+}
+
+fn format_notify_signal_pointer(prop: &Property) -> String {
+    let signal = prop
+        .notify_signal()
+        .expect("unobservable property should be rejected by tir")
+        .expect("signal function of observable property should be valid");
+    format_signal_pointer(&signal)
+}
+
+fn format_signal_pointer(signal: &Method) -> String {
+    let arg_types = signal
+        .argument_types()
+        .map(|rty| {
+            let ty = rty.expect("signal argument type of observable property should be valid");
+            if ty.is_const_ref_preferred() {
+                format!("const {} &", ty.qualified_cxx_name())
+            } else {
+                ty.qualified_cxx_name().into_owned()
+            }
+        })
+        .join(", ");
+    format!(
+        "QOverload<{arg_types}>::of(&{class}::{sig_name})",
+        class = signal.object_class().qualified_cxx_name(),
+        sig_name = signal.name()
+    )
 }
 
 #[derive(Debug)]
