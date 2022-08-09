@@ -63,6 +63,32 @@ impl Env {
                     ..Default::default()
                 },
             ],
+            signals: vec![
+                metatype::Method {
+                    name: "toggled".to_owned(),
+                    access: metatype::AccessSpecifier::Public,
+                    return_type: "void".to_owned(),
+                    ..Default::default()
+                },
+                metatype::Method {
+                    name: "currentDataChanged".to_owned(),
+                    access: metatype::AccessSpecifier::Public,
+                    return_type: "void".to_owned(),
+                    ..Default::default()
+                },
+                metatype::Method {
+                    name: "currentIndexChanged".to_owned(),
+                    access: metatype::AccessSpecifier::Public,
+                    return_type: "void".to_owned(),
+                    ..Default::default()
+                },
+                metatype::Method {
+                    name: "textChanged".to_owned(),
+                    access: metatype::AccessSpecifier::Public,
+                    return_type: "void".to_owned(),
+                    ..Default::default()
+                },
+            ],
             slots: vec![metatype::Method {
                 name: "done".to_owned(),
                 access: metatype::AccessSpecifier::Public,
