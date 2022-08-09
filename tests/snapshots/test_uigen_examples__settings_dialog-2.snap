@@ -32,7 +32,7 @@ private:
 
     void setupLabel6Alignment()
     {
-        QObject::connect(this->ui_->textAlignmentEdit, &QComboBox::currentIndexChanged, this->root_, [this]() { this->updateLabel6Alignment(); });
+        QObject::connect(this->ui_->textAlignmentEdit, QOverload<int>::of(&QComboBox::currentIndexChanged), this->root_, [this]() { this->updateLabel6Alignment(); });
     }
 
     void updateLabel6Alignment()
@@ -110,7 +110,7 @@ private:
 
     void setupLabel6Font()
     {
-        QObject::connect(this->ui_->textFontRadio, &QAbstractButton::toggled, this->root_, [this]() { this->updateLabel6Font(); });
+        QObject::connect(this->ui_->textFontRadio, QOverload<bool>::of(&QAbstractButton::toggled), this->root_, [this]() { this->updateLabel6Font(); });
     }
 
     void updateLabel6Font()
@@ -169,7 +169,7 @@ private:
         if (Q_UNLIKELY(!observed[0].connection || observed[0].object != a2)) {
             QObject::disconnect(observed[0].connection);
             if (a2) {
-                observed[0].connection = QObject::connect(a2, &QFontComboBox::currentFontChanged, this->root_, update);
+                observed[0].connection = QObject::connect(a2, QOverload<const QFont &>::of(&QFontComboBox::currentFontChanged), this->root_, update);
             }
             observed[0].object = a2;
         }
@@ -178,7 +178,7 @@ private:
         if (Q_UNLIKELY(!observed[1].connection || observed[1].object != a5)) {
             QObject::disconnect(observed[1].connection);
             if (a5) {
-                observed[1].connection = QObject::connect(a5, &QSpinBox::valueChanged, this->root_, update);
+                observed[1].connection = QObject::connect(a5, QOverload<int>::of(&QSpinBox::valueChanged), this->root_, update);
             }
             observed[1].object = a5;
         }
@@ -191,7 +191,7 @@ private:
 
     void setupLabel7Font()
     {
-        QObject::connect(this->ui_->textFontRadio, &QAbstractButton::toggled, this->root_, [this]() { this->updateLabel7Font(); });
+        QObject::connect(this->ui_->textFontRadio, QOverload<bool>::of(&QAbstractButton::toggled), this->root_, [this]() { this->updateLabel7Font(); });
     }
 
     void updateLabel7Font()
@@ -238,7 +238,7 @@ private:
         if (Q_UNLIKELY(!observed[0].connection || observed[0].object != a1)) {
             QObject::disconnect(observed[0].connection);
             if (a1) {
-                observed[0].connection = QObject::connect(a1, &QFontComboBox::currentFontChanged, this->root_, update);
+                observed[0].connection = QObject::connect(a1, QOverload<const QFont &>::of(&QFontComboBox::currentFontChanged), this->root_, update);
             }
             observed[0].object = a1;
         }
@@ -270,7 +270,7 @@ private:
         if (Q_UNLIKELY(!observed[0].connection || observed[0].object != a1)) {
             QObject::disconnect(observed[0].connection);
             if (a1) {
-                observed[0].connection = QObject::connect(a1, &QSpinBox::valueChanged, this->root_, update);
+                observed[0].connection = QObject::connect(a1, QOverload<int>::of(&QSpinBox::valueChanged), this->root_, update);
             }
             observed[0].object = a1;
         }

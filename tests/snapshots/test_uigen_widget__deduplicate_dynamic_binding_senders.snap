@@ -24,8 +24,8 @@ private:
 
     void setupDialogWindowTitle()
     {
-        QObject::connect(this->ui_->combo, &QComboBox::currentIndexChanged, this->root_, [this]() { this->updateDialogWindowTitle(); });
-        QObject::connect(this->ui_->combo, &QComboBox::currentTextChanged, this->root_, [this]() { this->updateDialogWindowTitle(); });
+        QObject::connect(this->ui_->combo, QOverload<int>::of(&QComboBox::currentIndexChanged), this->root_, [this]() { this->updateDialogWindowTitle(); });
+        QObject::connect(this->ui_->combo, QOverload<const QString &>::of(&QComboBox::currentTextChanged), this->root_, [this]() { this->updateDialogWindowTitle(); });
     }
 
     void updateDialogWindowTitle()

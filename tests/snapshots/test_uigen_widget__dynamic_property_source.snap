@@ -24,7 +24,7 @@ private:
 
     void setupWidgetWindowTitle()
     {
-        QObject::connect(this->ui_->source, &QAbstractButton::toggled, this->root_, [this]() { this->updateWidgetWindowTitle(); });
+        QObject::connect(this->ui_->source, QOverload<bool>::of(&QAbstractButton::toggled), this->root_, [this]() { this->updateWidgetWindowTitle(); });
     }
 
     void updateWidgetWindowTitle()
@@ -63,7 +63,7 @@ private:
         if (Q_UNLIKELY(!observed[0].connection || observed[0].object != a1)) {
             QObject::disconnect(observed[0].connection);
             if (a1) {
-                observed[0].connection = QObject::connect(a1, &QLineEdit::textChanged, this->root_, update);
+                observed[0].connection = QObject::connect(a1, QOverload<const QString &>::of(&QLineEdit::textChanged), this->root_, update);
             }
             observed[0].object = a1;
         }
