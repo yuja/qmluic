@@ -1,6 +1,6 @@
 use super::core::{TypeMapError, TypeSpace};
 use super::enum_::Enum;
-use super::function::{MethodDataTable, MethodKind, MethodMatches};
+use super::function::{Method, MethodDataTable, MethodKind, MethodMatches};
 use super::namespace::NamespaceData;
 use super::util::{self, TypeDataRef, TypeMapRef};
 use super::{NamedType, ParentSpace, TypeKind};
@@ -304,6 +304,38 @@ impl<'a> Property<'a> {
     /// Function name to set this property.
     pub fn write_func_name(&self) -> Option<&str> {
         self.data.as_ref().write_func_name.as_deref()
+    }
+
+    /// Signal function to notify changes on this property.
+    pub fn notify_signal(&self) -> Option<Result<Method<'a>, TypeMapError>> {
+        self.notify_signal_name()
+            .map(|n| self.find_notify_signal(n))
+    }
+
+    fn find_notify_signal(&self, name: &str) -> Result<Method<'a>, TypeMapError> {
+        let matches = self
+            .object_class
+            .get_public_method(name)
+            .unwrap_or_else(|| Err(TypeMapError::InvalidNotifySignal(name.to_owned())))?;
+        let mut best: Option<Method<'a>> = None;
+        for m in matches
+            .into_iter()
+            .filter(|m| m.kind() == MethodKind::Signal)
+        {
+            if best
+                .as_ref()
+                .map(|k| m.arguments_len() <= k.arguments_len())
+                .unwrap_or(false)
+            {
+                // Prefer function having more arguments. Default parameter is invisible
+                // to metatype, but its existence is significant for overload resolution.
+                continue;
+            }
+            if m.arguments_len() == 0 || m.argument_type(0)? == self.value_type()? {
+                best = Some(m);
+            }
+        }
+        best.ok_or_else(|| TypeMapError::InvalidNotifySignal(name.to_owned()))
     }
 
     /// Signal name to notify changes on this property.
@@ -724,6 +756,97 @@ mod tests {
                 .unwrap()
                 .is_std_set(),
             false
+        );
+    }
+
+    #[test]
+    fn property_method() {
+        let mut type_map = TypeMap::with_primitive_types();
+        let module_id = ModuleId::Named("foo".into());
+        let mut module_data = ModuleData::with_builtins();
+        module_data.extend([metatype::Class {
+            class_name: "Foo".to_owned(),
+            qualified_class_name: "Foo".to_owned(),
+            properties: vec![
+                metatype::Property {
+                    name: "prop1".to_owned(),
+                    r#type: "int".to_owned(),
+                    read: Some("prop1".to_owned()),
+                    write: Some("setProp1".to_owned()),
+                    notify: Some("prop1Changed".to_owned()),
+                    ..Default::default()
+                },
+                metatype::Property {
+                    name: "prop2".to_owned(),
+                    r#type: "int".to_owned(),
+                    read: Some("prop2".to_owned()),
+                    write: Some("setProp2".to_owned()),
+                    notify: Some("prop2Changed".to_owned()),
+                    ..Default::default()
+                },
+            ],
+            signals: vec![
+                metatype::Method {
+                    name: "prop1Changed".to_owned(),
+                    access: metatype::AccessSpecifier::Public,
+                    return_type: "void".to_owned(),
+                    arguments: vec![],
+                    ..Default::default()
+                },
+                // prop2Changed(int = default_value), prop2Changed(QString, int)
+                metatype::Method {
+                    name: "prop2Changed".to_owned(),
+                    access: metatype::AccessSpecifier::Public,
+                    return_type: "void".to_owned(),
+                    arguments: vec![metatype::Argument {
+                        name: None,
+                        r#type: "int".to_owned(),
+                    }],
+                    ..Default::default()
+                },
+                metatype::Method {
+                    name: "prop2Changed".to_owned(),
+                    access: metatype::AccessSpecifier::Public,
+                    return_type: "void".to_owned(),
+                    arguments: vec![],
+                    ..Default::default()
+                },
+                metatype::Method {
+                    name: "prop2Changed".to_owned(),
+                    access: metatype::AccessSpecifier::Public,
+                    return_type: "void".to_owned(),
+                    arguments: vec![
+                        metatype::Argument {
+                            name: None,
+                            r#type: "QString".to_owned(),
+                        },
+                        metatype::Argument {
+                            name: None,
+                            r#type: "int".to_owned(),
+                        },
+                    ],
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        }]);
+        type_map.insert_module(module_id.clone(), module_data);
+
+        let module = type_map.get_module(module_id).unwrap();
+        let foo_class = unwrap_class(module.get_type("Foo"));
+
+        let prop1 = foo_class.get_property("prop1").unwrap().unwrap();
+        let prop1_notify = prop1.notify_signal().unwrap().unwrap();
+        assert_eq!(prop1_notify.name(), "prop1Changed");
+        assert_eq!(prop1_notify.arguments_len(), 0);
+
+        let prop2 = foo_class.get_property("prop2").unwrap().unwrap();
+        let prop2_notify = prop2.notify_signal().unwrap().unwrap();
+        assert_eq!(prop2_notify.name(), "prop2Changed");
+        assert_eq!(prop2_notify.arguments_len(), 1);
+        assert_eq!(
+            prop2_notify.argument_type(0).unwrap(),
+            TypeKind::Just(module.resolve_type("int").unwrap().unwrap())
         );
     }
 }
