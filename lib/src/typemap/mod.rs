@@ -141,6 +141,19 @@ pub enum NamedType<'a> {
     QmlComponent(QmlComponent<'a>),
 }
 
+impl NamedType<'_> {
+    /// Returns true if this type is supposed to be passed by `const T &`.
+    fn is_const_ref_preferred(&self) -> bool {
+        match self {
+            NamedType::Class(_) => true,
+            NamedType::Enum(_) => false,
+            NamedType::Namespace(_) => false, // invalid
+            NamedType::Primitive(pt) => pt.is_const_ref_preferred(),
+            NamedType::QmlComponent(_) => true,
+        }
+    }
+}
+
 impl<'a> TypeSpace<'a> for NamedType<'a> {
     fn name(&self) -> &str {
         match self {
@@ -254,6 +267,20 @@ impl PrimitiveType {
             Void => "void",
         }
     }
+
+    /// Returns true if this type is supposed to be passed by `const T &`.
+    const fn is_const_ref_preferred(&self) -> bool {
+        match self {
+            PrimitiveType::Bool => false,
+            PrimitiveType::Double => false,
+            PrimitiveType::Int => false,
+            PrimitiveType::QString => true,
+            PrimitiveType::QStringList => true,
+            PrimitiveType::QVariant => true,
+            PrimitiveType::Uint => false,
+            PrimitiveType::Void => false, // invalid
+        }
+    }
 }
 
 /// Type of variables, properties, function arguments, etc.
@@ -287,6 +314,15 @@ impl TypeKind<'_> {
     pub const STRING_LIST: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::QStringList));
     pub const VARIANT: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::QVariant));
     pub const VOID: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::Void));
+
+    /// Returns true if this type is supposed to be passed by `const T &`.
+    pub fn is_const_ref_preferred(&self) -> bool {
+        match self {
+            TypeKind::Just(ty) => ty.is_const_ref_preferred(),
+            TypeKind::Pointer(_) => false,
+            TypeKind::PointerList(_) => true,
+        }
+    }
 
     pub fn qualified_cxx_name(&self) -> Cow<'_, str> {
         match self {
