@@ -250,7 +250,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
             return Err(ExpressionError::UnreadableProperty);
         }
         Ok(self.emit_result(
-            property.value_type()?,
+            property.value_type().clone(),
             Rvalue::ReadProperty(object, property),
             byte_range,
         ))
@@ -266,9 +266,9 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         if !property.is_writable() {
             return Err(ExpressionError::UnwritableProperty);
         }
-        let ty = property.value_type()?;
+        let ty = property.value_type();
         let right = ensure_concrete_string(right);
-        if !typeutil::is_assignable(&ty, &right.type_desc())? {
+        if !typeutil::is_assignable(ty, &right.type_desc())? {
             return Err(ExpressionError::OperationOnIncompatibleTypes(
                 "=".to_owned(),
                 ty.qualified_cxx_name().into(),

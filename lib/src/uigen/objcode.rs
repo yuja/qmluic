@@ -260,16 +260,7 @@ impl<'a, 't, 's> PropertyCode<'a, 't, 's> {
         value: &UiBindingValue<'t, 's>,
         diagnostics: &mut Diagnostics,
     ) -> Option<Self> {
-        let kind = match desc.value_type() {
-            Ok(ty) => PropertyCodeKind::build(ctx, ty, value, diagnostics)?,
-            Err(e) => {
-                diagnostics.push(Diagnostic::error(
-                    value.binding_node().byte_range(),
-                    format!("unresolved property type: {}", e),
-                ));
-                return None;
-            }
-        };
+        let kind = PropertyCodeKind::build(ctx, desc.value_type().clone(), value, diagnostics)?;
         Some(PropertyCode {
             desc,
             node: value.node(),

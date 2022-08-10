@@ -121,7 +121,7 @@ impl<'a> Class<'a> {
             .as_ref()
             .property_map
             .get_key_value(name)
-            .map(|(n, d)| Ok(Property::new(TypeDataRef(n), TypeDataRef(d), self.clone())))
+            .map(|(n, d)| Property::new(TypeDataRef(n), TypeDataRef(d), self.clone()))
     }
 
     /// Looks up signals, slots, and methods by name.
@@ -236,6 +236,7 @@ impl ClassData {
 pub struct Property<'a> {
     name: TypeDataRef<'a, String>,
     data: TypeDataRef<'a, PropertyData>,
+    value_type: TypeKind<'a>,
     object_class: Class<'a>,
 }
 
@@ -253,12 +254,16 @@ impl<'a> Property<'a> {
         name: TypeDataRef<'a, String>,
         data: TypeDataRef<'a, PropertyData>,
         object_class: Class<'a>,
-    ) -> Self {
-        Property {
+    ) -> Result<Self, TypeMapError> {
+        let value_type = util::decorated_type(&data.as_ref().type_name, |n| {
+            object_class.resolve_type_scoped(n)
+        })?;
+        Ok(Property {
             name,
             data,
+            value_type,
             object_class,
-        }
+        })
     }
 
     pub fn name(&self) -> &str {
@@ -266,10 +271,8 @@ impl<'a> Property<'a> {
     }
 
     /// Type of the property value.
-    pub fn value_type(&self) -> Result<TypeKind<'a>, TypeMapError> {
-        util::decorated_type(self.value_type_name(), |n| {
-            self.object_class.resolve_type_scoped(n)
-        })
+    pub fn value_type(&self) -> &TypeKind<'a> {
+        &self.value_type
     }
 
     /// Type name of the property value.
@@ -335,7 +338,7 @@ impl<'a> Property<'a> {
                 // to metatype, but its existence is significant for overload resolution.
                 continue;
             }
-            if m.arguments_len() == 0 || m.argument_type(0) == &self.value_type()? {
+            if m.arguments_len() == 0 || m.argument_type(0) == self.value_type() {
                 best = Some(m);
             }
         }
@@ -680,9 +683,9 @@ mod tests {
 
     #[test]
     fn property_std_set() {
-        let mut type_map = TypeMap::empty();
+        let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo".into());
-        let mut module_data = ModuleData::default();
+        let mut module_data = ModuleData::with_builtins();
         module_data.extend([
             metatype::Class {
                 class_name: "Root".to_owned(),
