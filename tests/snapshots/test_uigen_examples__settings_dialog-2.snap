@@ -280,7 +280,7 @@ private:
 
     void setupButtonBoxAccepted()
     {
-        QObject::connect(this->ui_->buttonBox, &QDialogButtonBox::accepted, this->root_, [this]() { this->onButtonBoxAccepted(); });
+        QObject::connect(this->ui_->buttonBox, QOverload<>::of(&QDialogButtonBox::accepted), this->root_, [this]() { this->onButtonBoxAccepted(); });
     }
 
     void onButtonBoxAccepted()
@@ -292,7 +292,7 @@ private:
 
     void setupButtonBoxRejected()
     {
-        QObject::connect(this->ui_->buttonBox, &QDialogButtonBox::rejected, this->root_, [this]() { this->onButtonBoxRejected(); });
+        QObject::connect(this->ui_->buttonBox, QOverload<>::of(&QDialogButtonBox::rejected), this->root_, [this]() { this->onButtonBoxRejected(); });
     }
 
     void onButtonBoxRejected()

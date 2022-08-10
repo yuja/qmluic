@@ -106,7 +106,7 @@ private:
 
     void setupFileNameEditTextHighlighted()
     {
-        QObject::connect(this->ui_->fileNameEdit, &QComboBox::textHighlighted, this->root_, [this](QString a0) { this->onFileNameEditTextHighlighted(a0); });
+        QObject::connect(this->ui_->fileNameEdit, QOverload<const QString &>::of(&QComboBox::textHighlighted), this->root_, [this](QString a0) { this->onFileNameEditTextHighlighted(a0); });
     }
 
     void onFileNameEditTextHighlighted(QString a0)
@@ -118,7 +118,7 @@ private:
 
     void setupAction_QuitTriggered()
     {
-        QObject::connect(this->ui_->action_Quit, &QAction::triggered, this->root_, [this]() { this->onAction_QuitTriggered(); });
+        QObject::connect(this->ui_->action_Quit, QOverload<bool>::of(&QAction::triggered), this->root_, [this]() { this->onAction_QuitTriggered(); });
     }
 
     void onAction_QuitTriggered()
