@@ -975,8 +975,8 @@ fn format_notify_signal_pointer(prop: &Property) -> String {
 fn format_signal_pointer(signal: &Method) -> String {
     let arg_types = signal
         .argument_types()
-        .map(|rty| {
-            let ty = rty.expect("signal argument type of observable property should be valid");
+        .iter()
+        .map(|ty| {
             if ty.is_const_ref_preferred() {
                 format!("const {} &", ty.qualified_cxx_name())
             } else {

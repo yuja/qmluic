@@ -228,11 +228,8 @@ fn uniquify_methods(methods: MethodMatches) -> Option<Method> {
             let mut known = meths.pop().expect("method matches should not be empty");
             while let Some(m) = meths.pop() {
                 if known.kind() == m.kind()
-                    && matches!((known.return_type(), m.return_type()), (Ok(a), Ok(b)) if a == b)
-                    && known
-                        .argument_types()
-                        .zip(m.argument_types())
-                        .all(|x| matches!(x, (Ok(a), Ok(b)) if a == b))
+                    && known.return_type() == m.return_type()
+                    && m.argument_types().starts_with(known.argument_types())
                 {
                     known = m;
                 } else {
@@ -465,23 +462,16 @@ fn verify_callback_parameter_type(
 
     let incompatible_args: Vec<_> = desc
         .argument_types()
+        .iter()
         .zip(&code.locals[..code.parameter_count])
-        .filter(|(rty, a)| {
-            !rty.as_ref()
-                .ok()
-                .and_then(|ty| typeutil::is_concrete_assignable(&a.ty, ty).ok())
-                .unwrap_or(false)
-        })
+        .filter(|(ty, a)| !typeutil::is_concrete_assignable(&a.ty, ty).unwrap_or(false))
         .collect();
-    for (rty, a) in &incompatible_args {
-        let msg = match rty {
-            Ok(ty) => format!(
-                "incompatible callback arguments (expected: {}, actual: {})",
-                ty.qualified_cxx_name(),
-                a.ty.qualified_cxx_name(),
-            ),
-            Err(e) => format!("type resolution failed: {e}"),
-        };
+    for (ty, a) in &incompatible_args {
+        let msg = format!(
+            "incompatible callback arguments (expected: {}, actual: {})",
+            ty.qualified_cxx_name(),
+            a.ty.qualified_cxx_name(),
+        );
         diagnostics.push(Diagnostic::error(a.byte_range.clone(), msg));
     }
     incompatible_args.is_empty()

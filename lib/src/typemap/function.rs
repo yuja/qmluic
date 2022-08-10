@@ -32,7 +32,7 @@ impl MethodDataTable {
         &'a self,
         name: &str,
         mut make_object_class: impl FnMut() -> Class<'a>,
-    ) -> Option<MethodMatches<'a>> {
+    ) -> Option<Result<MethodMatches<'a>, TypeMapError>> {
         let start = self.methods.partition_point(|d| d.name.as_str() < name);
         assert!(start <= self.methods.len());
         let count = self.methods[start..]
@@ -42,24 +42,31 @@ impl MethodDataTable {
         match count {
             0 => None,
             1 => {
-                let m = Method::new(TypeDataRef(&self.methods[start]), make_object_class());
-                Some(MethodMatches::Unique(m))
+                let r = Method::new(TypeDataRef(&self.methods[start]), make_object_class())
+                    .map(MethodMatches::Unique);
+                Some(r)
             }
             _ => {
-                let ms = self.methods[start..start + count]
+                let r = self.methods[start..start + count]
                     .iter()
                     .map(|d| Method::new(TypeDataRef(d), make_object_class()))
-                    .collect();
-                Some(MethodMatches::Overloaded(ms))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(MethodMatches::Overloaded);
+                Some(r)
             }
         }
     }
 }
 
 /// Method representation.
+///
+/// All type information is resolved when the `Method` object is created, so you don't
+/// have to deal with `TypeMapError` later.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Method<'a> {
     data: TypeDataRef<'a, MethodData>,
+    return_type: TypeKind<'a>,
+    argument_types: Vec<TypeKind<'a>>,
     object_class: Class<'a>,
 }
 
@@ -87,8 +94,24 @@ struct ArgumentData {
 }
 
 impl<'a> Method<'a> {
-    fn new(data: TypeDataRef<'a, MethodData>, object_class: Class<'a>) -> Self {
-        Method { data, object_class }
+    fn new(
+        data: TypeDataRef<'a, MethodData>,
+        object_class: Class<'a>,
+    ) -> Result<Self, TypeMapError> {
+        let make_type = |n| util::decorated_type(n, |n| object_class.resolve_type_scoped(n));
+        let return_type = make_type(&data.as_ref().return_type_name)?;
+        let argument_types = data
+            .as_ref()
+            .arguments
+            .iter()
+            .map(|d| make_type(&d.type_name))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Method {
+            data,
+            return_type,
+            argument_types,
+            object_class,
+        })
     }
 
     pub fn name(&self) -> &str {
@@ -100,10 +123,8 @@ impl<'a> Method<'a> {
     }
 
     /// Type of the return value.
-    pub fn return_type(&self) -> Result<TypeKind<'a>, TypeMapError> {
-        util::decorated_type(self.return_type_name(), |n| {
-            self.object_class.resolve_type_scoped(n)
-        })
+    pub fn return_type(&self) -> &TypeKind<'a> {
+        &self.return_type
     }
 
     /// Type name of the return value.
@@ -122,10 +143,8 @@ impl<'a> Method<'a> {
     }
 
     /// Type of the nth argument.
-    pub fn argument_type(&self, index: usize) -> Result<TypeKind<'a>, TypeMapError> {
-        util::decorated_type(self.argument_type_name(index), |n| {
-            self.object_class.resolve_type_scoped(n)
-        })
+    pub fn argument_type(&self, index: usize) -> &TypeKind<'a> {
+        &self.argument_types[index]
     }
 
     /// Type name of the nth argument.
@@ -133,13 +152,9 @@ impl<'a> Method<'a> {
         &self.data.as_ref().arguments[index].type_name
     }
 
-    /// Iterates type of arguments in order.
-    pub fn argument_types<'b>(
-        &'b self,
-    ) -> impl Iterator<Item = Result<TypeKind<'a>, TypeMapError>> + 'b {
-        self.data.as_ref().arguments.iter().map(|d| {
-            util::decorated_type(&d.type_name, |n| self.object_class.resolve_type_scoped(n))
-        })
+    /// Type of arguments in order.
+    pub fn argument_types(&self) -> &[TypeKind<'a>] {
+        &self.argument_types
     }
 
     /// Type of the object which this method is associated with.
@@ -242,9 +257,9 @@ mod tests {
 
     #[test]
     fn method_lookup() {
-        let mut type_map = TypeMap::empty();
+        let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo".into());
-        let mut module_data = ModuleData::default();
+        let mut module_data = ModuleData::with_builtins();
         module_data.extend([
             metatype::Class {
                 class_name: "Root".to_owned(),

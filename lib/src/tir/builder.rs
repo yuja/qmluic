@@ -297,9 +297,10 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
             if m.arguments_len() == arguments.len() {
                 let compatible: Result<bool, TypeMapError> = m
                     .argument_types()
+                    .iter()
                     .zip(&arguments)
                     .try_fold(true, |acc, (ty, v)| {
-                        Ok(acc && typeutil::is_assignable(&ty?, &v.type_desc()).unwrap_or(false))
+                        Ok(acc && typeutil::is_assignable(ty, &v.type_desc()).unwrap_or(false))
                     });
                 if compatible? {
                     matched_index = Some(i);
@@ -311,7 +312,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         if let Some(i) = matched_index {
             let m = methods.into_vec().swap_remove(i);
             Ok(self.emit_result(
-                m.return_type()?,
+                m.return_type().clone(),
                 Rvalue::CallMethod(object, m, arguments),
                 byte_range,
             ))
@@ -320,10 +321,8 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
                 .iter()
                 .map(|m| {
                     m.argument_types()
-                        .map(|r| {
-                            r.map(|t| t.qualified_cxx_name().into_owned())
-                                .unwrap_or_else(|_| "?".to_owned())
-                        })
+                        .iter()
+                        .map(|t| t.qualified_cxx_name().into_owned())
                         .join(", ")
                 })
                 .join(") | (");
