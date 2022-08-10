@@ -1,7 +1,6 @@
 use super::core::{CodeBody, NamedObjectRef, Operand, Rvalue, Statement};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::typedexpr::DescribeType as _;
-use crate::typemap::{Property, TypeMapError};
 
 /// Analyzes TIR code to collect object/property dependencies and insert observe statements.
 pub fn analyze_code_property_dependency<'a>(
@@ -24,8 +23,8 @@ fn analyze_block<'a>(code: &mut CodeBody<'a>, block_index: usize, diagnostics: &
                 Rvalue::ReadProperty(a, prop) if a.type_desc().is_pointer() => {
                     // ensure signal function and its parameter types can be resolved
                     // (otherwise connection couldn't be generated)
-                    match is_valid_observable_property(prop) {
-                        Ok(true) => match a {
+                    match prop.notify_signal().transpose() {
+                        Ok(Some(_)) => match a {
                             Operand::NamedObject(x) => {
                                 code.static_property_deps
                                     .push((x.name.clone(), prop.clone()));
@@ -42,7 +41,7 @@ fn analyze_block<'a>(code: &mut CodeBody<'a>, block_index: usize, diagnostics: &
                                 panic!("invald read_property: {r:?}");
                             }
                         },
-                        Ok(false) => diagnostics.push(Diagnostic::error(
+                        Ok(None) => diagnostics.push(Diagnostic::error(
                             a.byte_range(),
                             format!("unobservable property: {}", prop.name()),
                         )),
@@ -86,12 +85,5 @@ fn analyze_block<'a>(code: &mut CodeBody<'a>, block_index: usize, diagnostics: &
         block
             .statements
             .insert(line, Statement::ObserveProperty(h, obj, prop));
-    }
-}
-
-fn is_valid_observable_property(prop: &Property) -> Result<bool, TypeMapError> {
-    match prop.notify_signal().transpose()? {
-        Some(_) => Ok(true),
-        None => Ok(false),
     }
 }
