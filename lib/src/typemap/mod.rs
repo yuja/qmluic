@@ -3,6 +3,7 @@
 use camino::Utf8PathBuf;
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::fmt;
 use std::mem;
 
 mod class;
@@ -197,7 +198,7 @@ impl<'a> TypeSpace<'a> for NamedType<'a> {
 }
 
 /// Type variants for parent space.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Eq, Hash, PartialEq)]
 #[doc(hidden)] // this is implementation detail, but exposed by TypeSpace trait
 pub enum ParentSpace<'a> {
     Class(Class<'a>),
@@ -235,6 +236,26 @@ impl<'a> TypeSpace<'a> for ParentSpace<'a> {
             ParentSpace::Class(cls) => cls.get_enum_by_variant(name),
             ParentSpace::ImportedModuleSpace(ns) => ns.get_enum_by_variant(name),
             ParentSpace::Namespace(ns) => ns.get_enum_by_variant(name),
+        }
+    }
+}
+
+impl fmt::Debug for ParentSpace<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // don't print ancestor contents recursively, which would be quite noisy
+        match self {
+            Self::Class(cls) => f
+                .debug_tuple("Class")
+                .field(&format_args!("{:?}", cls.qualified_cxx_name()))
+                .finish(),
+            Self::ImportedModuleSpace(ns) => f
+                .debug_tuple("ImportedModuleSpace")
+                .field(&format_args!("{:?}", ns.qualified_cxx_name()))
+                .finish(),
+            Self::Namespace(ns) => f
+                .debug_tuple("Namespace")
+                .field(&format_args!("{:?}", ns.qualified_cxx_name()))
+                .finish(),
         }
     }
 }
