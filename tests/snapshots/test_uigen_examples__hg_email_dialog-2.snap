@@ -88,7 +88,7 @@ private:
 
     void setupBundleRadioClicked()
     {
-        QObject::connect(this->ui_->bundleRadio, QOverload<bool>::of(&QRadioButton::clicked), this->root_, [this]() { this->onBundleRadioClicked(); });
+        QObject::connect(this->ui_->bundleRadio, QOverload<bool>::of(&QAbstractButton::clicked), this->root_, [this]() { this->onBundleRadioClicked(); });
     }
 
     void onBundleRadioClicked()
@@ -100,7 +100,7 @@ private:
 
     void setupWriteIntroCheckClicked()
     {
-        QObject::connect(this->ui_->writeIntroCheck, QOverload<bool>::of(&QCheckBox::clicked), this->root_, [this]() { this->onWriteIntroCheckClicked(); });
+        QObject::connect(this->ui_->writeIntroCheck, QOverload<bool>::of(&QAbstractButton::clicked), this->root_, [this]() { this->onWriteIntroCheckClicked(); });
     }
 
     void onWriteIntroCheckClicked()

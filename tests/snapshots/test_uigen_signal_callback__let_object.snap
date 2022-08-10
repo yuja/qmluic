@@ -22,7 +22,7 @@ private:
 
     void setupButtonClicked()
     {
-        QObject::connect(this->root_, QOverload<bool>::of(&QPushButton::clicked), this->root_, [this]() { this->onButtonClicked(); });
+        QObject::connect(this->root_, QOverload<bool>::of(&QAbstractButton::clicked), this->root_, [this]() { this->onButtonClicked(); });
     }
 
     void onButtonClicked()
