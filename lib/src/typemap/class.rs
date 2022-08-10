@@ -136,7 +136,6 @@ impl<'a> Class<'a> {
                 .as_ref()
                 .public_methods
                 .get_method_with(name, || self.clone())
-                .map(Ok)
         })
     }
 }
@@ -331,7 +330,7 @@ impl<'a> Property<'a> {
                 // to metatype, but its existence is significant for overload resolution.
                 continue;
             }
-            if m.arguments_len() == 0 || m.argument_type(0)? == self.value_type()? {
+            if m.arguments_len() == 0 || m.argument_type(0) == &self.value_type()? {
                 best = Some(m);
             }
         }
@@ -845,8 +844,8 @@ mod tests {
         assert_eq!(prop2_notify.name(), "prop2Changed");
         assert_eq!(prop2_notify.arguments_len(), 1);
         assert_eq!(
-            prop2_notify.argument_type(0).unwrap(),
-            TypeKind::Just(module.resolve_type("int").unwrap().unwrap())
+            prop2_notify.argument_type(0),
+            &TypeKind::Just(module.resolve_type("int").unwrap().unwrap())
         );
     }
 }

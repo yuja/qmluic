@@ -91,12 +91,7 @@ fn analyze_block<'a>(code: &mut CodeBody<'a>, block_index: usize, diagnostics: &
 
 fn is_valid_observable_property(prop: &Property) -> Result<bool, TypeMapError> {
     match prop.notify_signal().transpose()? {
-        Some(meth) => {
-            for rty in meth.argument_types() {
-                let _ = rty?;
-            }
-            Ok(true)
-        }
+        Some(_) => Ok(true),
         None => Ok(false),
     }
 }
