@@ -3,7 +3,7 @@ use super::core::{
     Terminator,
 };
 use crate::typedexpr::DescribeType;
-use crate::typemap::Property;
+use crate::typemap::Method;
 use itertools::Itertools as _;
 use std::io;
 
@@ -30,10 +30,10 @@ fn dump_locals<W: io::Write>(w: &mut W, locals: &[Local]) -> io::Result<()> {
 
 fn dump_static_property_deps<W: io::Write>(
     w: &mut W,
-    deps: &[(NamedObjectRef, Property)],
+    deps: &[(NamedObjectRef, Method)],
 ) -> io::Result<()> {
-    for (n, prop) in deps {
-        writeln!(w, "    [{}], {:?}", n.0, prop.name())?;
+    for (n, signal) in deps {
+        writeln!(w, "    [{}], {:?}", n.0, signal.name())?;
     }
     Ok(())
 }
@@ -56,12 +56,12 @@ fn dump_statement<W: io::Write>(w: &mut W, stmt: &Statement) -> io::Result<()> {
     match stmt {
         Statement::Assign(l, r) => writeln!(w, "    %{} = {}", l.0, format_rvalue(r)),
         Statement::Exec(r) => writeln!(w, "    {}", format_rvalue(r)),
-        Statement::ObserveProperty(h, l, prop) => writeln!(
+        Statement::ObserveProperty(h, l, signal) => writeln!(
             w,
             "    ^{} = observe_property %{}, {:?}",
             h.0,
             l.0,
-            prop.name()
+            signal.name()
         ),
     }
 }

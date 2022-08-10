@@ -17,7 +17,7 @@ pub struct CodeBody<'a> {
     pub parameter_count: usize,
     /// List of static object/property dependencies, which will be collected by
     /// `analyze_code_property_dependency()`.
-    pub static_property_deps: Vec<(NamedObjectRef, Property<'a>)>,
+    pub static_property_deps: Vec<(NamedObjectRef, Method<'a>)>,
     pub property_observer_count: usize,
 }
 
@@ -199,8 +199,8 @@ pub enum Statement<'a> {
     Assign(LocalRef, Rvalue<'a>),
     /// `<rvalue>`
     Exec(Rvalue<'a>),
-    /// `disconnect(<observer>); <observer> = connect(<local>, <property>...)`
-    ObserveProperty(PropertyObserverRef, LocalRef, Property<'a>),
+    /// `disconnect(<observer>); <observer> = connect(<local>, <signal>...)`
+    ObserveProperty(PropertyObserverRef, LocalRef, Method<'a>),
 }
 
 /// Last instruction to exit from `BasicBlock`.

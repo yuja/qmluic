@@ -21,20 +21,17 @@ fn analyze_block<'a>(code: &mut CodeBody<'a>, block_index: usize, diagnostics: &
         match stmt {
             Statement::Assign(_, r) | Statement::Exec(r) => match r {
                 Rvalue::ReadProperty(a, prop) if a.type_desc().is_pointer() => {
-                    // ensure signal function and its parameter types can be resolved
-                    // (otherwise connection couldn't be generated)
                     match prop.notify_signal().transpose() {
-                        Ok(Some(_)) => match a {
+                        Ok(Some(signal)) => match a {
                             Operand::NamedObject(x) => {
-                                code.static_property_deps
-                                    .push((x.name.clone(), prop.clone()));
+                                code.static_property_deps.push((x.name.clone(), signal));
                             }
                             Operand::Local(x) => {
                                 if let Some(n) = locals[x.name.0] {
-                                    code.static_property_deps.push((n.clone(), prop.clone()));
+                                    code.static_property_deps.push((n.clone(), signal));
                                 } else {
-                                    // could be deduplicated by (local, generation, prop) if needed
-                                    to_observe.push((line, x.name, prop.clone()));
+                                    // could be deduplicated by (local, generation, signal) if needed
+                                    to_observe.push((line, x.name, signal));
                                 }
                             }
                             Operand::Constant(_) | Operand::EnumVariant(_) | Operand::Void(_) => {
@@ -81,9 +78,9 @@ fn analyze_block<'a>(code: &mut CodeBody<'a>, block_index: usize, diagnostics: &
     // we could teach caller about the observed properties without mutating the code body,
     // but having the statement makes it easy to test and debug.
     let block = &mut code.basic_blocks[block_index];
-    for ((line, obj, prop), h) in to_observe.into_iter().zip(observers).rev() {
+    for ((line, obj, signal), h) in to_observe.into_iter().zip(observers).rev() {
         block
             .statements
-            .insert(line, Statement::ObserveProperty(h, obj, prop));
+            .insert(line, Statement::ObserveProperty(h, obj, signal));
     }
 }

@@ -6,7 +6,7 @@ use crate::opcode::{BuiltinFunctionKind, BuiltinMethodKind};
 use crate::qtname::{self, FileNameRules, UniqueNameGenerator};
 use crate::tir;
 use crate::typedexpr::DescribeType as _;
-use crate::typemap::{Class, Method, Property, TypeKind, TypeSpace};
+use crate::typemap::{Class, Method, TypeKind, TypeSpace};
 use itertools::Itertools as _;
 use std::collections::HashMap;
 use std::io::{self, Write as _};
@@ -434,9 +434,9 @@ impl CxxEvalExprFunction {
         let sender_signals = code
             .static_property_deps
             .iter()
-            .map(|(obj, prop)| {
+            .map(|(obj, signal)| {
                 let sender = code_translator.format_named_object_ref(obj);
-                (sender, format_notify_signal_pointer(prop))
+                (sender, format_signal_pointer(signal))
             })
             .collect();
         assert_eq!(code.parameter_count, 0);
@@ -807,7 +807,7 @@ impl CxxCodeBodyTranslator {
                 self.format_rvalue(r)
             ),
             Statement::Exec(r) => writeln!(w, "{};", self.format_rvalue(r)),
-            Statement::ObserveProperty(h, l, prop) => {
+            Statement::ObserveProperty(h, l, signal) => {
                 // Note that minimizing the signal/slot connections is NOT the goal of the dynamic
                 // subscription. Uninteresting connection may be left if this statement is out
                 // of the execution path.
@@ -826,7 +826,7 @@ impl CxxCodeBodyTranslator {
                 writeln!(
                     w.indented(),
                     "{observer}.connection = QObject::connect({sender}, {signal}, this->root_, update);",
-                    signal = format_notify_signal_pointer(prop),
+                    signal = format_signal_pointer(signal),
                 )?;
                 writeln!(w, "}}")?;
                 writeln!(w, "{}.object = {};", observer, sender)?;
@@ -962,14 +962,6 @@ fn member_access_op(a: &tir::Operand) -> &'static str {
     } else {
         "."
     }
-}
-
-fn format_notify_signal_pointer(prop: &Property) -> String {
-    let signal = prop
-        .notify_signal()
-        .expect("unobservable property should be rejected by tir")
-        .expect("signal function of observable property should be valid");
-    format_signal_pointer(&signal)
 }
 
 fn format_signal_pointer(signal: &Method) -> String {
