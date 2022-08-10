@@ -631,11 +631,7 @@ impl CxxCallback {
     ) -> Self {
         let sender = code_translator
             .format_named_object_ref(&tir::NamedObjectRef(obj_node.name().to_owned()));
-        let signal = format!(
-            "{}::{}",
-            callback_code.desc().object_class().qualified_cxx_name(),
-            callback_code.desc().name()
-        );
+        let signal = format_signal_pointer(callback_code.desc());
         let code = callback_code.code();
         // TODO: use 'const T &' if parameter is gadget and not mutated
         let parameters = code.locals[0..code.parameter_count]
@@ -675,7 +671,7 @@ impl CxxCallback {
         writeln!(w, "{{")?;
         writeln!(
             w.indented(),
-            "QObject::connect({}, &{}, this->root_, [this]({}) {{ this->{}({}); }});",
+            "QObject::connect({}, {}, this->root_, [this]({}) {{ this->{}({}); }});",
             self.sender,
             self.signal,
             self.parameters

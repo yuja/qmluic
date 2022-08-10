@@ -22,7 +22,7 @@ private:
 
     void setupEditCursorPositionChanged()
     {
-        QObject::connect(this->ui_->edit, &QLineEdit::cursorPositionChanged, this->root_, [this](int a0, int a1) { this->onEditCursorPositionChanged(a0, a1); });
+        QObject::connect(this->ui_->edit, QOverload<int, int>::of(&QLineEdit::cursorPositionChanged), this->root_, [this](int a0, int a1) { this->onEditCursorPositionChanged(a0, a1); });
     }
 
     void onEditCursorPositionChanged(int a0, int a1)
