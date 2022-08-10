@@ -28,7 +28,7 @@ fn direct_static_deps_simple() {
         %1 = unary_op '!', %0: bool
         return %1: bool
     static_property_deps:
-        [foo], "checked"
+        [foo], "toggled"
     "###);
 }
 
@@ -61,9 +61,9 @@ fn direct_static_deps_branched() {
     .3:
         return %3: QString
     static_property_deps:
-        [foo], "checked"
-        [foo2], "text"
-        [foo3], "text"
+        [foo], "toggled"
+        [foo2], "textChanged"
+        [foo3], "textChanged"
     "###);
 }
 
@@ -107,9 +107,9 @@ fn indirect_static_deps_branch_local() {
     .5:
         unreachable
     static_property_deps:
-        [foo], "checked"
-        [foo2], "text"
-        [foo3], "text"
+        [foo], "toggled"
+        [foo2], "textChanged"
+        [foo3], "textChanged"
     "###);
 }
 
@@ -141,8 +141,8 @@ fn indirect_static_deps_reassigned() {
         %4 = binary_op '+', %2: QString, %3: QString
         return %4: QString
     static_property_deps:
-        [foo], "text"
-        [foo2], "text"
+        [foo], "textChanged"
+        [foo2], "textChanged"
     "###);
 }
 
@@ -170,11 +170,11 @@ fn dynamic_deps_branchy() {
         %1 = copy [foo3]: Foo*
         br .3
     .3:
-        ^0 = observe_property %1, "text"
+        ^0 = observe_property %1, "textChanged"
         %2 = read_property %1: Foo*, "text"
         return %2: QString
     static_property_deps:
-        [foo], "checked"
+        [foo], "toggled"
     "###);
     assert_eq!(code.property_observer_count, 1);
 }
@@ -213,7 +213,7 @@ fn dynamic_deps_reassigned() {
         br .3
     .3:
         %2 = copy %1: Foo*
-        ^0 = observe_property %2, "text"
+        ^0 = observe_property %2, "textChanged"
         %3 = read_property %2: Foo*, "text"
         %4 = copy %3: QString
         %5 = read_property [foo2]: Foo*, "checked"
@@ -226,15 +226,15 @@ fn dynamic_deps_reassigned() {
         br .6
     .6:
         %2 = copy %6: Foo*
-        ^1 = observe_property %2, "text"
+        ^1 = observe_property %2, "textChanged"
         %7 = read_property %2: Foo*, "text"
         %8 = binary_op '+', %4: QString, %7: QString
         return %8: QString
     .7:
         unreachable
     static_property_deps:
-        [foo], "checked"
-        [foo2], "checked"
+        [foo], "toggled"
+        [foo2], "toggled"
     "###);
     assert_eq!(code.property_observer_count, 2);
 }
@@ -282,17 +282,17 @@ fn dynamic_deps_multiple() {
         br .6
     .6:
         %5 = copy %4: Foo*
-        ^0 = observe_property %2, "text"
+        ^0 = observe_property %2, "textChanged"
         %6 = read_property %2: Foo*, "text"
-        ^1 = observe_property %5, "text"
+        ^1 = observe_property %5, "textChanged"
         %7 = read_property %5: Foo*, "text"
         %8 = binary_op '+', %6: QString, %7: QString
         return %8: QString
     .7:
         unreachable
     static_property_deps:
-        [foo], "checked"
-        [foo2], "checked"
+        [foo], "toggled"
+        [foo2], "toggled"
     "###);
     assert_eq!(code.property_observer_count, 2);
 }
