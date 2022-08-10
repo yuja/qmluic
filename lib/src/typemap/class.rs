@@ -131,12 +131,17 @@ impl<'a> Class<'a> {
     /// [`kind()`](super::Method::kind()) to find the nature of the function.
     pub fn get_public_method(&self, name: &str) -> Option<Result<MethodMatches<'a>, TypeMapError>> {
         // TODO: does it follow the shadowing rule of Qt meta methods?
-        self.find_map_self_and_base_classes(|cls| {
-            cls.data
-                .as_ref()
-                .public_methods
-                .get_method_with(name, || self.clone())
-        })
+        self.find_map_self_and_base_classes(|cls| cls.get_public_method_no_super(name))
+    }
+
+    fn get_public_method_no_super(
+        &self,
+        name: &str,
+    ) -> Option<Result<MethodMatches<'a>, TypeMapError>> {
+        self.data
+            .as_ref()
+            .public_methods
+            .get_method_with(name, || self.clone())
     }
 }
 
