@@ -500,3 +500,29 @@ fn test_dynamic_tab_widget_attached() {
       │         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     "###);
 }
+
+#[test]
+fn test_static_actions_list() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QMenu {
+        actions: [act, menu.menuAction(), sep]
+        QAction { id: act }
+        QMenu { id: menu }
+        QActionSeparator { id: sep }
+    }
+    "###).unwrap(), @r###"
+    <ui version="4.0">
+     <class>MyType</class>
+     <widget class="QMenu" name="menu1">
+      <addaction name="act"/>
+      <addaction name="menu"/>
+      <addaction name="separator"/>
+      <action name="act">
+      </action>
+      <widget class="QMenu" name="menu">
+      </widget>
+     </widget>
+    </ui>
+    "###);
+}
