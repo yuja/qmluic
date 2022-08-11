@@ -1,6 +1,6 @@
 //! Modifications on Qt metatypes data.
 
-use crate::metatype::{Class, ClassInfo, Enum, Property, SuperClassSpecifier};
+use crate::metatype::{Class, ClassInfo, Enum, Method, Property, SuperClassSpecifier};
 
 /// Pseudo base class for `QAction* | QMenu*`.
 const PSEUDO_ACTION_BASE_NAME: &str = "QActionOrMenu";
@@ -178,6 +178,12 @@ fn fix_layout(cls: &mut Class) {
 fn fix_menu(cls: &mut Class) {
     cls.super_classes
         .push(SuperClassSpecifier::public(PSEUDO_ACTION_BASE_NAME));
+    // for static evaluation pass to obtain QAction from menu object id
+    cls.methods.push(Method {
+        name: "menuAction".to_owned(),
+        return_type: "QAction*".to_owned(),
+        ..Default::default()
+    });
 }
 
 fn fix_push_button(cls: &mut Class) {

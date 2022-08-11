@@ -2,6 +2,7 @@
 
 use super::{BasicBlockRef, CodeBody, ConstantValue, Operand, Rvalue, Statement, Terminator};
 use crate::opcode::{BinaryBitwiseOp, BinaryOp, BuiltinFunctionKind};
+use crate::typemap::TypeSpace;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum EvaluatedValue {
@@ -101,6 +102,16 @@ pub fn evaluate_code(code: &CodeBody) -> Option<EvaluatedValue> {
                         }
                         Rvalue::CallBuiltinFunction(BuiltinFunctionKind::Tr, args) => {
                             to_evaluated_value(&locals, &args[0], StringKind::Tr)
+                        }
+                        Rvalue::CallMethod(Operand::NamedObject(x), meth, _)
+                            if meth.object_class().name() == "QMenu"
+                                && meth.name() == "menuAction"
+                                && meth.arguments_len() == 0
+                                && meth.return_type_name() == "QAction*" =>
+                        {
+                            // TODO: better check for applicability of static evaluation
+                            // translate menu.menuAction() to <addaction name="menu"/>
+                            Some(EvaluatedValue::ObjectRef(x.name.0.clone()))
                         }
                         Rvalue::MakeList(args) => to_evaluated_list(&locals, args),
                         // No need to support other operations since constants are evaluated
