@@ -92,6 +92,24 @@ pub(super) fn get_simple_value<'a, 't, 's, 'm>(
     }
 }
 
+pub(super) fn get_bool<'a, 't, 's, 'm>(
+    ctx: &ObjectContext,
+    properties_code_map: &'m HashMap<&str, PropertyCode<'a, 't, 's>>,
+    name: impl AsRef<str>,
+    diagnostics: &mut Diagnostics,
+) -> Option<(&'m PropertyCode<'a, 't, 's>, bool)> {
+    let (p, v) = get_simple_value(ctx, properties_code_map, name, diagnostics)?;
+    if let Some(b) = v.as_bool() {
+        Some((p, b))
+    } else {
+        diagnostics.push(Diagnostic::error(
+            p.node().byte_range(),
+            "unexpected value type",
+        ));
+        None
+    }
+}
+
 pub(super) fn get_enum<'a, 't, 's, 'm>(
     ctx: &ObjectContext,
     properties_code_map: &'m HashMap<&str, PropertyCode<'a, 't, 's>>,

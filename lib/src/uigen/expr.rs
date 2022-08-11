@@ -185,6 +185,13 @@ impl SimpleValue {
         }
     }
 
+    pub fn as_bool(&self) -> Option<bool> {
+        match self {
+            SimpleValue::Bool(x) => Some(*x),
+            _ => None,
+        }
+    }
+
     pub fn as_number(&self) -> Option<f64> {
         match self {
             SimpleValue::Number(x) => Some(*x),
