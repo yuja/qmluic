@@ -2,9 +2,6 @@
 
 use crate::metatype::{Class, ClassInfo, Enum, Method, Property, SuperClassSpecifier};
 
-/// Pseudo base class for `QAction* | QMenu*`.
-const PSEUDO_ACTION_BASE_NAME: &str = "QActionOrMenu";
-
 /// Applies all modifications on the given `classes` data.
 pub fn apply_all(classes: &mut Vec<Class>) {
     fix_classes(classes);
@@ -44,8 +41,6 @@ fn fix_abstract_item_view(cls: &mut Class) {
 }
 
 fn fix_action(cls: &mut Class) {
-    cls.super_classes
-        .push(SuperClassSpecifier::public(PSEUDO_ACTION_BASE_NAME));
     cls.properties.push(Property {
         name: "separator".to_owned(),
         r#type: "bool".to_owned(),
@@ -183,8 +178,6 @@ fn fix_layout(cls: &mut Class) {
 }
 
 fn fix_menu(cls: &mut Class) {
-    cls.super_classes
-        .push(SuperClassSpecifier::public(PSEUDO_ACTION_BASE_NAME));
     // for static evaluation pass to obtain QAction from menu object id
     cls.methods.push(Method {
         name: "menuAction".to_owned(),
@@ -252,7 +245,7 @@ fn fix_tree_view(cls: &mut Class) {
 
 fn fix_widget(cls: &mut Class) {
     cls.properties.extend([
-        Property::new("actions", format!("QList<{PSEUDO_ACTION_BASE_NAME}*>")), // handled by uigen
+        Property::new("actions", "QList<QAction*>"), // handled by uigen
     ]);
 }
 
@@ -402,7 +395,6 @@ pub fn internal_gui_classes() -> impl IntoIterator<Item = Class> {
 /// in the Qt metatypes.json.
 pub fn internal_widgets_classes() -> impl IntoIterator<Item = Class> {
     [
-        Class::new(PSEUDO_ACTION_BASE_NAME),
         Class {
             class_name: "QLayoutAttached".to_owned(),
             qualified_class_name: "QLayoutAttached".to_owned(),
