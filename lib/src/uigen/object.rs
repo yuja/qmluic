@@ -88,8 +88,11 @@ fn is_action_separator(
     // Only QAction { separator: true } can be translated to <addaction name="separator"/>.
     // Others will be mapped to a QAction having dynamic "separator" property since
     // "separator" isn't actually a Q_PROPERTY.
-    let properties_code_map = ctx.code_map_for_object(obj_node).properties();
+    // TODO: can't be a static separator if object id is referenced from any other expression
+    let code_map = ctx.code_map_for_object(obj_node);
+    let properties_code_map = code_map.properties();
     if obj_node.class().is_derived_from(&ctx.classes.action)
+        && code_map.callbacks().is_empty()
         && properties_code_map.len() == 1
         && properties_code_map.contains_key("separator")
     {

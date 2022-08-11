@@ -601,3 +601,28 @@ fn test_action_seaparator_with_other_properties() {
     "###);
     insta::assert_snapshot!(ui_support_h);
 }
+
+#[test]
+fn test_action_seaparator_with_callback() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QWidget {
+            QAction { separator: true; onHovered: {} }
+        }
+        "###,
+    );
+    let (ui_xml, ui_support_h) =
+        common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_xml, @r###"
+    <ui version="4.0">
+     <class>MyType</class>
+     <widget class="QWidget" name="widget">
+      <addaction name="action"/>
+      <action name="action">
+      </action>
+     </widget>
+    </ui>
+    "###);
+    insta::assert_snapshot!(ui_support_h);
+}
