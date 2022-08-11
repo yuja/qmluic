@@ -118,6 +118,7 @@ QMainWindow {
             QAction { separator: true }
 
             QMenu {
+                id: devMenu
                 title: qsTr("&Developer tools")
 
                 QAction {
@@ -135,6 +136,7 @@ QMainWindow {
             action_Redo,
             whateverSeparator,
             action_About,
+            devMenu.menuAction(),  // obtain QAction associated with the menu
         ]
     }
 

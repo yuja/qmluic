@@ -120,7 +120,7 @@ expression: ui_xml
   <widget class="QMenuBar" name="menubar">
    <addaction name="menu"/>
    <addaction name="menu1"/>
-   <addaction name="menu3"/>
+   <addaction name="menu2"/>
    <widget class="QMenu" name="menu">
     <property name="title">
      <string>&amp;File</string>
@@ -136,13 +136,13 @@ expression: ui_xml
     <addaction name="action_Undo"/>
     <addaction name="action_Redo"/>
    </widget>
-   <widget class="QMenu" name="menu3">
+   <widget class="QMenu" name="menu2">
     <property name="title">
      <string>&amp;Help</string>
     </property>
     <addaction name="action_About"/>
     <addaction name="separator"/>
-    <addaction name="menu2"/>
+    <addaction name="devMenu"/>
     <action name="action_About">
      <property name="icon">
       <iconset>
@@ -153,7 +153,7 @@ expression: ui_xml
       <string>&amp;About</string>
      </property>
     </action>
-    <widget class="QMenu" name="menu2">
+    <widget class="QMenu" name="devMenu">
      <property name="title">
       <string>&amp;Developer tools</string>
      </property>
@@ -173,6 +173,7 @@ expression: ui_xml
    <addaction name="action_Redo"/>
    <addaction name="separator"/>
    <addaction name="action_About"/>
+   <addaction name="devMenu"/>
   </widget>
   <widget class="QStatusBar" name="statusbar">
   </widget>
