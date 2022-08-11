@@ -157,8 +157,8 @@ expression: ui_xml
      <property name="title">
       <string>&amp;Developer tools</string>
      </property>
-     <addaction name="action"/>
-     <action name="action">
+     <addaction name="action1"/>
+     <action name="action1">
       <property name="text">
        <string>&amp;Console</string>
       </property>

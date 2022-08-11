@@ -115,7 +115,7 @@ QMainWindow {
                 text: qsTr("&About")
             }
 
-            QActionSeparator {}
+            QAction { separator: true }
 
             QMenu {
                 title: qsTr("&Developer tools")
@@ -174,8 +174,9 @@ QMainWindow {
         text: qsTr("Foo")
     }
 
-    // Pseudo action representing a menu/toolbar separator.
-    QActionSeparator {
+    // Action representing a menu/toolbar separator.
+    QAction {
         id: whateverSeparator
+        separator: true
     }
 }
