@@ -142,26 +142,7 @@ impl Widget {
             process_widget_children(ctx, obj_node, diagnostics)
         };
 
-        Self::new(
-            &ctx.make_object_context(obj_node),
-            obj_node.class(),
-            obj_node.name(),
-            ctx.code_map_for_object(obj_node).properties(),
-            children,
-            diagnostics,
-        )
-    }
-
-    pub(super) fn new(
-        ctx: &ObjectContext,
-        class: &Class,
-        name: impl Into<String>,
-        properties_code_map: &HashMap<&str, PropertyCode>,
-        children: Vec<UiObject>,
-        diagnostics: &mut Diagnostics,
-    ) -> Self {
-        let mut pseudo_property_names = vec!["actions", "model"];
-
+        let properties_code_map = ctx.code_map_for_object(obj_node).properties();
         let actions = if let Some(p) = properties_code_map.get("actions") {
             if let Some(refs) = expr::build_object_ref_list(p, diagnostics) {
                 refs.into_iter()
@@ -185,6 +166,28 @@ impl Widget {
         } else {
             collect_action_like_children(&children)
         };
+
+        Self::new(
+            &ctx.make_object_context(obj_node),
+            obj_node.class(),
+            obj_node.name(),
+            properties_code_map,
+            actions,
+            children,
+            diagnostics,
+        )
+    }
+
+    pub(super) fn new(
+        ctx: &ObjectContext,
+        class: &Class,
+        name: impl Into<String>,
+        properties_code_map: &HashMap<&str, PropertyCode>,
+        actions: Vec<String>,
+        children: Vec<UiObject>,
+        diagnostics: &mut Diagnostics,
+    ) -> Self {
+        let mut pseudo_property_names = vec!["actions", "model"];
 
         let items = if class.is_derived_from(&ctx.classes.combo_box)
             || class.is_derived_from(&ctx.classes.list_widget)
