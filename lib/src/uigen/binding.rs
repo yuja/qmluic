@@ -46,7 +46,7 @@ impl UiSupportCode {
         let mut bindings = Vec::new();
         let mut callbacks = Vec::new();
         for (obj_node, code_map) in object_tree.flat_iter().zip(object_code_maps) {
-            // TODO: exclude pseudo node like QActionSeparator
+            // TODO: exclude pseudo node like QSpacerItem explicitly?
             let receiver = binding_code_translator
                 .format_named_object_ref(&tir::NamedObjectRef(obj_node.name().to_owned()));
             let dyn_props = code_map

@@ -55,7 +55,6 @@ pub(super) struct ObjectContext<'a, 't, 's> {
 #[derive(Clone, Debug)]
 pub(super) struct KnownClasses<'a> {
     pub action: Class<'a>,
-    pub action_separator: Class<'a>,
     pub brush: Class<'a>,
     pub color: Class<'a>,
     pub combo_box: Class<'a>,
@@ -115,7 +114,6 @@ impl<'a> BuildContext<'a> {
         };
         let classes = KnownClasses {
             action: get_class("QAction")?,
-            action_separator: get_class("QActionSeparator")?,
             brush: get_class("QBrush")?,
             color: get_class("QColor")?,
             combo_box: get_class("QComboBox")?,

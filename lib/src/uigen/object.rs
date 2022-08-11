@@ -46,9 +46,6 @@ impl UiObject {
                     diagnostics,
                 ))
             }
-        } else if cls.is_derived_from(&ctx.classes.action_separator) {
-            confine_children(obj_node, diagnostics);
-            UiObject::ActionSeparator
         } else if cls.is_derived_from(&ctx.classes.layout) {
             UiObject::Layout(Layout::build(ctx, obj_node, diagnostics))
         } else if cls.is_derived_from(&ctx.classes.menu) {
@@ -181,9 +178,7 @@ impl Widget {
                             .object_tree
                             .get_by_id(&id)
                             .expect("object ref must be valid");
-                        if o.class().is_derived_from(&ctx.classes.action_separator) {
-                            ACTION_SEPARATOR_NAME.to_owned()
-                        } else if is_action_separator(ctx, o, diagnostics) {
+                        if is_action_separator(ctx, o, diagnostics) {
                             ACTION_SEPARATOR_NAME.to_owned()
                         } else {
                             id

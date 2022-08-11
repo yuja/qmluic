@@ -404,16 +404,6 @@ pub fn internal_widgets_classes() -> impl IntoIterator<Item = Class> {
     [
         Class::new(PSEUDO_ACTION_BASE_NAME),
         Class {
-            // placeholder object for QMenu/QToolBar.addSeparator(), which does NOT
-            // inherit QAction because no QAction properties should be set.
-            class_name: "QActionSeparator".to_owned(),
-            qualified_class_name: "QActionSeparator".to_owned(),
-            super_classes: vec![SuperClassSpecifier::public(PSEUDO_ACTION_BASE_NAME)],
-            class_infos: vec![ClassInfo::new("QML.Element", "auto")],
-            object: true,
-            ..Default::default()
-        },
-        Class {
             class_name: "QLayoutAttached".to_owned(),
             qualified_class_name: "QLayoutAttached".to_owned(),
             object: true,
