@@ -36,12 +36,16 @@ impl UiObject {
         let cls = obj_node.class();
         if cls.is_derived_from(&ctx.classes.action) {
             confine_children(obj_node, diagnostics);
-            UiObject::Action(Action::new(
-                &ctx.make_object_context(obj_node),
-                obj_node.name(),
-                ctx.code_map_for_object(obj_node).properties(),
-                diagnostics,
-            ))
+            if is_action_separator(ctx, obj_node, diagnostics) {
+                UiObject::ActionSeparator
+            } else {
+                UiObject::Action(Action::new(
+                    &ctx.make_object_context(obj_node),
+                    obj_node.name(),
+                    ctx.code_map_for_object(obj_node).properties(),
+                    diagnostics,
+                ))
+            }
         } else if cls.is_derived_from(&ctx.classes.action_separator) {
             confine_children(obj_node, diagnostics);
             UiObject::ActionSeparator
@@ -79,6 +83,28 @@ impl UiObject {
     }
 }
 
+fn is_action_separator(
+    ctx: &BuildDocContext,
+    obj_node: ObjectNode,
+    diagnostics: &mut Diagnostics,
+) -> bool {
+    // Only QAction { separator: true } can be translated to <addaction name="separator"/>.
+    // Others will be mapped to a QAction having dynamic "separator" property since
+    // "separator" isn't actually a Q_PROPERTY.
+    let properties_code_map = ctx.code_map_for_object(obj_node).properties();
+    if obj_node.class().is_derived_from(&ctx.classes.action)
+        && properties_code_map.len() == 1
+        && properties_code_map.contains_key("separator")
+    {
+        let obj_ctx = ctx.make_object_context(obj_node);
+        property::get_bool(&obj_ctx, properties_code_map, "separator", diagnostics)
+            .map(|(_, b)| b)
+            .unwrap_or(false)
+    } else {
+        false
+    }
+}
+
 /// Action definition which can be serialized to UI XML.
 #[derive(Clone, Debug)]
 pub struct Action {
@@ -87,14 +113,18 @@ pub struct Action {
 }
 
 impl Action {
-    pub(super) fn new(
+    fn new(
         ctx: &ObjectContext,
         name: impl Into<String>,
         properties_code_map: &HashMap<&str, PropertyCode>,
         diagnostics: &mut Diagnostics,
     ) -> Self {
-        let properties =
-            property::make_serializable_map(ctx, properties_code_map, &[], diagnostics);
+        let properties = property::make_serializable_map(
+            ctx,
+            properties_code_map,
+            &["separator"], // can't be handled by uic
+            diagnostics,
+        );
         Action {
             name: name.into(),
             properties,
@@ -147,13 +177,13 @@ impl Widget {
             if let Some(refs) = expr::build_object_ref_list(p, diagnostics) {
                 refs.into_iter()
                     .map(|id| {
-                        if ctx
+                        let o = ctx
                             .object_tree
                             .get_by_id(&id)
-                            .expect("object ref must be valid")
-                            .class()
-                            .is_derived_from(&ctx.classes.action_separator)
-                        {
+                            .expect("object ref must be valid");
+                        if o.class().is_derived_from(&ctx.classes.action_separator) {
+                            ACTION_SEPARATOR_NAME.to_owned()
+                        } else if is_action_separator(ctx, o, diagnostics) {
                             ACTION_SEPARATOR_NAME.to_owned()
                         } else {
                             id

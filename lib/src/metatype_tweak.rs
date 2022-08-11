@@ -46,6 +46,13 @@ fn fix_abstract_item_view(cls: &mut Class) {
 fn fix_action(cls: &mut Class) {
     cls.super_classes
         .push(SuperClassSpecifier::public(PSEUDO_ACTION_BASE_NAME));
+    cls.properties.push(Property {
+        name: "separator".to_owned(),
+        r#type: "bool".to_owned(),
+        read: Some("isSeparator".to_owned()),
+        write: Some("setSeparator".to_owned()),
+        ..Default::default()
+    });
 }
 
 fn fix_combo_box(cls: &mut Class) {
