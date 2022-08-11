@@ -509,7 +509,7 @@ fn test_static_actions_list() {
         actions: [act, menu.menuAction(), sep]
         QAction { id: act }
         QMenu { id: menu }
-        QActionSeparator { id: sep }
+        QAction { id: sep; separator: true }
     }
     "###).unwrap(), @r###"
     <ui version="4.0">
@@ -525,4 +525,79 @@ fn test_static_actions_list() {
      </widget>
     </ui>
     "###);
+}
+
+#[test]
+fn test_action_separator_false() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QMenu {
+        QAction { separator: false }
+    }
+    "###).unwrap(), @r###"
+    <ui version="4.0">
+     <class>MyType</class>
+     <widget class="QMenu" name="menu">
+      <addaction name="action"/>
+      <action name="action">
+      </action>
+     </widget>
+    </ui>
+    "###);
+}
+
+#[test]
+fn test_action_seaparator_dynamic() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QWidget {
+            QCheckBox { id: check }
+            QAction { separator: check.checked }
+        }
+        "###,
+    );
+    let (ui_xml, ui_support_h) =
+        common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_xml, @r###"
+    <ui version="4.0">
+     <class>MyType</class>
+     <widget class="QWidget" name="widget">
+      <addaction name="action"/>
+      <widget class="QCheckBox" name="check">
+      </widget>
+      <action name="action">
+      </action>
+     </widget>
+    </ui>
+    "###);
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
+fn test_action_seaparator_with_other_properties() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QWidget {
+            QAction { separator: true; text: "whatever" }
+        }
+        "###,
+    );
+    let (ui_xml, ui_support_h) =
+        common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_xml, @r###"
+    <ui version="4.0">
+     <class>MyType</class>
+     <widget class="QWidget" name="widget">
+      <addaction name="action"/>
+      <action name="action">
+       <property name="text">
+        <string notr="true">whatever</string>
+       </property>
+      </action>
+     </widget>
+    </ui>
+    "###);
+    insta::assert_snapshot!(ui_support_h);
 }
