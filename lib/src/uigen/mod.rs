@@ -6,7 +6,7 @@ use crate::objtree::ObjectTree;
 use crate::qmlast::{UiImportSource, UiProgram};
 use crate::qmldir;
 use crate::qmldoc::UiDocument;
-use crate::typemap::{ImportedModuleSpace, ModuleId, TypeMap};
+use crate::typemap::{ImportedModuleSpace, ModuleId, ModuleIdBuf, TypeMap};
 
 mod binding;
 mod context;
@@ -119,8 +119,8 @@ fn make_doc_module_space<'a>(
     assert!(module_space.import_module(ModuleId::Builtins));
     if let Some(p) = doc.path().and_then(|p| p.parent()) {
         // QML files in the base directory should be available by default
-        let id = ModuleId::Directory(qmldir::normalize_path(p).into());
-        if !module_space.import_module(id) {
+        let id = ModuleIdBuf::Directory(qmldir::normalize_path(p));
+        if !module_space.import_module(id.as_ref()) {
             diagnostics.push(Diagnostic::error(0..0, "directory module not found"));
         }
     }
@@ -141,12 +141,10 @@ fn make_doc_module_space<'a>(
         }
         // TODO: anchor diagnostic message onto imp.source() node
         let id = match imp.source() {
-            UiImportSource::Identifier(x) => {
-                ModuleId::Named(x.to_string(doc.source()).into_owned().into())
-            }
+            UiImportSource::Identifier(x) => ModuleIdBuf::Named(x.to_string(doc.source()).into()),
             UiImportSource::String(x) => {
                 if let Some(p) = doc.path().and_then(|p| p.parent()) {
-                    ModuleId::Directory(qmldir::normalize_path(p.join(&x)).into())
+                    ModuleIdBuf::Directory(qmldir::normalize_path(p.join(&x)))
                 } else {
                     diagnostics.push(Diagnostic::error(
                         imp.node().byte_range(),
@@ -156,7 +154,7 @@ fn make_doc_module_space<'a>(
                 }
             }
         };
-        if !module_space.import_module(id) {
+        if !module_space.import_module(id.as_ref()) {
             diagnostics.push(Diagnostic::error(
                 imp.node().byte_range(),
                 "module not found",

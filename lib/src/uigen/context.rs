@@ -96,7 +96,7 @@ impl<'a> BuildContext<'a> {
     ) -> Result<Self, BuildContextError> {
         const MODULE_NAME: &str = "qmluic.QtWidgets";
         let module = type_map
-            .get_module(&ModuleId::Named(MODULE_NAME.into()))
+            .get_module(ModuleId::Named(MODULE_NAME))
             .ok_or(BuildContextError::ModuleNotFound(MODULE_NAME))?;
         let get_class = |name| match module.get_type(name) {
             Some(Ok(NamedType::Class(cls))) => Ok(cls),

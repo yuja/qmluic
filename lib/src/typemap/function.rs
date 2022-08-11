@@ -258,7 +258,7 @@ mod tests {
     #[test]
     fn method_lookup() {
         let mut type_map = TypeMap::with_primitive_types();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         let mut module_data = ModuleData::with_builtins();
         module_data.extend([
             metatype::Class {

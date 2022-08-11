@@ -107,7 +107,7 @@ pub fn translate_doc(
     metatype_tweak::apply_all(&mut classes);
     let mut module_data = ModuleData::with_builtins();
     module_data.extend(classes);
-    type_map.insert_module(ModuleId::Named("qmluic.QtWidgets".into()), module_data);
+    type_map.insert_module(ModuleId::Named("qmluic.QtWidgets"), module_data);
 
     if let Some(p) = doc.path() {
         let mut docs_cache = UiDocumentsCache::new();

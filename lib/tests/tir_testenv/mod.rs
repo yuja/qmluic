@@ -8,19 +8,19 @@ use qmluic::qmldoc::UiDocument;
 use qmluic::tir::{self, CodeBody};
 use qmluic::typedexpr::{RefKind, RefSpace, TypeAnnotationSpace};
 use qmluic::typemap::{
-    Class, ImportedModuleSpace, ModuleData, ModuleId, NamedType, TypeKind, TypeMap, TypeMapError,
-    TypeSpace as _,
+    Class, ImportedModuleSpace, ModuleData, ModuleId, ModuleIdBuf, NamedType, TypeKind, TypeMap,
+    TypeMapError, TypeSpace as _,
 };
 
 pub struct Env {
     type_map: TypeMap,
-    module_id: ModuleId<'static>,
+    module_id: ModuleIdBuf,
 }
 
 impl Env {
     pub fn new() -> Self {
         let mut type_map = TypeMap::with_primitive_types();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleIdBuf::Named("foo".to_owned());
         let mut module_data = ModuleData::with_builtins();
         let foo_meta = metatype::Class {
             class_name: "Foo".to_owned(),
@@ -133,7 +133,7 @@ impl Env {
     ) -> Result<CodeBody<'a>, Diagnostics> {
         let mut type_space = ImportedModuleSpace::new(&self.type_map);
         assert!(type_space.import_module(ModuleId::Builtins));
-        assert!(type_space.import_module(&self.module_id));
+        assert!(type_space.import_module(self.module_id.as_ref()));
         let ctx = Context { type_space };
 
         let doc = UiDocument::parse(format!("A {{ a: {expr_source}}}"), "MyType", None);

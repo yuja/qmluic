@@ -3,9 +3,8 @@
 use crate::diagnostic::{Diagnostic, Diagnostics, ProjectDiagnostics};
 use crate::qmlast::{UiImportSource, UiObjectDefinition, UiProgram};
 use crate::qmldoc::{UiDocument, UiDocumentsCache};
-use crate::typemap::{ModuleData, ModuleId, QmlComponentData, TypeMap};
+use crate::typemap::{ModuleData, ModuleId, ModuleIdBuf, QmlComponentData, TypeMap};
 use camino::{Utf8Path, Utf8PathBuf};
-use std::borrow::Cow;
 use std::io;
 use thiserror::Error;
 
@@ -36,7 +35,7 @@ where
 
     log::debug!("populating directories from {pending_dirs:?}");
     while let Some(base_dir) = pending_dirs.pop() {
-        if type_map.contains_module(ModuleId::Directory(Cow::Borrowed(base_dir.as_ref()))) {
+        if type_map.contains_module(ModuleId::Directory(base_dir.as_ref())) {
             continue; // already visited
         }
 
@@ -62,7 +61,7 @@ where
                     match id {
                         ModuleId::Builtins | ModuleId::Named(_) => {}
                         ModuleId::Directory(dir) if !type_map.contains_module(id) => {
-                            pending_dirs.push(dir.clone().into_owned());
+                            pending_dirs.push(dir.to_owned());
                         }
                         ModuleId::Directory(_) => {} // already visited
                     }
@@ -72,7 +71,10 @@ where
             project_diagnostics.push(entry.path(), diagnostics);
         }
 
-        type_map.insert_module(ModuleId::Directory(base_dir.into()), base_module_data);
+        type_map.insert_module(
+            ModuleIdBuf::Directory(base_dir.to_owned()),
+            base_module_data,
+        );
     }
 
     Ok(())
@@ -93,7 +95,7 @@ fn make_doc_component_data(
         QmlComponentData::with_super(doc.type_name(), obj.type_name().to_string(doc.source()));
 
     // QML files in the base directory should be available by default
-    data.import_module(ModuleId::Directory(doc_base_dir.to_owned().into()));
+    data.import_module(ModuleIdBuf::Directory(doc_base_dir.to_owned()));
 
     for imp in program.imports() {
         if imp.alias().is_some() {
@@ -112,12 +114,12 @@ fn make_doc_component_data(
         match imp.source() {
             UiImportSource::Identifier(x) => {
                 let s = x.to_string(doc.source());
-                data.import_module(ModuleId::Named(Cow::Owned(s.into())));
+                data.import_module(ModuleIdBuf::Named(s.into()));
             }
             UiImportSource::String(x) => {
                 let dir = doc_base_dir.join(&x);
                 if dir.is_dir() {
-                    data.import_module(ModuleId::Directory(normalize_path(dir).into()));
+                    data.import_module(ModuleIdBuf::Directory(normalize_path(dir).to_owned()));
                 } else {
                     // confine error so the population loop wouldn't fail with e.g. ENOENT
                     diagnostics.push(Diagnostic::error(

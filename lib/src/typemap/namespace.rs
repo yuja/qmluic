@@ -1,7 +1,7 @@
 use super::class::{Class, ClassData};
 use super::core::{TypeMapError, TypeSpace};
 use super::enum_::{Enum, EnumData};
-use super::module::ModuleId;
+use super::module::ModuleIdBuf;
 use super::qml_component::{QmlComponent, QmlComponentData};
 use super::util::{TypeDataRef, TypeMapRef};
 use super::{NamedType, ParentSpace, PrimitiveType};
@@ -30,7 +30,7 @@ pub struct NamespaceData {
 
 #[derive(Clone, Debug)]
 struct AliasData {
-    module_id: ModuleId<'static>,
+    module_id: ModuleIdBuf,
     scoped_name: String,
 }
 
@@ -130,7 +130,7 @@ impl NamespaceData {
     pub(super) fn push_alias<S, T, U>(&mut self, new_name: S, module_id: T, scoped_name: U)
     where
         S: Into<String>,
-        T: Into<ModuleId<'static>>,
+        T: Into<ModuleIdBuf>,
         U: Into<String>,
     {
         let start = self.aliases.len();
@@ -163,7 +163,7 @@ impl NamespaceData {
                 let a = &self.aliases[i];
                 let ns = type_map
                     .as_ref()
-                    .get_module(&a.module_id)
+                    .get_module(a.module_id.as_ref())
                     .ok_or_else(|| TypeMapError::InvalidModuleRef(a.module_id.clone()))?;
                 ns.get_type_scoped(&a.scoped_name)
                     .unwrap_or_else(|| Err(TypeMapError::InvalidTypeRef(a.scoped_name.clone())))

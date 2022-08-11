@@ -1,5 +1,5 @@
 use super::enum_::Enum;
-use super::module::ModuleId;
+use super::module::ModuleIdBuf;
 use super::{NamedType, ParentSpace};
 use itertools::Itertools as _;
 use std::borrow::Cow;
@@ -112,7 +112,7 @@ impl<'a, 'b> FusedIterator for LexicalAncestorSpaces<'a, 'b> {}
 #[derive(Clone, Debug, Error)]
 pub enum TypeMapError {
     #[error("invalid module reference '{0:?}'")]
-    InvalidModuleRef(ModuleId<'static>),
+    InvalidModuleRef(ModuleIdBuf),
     #[error("invalid type reference '{0}'")]
     InvalidTypeRef(String),
     #[error("invalid type '{0}' as a super class")]

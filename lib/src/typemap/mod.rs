@@ -66,68 +66,56 @@ impl TypeMap {
     }
 
     /// Checks if the specified module exists.
-    pub fn contains_module<'s, S>(&self, id: S) -> bool
-    where
-        S: AsRef<ModuleId<'s>>,
-    {
-        match id.as_ref() {
+    pub fn contains_module(&self, id: ModuleId) -> bool {
+        match id {
             ModuleId::Builtins => true,
-            ModuleId::Named(name) => self.named_module_map.contains_key(name.as_ref()),
-            ModuleId::Directory(path) => self.directory_module_map.contains_key(path.as_ref()),
+            ModuleId::Named(name) => self.named_module_map.contains_key(name),
+            ModuleId::Directory(path) => self.directory_module_map.contains_key(path),
         }
     }
 
     /// Looks up module by identifier.
-    pub fn get_module<'a, 's, S>(&'a self, id: S) -> Option<Namespace<'a>>
-    where
-        S: AsRef<ModuleId<'s>>,
-    {
-        match id.as_ref() {
+    pub fn get_module<'a>(&'a self, id: ModuleId) -> Option<Namespace<'a>> {
+        match id {
             ModuleId::Builtins => Some(self.builtins.to_namespace(TypeMapRef(self))),
             ModuleId::Named(name) => self
                 .named_module_map
-                .get(name.as_ref())
+                .get(name)
                 .map(|d| d.to_namespace(TypeMapRef(self))),
             ModuleId::Directory(path) => self
                 .directory_module_map
-                .get(path.as_ref())
+                .get(path)
                 .map(|d| d.to_namespace(TypeMapRef(self))),
         }
     }
 
     /// Looks up mutable module data by identifier.
-    pub fn get_module_data<'a, 's, S>(&'a self, id: S) -> Option<&'a ModuleData>
-    where
-        S: AsRef<ModuleId<'s>>,
-    {
-        match id.as_ref() {
+    pub fn get_module_data<'a>(&'a self, id: ModuleId) -> Option<&'a ModuleData> {
+        match id {
             ModuleId::Builtins => Some(&self.builtins),
-            ModuleId::Named(name) => self.named_module_map.get(name.as_ref()),
-            ModuleId::Directory(path) => self.directory_module_map.get(path.as_ref()),
+            ModuleId::Named(name) => self.named_module_map.get(name),
+            ModuleId::Directory(path) => self.directory_module_map.get(path),
         }
     }
 
     /// Looks up mutable module data by identifier.
-    pub fn get_module_data_mut<'a, 's, S>(&'a mut self, id: S) -> Option<&'a mut ModuleData>
-    where
-        S: AsRef<ModuleId<'s>>,
-    {
-        match id.as_ref() {
+    pub fn get_module_data_mut<'a>(&'a mut self, id: ModuleId) -> Option<&'a mut ModuleData> {
+        match id {
             ModuleId::Builtins => Some(&mut self.builtins),
-            ModuleId::Named(name) => self.named_module_map.get_mut(name.as_ref()),
-            ModuleId::Directory(path) => self.directory_module_map.get_mut(path.as_ref()),
+            ModuleId::Named(name) => self.named_module_map.get_mut(name),
+            ModuleId::Directory(path) => self.directory_module_map.get_mut(path),
         }
     }
 
     /// Inserts new module.
     pub fn insert_module<S>(&mut self, id: S, data: ModuleData) -> Option<ModuleData>
     where
-        S: Into<ModuleId<'static>>,
+        S: Into<ModuleIdBuf>,
     {
         match id.into() {
-            ModuleId::Builtins => Some(mem::replace(&mut self.builtins, data)),
-            ModuleId::Named(name) => self.named_module_map.insert(name.into_owned(), data),
-            ModuleId::Directory(path) => self.directory_module_map.insert(path.into_owned(), data),
+            ModuleIdBuf::Builtins => Some(mem::replace(&mut self.builtins, data)),
+            ModuleIdBuf::Named(name) => self.named_module_map.insert(name, data),
+            ModuleIdBuf::Directory(path) => self.directory_module_map.insert(path, data),
         }
     }
 }
@@ -376,9 +364,9 @@ mod tests {
     #[test]
     fn type_eq() {
         let mut type_map = TypeMap::empty();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
-        let module_data = type_map.get_module_data_mut(&module_id).unwrap();
+        let module_data = type_map.get_module_data_mut(module_id).unwrap();
         module_data.extend([metatype::Class::new("Foo"), metatype::Class::new("Bar")]);
         module_data.extend([metatype::Enum::new("Baz")]);
 
@@ -404,13 +392,13 @@ mod tests {
     #[test]
     fn named_module() {
         let mut type_map = TypeMap::with_primitive_types();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         type_map
-            .get_module_data_mut(&module_id)
+            .get_module_data_mut(module_id)
             .unwrap()
             .extend([metatype::Class::new("Foo")]);
-        let module = type_map.get_module(&ModuleId::Named("foo".into())).unwrap();
+        let module = type_map.get_module(module_id).unwrap();
         assert!(module.get_type("Foo").is_some());
         assert!(
             module.get_type("int").is_none(),
@@ -421,7 +409,7 @@ mod tests {
     #[test]
     fn aliased_type() {
         let mut type_map = TypeMap::with_primitive_types();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         let mut module_data = ModuleData::default();
         let mut foo_meta = metatype::Class::new("Foo");
         foo_meta.enums.push(metatype::Enum::new("Bar"));
@@ -446,9 +434,9 @@ mod tests {
     #[test]
     fn aliased_enum_eq() {
         let mut type_map = TypeMap::empty();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
-        type_map.get_module_data_mut(&module_id).unwrap().extend([
+        type_map.get_module_data_mut(module_id).unwrap().extend([
             metatype::Enum::new("Foo"),
             metatype::Enum::new_flag("Foos", "Foo"),
         ]);
@@ -467,12 +455,12 @@ mod tests {
     #[test]
     fn qualified_cxx_name() {
         let mut type_map = TypeMap::with_primitive_types();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         foo_meta.enums.push(metatype::Enum::new("Bar"));
         type_map
-            .get_module_data_mut(&module_id)
+            .get_module_data_mut(module_id)
             .unwrap()
             .extend([foo_meta]);
 
@@ -500,10 +488,10 @@ mod tests {
     #[test]
     fn get_type_of_root() {
         let mut type_map = TypeMap::with_primitive_types();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         type_map
-            .get_module_data_mut(&module_id)
+            .get_module_data_mut(module_id)
             .unwrap()
             .extend([metatype::Class::new("Foo")]);
 
@@ -523,12 +511,12 @@ mod tests {
     #[test]
     fn get_type_of_root_scoped() {
         let mut type_map = TypeMap::with_primitive_types();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         foo_meta.enums.push(metatype::Enum::new("Bar"));
         type_map
-            .get_module_data_mut(&module_id)
+            .get_module_data_mut(module_id)
             .unwrap()
             .extend([foo_meta]);
 
@@ -552,10 +540,10 @@ mod tests {
     #[test]
     fn do_not_resolve_intermediate_type_scoped() {
         let mut type_map = TypeMap::with_primitive_types();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         type_map
-            .get_module_data_mut(&module_id)
+            .get_module_data_mut(module_id)
             .unwrap()
             .extend([metatype::Class::new("Foo")]);
 
@@ -572,11 +560,11 @@ mod tests {
     #[test]
     fn get_super_class_type() {
         let mut type_map = TypeMap::with_primitive_types();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         let mut root_meta = metatype::Class::new("Root");
         root_meta.enums.push(metatype::Enum::new("RootEnum"));
-        type_map.get_module_data_mut(&module_id).unwrap().extend([
+        type_map.get_module_data_mut(module_id).unwrap().extend([
             root_meta,
             metatype::Class::with_supers("Sub1", ["Root"]),
             metatype::Class::with_supers("Sub2", ["Sub1"]),
@@ -598,9 +586,9 @@ mod tests {
     #[test]
     fn class_derived_from() {
         let mut type_map = TypeMap::with_primitive_types();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
-        type_map.get_module_data_mut(&module_id).unwrap().extend([
+        type_map.get_module_data_mut(module_id).unwrap().extend([
             metatype::Class::new("Root"),
             metatype::Class::with_supers("Sub1", ["Root"]),
             metatype::Class::with_supers("Sub2", ["Sub1"]),
@@ -627,7 +615,7 @@ mod tests {
     #[test]
     fn get_type_of_property() {
         let mut type_map = TypeMap::with_primitive_types();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         foo_meta
@@ -638,7 +626,7 @@ mod tests {
             .properties
             .push(metatype::Property::new("bar_prop", "bool"));
         type_map
-            .get_module_data_mut(&module_id)
+            .get_module_data_mut(module_id)
             .unwrap()
             .extend([foo_meta, bar_meta]);
 
@@ -665,7 +653,7 @@ mod tests {
     #[test]
     fn get_type_of_property_decorated() {
         let mut type_map = TypeMap::empty();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         let mut module_data = ModuleData::with_builtins();
         let mut foo_meta = metatype::Class::new("Foo");
         foo_meta.properties.extend([
@@ -707,7 +695,7 @@ mod tests {
     #[test]
     fn get_enum_by_variant() {
         let mut type_map = TypeMap::empty();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         let unscoped_meta = metatype::Enum::with_values("Unscoped", ["X", "Y"]);
@@ -715,7 +703,7 @@ mod tests {
         scoped_meta.is_class = true;
         foo_meta.enums.extend([unscoped_meta, scoped_meta]);
         type_map
-            .get_module_data_mut(&module_id)
+            .get_module_data_mut(module_id)
             .unwrap()
             .extend([foo_meta]);
 
@@ -743,14 +731,14 @@ mod tests {
     #[test]
     fn get_super_class_enum_by_variant() {
         let mut type_map = TypeMap::empty();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         let unscoped_meta = metatype::Enum::with_values("Unscoped", ["X", "Y"]);
         foo_meta.enums.extend([unscoped_meta]);
         let bar_meta = metatype::Class::with_supers("Bar", ["Foo"]);
         type_map
-            .get_module_data_mut(&module_id)
+            .get_module_data_mut(module_id)
             .unwrap()
             .extend([foo_meta, bar_meta]);
 

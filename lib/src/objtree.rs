@@ -237,19 +237,19 @@ mod tests {
     use crate::metatype;
     use crate::qmlast::UiProgram;
     use crate::qmldoc::UiDocument;
-    use crate::typemap::{ModuleData, ModuleId, TypeMap};
+    use crate::typemap::{ModuleData, ModuleIdBuf, TypeMap};
     use std::ptr;
 
     struct Env {
         doc: UiDocument,
         type_map: TypeMap,
-        module_id: ModuleId<'static>,
+        module_id: ModuleIdBuf,
     }
 
     impl Env {
         fn new(source: &str) -> Self {
             let mut type_map = TypeMap::with_primitive_types();
-            let module_id = ModuleId::Named("foo".into());
+            let module_id = ModuleIdBuf::Named("foo".to_owned());
             let mut module_data = ModuleData::with_builtins();
             module_data.extend([metatype::Class::new("Foo")]);
             type_map.insert_module(module_id.clone(), module_data);
@@ -266,7 +266,7 @@ mod tests {
             let tree = ObjectTree::build(
                 program.root_object_node(),
                 self.doc.source(),
-                &self.type_map.get_module(&self.module_id).unwrap(),
+                &self.type_map.get_module(self.module_id.as_ref()).unwrap(),
                 &mut diagnostics,
             );
             if diagnostics.has_error() {

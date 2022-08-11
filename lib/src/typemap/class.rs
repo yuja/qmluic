@@ -476,7 +476,7 @@ mod tests {
     #[test]
     fn base_classes_simple() {
         let mut type_map = TypeMap::empty();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         let mut module_data = ModuleData::default();
         module_data.extend([
             metatype::Class::new("Root"),
@@ -516,7 +516,7 @@ mod tests {
     #[test]
     fn base_classes_multiple() {
         let mut type_map = TypeMap::empty();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         let mut module_data = ModuleData::default();
         module_data.extend([
             metatype::Class::new("Root1"),
@@ -544,7 +544,7 @@ mod tests {
     #[test]
     fn base_classes_diamond() {
         let mut type_map = TypeMap::empty();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         let mut module_data = ModuleData::default();
         module_data.extend([
             metatype::Class::new("Root"),
@@ -572,7 +572,7 @@ mod tests {
     #[test]
     fn common_base_class() {
         let mut type_map = TypeMap::empty();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         let mut module_data = ModuleData::default();
         module_data.extend([
             metatype::Class::new("Root1"),
@@ -658,7 +658,7 @@ mod tests {
     #[test]
     fn attached_class() {
         let mut type_map = TypeMap::empty();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         let mut module_data = ModuleData::default();
         module_data.extend([
             metatype::Class::new("FooAttached"),
@@ -684,7 +684,7 @@ mod tests {
     #[test]
     fn property_std_set() {
         let mut type_map = TypeMap::with_primitive_types();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         let mut module_data = ModuleData::with_builtins();
         module_data.extend([
             metatype::Class {
@@ -769,7 +769,7 @@ mod tests {
     #[test]
     fn property_method() {
         let mut type_map = TypeMap::with_primitive_types();
-        let module_id = ModuleId::Named("foo".into());
+        let module_id = ModuleId::Named("foo");
         let mut module_data = ModuleData::with_builtins();
         module_data.extend([metatype::Class {
             class_name: "Foo".to_owned(),

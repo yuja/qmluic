@@ -1,5 +1,5 @@
 use super::class::{Class, ClassData};
-use super::module::{ImportedModuleSpace, ModuleId};
+use super::module::{ImportedModuleSpace, ModuleId, ModuleIdBuf};
 use super::util::{TypeDataRef, TypeMapRef};
 use super::ParentSpace;
 
@@ -16,7 +16,7 @@ pub struct QmlComponent<'a> {
 /// Stored QML component representation.
 #[derive(Clone, Debug)]
 pub struct QmlComponentData {
-    imports: Vec<ModuleId<'static>>,
+    imports: Vec<ModuleIdBuf>,
     class: ClassData,
 }
 
@@ -52,19 +52,19 @@ impl QmlComponentData {
         T: Into<String>,
     {
         QmlComponentData {
-            imports: vec![ModuleId::Builtins],
+            imports: vec![ModuleIdBuf::Builtins],
             class: ClassData::with_supers(name, [super_name]),
         }
     }
 
-    pub fn imports(&self) -> &[ModuleId] {
-        &self.imports
+    pub fn imports(&self) -> impl ExactSizeIterator<Item = ModuleId> {
+        self.imports.iter().map(|id| id.as_ref())
     }
 
     /// Adds the specified module to the import list from which type names will be resolved.
     pub fn import_module<S>(&mut self, id: S)
     where
-        S: Into<ModuleId<'static>>,
+        S: Into<ModuleIdBuf>,
     {
         self.imports.push(id.into())
     }
