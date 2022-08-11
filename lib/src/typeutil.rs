@@ -147,12 +147,6 @@ pub fn pick_concrete_type_cast(
         {
             Ok(TypeCastKind::Implicit)
         }
-        // TODO: covariant type is allowed to support QList<QAction*|QMenu*>, but it
-        // should only work at list construction.
-        (
-            TypeKind::PointerList(NamedType::Class(e)),
-            TypeKind::PointerList(NamedType::Class(a)),
-        ) if a.is_derived_from(e) => Ok(TypeCastKind::Implicit),
         (
             &TypeKind::DOUBLE | &TypeKind::INT | &TypeKind::UINT,
             &TypeKind::DOUBLE | &TypeKind::INT | &TypeKind::UINT,
