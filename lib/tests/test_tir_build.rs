@@ -46,12 +46,20 @@ fn string_array_literal() {
 
 #[test]
 fn object_array_literal() {
-    insta::assert_snapshot!(dump("[foo, foo2, null]"), @r###"
-        %0: QList<Foo*>
+    insta::assert_snapshot!(dump("[foo, foo2, foo_sub as Foo, null]"), @r###"
+        %0: Foo*
+        %1: QList<Foo*>
     .0:
-        %0 = make_list {[foo]: Foo*, [foo2]: Foo*, nullptr: nullptr_t}
-        return %0: QList<Foo*>
+        %0 = copy [foo_sub]: FooSub*
+        %1 = make_list {[foo]: Foo*, [foo2]: Foo*, %0: Foo*, nullptr: nullptr_t}
+        return %1: QList<Foo*>
     "###);
+}
+
+#[test]
+fn object_array_literal_no_implicit_upcast() {
+    let env = Env::new();
+    assert!(env.try_build("[foo, foo_sub]").is_err());
 }
 
 #[test]
@@ -559,6 +567,24 @@ fn pointer_to_null_literal_comparison() {
 }
 
 #[test]
+fn pointer_comparison_no_implicit_upcast() {
+    let env = Env::new();
+    assert!(env.try_build("foo == foo_sub").is_err());
+}
+
+#[test]
+fn pointer_comparison_with_explicit_upcast() {
+    insta::assert_snapshot!(dump("foo == (foo_sub as Foo)"), @r###"
+        %0: Foo*
+        %1: bool
+    .0:
+        %0 = copy [foo_sub]: FooSub*
+        %1 = binary_op '==', [foo]: Foo*, %0: Foo*
+        return %1: bool
+    "###);
+}
+
+#[test]
 fn incompatible_pointer_comparison() {
     let env = Env::new();
     assert!(env.try_build("foo == bar").is_err());
@@ -717,6 +743,33 @@ fn ternary_string_literal() {
         br .3
     .3:
         return %1: QString
+    "###);
+}
+
+#[test]
+fn ternary_no_implicit_upcast() {
+    let env = Env::new();
+    assert!(env.try_build("foo.checked ? foo : foo_sub").is_err());
+}
+
+#[test]
+fn ternary_with_explicit_upcast() {
+    insta::assert_snapshot!(dump("foo.checked ? foo : (foo_sub as Foo)"), @r###"
+        %0: bool
+        %1: Foo*
+        %2: Foo*
+    .0:
+        %0 = read_property [foo]: Foo*, "checked"
+        br_cond %0: bool, .1, .2
+    .1:
+        %2 = copy [foo]: Foo*
+        br .3
+    .2:
+        %1 = copy [foo_sub]: FooSub*
+        %2 = copy %1: Foo*
+        br .3
+    .3:
+        return %2: Foo*
     "###);
 }
 

@@ -1,5 +1,5 @@
 use crate::typedexpr::TypeDesc;
-use crate::typemap::{Enum, NamedType, TypeKind, TypeMapError, TypeSpace as _};
+use crate::typemap::{Enum, NamedType, TypeKind, TypeMapError};
 use thiserror::Error;
 
 #[derive(Clone, Debug, Error)]
@@ -52,6 +52,11 @@ pub fn to_concrete_list_type(elem_t: TypeDesc) -> Result<TypeKind, TypeError> {
     }
 }
 
+/// Determines the compatible type from `left` and `right`.
+///
+/// If either type is concrete, and if it is compatible with the other concrete type,
+/// the concrete type will be returned. Implicit upcast isn't allowed because it would
+/// be confusing if QObject were deduced from two different types.
 pub fn deduce_type<'a>(left: TypeDesc<'a>, right: TypeDesc<'a>) -> Result<TypeDesc<'a>, TypeError> {
     match (left, right) {
         (left, right) if left == right => Ok(left),
@@ -65,19 +70,6 @@ pub fn deduce_type<'a>(left: TypeDesc<'a>, right: TypeDesc<'a>) -> Result<TypeDe
         ) if is_compatible_enum(&l, &r)? => {
             Ok(TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(l))))
         }
-        (
-            TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(l))),
-            TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(r))),
-        ) => l
-            .common_base_class(&r)
-            .transpose()?
-            .map(|c| TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(c))))
-            .ok_or_else(|| {
-                TypeError::IncompatibleTypes(
-                    l.qualified_cxx_name().into(),
-                    r.qualified_cxx_name().into(),
-                )
-            }),
         (l @ TypeDesc::Concrete(TypeKind::Pointer(_)), TypeDesc::NullPointer) => Ok(l),
         (TypeDesc::NullPointer, r @ TypeDesc::Concrete(TypeKind::Pointer(_))) => Ok(r),
         (

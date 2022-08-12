@@ -7,7 +7,7 @@ for editing, but the semantics is diverged from JavaScript.
 
 Notable differences are:
 
-* No implicit type conversion (except for object upcasting.)
+* No implicit type conversion (except for object upcasting on assignment.)
 * Integer and floating point are distinct types.
 * Integer division returns an integer.
 
