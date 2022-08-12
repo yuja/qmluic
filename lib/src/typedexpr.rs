@@ -275,6 +275,8 @@ pub enum ExpressionError {
     IntegerOverflow,
     #[error("type resolution failed: {0}")]
     TypeResolution(#[from] TypeMapError),
+    #[error("incompatible array element types at index {0}: {1} and {2}")]
+    IncompatibleArrayElementType(usize, String, String),
     #[error("condition must be of bool type, but got: {0}")]
     IncompatibleConditionType(String),
     #[error("invalid argument: {0}")]
@@ -717,9 +719,22 @@ where
                 .iter()
                 .map(|&n| walk_rvalue(ctx, locals, n, source, visitor, diagnostics))
                 .collect::<Option<Vec<_>>>()?;
-            diagnostics
-                .consume_node_err(node, visitor.visit_array(elements, node.byte_range()))
-                .map(Intermediate::Item)
+            match visitor.visit_array(elements, node.byte_range()) {
+                Ok(it) => Some(Intermediate::Item(it)),
+                Err(ref e @ ExpressionError::IncompatibleArrayElementType(i, ref l, ref r)) => {
+                    diagnostics.push(
+                        Diagnostic::error(ns[i].byte_range(), e.to_string()).with_labels([
+                            (ns[i - 1].byte_range(), format!("type: {l}")),
+                            (ns[i].byte_range(), format!("type: {r}")),
+                        ]),
+                    );
+                    None
+                }
+                Err(e) => {
+                    diagnostics.push(Diagnostic::error(node.byte_range(), e.to_string()));
+                    None
+                }
+            }
         }
         Expression::Function(_) | Expression::ArrowFunction(_) => {
             diagnostics.push(Diagnostic::error(
