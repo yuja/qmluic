@@ -549,6 +549,8 @@ fn test_actions_list_incompatible_type() {
       │         ---- type: QAction*
     6 │         menu,
       │         ---- type: QMenu*
+      │
+      = call .menuAction() to obtain QAction* associated with menu
     "###);
 }
 

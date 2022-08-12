@@ -728,6 +728,11 @@ where
                             (ns[*i - 1].byte_range(), format!("type: {l}")),
                             (ns[*i].byte_range(), format!("type: {r}")),
                         ]);
+                        if l == "QAction*" && r == "QMenu*" || l == "QMenu*" && r == "QAction*" {
+                            diag.push_note(
+                                "call .menuAction() to obtain QAction* associated with menu",
+                            );
+                        }
                     }
                     diagnostics.push(diag);
                     None
