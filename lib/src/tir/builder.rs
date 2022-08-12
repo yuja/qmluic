@@ -86,7 +86,6 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
     type Item = Operand<'a>;
     type Local = LocalRef;
     type Label = BasicBlockRef;
-    type Error = ExpressionError;
 
     fn make_void(&self, byte_range: Range<usize>) -> Self::Item {
         Operand::Void(Void::new(byte_range))
@@ -96,7 +95,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         &mut self,
         value: u64,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error> {
+    ) -> Result<Self::Item, ExpressionError> {
         let v = ConstantValue::Integer(value.try_into()?);
         Ok(Operand::Constant(Constant::new(v, byte_range)))
     }
@@ -105,7 +104,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         &mut self,
         value: f64,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error> {
+    ) -> Result<Self::Item, ExpressionError> {
         let v = ConstantValue::Float(value);
         Ok(Operand::Constant(Constant::new(v, byte_range)))
     }
@@ -114,7 +113,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         &mut self,
         value: String,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error> {
+    ) -> Result<Self::Item, ExpressionError> {
         let v = ConstantValue::CString(value);
         Ok(Operand::Constant(Constant::new(v, byte_range)))
     }
@@ -123,12 +122,12 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         &mut self,
         value: bool,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error> {
+    ) -> Result<Self::Item, ExpressionError> {
         let v = ConstantValue::Bool(value);
         Ok(Operand::Constant(Constant::new(v, byte_range)))
     }
 
-    fn visit_null(&mut self, byte_range: Range<usize>) -> Result<Self::Item, Self::Error> {
+    fn visit_null(&mut self, byte_range: Range<usize>) -> Result<Self::Item, ExpressionError> {
         let v = ConstantValue::NullPointer;
         Ok(Operand::Constant(Constant::new(v, byte_range)))
     }
@@ -138,7 +137,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         enum_ty: Enum<'a>,
         variant: &str,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error> {
+    ) -> Result<Self::Item, ExpressionError> {
         Ok(Operand::EnumVariant(EnumVariant::new(
             enum_ty, variant, byte_range,
         )))
@@ -148,7 +147,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         &mut self,
         elements: Vec<Self::Item>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error> {
+    ) -> Result<Self::Item, ExpressionError> {
         let operands: Vec<_> = elements.into_iter().map(ensure_concrete_string).collect();
         if let Some(mut elem_t) = operands.first().map(|a| a.type_desc()) {
             for a in operands.iter().skip(1) {
@@ -167,7 +166,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         }
     }
 
-    fn visit_local_ref(&mut self, name: Self::Local) -> Result<Self::Item, Self::Error> {
+    fn visit_local_ref(&mut self, name: Self::Local) -> Result<Self::Item, ExpressionError> {
         let a = self.code.locals[name.0].clone(); // name must be valid
         Ok(Operand::Local(a))
     }
@@ -176,7 +175,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         &mut self,
         ty: TypeKind<'a>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Local, Self::Error> {
+    ) -> Result<Self::Local, ExpressionError> {
         let a = self.alloca(ty, byte_range).map_err(|_| {
             ExpressionError::OperationOnUnsupportedType(
                 "local declaration".to_owned(),
@@ -191,7 +190,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         name: Self::Local,
         right: Self::Item,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error> {
+    ) -> Result<Self::Item, ExpressionError> {
         let ty = &self.code.locals[name.0].ty; // name must be valid
         let right = ensure_concrete_string(right);
         if !typeutil::is_assignable(ty, &right.type_desc())? {
@@ -211,7 +210,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         &mut self,
         ty: TypeKind<'a>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Local, Self::Error> {
+    ) -> Result<Self::Local, ExpressionError> {
         assert_eq!(
             self.code.locals.len(),
             self.code.parameter_count,
@@ -232,7 +231,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         cls: Class<'a>,
         name: &str,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error> {
+    ) -> Result<Self::Item, ExpressionError> {
         Ok(Operand::NamedObject(NamedObject::new(
             name, cls, byte_range,
         )))
@@ -243,7 +242,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         object: Self::Item,
         property: Property<'a>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error> {
+    ) -> Result<Self::Item, ExpressionError> {
         if !property.is_readable() {
             return Err(ExpressionError::UnreadableProperty);
         }
@@ -260,7 +259,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         property: Property<'a>,
         right: Self::Item,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error> {
+    ) -> Result<Self::Item, ExpressionError> {
         if !property.is_writable() {
             return Err(ExpressionError::UnwritableProperty);
         }
@@ -288,7 +287,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         methods: MethodMatches<'a>,
         arguments: Vec<Self::Item>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error> {
+    ) -> Result<Self::Item, ExpressionError> {
         let arguments: Vec<_> = arguments.into_iter().map(ensure_concrete_string).collect();
         let mut matched_index: Option<usize> = None;
         for (i, m) in methods.iter().enumerate() {
@@ -340,7 +339,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         function: BuiltinMethodKind,
         arguments: Vec<Self::Item>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error> {
+    ) -> Result<Self::Item, ExpressionError> {
         let object = ensure_concrete_string(object);
         let ty = match function {
             BuiltinMethodKind::Arg => {
@@ -393,7 +392,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         function: BuiltinFunctionKind,
         arguments: Vec<Self::Item>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error> {
+    ) -> Result<Self::Item, ExpressionError> {
         let ty = match function {
             BuiltinFunctionKind::Tr => {
                 if arguments.len() == 1 {
@@ -421,7 +420,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         unary: UnaryOp,
         argument: Self::Item,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error> {
+    ) -> Result<Self::Item, ExpressionError> {
         match argument {
             Operand::Constant(a) => match unary {
                 UnaryOp::Arith(op) => ceval::eval_unary_arith_expression(op, a.value),
@@ -439,7 +438,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         left: Self::Item,
         right: Self::Item,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error> {
+    ) -> Result<Self::Item, ExpressionError> {
         match (left, right) {
             (Operand::Constant(l), Operand::Constant(r)) => match binary {
                 BinaryOp::Arith(op) => ceval::eval_binary_arith_expression(op, l.value, r.value),
@@ -462,7 +461,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         value: Self::Item,
         ty: TypeKind<'a>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error> {
+    ) -> Result<Self::Item, ExpressionError> {
         let value = ensure_concrete_string(value);
         match typeutil::pick_type_cast(&ty, &value.type_desc())? {
             TypeCastKind::Noop => Ok(value),
@@ -487,7 +486,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         (consequence, consequence_ref): (Self::Item, Self::Label),
         (alternative, alternative_ref): (Self::Item, Self::Label),
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error> {
+    ) -> Result<Self::Item, ExpressionError> {
         if condition.type_desc() != TypeDesc::BOOL {
             return Err(ExpressionError::IncompatibleConditionType(
                 condition.type_desc().qualified_name().into(),
@@ -516,7 +515,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         Ok(sink.map(Operand::Local).unwrap_or_else(Operand::Void))
     }
 
-    fn visit_expression_statement(&mut self, value: Self::Item) -> Result<(), Self::Error> {
+    fn visit_expression_statement(&mut self, value: Self::Item) -> Result<(), ExpressionError> {
         self.set_completion_value(ensure_concrete_string(value));
         Ok(())
     }
@@ -526,7 +525,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         (condition, condition_ref): (Self::Item, Self::Label),
         consequence_ref: Self::Label,
         alternative_ref: Option<Self::Label>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), ExpressionError> {
         if condition.type_desc() != TypeDesc::BOOL {
             return Err(ExpressionError::IncompatibleConditionType(
                 condition.type_desc().qualified_name().into(),
@@ -554,7 +553,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         default: Option<(usize, Self::Label)>,
         head_ref: Self::Label,
         exit_ref: Self::Label,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), ExpressionError> {
         // order of blocks: ...|exit|case0|body0|case1|body1|...|default body|
         let last_case_body_ref = cases.last().map(|&(_, _, b)| b).unwrap_or(exit_ref);
         let last_body_ref = default.map(|(_, b)| b).unwrap_or(last_case_body_ref);
@@ -589,14 +588,14 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         Ok(())
     }
 
-    fn visit_break_statement(&mut self, exit_ref: Self::Label) -> Result<(), Self::Error> {
+    fn visit_break_statement(&mut self, exit_ref: Self::Label) -> Result<(), ExpressionError> {
         self.current_basic_block_mut()
             .finalize(Terminator::Br(exit_ref));
         self.code.basic_blocks.push(BasicBlock::empty()); // unreachable code may be inserted here
         Ok(())
     }
 
-    fn visit_return_statement(&mut self, value: Self::Item) -> Result<(), Self::Error> {
+    fn visit_return_statement(&mut self, value: Self::Item) -> Result<(), ExpressionError> {
         let value = ensure_concrete_string(value);
         self.current_basic_block_mut()
             .finalize(Terminator::Return(value));
