@@ -101,8 +101,9 @@ impl Env {
             }],
             ..Default::default()
         };
+        let foo_sub_meta = metatype::Class::with_supers("FooSub", ["Foo"]);
         let bar_meta = metatype::Class::new("Bar");
-        module_data.extend([foo_meta, bar_meta, metatype::Class::new("A")]);
+        module_data.extend([foo_meta, foo_sub_meta, bar_meta, metatype::Class::new("A")]);
         type_map.insert_module(module_id.clone(), module_data);
         Env {
             type_map,
@@ -153,17 +154,14 @@ struct Context<'a> {
 
 impl<'a> RefSpace<'a> for Context<'a> {
     fn get_ref(&self, name: &str) -> Option<Result<RefKind<'a>, TypeMapError>> {
+        let unwrap_class_ref = |name| match self.type_space.get_type(name).unwrap().unwrap() {
+            NamedType::Class(cls) => Some(Ok(RefKind::Object(cls))),
+            _ => panic!("{name} must be of class type"),
+        };
         match name {
-            "foo" | "foo2" | "foo3" | "foo4" => {
-                match self.type_space.get_type("Foo").unwrap().unwrap() {
-                    NamedType::Class(cls) => Some(Ok(RefKind::Object(cls))),
-                    _ => panic!("Foo must be of class type"),
-                }
-            }
-            "bar" => match self.type_space.get_type("Bar").unwrap().unwrap() {
-                NamedType::Class(cls) => Some(Ok(RefKind::Object(cls))),
-                _ => panic!("Bar must be of class type"),
-            },
+            "foo" | "foo2" | "foo3" | "foo4" => unwrap_class_ref("Foo"),
+            "foo_sub" => unwrap_class_ref("FooSub"),
+            "bar" => unwrap_class_ref("Bar"),
             "qsTr" => Some(Ok(RefKind::BuiltinFunction(BuiltinFunctionKind::Tr))),
             _ => self.type_space.get_ref(name),
         }
