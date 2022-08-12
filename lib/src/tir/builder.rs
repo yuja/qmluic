@@ -150,8 +150,13 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
     ) -> Result<Self::Item, ExpressionError> {
         let operands: Vec<_> = elements.into_iter().map(ensure_concrete_string).collect();
         if let Some(mut elem_t) = operands.first().map(|a| a.type_desc()) {
-            for a in operands.iter().skip(1) {
-                elem_t = deduce_type("array", elem_t, a.type_desc())?;
+            for (i, a) in operands.iter().enumerate().skip(1) {
+                elem_t = typeutil::deduce_type(elem_t, a.type_desc()).map_err(|e| match e {
+                    TypeError::IncompatibleTypes(l, r) => {
+                        ExpressionError::IncompatibleArrayElementType(i, l, r)
+                    }
+                    e => to_operation_type_error("array", e),
+                })?;
             }
             Ok(self.emit_result(
                 to_concrete_list_type("array", elem_t)?,
@@ -742,14 +747,6 @@ fn to_concrete_list_type(
     elem_t: TypeDesc,
 ) -> Result<TypeKind, ExpressionError> {
     typeutil::to_concrete_list_type(elem_t).map_err(|e| to_operation_type_error(op_desc, e))
-}
-
-fn deduce_type<'a>(
-    op_desc: impl ToString,
-    left: TypeDesc<'a>,
-    right: TypeDesc<'a>,
-) -> Result<TypeDesc<'a>, ExpressionError> {
-    typeutil::deduce_type(left, right).map_err(|e| to_operation_type_error(op_desc, e))
 }
 
 fn ensure_concrete_string(x: Operand) -> Operand {

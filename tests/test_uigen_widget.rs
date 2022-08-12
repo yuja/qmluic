@@ -528,6 +528,31 @@ fn test_static_actions_list() {
 }
 
 #[test]
+fn test_actions_list_incompatible_type() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QMenu {
+        actions: [
+            act1,
+            act2,
+            menu,
+        ]
+        QAction { id: act1 }
+        QAction { id: act2 }
+        QMenu { id: menu }
+    }
+    "###).unwrap_err(), @r###"
+    error: incompatible array element types at index 2: QAction* and QMenu*
+      ┌─ <unknown>:6:9
+      │
+    5 │         act2,
+      │         ---- type: QAction*
+    6 │         menu,
+      │         ^^^^ type: QMenu*
+    "###);
+}
+
+#[test]
 fn test_action_separator_false() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
