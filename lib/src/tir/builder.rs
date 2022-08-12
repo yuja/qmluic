@@ -7,16 +7,14 @@ use crate::diagnostic::Diagnostics;
 use crate::opcode::{BinaryArithOp, BinaryOp, BuiltinFunctionKind, BuiltinMethodKind, UnaryOp};
 use crate::qmlast::Node;
 use crate::typedexpr::{
-    self, DescribeType, ExpressionVisitor, RefSpace, TypeAnnotationSpace, TypeDesc,
+    self, DescribeType, ExpressionError, ExpressionVisitor, RefSpace, TypeAnnotationSpace, TypeDesc,
 };
 use crate::typemap::{
     Class, Enum, MethodMatches, NamedType, PrimitiveType, Property, TypeKind, TypeMapError,
 };
 use crate::typeutil::{self, TypeCastKind, TypeError};
 use itertools::Itertools as _;
-use std::num::TryFromIntError;
 use std::ops::Range;
-use thiserror::Error;
 
 /// Translates AST to type-checked IR.
 #[derive(Clone, Debug)]
@@ -711,32 +709,6 @@ impl<'a> CodeBuilder<'a> {
         }
         .map(|ty| self.emit_result(ty, Rvalue::BinaryOp(binary, left, right), byte_range))
     }
-}
-
-#[derive(Clone, Debug, Error)]
-pub(super) enum ExpressionError {
-    #[error("integer conversion failed: {0}")]
-    IntegerConversion(#[from] TryFromIntError),
-    #[error("integer overflow")]
-    IntegerOverflow,
-    #[error("type resolution failed: {0}")]
-    TypeResolution(#[from] TypeMapError),
-    #[error("condition must be of bool type, but got: {0}")]
-    IncompatibleConditionType(String),
-    #[error("invalid argument: {0}")]
-    InvalidArgument(String),
-    #[error("operation '{0}' on incompatible types: {1} and {2}")]
-    OperationOnIncompatibleTypes(String, String, String),
-    #[error("operation '{0}' on undetermined type: {1}")]
-    OperationOnUndeterminedType(String, String),
-    #[error("operation '{0}' on unsupported type: {1}")]
-    OperationOnUnsupportedType(String, String),
-    #[error("unsupported operation '{0}'")]
-    UnsupportedOperation(String),
-    #[error("not a readable property")]
-    UnreadableProperty,
-    #[error("not a writable property")]
-    UnwritableProperty,
 }
 
 fn to_operation_type_error(op_desc: impl ToString, err: TypeError) -> ExpressionError {

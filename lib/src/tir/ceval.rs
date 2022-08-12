@@ -4,13 +4,12 @@
 //! concrete integer/string type. And we do want to concatenate string literals to
 //! support translation.
 
-use super::builder::ExpressionError;
 use super::core::ConstantValue;
 use crate::opcode::{
     BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, ComparisonOp, ShiftOp, UnaryArithOp,
     UnaryBitwiseOp, UnaryLogicalOp,
 };
-use crate::typedexpr::DescribeType;
+use crate::typedexpr::{DescribeType, ExpressionError};
 
 pub(super) fn eval_unary_arith_expression(
     op: UnaryArithOp,
