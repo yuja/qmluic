@@ -62,9 +62,13 @@ pub fn make_reportable_diagnostics(
                 })
                 .collect()
         };
-        ReportableDiagnostic::new(severity)
-            .with_message(diag.message())
-            .with_labels(labels)
+        ReportableDiagnostic {
+            severity,
+            code: None,
+            message: diag.message().into(),
+            labels,
+            notes: diag.notes().into(),
+        }
     })
 }
 

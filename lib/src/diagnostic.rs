@@ -19,6 +19,7 @@ pub struct Diagnostic {
     byte_range: Range<usize>,
     message: String,
     labels: Vec<(Range<usize>, String)>,
+    notes: Vec<String>,
 }
 
 impl Diagnostic {
@@ -32,6 +33,7 @@ impl Diagnostic {
             byte_range,
             message: message.into(),
             labels: Vec::new(),
+            notes: Vec::new(),
         }
     }
 
@@ -67,6 +69,25 @@ impl Diagnostic {
         S: Into<String>,
     {
         self.extend_labels(labels);
+        self
+    }
+
+    /// Builds diagnostic with the given note attached.
+    pub fn with_note<S>(mut self, message: S) -> Self
+    where
+        S: Into<String>,
+    {
+        self.push_note(message);
+        self
+    }
+
+    /// Builds diagnostic with the given notes attached.
+    pub fn with_notes<I>(mut self, notes: I) -> Self
+    where
+        I: IntoIterator,
+        I::Item: Into<String>,
+    {
+        self.extend_notes(notes);
         self
     }
 
@@ -113,6 +134,27 @@ impl Diagnostic {
     {
         self.labels
             .extend(labels.into_iter().map(|(r, s)| (r, s.into())));
+    }
+
+    pub fn notes(&self) -> &[String] {
+        &self.notes
+    }
+
+    /// Add a note to this diagnostic.
+    pub fn push_note<S>(&mut self, message: S)
+    where
+        S: Into<String>,
+    {
+        self.notes.push(message.into());
+    }
+
+    /// Add notes to this diagnostic.
+    pub fn extend_notes<I>(&mut self, notes: I)
+    where
+        I: IntoIterator,
+        I::Item: Into<String>,
+    {
+        self.notes.extend(notes.into_iter().map(Into::into));
     }
 }
 
