@@ -543,12 +543,12 @@ fn test_actions_list_incompatible_type() {
     }
     "###).unwrap_err(), @r###"
     error: incompatible array element types at index 2: QAction* and QMenu*
-      ┌─ <unknown>:6:9
+      ┌─ <unknown>:5:9
       │
     5 │         act2,
       │         ---- type: QAction*
     6 │         menu,
-      │         ^^^^ type: QMenu*
+      │         ---- type: QMenu*
     "###);
 }
 

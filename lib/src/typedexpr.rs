@@ -721,17 +721,15 @@ where
                 .collect::<Option<Vec<_>>>()?;
             match visitor.visit_array(elements, node.byte_range()) {
                 Ok(it) => Some(Intermediate::Item(it)),
-                Err(ref e @ ExpressionError::IncompatibleArrayElementType(i, ref l, ref r)) => {
-                    diagnostics.push(
-                        Diagnostic::error(ns[i].byte_range(), e.to_string()).with_labels([
-                            (ns[i - 1].byte_range(), format!("type: {l}")),
-                            (ns[i].byte_range(), format!("type: {r}")),
-                        ]),
-                    );
-                    None
-                }
                 Err(e) => {
-                    diagnostics.push(Diagnostic::error(node.byte_range(), e.to_string()));
+                    let mut diag = Diagnostic::error(node.byte_range(), e.to_string());
+                    if let ExpressionError::IncompatibleArrayElementType(i, l, r) = &e {
+                        diag.extend_labels([
+                            (ns[*i - 1].byte_range(), format!("type: {l}")),
+                            (ns[*i].byte_range(), format!("type: {r}")),
+                        ]);
+                    }
+                    diagnostics.push(diag);
                     None
                 }
             }
