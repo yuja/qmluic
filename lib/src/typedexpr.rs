@@ -123,7 +123,6 @@ pub trait ExpressionVisitor<'a> {
     type Item: DescribeType<'a> + Clone;
     type Local: Copy;
     type Label: Copy;
-    type Error: ToString;
 
     /// Creates an item that represents a valid, but not meaningful value. `return;` statement
     /// will generate this value.
@@ -133,137 +132,137 @@ pub trait ExpressionVisitor<'a> {
         &mut self,
         value: u64,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error>;
+    ) -> Result<Self::Item, ExpressionError>;
     fn visit_float(
         &mut self,
         value: f64,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error>;
+    ) -> Result<Self::Item, ExpressionError>;
     fn visit_string(
         &mut self,
         value: String,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error>;
+    ) -> Result<Self::Item, ExpressionError>;
     fn visit_bool(
         &mut self,
         value: bool,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error>;
-    fn visit_null(&mut self, byte_range: Range<usize>) -> Result<Self::Item, Self::Error>;
+    ) -> Result<Self::Item, ExpressionError>;
+    fn visit_null(&mut self, byte_range: Range<usize>) -> Result<Self::Item, ExpressionError>;
     fn visit_enum(
         &mut self,
         enum_ty: Enum<'a>,
         variant: &str,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error>;
+    ) -> Result<Self::Item, ExpressionError>;
 
     fn visit_array(
         &mut self,
         elements: Vec<Self::Item>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error>;
+    ) -> Result<Self::Item, ExpressionError>;
 
-    fn visit_local_ref(&mut self, name: Self::Local) -> Result<Self::Item, Self::Error>;
+    fn visit_local_ref(&mut self, name: Self::Local) -> Result<Self::Item, ExpressionError>;
     fn visit_local_declaration(
         &mut self,
         ty: TypeKind<'a>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Local, Self::Error>;
+    ) -> Result<Self::Local, ExpressionError>;
     fn visit_local_assignment(
         &mut self,
         name: Self::Local,
         right: Self::Item,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error>;
+    ) -> Result<Self::Item, ExpressionError>;
     fn visit_function_parameter(
         &mut self,
         ty: TypeKind<'a>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Local, Self::Error>;
+    ) -> Result<Self::Local, ExpressionError>;
 
     fn visit_object_ref(
         &mut self,
         cls: Class<'a>,
         name: &str,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error>;
+    ) -> Result<Self::Item, ExpressionError>;
     fn visit_object_property(
         &mut self,
         object: Self::Item,
         property: Property<'a>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error>;
+    ) -> Result<Self::Item, ExpressionError>;
     fn visit_object_property_assignment(
         &mut self,
         object: Self::Item,
         property: Property<'a>,
         right: Self::Item,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error>;
+    ) -> Result<Self::Item, ExpressionError>;
     fn visit_object_method_call(
         &mut self,
         object: Self::Item,
         methods: MethodMatches<'a>,
         arguments: Vec<Self::Item>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error>;
+    ) -> Result<Self::Item, ExpressionError>;
     fn visit_object_builtin_method_call(
         &mut self,
         object: Self::Item,
         function: BuiltinMethodKind,
         arguments: Vec<Self::Item>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error>;
+    ) -> Result<Self::Item, ExpressionError>;
 
     fn visit_builtin_call(
         &mut self,
         function: BuiltinFunctionKind,
         arguments: Vec<Self::Item>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error>;
+    ) -> Result<Self::Item, ExpressionError>;
     fn visit_unary_expression(
         &mut self,
         unary: UnaryOp,
         argument: Self::Item,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error>;
+    ) -> Result<Self::Item, ExpressionError>;
     fn visit_binary_expression(
         &mut self,
         binary: BinaryOp,
         left: Self::Item,
         right: Self::Item,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error>;
+    ) -> Result<Self::Item, ExpressionError>;
     fn visit_as_expression(
         &mut self,
         value: Self::Item,
         ty: TypeKind<'a>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error>;
+    ) -> Result<Self::Item, ExpressionError>;
     fn visit_ternary_expression(
         &mut self,
         condition: (Self::Item, Self::Label),
         consequence: (Self::Item, Self::Label),
         alternative: (Self::Item, Self::Label),
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, Self::Error>;
+    ) -> Result<Self::Item, ExpressionError>;
 
-    fn visit_expression_statement(&mut self, value: Self::Item) -> Result<(), Self::Error>;
+    fn visit_expression_statement(&mut self, value: Self::Item) -> Result<(), ExpressionError>;
     fn visit_if_statement(
         &mut self,
         condition: (Self::Item, Self::Label),
         consequence_ref: Self::Label,
         alternative_ref: Option<Self::Label>,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<(), ExpressionError>;
     fn visit_switch_statement(
         &mut self,
         cases: Vec<(Self::Item, Self::Label, Self::Label)>,
         default: Option<(usize, Self::Label)>,
         head_ref: Self::Label,
         exit_ref: Self::Label,
-    ) -> Result<(), Self::Error>;
-    fn visit_break_statement(&mut self, exit_ref: Self::Label) -> Result<(), Self::Error>;
-    fn visit_return_statement(&mut self, value: Self::Item) -> Result<(), Self::Error>;
+    ) -> Result<(), ExpressionError>;
+    fn visit_break_statement(&mut self, exit_ref: Self::Label) -> Result<(), ExpressionError>;
+    fn visit_return_statement(&mut self, value: Self::Item) -> Result<(), ExpressionError>;
 
     fn mark_branch_point(&mut self) -> Self::Label;
 }
