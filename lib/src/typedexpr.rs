@@ -732,26 +732,13 @@ where
                 Err(e) => {
                     let mut diag = Diagnostic::error(node.byte_range(), e.to_string());
                     if let ExpressionError::IncompatibleArrayElementType(i, l, r) = &e {
-                        diag.extend_labels([
-                            (
-                                ns[*i - 1].byte_range(),
-                                format!("type: {}", l.qualified_name()),
-                            ),
-                            (ns[*i].byte_range(), format!("type: {}", r.qualified_name())),
-                        ]);
-                        match (l, r) {
-                            (
-                                TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(a))),
-                                TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(b))),
-                            ) if a.name() == "QAction" && b.name() == "QMenu"
-                                || a.name() == "QMenu" && b.name() == "QAction" =>
-                            {
-                                diag.push_note(
-                                    "call .menuAction() to obtain QAction* associated with menu",
-                                );
-                            }
-                            _ => {}
-                        }
+                        typeutil::diagnose_incompatible_types(
+                            &mut diag,
+                            ns[*i - 1].byte_range(),
+                            l,
+                            ns[*i].byte_range(),
+                            r,
+                        );
                     }
                     diagnostics.push(diag);
                     None
