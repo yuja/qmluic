@@ -54,7 +54,11 @@ impl<'a> CodeBody<'a> {
                         diagnostics.push(
                             Diagnostic::error(
                                 a.byte_range(),
-                                format!("cannot deduce return type from '{l}' and '{r}'"),
+                                format!(
+                                    "cannot deduce return type from '{}' and '{}'",
+                                    l.qualified_name(),
+                                    r.qualified_name()
+                                ),
                             )
                             .with_labels(operands[..=i].iter().map(
                                 |a| {

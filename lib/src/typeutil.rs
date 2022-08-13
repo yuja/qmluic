@@ -3,15 +3,15 @@ use crate::typemap::{Enum, NamedType, TypeKind, TypeMapError};
 use thiserror::Error;
 
 #[derive(Clone, Debug, Error)]
-pub enum TypeError {
+pub enum TypeError<'a> {
     #[error("type resolution failed: {0}")]
     TypeResolution(#[from] TypeMapError),
-    #[error("incompatible types: {0} and {1}")]
-    IncompatibleTypes(String, String),
-    #[error("undetermined type: {0}")]
-    UndeterminedType(String),
-    #[error("unsupported type: {0}")]
-    UnsupportedType(String),
+    #[error("incompatible types: {} and {}", .0.qualified_name(), .1.qualified_name())]
+    IncompatibleTypes(TypeDesc<'a>, TypeDesc<'a>),
+    #[error("undetermined type: {}", .0.qualified_name())]
+    UndeterminedType(TypeDesc<'a>),
+    #[error("unsupported type: {}", .0.qualified_name())]
+    UnsupportedType(TypeDesc<'a>),
 }
 
 fn is_compatible_enum(left: &Enum, right: &Enum) -> Result<bool, TypeMapError> {
@@ -29,7 +29,7 @@ fn is_compatible_enum(left: &Enum, right: &Enum) -> Result<bool, TypeMapError> {
 pub fn deduce_concrete_type<'a>(
     left: TypeDesc<'a>,
     right: TypeDesc<'a>,
-) -> Result<TypeKind<'a>, TypeError> {
+) -> Result<TypeKind<'a>, TypeError<'a>> {
     deduce_type(left, right).and_then(to_concrete_type)
 }
 
@@ -38,9 +38,7 @@ pub fn to_concrete_type(t: TypeDesc) -> Result<TypeKind, TypeError> {
         TypeDesc::Concrete(ty) => Ok(ty),
         TypeDesc::ConstInteger => Ok(TypeKind::INT), // fallback to default
         TypeDesc::ConstString => Ok(TypeKind::STRING),
-        t @ (TypeDesc::NullPointer | TypeDesc::EmptyList) => {
-            Err(TypeError::UndeterminedType(t.qualified_name().into()))
-        }
+        t @ (TypeDesc::NullPointer | TypeDesc::EmptyList) => Err(TypeError::UndeterminedType(t)),
     }
 }
 
@@ -48,7 +46,7 @@ pub fn to_concrete_list_type(elem_t: TypeDesc) -> Result<TypeKind, TypeError> {
     match to_concrete_type(elem_t)? {
         TypeKind::STRING => Ok(TypeKind::STRING_LIST),
         TypeKind::Pointer(t) => Ok(TypeKind::PointerList(t)),
-        t => Err(TypeError::UnsupportedType(t.qualified_cxx_name().into())),
+        t => Err(TypeError::UnsupportedType(TypeDesc::Concrete(t))),
     }
 }
 
@@ -57,7 +55,10 @@ pub fn to_concrete_list_type(elem_t: TypeDesc) -> Result<TypeKind, TypeError> {
 /// If either type is concrete, and if it is compatible with the other concrete type,
 /// the concrete type will be returned. Implicit upcast isn't allowed because it would
 /// be confusing if QObject were deduced from two different types.
-pub fn deduce_type<'a>(left: TypeDesc<'a>, right: TypeDesc<'a>) -> Result<TypeDesc<'a>, TypeError> {
+pub fn deduce_type<'a>(
+    left: TypeDesc<'a>,
+    right: TypeDesc<'a>,
+) -> Result<TypeDesc<'a>, TypeError<'a>> {
     match (left, right) {
         (left, right) if left == right => Ok(left),
         (l @ (TypeDesc::INT | TypeDesc::UINT), TypeDesc::ConstInteger) => Ok(l),
@@ -80,10 +81,7 @@ pub fn deduce_type<'a>(left: TypeDesc<'a>, right: TypeDesc<'a>) -> Result<TypeDe
             TypeDesc::EmptyList,
             r @ (TypeDesc::STRING_LIST | TypeDesc::Concrete(TypeKind::PointerList(_))),
         ) => Ok(r),
-        (left, right) => Err(TypeError::IncompatibleTypes(
-            left.qualified_name().into(),
-            right.qualified_name().into(),
-        )),
+        (left, right) => Err(TypeError::IncompatibleTypes(left, right)),
     }
 }
 
