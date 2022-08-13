@@ -469,6 +469,85 @@ fn test_ternary_expression_type_mismatch() {
 }
 
 #[test]
+fn test_ternary_condition_string() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QLabel {
+        text: windowTitle ? windowTitle : "untitled"
+    }
+    "###).unwrap_err(), @r###"
+    error: condition must be of bool type, but got: QString
+      ┌─ <unknown>:3:11
+      │
+    3 │     text: windowTitle ? windowTitle : "untitled"
+      │           ----------- type: QString
+      │
+      = use (expr != "") to test empty string
+    "###);
+}
+
+#[test]
+fn test_if_condition_int() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QSpinBox {
+        onEditingFinished: {
+            if (value) {}
+        }
+    }
+    "###).unwrap_err(), @r###"
+    error: condition must be of bool type, but got: int
+      ┌─ <unknown>:4:12
+      │
+    4 │         if (value) {}
+      │            ------- type: int
+      │
+      = use (expr != 0) to test zero
+    "###);
+}
+
+#[test]
+fn test_if_condition_flag() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QLabel {
+        onLinkActivated: {
+            if (alignment & Qt.AlignLeft) {}
+        }
+    }
+    "###).unwrap_err(), @r###"
+    error: condition must be of bool type, but got: Qt::Alignment
+      ┌─ <unknown>:4:12
+      │
+    4 │         if (alignment & Qt.AlignLeft) {}
+      │            -------------------------- type: Qt::Alignment
+      │
+      = use ((expr as int) != 0) to test flag
+    "###);
+}
+
+#[test]
+fn test_if_condition_pointer() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QLabel {
+        id: obj
+        onLinkActivated: {
+            if (obj) {}
+        }
+    }
+    "###).unwrap_err(), @r###"
+    error: condition must be of bool type, but got: QLabel*
+      ┌─ <unknown>:5:12
+      │
+    5 │         if (obj) {}
+      │            ----- type: QLabel*
+      │
+      = use (expr != null) to test null pointer
+    "###);
+}
+
+#[test]
 fn test_qstring_arg() {
     let doc = common::parse_doc(
         r###"
