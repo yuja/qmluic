@@ -494,7 +494,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
     ) -> Result<Self::Item, ExpressionError<'a>> {
         if condition.type_desc() != TypeDesc::BOOL {
             return Err(ExpressionError::IncompatibleConditionType(
-                condition.type_desc().qualified_name().into(),
+                condition.type_desc(),
             ));
         }
         let consequence = ensure_concrete_string(consequence);
@@ -533,7 +533,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
     ) -> Result<(), ExpressionError<'a>> {
         if condition.type_desc() != TypeDesc::BOOL {
             return Err(ExpressionError::IncompatibleConditionType(
-                condition.type_desc().qualified_name().into(),
+                condition.type_desc(),
             ));
         }
         self.get_basic_block_mut(condition_ref)
