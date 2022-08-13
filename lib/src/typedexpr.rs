@@ -894,12 +894,23 @@ where
                     ))
                 })
                 .ok()?;
-            diagnostics
-                .consume_node_err(
-                    node,
-                    visitor.visit_binary_expression(binary, left, right, node.byte_range()),
-                )
-                .map(Intermediate::Item)
+            match visitor.visit_binary_expression(binary, left, right, node.byte_range()) {
+                Ok(it) => Some(Intermediate::Item(it)),
+                Err(e) => {
+                    let mut diag = Diagnostic::error(node.byte_range(), e.to_string());
+                    if let ExpressionError::OperationOnIncompatibleTypes(_, l, r) = &e {
+                        typeutil::diagnose_incompatible_types(
+                            &mut diag,
+                            x.left.byte_range(),
+                            l,
+                            x.right.byte_range(),
+                            r,
+                        );
+                    }
+                    diagnostics.push(diag);
+                    None
+                }
+            }
         }
         Expression::As(x) => {
             let value = walk_rvalue(ctx, locals, x.value, source, visitor, diagnostics)?;
@@ -920,17 +931,28 @@ where
             let alternative =
                 walk_rvalue(ctx, locals, x.alternative, source, visitor, diagnostics)?;
             let alternative_label = visitor.mark_branch_point();
-            diagnostics
-                .consume_node_err(
-                    node,
-                    visitor.visit_ternary_expression(
-                        (condition, condition_label),
-                        (consequence, consequence_label),
-                        (alternative, alternative_label),
-                        node.byte_range(),
-                    ),
-                )
-                .map(Intermediate::Item)
+            match visitor.visit_ternary_expression(
+                (condition, condition_label),
+                (consequence, consequence_label),
+                (alternative, alternative_label),
+                node.byte_range(),
+            ) {
+                Ok(it) => Some(Intermediate::Item(it)),
+                Err(e) => {
+                    let mut diag = Diagnostic::error(node.byte_range(), e.to_string());
+                    if let ExpressionError::OperationOnIncompatibleTypes(_, l, r) = &e {
+                        typeutil::diagnose_incompatible_types(
+                            &mut diag,
+                            x.consequence.byte_range(),
+                            l,
+                            x.alternative.byte_range(),
+                            r,
+                        );
+                    }
+                    diagnostics.push(diag);
+                    None
+                }
+            }
         }
     }
 }
