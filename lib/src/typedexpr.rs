@@ -437,14 +437,26 @@ where
             } else {
                 None
             };
-            diagnostics.consume_node_err(
-                node,
-                visitor.visit_if_statement(
-                    (condition, condition_label),
-                    consequence_label,
-                    alternative_label,
-                ),
-            )
+            match visitor.visit_if_statement(
+                (condition, condition_label),
+                consequence_label,
+                alternative_label,
+            ) {
+                Ok(()) => Some(()),
+                Err(e) => {
+                    let mut diag = Diagnostic::error(node.byte_range(), e.to_string());
+                    if let ExpressionError::IncompatibleConditionType(t) = &e {
+                        typeutil::diagnose_bool_conversion(
+                            &mut diag,
+                            x.condition.byte_range(),
+                            t,
+                            true, // truthy
+                        );
+                    }
+                    diagnostics.push(diag);
+                    None
+                }
+            }
         }
         Statement::Switch(x) => {
             let left = walk_rvalue(ctx, locals, x.value, source, visitor, diagnostics)?;
@@ -940,14 +952,25 @@ where
                 Ok(it) => Some(Intermediate::Item(it)),
                 Err(e) => {
                     let mut diag = Diagnostic::error(node.byte_range(), e.to_string());
-                    if let ExpressionError::OperationOnIncompatibleTypes(_, l, r) = &e {
-                        typeutil::diagnose_incompatible_types(
-                            &mut diag,
-                            x.consequence.byte_range(),
-                            l,
-                            x.alternative.byte_range(),
-                            r,
-                        );
+                    match &e {
+                        ExpressionError::IncompatibleConditionType(t) => {
+                            typeutil::diagnose_bool_conversion(
+                                &mut diag,
+                                x.condition.byte_range(),
+                                t,
+                                true, // truthy
+                            );
+                        }
+                        ExpressionError::OperationOnIncompatibleTypes(_, l, r) => {
+                            typeutil::diagnose_incompatible_types(
+                                &mut diag,
+                                x.consequence.byte_range(),
+                                l,
+                                x.alternative.byte_range(),
+                                r,
+                            );
+                        }
+                        _ => {}
                     }
                     diagnostics.push(diag);
                     None
