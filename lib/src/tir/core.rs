@@ -45,30 +45,28 @@ impl<'a> CodeBody<'a> {
                 }
             })
             .collect();
-        if let Some(a) = operands.first() {
-            let mut known = a.type_desc();
-            for (i, a) in operands.iter().enumerate().skip(1) {
+        if let Some(first) = operands.first() {
+            let mut known = first.type_desc();
+            for a in operands.iter().skip(1) {
                 known = match typeutil::deduce_type(known, a.type_desc()) {
                     Ok(t) => t,
                     Err(TypeError::IncompatibleTypes(l, r)) => {
-                        diagnostics.push(
-                            Diagnostic::error(
-                                a.byte_range(),
-                                format!(
-                                    "cannot deduce return type from '{}' and '{}'",
-                                    l.qualified_name(),
-                                    r.qualified_name()
-                                ),
-                            )
-                            .with_labels(operands[..=i].iter().map(
-                                |a| {
-                                    (
-                                        a.byte_range(),
-                                        format!("type: {}", a.type_desc().qualified_name()),
-                                    )
-                                },
-                            )),
+                        let mut diag = Diagnostic::error(
+                            a.byte_range(),
+                            format!(
+                                "cannot deduce return type from '{}' and '{}'",
+                                l.qualified_name(),
+                                r.qualified_name()
+                            ),
                         );
+                        typeutil::diagnose_incompatible_types(
+                            &mut diag,
+                            first.byte_range(),
+                            &l,
+                            a.byte_range(),
+                            &r,
+                        );
+                        diagnostics.push(diag);
                         return None;
                     }
                     Err(e) => {
