@@ -422,6 +422,8 @@ fn test_object_comparison_type_mismatch() {
       │               -----     ---- type: QLineEdit*
       │               │          
       │               type: QComboBox*
+      │
+      = use (expr as QWidget) to upcast to base class
     "###);
 }
 
