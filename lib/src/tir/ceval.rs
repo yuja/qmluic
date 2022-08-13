@@ -14,7 +14,7 @@ use crate::typedexpr::{DescribeType, ExpressionError};
 pub(super) fn eval_unary_arith_expression(
     op: UnaryArithOp,
     argument: ConstantValue,
-) -> Result<ConstantValue, ExpressionError> {
+) -> Result<ConstantValue, ExpressionError<'static>> {
     use UnaryArithOp::*;
     match argument {
         ConstantValue::Integer(v) => {
@@ -43,7 +43,7 @@ pub(super) fn eval_unary_arith_expression(
 pub(super) fn eval_unary_bitwise_expression(
     op: UnaryBitwiseOp,
     argument: ConstantValue,
-) -> Result<ConstantValue, ExpressionError> {
+) -> Result<ConstantValue, ExpressionError<'static>> {
     use UnaryBitwiseOp::*;
     match argument {
         ConstantValue::Integer(v) => {
@@ -64,7 +64,7 @@ pub(super) fn eval_unary_bitwise_expression(
 pub(super) fn eval_unary_logical_expression(
     op: UnaryLogicalOp,
     argument: ConstantValue,
-) -> Result<ConstantValue, ExpressionError> {
+) -> Result<ConstantValue, ExpressionError<'static>> {
     use UnaryLogicalOp::*;
     match argument {
         ConstantValue::Bool(v) => {
@@ -86,7 +86,7 @@ pub(super) fn eval_binary_arith_expression(
     op: BinaryArithOp,
     left: ConstantValue,
     right: ConstantValue,
-) -> Result<ConstantValue, ExpressionError> {
+) -> Result<ConstantValue, ExpressionError<'static>> {
     use BinaryArithOp::*;
     match (left, right) {
         (ConstantValue::Bool(_), ConstantValue::Bool(_)) => {
@@ -122,8 +122,8 @@ pub(super) fn eval_binary_arith_expression(
         }
         (left, right) => Err(ExpressionError::OperationOnIncompatibleTypes(
             op.to_string(),
-            left.type_desc().qualified_name().into(),
-            right.type_desc().qualified_name().into(),
+            left.type_desc(),
+            right.type_desc(),
         )),
     }
 }
@@ -132,7 +132,7 @@ pub(super) fn eval_binary_bitwise_expression(
     op: BinaryBitwiseOp,
     left: ConstantValue,
     right: ConstantValue,
-) -> Result<ConstantValue, ExpressionError> {
+) -> Result<ConstantValue, ExpressionError<'static>> {
     use BinaryBitwiseOp::*;
     match (left, right) {
         (ConstantValue::Bool(l), ConstantValue::Bool(r)) => {
@@ -158,8 +158,8 @@ pub(super) fn eval_binary_bitwise_expression(
         }
         (left, right) => Err(ExpressionError::OperationOnIncompatibleTypes(
             op.to_string(),
-            left.type_desc().qualified_name().into(),
-            right.type_desc().qualified_name().into(),
+            left.type_desc(),
+            right.type_desc(),
         )),
     }
 }
@@ -168,7 +168,7 @@ pub(super) fn eval_shift_expression(
     op: ShiftOp,
     left: ConstantValue,
     right: ConstantValue,
-) -> Result<ConstantValue, ExpressionError> {
+) -> Result<ConstantValue, ExpressionError<'static>> {
     use ShiftOp::*;
     match (left, right) {
         (ConstantValue::Integer(l), ConstantValue::Integer(r)) => {
@@ -187,7 +187,7 @@ pub(super) fn eval_binary_logical_expression(
     op: BinaryLogicalOp,
     left: ConstantValue,
     right: ConstantValue,
-) -> Result<ConstantValue, ExpressionError> {
+) -> Result<ConstantValue, ExpressionError<'static>> {
     use BinaryLogicalOp::*;
     match (left, right) {
         (ConstantValue::Bool(l), ConstantValue::Bool(r)) => {
@@ -205,7 +205,7 @@ pub(super) fn eval_comparison_expression(
     op: ComparisonOp,
     left: ConstantValue,
     right: ConstantValue,
-) -> Result<ConstantValue, ExpressionError> {
+) -> Result<ConstantValue, ExpressionError<'static>> {
     macro_rules! compare {
         ($left:expr, $right:expr) => {{
             let a = match op {
@@ -228,8 +228,8 @@ pub(super) fn eval_comparison_expression(
         (ConstantValue::NullPointer, ConstantValue::NullPointer) => compare!((), ()),
         (left, right) => Err(ExpressionError::OperationOnIncompatibleTypes(
             op.to_string(),
-            left.type_desc().qualified_name().into(),
-            right.type_desc().qualified_name().into(),
+            left.type_desc(),
+            right.type_desc(),
         )),
     }
 }

@@ -132,161 +132,169 @@ pub trait ExpressionVisitor<'a> {
         &mut self,
         value: u64,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, ExpressionError>;
+    ) -> Result<Self::Item, ExpressionError<'a>>;
     fn visit_float(
         &mut self,
         value: f64,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, ExpressionError>;
+    ) -> Result<Self::Item, ExpressionError<'a>>;
     fn visit_string(
         &mut self,
         value: String,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, ExpressionError>;
+    ) -> Result<Self::Item, ExpressionError<'a>>;
     fn visit_bool(
         &mut self,
         value: bool,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, ExpressionError>;
-    fn visit_null(&mut self, byte_range: Range<usize>) -> Result<Self::Item, ExpressionError>;
+    ) -> Result<Self::Item, ExpressionError<'a>>;
+    fn visit_null(&mut self, byte_range: Range<usize>) -> Result<Self::Item, ExpressionError<'a>>;
     fn visit_enum(
         &mut self,
         enum_ty: Enum<'a>,
         variant: &str,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, ExpressionError>;
+    ) -> Result<Self::Item, ExpressionError<'a>>;
 
     fn visit_array(
         &mut self,
         elements: Vec<Self::Item>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, ExpressionError>;
+    ) -> Result<Self::Item, ExpressionError<'a>>;
 
-    fn visit_local_ref(&mut self, name: Self::Local) -> Result<Self::Item, ExpressionError>;
+    fn visit_local_ref(&mut self, name: Self::Local) -> Result<Self::Item, ExpressionError<'a>>;
     fn visit_local_declaration(
         &mut self,
         ty: TypeKind<'a>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Local, ExpressionError>;
+    ) -> Result<Self::Local, ExpressionError<'a>>;
     fn visit_local_assignment(
         &mut self,
         name: Self::Local,
         right: Self::Item,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, ExpressionError>;
+    ) -> Result<Self::Item, ExpressionError<'a>>;
     fn visit_function_parameter(
         &mut self,
         ty: TypeKind<'a>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Local, ExpressionError>;
+    ) -> Result<Self::Local, ExpressionError<'a>>;
 
     fn visit_object_ref(
         &mut self,
         cls: Class<'a>,
         name: &str,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, ExpressionError>;
+    ) -> Result<Self::Item, ExpressionError<'a>>;
     fn visit_object_property(
         &mut self,
         object: Self::Item,
         property: Property<'a>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, ExpressionError>;
+    ) -> Result<Self::Item, ExpressionError<'a>>;
     fn visit_object_property_assignment(
         &mut self,
         object: Self::Item,
         property: Property<'a>,
         right: Self::Item,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, ExpressionError>;
+    ) -> Result<Self::Item, ExpressionError<'a>>;
     fn visit_object_method_call(
         &mut self,
         object: Self::Item,
         methods: MethodMatches<'a>,
         arguments: Vec<Self::Item>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, ExpressionError>;
+    ) -> Result<Self::Item, ExpressionError<'a>>;
     fn visit_object_builtin_method_call(
         &mut self,
         object: Self::Item,
         function: BuiltinMethodKind,
         arguments: Vec<Self::Item>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, ExpressionError>;
+    ) -> Result<Self::Item, ExpressionError<'a>>;
 
     fn visit_builtin_call(
         &mut self,
         function: BuiltinFunctionKind,
         arguments: Vec<Self::Item>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, ExpressionError>;
+    ) -> Result<Self::Item, ExpressionError<'a>>;
     fn visit_unary_expression(
         &mut self,
         unary: UnaryOp,
         argument: Self::Item,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, ExpressionError>;
+    ) -> Result<Self::Item, ExpressionError<'a>>;
     fn visit_binary_expression(
         &mut self,
         binary: BinaryOp,
         left: Self::Item,
         right: Self::Item,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, ExpressionError>;
+    ) -> Result<Self::Item, ExpressionError<'a>>;
     fn visit_as_expression(
         &mut self,
         value: Self::Item,
         ty: TypeKind<'a>,
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, ExpressionError>;
+    ) -> Result<Self::Item, ExpressionError<'a>>;
     fn visit_ternary_expression(
         &mut self,
         condition: (Self::Item, Self::Label),
         consequence: (Self::Item, Self::Label),
         alternative: (Self::Item, Self::Label),
         byte_range: Range<usize>,
-    ) -> Result<Self::Item, ExpressionError>;
+    ) -> Result<Self::Item, ExpressionError<'a>>;
 
-    fn visit_expression_statement(&mut self, value: Self::Item) -> Result<(), ExpressionError>;
+    fn visit_expression_statement(&mut self, value: Self::Item) -> Result<(), ExpressionError<'a>>;
     fn visit_if_statement(
         &mut self,
         condition: (Self::Item, Self::Label),
         consequence_ref: Self::Label,
         alternative_ref: Option<Self::Label>,
-    ) -> Result<(), ExpressionError>;
+    ) -> Result<(), ExpressionError<'a>>;
     fn visit_switch_statement(
         &mut self,
         cases: Vec<(Self::Item, Self::Label, Self::Label)>,
         default: Option<(usize, Self::Label)>,
         head_ref: Self::Label,
         exit_ref: Self::Label,
-    ) -> Result<(), ExpressionError>;
-    fn visit_break_statement(&mut self, exit_ref: Self::Label) -> Result<(), ExpressionError>;
-    fn visit_return_statement(&mut self, value: Self::Item) -> Result<(), ExpressionError>;
+    ) -> Result<(), ExpressionError<'a>>;
+    fn visit_break_statement(&mut self, exit_ref: Self::Label) -> Result<(), ExpressionError<'a>>;
+    fn visit_return_statement(&mut self, value: Self::Item) -> Result<(), ExpressionError<'a>>;
 
     fn mark_branch_point(&mut self) -> Self::Label;
 }
 
 #[derive(Clone, Debug, Error)]
-pub enum ExpressionError {
+pub enum ExpressionError<'a> {
     #[error("integer conversion failed: {0}")]
     IntegerConversion(#[from] TryFromIntError),
     #[error("integer overflow")]
     IntegerOverflow,
     #[error("type resolution failed: {0}")]
     TypeResolution(#[from] TypeMapError),
-    #[error("incompatible array element types at index {0}: {1} and {2}")]
-    IncompatibleArrayElementType(usize, String, String),
+    #[error(
+        "incompatible array element types at index {0}: {} and {}",
+        .1.qualified_name(),
+        .2.qualified_name(),
+    )]
+    IncompatibleArrayElementType(usize, TypeDesc<'a>, TypeDesc<'a>),
     #[error("condition must be of bool type, but got: {0}")]
     IncompatibleConditionType(String),
     #[error("invalid argument: {0}")]
     InvalidArgument(String),
-    #[error("operation '{0}' on incompatible types: {1} and {2}")]
-    OperationOnIncompatibleTypes(String, String, String),
-    #[error("operation '{0}' on undetermined type: {1}")]
-    OperationOnUndeterminedType(String, String),
-    #[error("operation '{0}' on unsupported type: {1}")]
-    OperationOnUnsupportedType(String, String),
+    #[error(
+        "operation '{0}' on incompatible types: {} and {}",
+        .1.qualified_name(),
+        .2.qualified_name(),
+    )]
+    OperationOnIncompatibleTypes(String, TypeDesc<'a>, TypeDesc<'a>),
+    #[error("operation '{0}' on undetermined type: {}", .1.qualified_name())]
+    OperationOnUndeterminedType(String, TypeDesc<'a>),
+    #[error("operation '{0}' on unsupported type: {}", .1.qualified_name())]
+    OperationOnUnsupportedType(String, TypeDesc<'a>),
     #[error("unsupported operation '{0}'")]
     UnsupportedOperation(String),
     #[error("not a readable property")]
@@ -725,13 +733,24 @@ where
                     let mut diag = Diagnostic::error(node.byte_range(), e.to_string());
                     if let ExpressionError::IncompatibleArrayElementType(i, l, r) = &e {
                         diag.extend_labels([
-                            (ns[*i - 1].byte_range(), format!("type: {l}")),
-                            (ns[*i].byte_range(), format!("type: {r}")),
+                            (
+                                ns[*i - 1].byte_range(),
+                                format!("type: {}", l.qualified_name()),
+                            ),
+                            (ns[*i].byte_range(), format!("type: {}", r.qualified_name())),
                         ]);
-                        if l == "QAction*" && r == "QMenu*" || l == "QMenu*" && r == "QAction*" {
-                            diag.push_note(
-                                "call .menuAction() to obtain QAction* associated with menu",
-                            );
+                        match (l, r) {
+                            (
+                                TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(a))),
+                                TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(b))),
+                            ) if a.name() == "QAction" && b.name() == "QMenu"
+                                || a.name() == "QMenu" && b.name() == "QAction" =>
+                            {
+                                diag.push_note(
+                                    "call .menuAction() to obtain QAction* associated with menu",
+                                );
+                            }
+                            _ => {}
                         }
                     }
                     diagnostics.push(diag);
