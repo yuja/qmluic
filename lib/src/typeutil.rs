@@ -1,5 +1,7 @@
+use crate::diagnostic::Diagnostic;
 use crate::typedexpr::TypeDesc;
-use crate::typemap::{Enum, NamedType, TypeKind, TypeMapError};
+use crate::typemap::{Enum, NamedType, TypeKind, TypeMapError, TypeSpace as _};
+use std::ops::Range;
 use thiserror::Error;
 
 #[derive(Clone, Debug, Error)]
@@ -165,4 +167,35 @@ pub fn is_concrete_assignable(
 ) -> Result<bool, TypeMapError> {
     pick_concrete_type_cast(expected, actual)
         .map(|k| matches!(k, TypeCastKind::Noop | TypeCastKind::Implicit))
+}
+
+/// Adds diagnostic information about type incompatibility.
+pub fn diagnose_incompatible_types(
+    diag: &mut Diagnostic,
+    left_byte_range: Range<usize>,
+    left_t: &TypeDesc,
+    right_byte_range: Range<usize>,
+    right_t: &TypeDesc,
+) {
+    diag.extend_labels([
+        (
+            left_byte_range,
+            format!("type: {}", left_t.qualified_name()),
+        ),
+        (
+            right_byte_range,
+            format!("type: {}", right_t.qualified_name()),
+        ),
+    ]);
+    match (left_t, right_t) {
+        (
+            TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(l))),
+            TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(r))),
+        ) if l.name() == "QAction" && r.name() == "QMenu"
+            || l.name() == "QMenu" && r.name() == "QAction" =>
+        {
+            diag.push_note("call .menuAction() to obtain QAction* associated with menu");
+        }
+        _ => {}
+    }
 }
