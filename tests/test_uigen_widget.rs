@@ -406,6 +406,26 @@ fn test_dynamic_binding_with_static_cast() {
 }
 
 #[test]
+fn test_object_comparison_type_mismatch() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QWidget {
+         visible: combo !== edit
+         QComboBox { id: combo }
+         QLineEdit { id: edit }
+    }
+    "###).unwrap_err(), @r###"
+    error: operation '!=' on incompatible types: QComboBox* and QLineEdit*
+      ┌─ <unknown>:3:15
+      │
+    3 │      visible: combo !== edit
+      │               -----     ---- type: QLineEdit*
+      │               │          
+      │               type: QComboBox*
+    "###);
+}
+
+#[test]
 fn test_ternary_expression_type_mismatch() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
@@ -415,10 +435,12 @@ fn test_ternary_expression_type_mismatch() {
     }
     "###).unwrap_err(), @r###"
     error: operation 'ternary' on incompatible types: integer and QString
-      ┌─ <unknown>:3:19
+      ┌─ <unknown>:3:36
       │
     3 │      windowTitle: source.checked ? 1 : "whatever"
-      │                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      │                                    -   ---------- type: QString
+      │                                    │    
+      │                                    type: integer
     "###);
 }
 
