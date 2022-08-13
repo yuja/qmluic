@@ -1,7 +1,9 @@
 //! Expression tree visitor with type information.
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::opcode::{BinaryOp, BuiltinFunctionKind, BuiltinMethodKind, ComparisonOp, UnaryOp};
+use crate::opcode::{
+    BinaryOp, BuiltinFunctionKind, BuiltinMethodKind, ComparisonOp, UnaryLogicalOp, UnaryOp,
+};
 use crate::qmlast::{
     Expression, Function, FunctionBody, Identifier, LexicalDeclarationKind, NestedIdentifier, Node,
     Statement,
@@ -880,6 +882,7 @@ where
         }
         Expression::Unary(x) => {
             let argument = walk_rvalue(ctx, locals, x.argument, source, visitor, diagnostics)?;
+            let argument_t = argument.type_desc();
             let unary = UnaryOp::try_from(x.operator)
                 .map_err(|()| {
                     diagnostics.push(Diagnostic::error(
@@ -888,12 +891,24 @@ where
                     ))
                 })
                 .ok()?;
-            diagnostics
-                .consume_node_err(
-                    node,
-                    visitor.visit_unary_expression(unary, argument, node.byte_range()),
-                )
-                .map(Intermediate::Item)
+            match visitor.visit_unary_expression(unary, argument, node.byte_range()) {
+                Ok(it) => Some(Intermediate::Item(it)),
+                Err(e) => {
+                    let mut diag = Diagnostic::error(node.byte_range(), e.to_string());
+                    if unary == UnaryOp::Logical(UnaryLogicalOp::Not)
+                        && matches!(&e, ExpressionError::UnsupportedOperation(_))
+                    {
+                        typeutil::diagnose_bool_conversion(
+                            &mut diag,
+                            x.argument.byte_range(),
+                            &argument_t,
+                            false, // truthy
+                        );
+                    }
+                    diagnostics.push(diag);
+                    None
+                }
+            }
         }
         Expression::Binary(x) => {
             let left = walk_rvalue(ctx, locals, x.left, source, visitor, diagnostics)?;

@@ -527,23 +527,24 @@ fn test_if_condition_flag() {
 }
 
 #[test]
-fn test_if_condition_pointer() {
+fn test_if_condition_pointer_negated() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
     QLabel {
         id: obj
         onLinkActivated: {
-            if (obj) {}
+            if (!obj)
+                return;
         }
     }
     "###).unwrap_err(), @r###"
-    error: condition must be of bool type, but got: QLabel*
-      ┌─ <unknown>:5:12
+    error: unsupported operation '!'
+      ┌─ <unknown>:5:14
       │
-    5 │         if (obj) {}
-      │            ----- type: QLabel*
+    5 │         if (!obj)
+      │              --- type: QLabel*
       │
-      = use (expr != null) to test null pointer
+      = use (expr == null) to test null pointer
     "###);
 }
 
