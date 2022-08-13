@@ -189,6 +189,16 @@ pub fn diagnose_incompatible_types(
     ]);
     match (left_t, right_t) {
         (
+            &TypeDesc::DOUBLE | &TypeDesc::INT | &TypeDesc::UINT,
+            &TypeDesc::DOUBLE | &TypeDesc::INT | &TypeDesc::UINT,
+        ) => {
+            diag.push_note(format!(
+                "use (expr as {}) or (expr as {}) for numeric cast",
+                right_t.qualified_name(),
+                left_t.qualified_name(),
+            ));
+        }
+        (
             TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(l))),
             TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(r))),
         ) => {

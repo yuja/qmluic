@@ -406,6 +406,28 @@ fn test_dynamic_binding_with_static_cast() {
 }
 
 #[test]
+fn test_integer_arithmetic_type_mismatch() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QWidget {
+         windowTitle: "sum: %1".arg(edit1.value + edit2.value)
+         QSpinBox { id: edit1 }
+         QDoubleSpinBox { id: edit2 }
+    }
+    "###).unwrap_err(), @r###"
+    error: operation '+' on incompatible types: int and double
+      ┌─ <unknown>:3:33
+      │
+    3 │      windowTitle: "sum: %1".arg(edit1.value + edit2.value)
+      │                                 -----------   ----------- type: double
+      │                                 │              
+      │                                 type: int
+      │
+      = use (expr as double) or (expr as int) for numeric cast
+    "###);
+}
+
+#[test]
 fn test_object_comparison_type_mismatch() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
