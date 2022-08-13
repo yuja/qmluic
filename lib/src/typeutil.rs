@@ -191,10 +191,18 @@ pub fn diagnose_incompatible_types(
         (
             TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(l))),
             TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(r))),
-        ) if l.name() == "QAction" && r.name() == "QMenu"
-            || l.name() == "QMenu" && r.name() == "QAction" =>
-        {
-            diag.push_note("call .menuAction() to obtain QAction* associated with menu");
+        ) => {
+            if matches!(
+                (l.name(), r.name()),
+                ("QAction", "QMenu") | ("QMenu", "QAction")
+            ) {
+                diag.push_note("call .menuAction() to obtain QAction* associated with menu");
+            } else if let Some(Ok(b)) = l.common_base_class(r) {
+                diag.push_note(format!(
+                    "use (expr as {}) to upcast to base class",
+                    b.name(),
+                ));
+            }
         }
         _ => {}
     }
