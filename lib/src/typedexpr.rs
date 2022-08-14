@@ -1038,16 +1038,16 @@ fn process_item_property<'a, T, L>(
 where
     T: DescribeType<'a>,
 {
+    let name = id.to_str(source);
     let not_found = || {
         Diagnostic::error(
             id.node().byte_range(),
             format!(
-                "no property/method found in type '{}'",
-                item.type_desc().qualified_name()
+                "property/method named '{name}' not found in type '{type_name}'",
+                type_name = item.type_desc().qualified_name(),
             ),
         )
     };
-    let name = id.to_str(source);
     let cls_pointer_opt = match typeutil::to_concrete_type(item.type_desc()) {
         Ok(TypeKind::Just(ty)) => ty.into_class().map(|c| (c, false)),
         Ok(TypeKind::Pointer(ty)) => ty.into_class().map(|c| (c, true)),
