@@ -1,7 +1,6 @@
 use super::class::{Class, ClassData};
 use super::core::{TypeMapError, TypeSpace};
 use super::enum_::{Enum, EnumData};
-use super::module::ModuleIdBuf;
 use super::qml_component::{QmlComponent, QmlComponentData};
 use super::util::{TypeDataRef, TypeMapRef};
 use super::{NamedType, ParentSpace, PrimitiveType};
@@ -21,23 +20,15 @@ pub struct Namespace<'a> {
 #[derive(Clone, Debug, Default)]
 pub struct NamespaceData {
     name_map: HashMap<String, TypeIndex>,
-    aliases: Vec<AliasData>,
     classes: Vec<ClassData>,
     enums: Vec<EnumData>,
     enum_variant_map: HashMap<String, usize>,
     qml_components: Vec<QmlComponentData>,
 }
 
-#[derive(Clone, Debug)]
-struct AliasData {
-    module_id: ModuleIdBuf,
-    scoped_name: String,
-}
-
 /// Index to type variant stored in [`NamespaceData`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum TypeIndex {
-    Alias(usize),
     Class(usize),
     Enum(usize),
     Primitive(PrimitiveType),
@@ -127,19 +118,18 @@ impl NamespaceData {
         }
     }
 
-    pub(super) fn push_alias<S, T, U>(&mut self, new_name: S, module_id: T, scoped_name: U)
+    pub(super) fn push_alias<S, T>(&mut self, new_name: S, old_name: T) -> Result<(), TypeMapError>
     where
         S: Into<String>,
-        T: Into<ModuleIdBuf>,
-        U: Into<String>,
+        T: AsRef<str>,
     {
-        let start = self.aliases.len();
-        self.aliases.push(AliasData {
-            module_id: module_id.into(),
-            scoped_name: scoped_name.into(),
-        });
-        self.name_map
-            .insert(new_name.into(), TypeIndex::Alias(start));
+        let old_name = old_name.as_ref();
+        let &index = self
+            .name_map
+            .get(old_name)
+            .ok_or_else(|| TypeMapError::InvalidTypeRef(old_name.to_owned()))?;
+        self.name_map.insert(new_name.into(), index);
+        Ok(())
     }
 
     pub(super) fn push_qml_component(&mut self, data: QmlComponentData) {
@@ -159,15 +149,6 @@ impl NamespaceData {
         F: FnOnce() -> ParentSpace<'a>,
     {
         self.name_map.get(name).map(|&index| match index {
-            TypeIndex::Alias(i) => {
-                let a = &self.aliases[i];
-                let ns = type_map
-                    .as_ref()
-                    .get_module(a.module_id.as_ref())
-                    .ok_or_else(|| TypeMapError::InvalidModuleRef(a.module_id.clone()))?;
-                ns.get_type_scoped(&a.scoped_name)
-                    .unwrap_or_else(|| Err(TypeMapError::InvalidTypeRef(a.scoped_name.clone())))
-            }
             TypeIndex::Class(i) => Ok(NamedType::Class(Class::new(
                 TypeDataRef(&self.classes[i]),
                 type_map,

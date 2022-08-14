@@ -56,7 +56,7 @@ impl TypeMap {
             Uint,
             Void,
         ]));
-        builtins.push_alias("qreal", ModuleId::Builtins, "double");
+        builtins.push_alias("qreal", "double").unwrap();
 
         TypeMap {
             builtins,
@@ -411,23 +411,15 @@ mod tests {
         let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo");
         let mut module_data = ModuleData::default();
-        let mut foo_meta = metatype::Class::new("Foo");
-        foo_meta.enums.push(metatype::Enum::new("Bar"));
-        module_data.extend([foo_meta]);
-        module_data.push_alias("aliased_int", ModuleId::Builtins, "int");
-        module_data.push_alias("aliased_foo_bar", module_id.clone(), "Foo::Bar");
+        module_data.extend([metatype::Class::new("Foo")]);
+        module_data.push_alias("aliased_foo", "Foo").unwrap();
         type_map.insert_module(module_id.clone(), module_data);
 
-        let builtins = type_map.get_module(ModuleId::Builtins).unwrap();
         let module = type_map.get_module(module_id).unwrap();
         // generic type alias is purely an alias. no new type wouldn't be created.
         assert_eq!(
-            module.get_type("aliased_int").unwrap().unwrap(),
-            builtins.get_type("int").unwrap().unwrap()
-        );
-        assert_eq!(
-            module.get_type("aliased_foo_bar").unwrap().unwrap(),
-            module.get_type_scoped("Foo::Bar").unwrap().unwrap()
+            module.get_type("aliased_foo").unwrap().unwrap(),
+            module.get_type_scoped("Foo").unwrap().unwrap()
         );
     }
 
