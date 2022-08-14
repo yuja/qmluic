@@ -177,9 +177,12 @@ impl<'a> TypeSpace<'a> for ImportedModuleSpace<'a> {
 
     fn get_type(&self, name: &str) -> Option<Result<NamedType<'a>, TypeMapError>> {
         self.data_stack.iter().rev().find_map(|r| match r {
-            Ok(d) => d.as_ref().namespace.get_type_with(name, self.type_map, || {
-                ParentSpace::Namespace(d.as_ref().to_namespace(self.type_map))
-            }),
+            Ok(d) => d
+                .as_ref()
+                .namespace
+                .get_type_with(name, Some(self.type_map), || {
+                    ParentSpace::Namespace(d.as_ref().to_namespace(self.type_map))
+                }),
             Err(id) => Some(Err(TypeMapError::InvalidModuleRef(id.clone()))),
         })
     }
