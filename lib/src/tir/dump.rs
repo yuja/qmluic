@@ -93,14 +93,6 @@ fn format_rvalue(rv: &Rvalue) -> String {
                 args.iter().map(format_operand).join(", ")
             )
         }
-        Rvalue::CallBuiltinMethod(obj, f, args) => {
-            format!(
-                "call_builtin_method {}, {:?}, {{{}}}",
-                format_operand(obj),
-                f,
-                args.iter().map(format_operand).join(", ")
-            )
-        }
         Rvalue::CallMethod(obj, meth, args) => {
             format!(
                 "call_method {}, {:?}, {{{}}}",

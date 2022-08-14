@@ -1,7 +1,7 @@
 //! Type-checked intermediate representation of expressions.
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::opcode::{BinaryOp, BuiltinFunctionKind, BuiltinMethodKind, UnaryOp};
+use crate::opcode::{BinaryOp, BuiltinFunctionKind, UnaryOp};
 use crate::typedexpr::{DescribeType, TypeDesc};
 use crate::typemap::{Class, Enum, Method, NamedType, Property, TypeKind};
 use crate::typeutil::{self, TypeError};
@@ -404,8 +404,6 @@ pub enum Rvalue<'a> {
     VariantCast(TypeKind<'a>, Operand<'a>),
     /// `<function>(<args>)`
     CallBuiltinFunction(BuiltinFunctionKind, Vec<Operand<'a>>),
-    /// `<obj> -> <method>(<args>)`
-    CallBuiltinMethod(Operand<'a>, BuiltinMethodKind, Vec<Operand<'a>>),
     /// `<obj> -> <method>(<args>)`
     CallMethod(Operand<'a>, Method<'a>, Vec<Operand<'a>>),
     /// `<obj> -> <read_property>()`
