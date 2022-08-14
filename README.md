@@ -198,7 +198,6 @@ Major TODOs
 - [ ] Improve support for dynamic property bindings / signal callbacks
   - [ ] `.toString()`
   - [x] `"".isEmpty()`
-  - [ ] value type naming: `QString` vs `string`
 - [ ] export helper functions from C++
 
 Comparison to DeclarativeWidgets

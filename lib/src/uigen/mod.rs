@@ -115,7 +115,6 @@ fn make_doc_module_space<'a>(
     diagnostics: &mut Diagnostics,
 ) -> ImportedModuleSpace<'a> {
     let mut module_space = ImportedModuleSpace::new(type_map);
-    // TODO: should we follow QtQml convention? (e.g. string instead of QString)
     assert!(module_space.import_module(ModuleId::Builtins));
     if let Some(p) = doc.path().and_then(|p| p.parent()) {
         // QML files in the base directory should be available by default
