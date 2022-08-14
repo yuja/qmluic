@@ -2,7 +2,7 @@ use super::core::{TypeMapError, TypeSpace};
 use super::enum_::Enum;
 use super::function::{Method, MethodDataTable, MethodKind, MethodMatches};
 use super::namespace::NamespaceData;
-use super::util::{self, TypeDataRef, TypeMapRef};
+use super::util::{self, TypeDataRef};
 use super::{NamedType, ParentSpace, TypeKind};
 use crate::metatype;
 use crate::qtname;
@@ -14,7 +14,6 @@ use std::slice;
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Class<'a> {
     data: TypeDataRef<'a, ClassData>,
-    type_map: TypeMapRef<'a>,
     parent_space: Box<ParentSpace<'a>>,
 }
 
@@ -30,14 +29,9 @@ pub(super) struct ClassData {
 }
 
 impl<'a> Class<'a> {
-    pub(super) fn new(
-        data: TypeDataRef<'a, ClassData>,
-        type_map: TypeMapRef<'a>,
-        parent_space: ParentSpace<'a>,
-    ) -> Self {
+    pub(super) fn new(data: TypeDataRef<'a, ClassData>, parent_space: ParentSpace<'a>) -> Self {
         Class {
             data,
-            type_map,
             parent_space: Box::new(parent_space),
         }
     }
@@ -101,7 +95,7 @@ impl<'a> Class<'a> {
         self.data
             .as_ref()
             .inner_type_map
-            .get_type_with(name, self.type_map, || ParentSpace::Class(self.clone()))
+            .get_type_with(name, None, || ParentSpace::Class(self.clone()))
     }
 
     fn get_enum_by_variant_no_super(&self, name: &str) -> Option<Result<Enum<'a>, TypeMapError>> {

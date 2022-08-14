@@ -27,7 +27,6 @@ impl<'a> QmlComponent<'a> {
         let imported_space = ImportedModuleSpace::from_modules(&data.as_ref().imports, type_map);
         let class = Class::new(
             TypeDataRef(&data.as_ref().class),
-            type_map,
             ParentSpace::ImportedModuleSpace(imported_space),
         );
         QmlComponent { class }

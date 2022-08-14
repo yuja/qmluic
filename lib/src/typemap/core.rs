@@ -121,6 +121,8 @@ pub enum TypeMapError {
     InvalidAliasEnumType(String),
     #[error("invalid notify signal '{0}'")]
     InvalidNotifySignal(String),
+    #[error("invalid QML component '{0}' in non-module space '{1}'")]
+    InvalidQmlComponentSpace(String, String),
     #[error("unsupported type decoration in '{0}'")]
     UnsupportedDecoration(String),
 }

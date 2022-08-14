@@ -58,7 +58,9 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
     fn get_type(&self, name: &str) -> Option<Result<NamedType<'a>, TypeMapError>> {
         self.data
             .as_ref()
-            .get_type_with(name, self.type_map, || ParentSpace::Namespace(self.clone()))
+            .get_type_with(name, Some(self.type_map), || {
+                ParentSpace::Namespace(self.clone())
+            })
     }
 
     fn lexical_parent(&self) -> Option<&ParentSpace<'a>> {
@@ -142,7 +144,7 @@ impl NamespaceData {
     pub(super) fn get_type_with<'a, F>(
         &'a self,
         name: &str,
-        type_map: TypeMapRef<'a>,
+        type_map_opt: Option<TypeMapRef<'a>>,
         make_parent_space: F,
     ) -> Option<Result<NamedType<'a>, TypeMapError>>
     where
@@ -151,7 +153,6 @@ impl NamespaceData {
         self.name_map.get(name).map(|&index| match index {
             TypeIndex::Class(i) => Ok(NamedType::Class(Class::new(
                 TypeDataRef(&self.classes[i]),
-                type_map,
                 make_parent_space(),
             ))),
             TypeIndex::Enum(i) => Ok(NamedType::Enum(Enum::new(
@@ -159,10 +160,21 @@ impl NamespaceData {
                 make_parent_space(),
             ))),
             TypeIndex::Primitive(t) => Ok(NamedType::Primitive(t)),
-            TypeIndex::QmlComponent(i) => Ok(NamedType::QmlComponent(QmlComponent::new(
-                TypeDataRef(&self.qml_components[i]),
-                type_map,
-            ))),
+            TypeIndex::QmlComponent(i) => {
+                // The type_map ref should be provided by top-level or qmldir module space.
+                // Otherwise it is an error to register QmlComponent to the namespace.
+                if let Some(type_map) = type_map_opt {
+                    Ok(NamedType::QmlComponent(QmlComponent::new(
+                        TypeDataRef(&self.qml_components[i]),
+                        type_map,
+                    )))
+                } else {
+                    Err(TypeMapError::InvalidQmlComponentSpace(
+                        name.to_owned(),
+                        make_parent_space().name().to_owned(),
+                    ))
+                }
+            }
         })
     }
 
