@@ -177,13 +177,13 @@ pub fn diagnose_bool_conversion(
 ) {
     diag.push_label(byte_range, format!("type: {}", t.qualified_name()));
     let ne = if truthy { "!=" } else { "==" };
+    let neg = if truthy { "!" } else { "" };
     match t {
         TypeDesc::ConstInteger | &TypeDesc::INT | &TypeDesc::UINT => {
             diag.push_note(format!("use (expr {ne} 0) to test zero"));
         }
         TypeDesc::ConstString | &TypeDesc::STRING => {
-            // TODO: maybe provide isEmpty()?
-            diag.push_note(format!(r#"use (expr {ne} "") to test empty string"#));
+            diag.push_note(format!(r#"use ({neg}expr.isEmpty()) to test empty string"#));
         }
         TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(_))) => {
             diag.push_note(format!("use ((expr as int) {ne} 0) to test flag"));

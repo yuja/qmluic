@@ -117,6 +117,7 @@ Builtin functions and methods
 
 * `qsTr()`
 * `QString::arg()`
+* `QString::isEmpty()`
 
 Statements
 ----------

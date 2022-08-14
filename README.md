@@ -197,7 +197,7 @@ Major TODOs
 - [ ] Better support for static `QComboBox`/`QListWidget` items
 - [ ] Improve support for dynamic property bindings / signal callbacks
   - [ ] `.toString()`
-  - [ ] integer/string as bool?
+  - [x] `"".isEmpty()`
   - [ ] value type naming: `QString` vs `string`
 - [ ] export helper functions from C++
 
