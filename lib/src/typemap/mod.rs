@@ -12,6 +12,7 @@ mod enum_;
 mod function;
 mod module;
 mod namespace;
+mod primitive;
 mod qml_component;
 mod util;
 
@@ -21,6 +22,7 @@ pub use self::enum_::*; // re-export
 pub use self::function::*; // re-export
 pub use self::module::*; // re-export
 pub use self::namespace::*; // re-export
+pub use self::primitive::*; // re-export
 pub use self::qml_component::*; // re-export
 use self::util::TypeMapRef;
 
@@ -255,50 +257,6 @@ impl fmt::Debug for ParentSpace<'_> {
                 .debug_tuple("Namespace")
                 .field(&format_args!("{:?}", ns.qualified_cxx_name()))
                 .finish(),
-        }
-    }
-}
-
-/// Value types provided by C++ language and Qt runtime.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum PrimitiveType {
-    Bool,
-    Double,
-    Int,
-    QString,
-    QStringList,
-    QVariant,
-    Uint,
-    Void,
-    // TODO: ...
-}
-
-impl PrimitiveType {
-    pub const fn name(&self) -> &'static str {
-        use PrimitiveType::*;
-        match self {
-            Bool => "bool",
-            Double => "double",
-            Int => "int",
-            QString => "QString",
-            QStringList => "QStringList",
-            QVariant => "QVariant",
-            Uint => "uint",
-            Void => "void",
-        }
-    }
-
-    /// Returns true if this type is supposed to be passed by `const T &`.
-    const fn is_const_ref_preferred(&self) -> bool {
-        match self {
-            PrimitiveType::Bool => false,
-            PrimitiveType::Double => false,
-            PrimitiveType::Int => false,
-            PrimitiveType::QString => true,
-            PrimitiveType::QStringList => true,
-            PrimitiveType::QVariant => true,
-            PrimitiveType::Uint => false,
-            PrimitiveType::Void => false, // invalid
         }
     }
 }
