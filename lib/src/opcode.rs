@@ -10,13 +10,6 @@ pub enum BuiltinFunctionKind {
     Tr,
 }
 
-/// Builtin methods.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum BuiltinMethodKind {
-    /// `QString::arg()`
-    Arg,
-}
-
 /// Unary operator.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UnaryOp {

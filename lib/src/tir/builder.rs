@@ -4,14 +4,12 @@ use super::core::{
     NamedObject, Operand, Rvalue, Statement, Terminator, Void,
 };
 use crate::diagnostic::Diagnostics;
-use crate::opcode::{BinaryArithOp, BinaryOp, BuiltinFunctionKind, BuiltinMethodKind, UnaryOp};
+use crate::opcode::{BinaryArithOp, BinaryOp, BuiltinFunctionKind, UnaryOp};
 use crate::qmlast::Node;
 use crate::typedexpr::{
     self, DescribeType, ExpressionError, ExpressionVisitor, RefSpace, TypeAnnotationSpace, TypeDesc,
 };
-use crate::typemap::{
-    Class, Enum, MethodMatches, NamedType, PrimitiveType, Property, TypeKind, TypeMapError,
-};
+use crate::typemap::{Class, Enum, MethodMatches, NamedType, Property, TypeKind, TypeMapError};
 use crate::typeutil::{self, TypeCastKind, TypeError};
 use itertools::Itertools as _;
 use std::ops::Range;
@@ -339,60 +337,6 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
                 "expects ({expects}), but got ({actual})"
             )))
         }
-    }
-
-    fn visit_object_builtin_method_call(
-        &mut self,
-        object: Self::Item,
-        function: BuiltinMethodKind,
-        arguments: Vec<Self::Item>,
-        byte_range: Range<usize>,
-    ) -> Result<Self::Item, ExpressionError<'a>> {
-        let object = ensure_concrete_string(object);
-        let ty = match function {
-            BuiltinMethodKind::Arg => {
-                assert!(object.type_desc() == TypeDesc::STRING);
-                if arguments.len() == 1 {
-                    match arguments[0].type_desc() {
-                        TypeDesc::ConstInteger
-                        | TypeDesc::ConstString
-                        | TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(
-                            PrimitiveType::Bool
-                            | PrimitiveType::Double
-                            | PrimitiveType::Int
-                            | PrimitiveType::QString
-                            | PrimitiveType::Uint,
-                        ))) => Ok(TypeKind::STRING),
-                        t @ (TypeDesc::NullPointer
-                        | TypeDesc::EmptyList
-                        | TypeDesc::Concrete(TypeKind::Just(
-                            NamedType::Class(_)
-                            | NamedType::Enum(_)
-                            | NamedType::Namespace(_)
-                            | NamedType::Primitive(
-                                PrimitiveType::QStringList
-                                | PrimitiveType::QVariant
-                                | PrimitiveType::Void,
-                            )
-                            | NamedType::QmlComponent(_),
-                        ))
-                        | TypeDesc::Concrete(
-                            TypeKind::Pointer(_) | TypeKind::PointerList(_),
-                        )) => Err(ExpressionError::InvalidArgument(t.qualified_name().into())),
-                    }
-                } else {
-                    Err(ExpressionError::InvalidArgument(format!(
-                        "expects 1 argument, but got {}",
-                        arguments.len()
-                    )))
-                }
-            }
-        }?;
-        Ok(self.emit_result(
-            ty,
-            Rvalue::CallBuiltinMethod(object, function, arguments),
-            byte_range,
-        ))
     }
 
     fn visit_builtin_call(

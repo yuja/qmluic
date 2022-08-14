@@ -2,7 +2,7 @@ use super::expr;
 use super::objcode::{CallbackCode, ObjectCodeMap, PropertyCode, PropertyCodeKind};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::{ObjectNode, ObjectTree};
-use crate::opcode::{BuiltinFunctionKind, BuiltinMethodKind};
+use crate::opcode::BuiltinFunctionKind;
 use crate::qtname::{self, FileNameRules, UniqueNameGenerator};
 use crate::tir;
 use crate::typedexpr::DescribeType as _;
@@ -878,14 +878,6 @@ impl CxxCodeBodyTranslator {
                 BuiltinFunctionKind::Tr => format!(
                     "QCoreApplication::translate({:?}, {})",
                     self.tr_context,
-                    args.iter().map(|a| self.format_operand(a)).join(", ")
-                ),
-            },
-            Rvalue::CallBuiltinMethod(obj, f, args) => match f {
-                BuiltinMethodKind::Arg => format!(
-                    "{}{}arg({})",
-                    self.format_operand(obj),
-                    member_access_op(obj),
                     args.iter().map(|a| self.format_operand(a)).join(", ")
                 ),
             },

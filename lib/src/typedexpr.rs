@@ -1,9 +1,7 @@
 //! Expression tree visitor with type information.
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::opcode::{
-    BinaryOp, BuiltinFunctionKind, BuiltinMethodKind, ComparisonOp, UnaryLogicalOp, UnaryOp,
-};
+use crate::opcode::{BinaryOp, BuiltinFunctionKind, ComparisonOp, UnaryLogicalOp, UnaryOp};
 use crate::qmlast::{
     Expression, Function, FunctionBody, Identifier, LexicalDeclarationKind, NestedIdentifier, Node,
     Statement,
@@ -207,13 +205,6 @@ pub trait ExpressionVisitor<'a> {
         arguments: Vec<Self::Item>,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, ExpressionError<'a>>;
-    fn visit_object_builtin_method_call(
-        &mut self,
-        object: Self::Item,
-        function: BuiltinMethodKind,
-        arguments: Vec<Self::Item>,
-        byte_range: Range<usize>,
-    ) -> Result<Self::Item, ExpressionError<'a>>;
 
     fn visit_builtin_call(
         &mut self,
@@ -310,7 +301,6 @@ enum Intermediate<'a, T, L> {
     Local(L, LexicalDeclarationKind),
     BoundProperty(T, Property<'a>, ReceiverKind),
     BoundMethod(T, MethodMatches<'a>),
-    BoundBuiltinMethod(T, BuiltinMethodKind),
     BuiltinFunction(BuiltinFunctionKind),
     Type(NamedType<'a>),
 }
@@ -674,9 +664,7 @@ where
             node,
             visitor.visit_object_property(it, p, node.byte_range()),
         ),
-        Intermediate::BoundMethod(..)
-        | Intermediate::BoundBuiltinMethod(..)
-        | Intermediate::BuiltinFunction(_) => {
+        Intermediate::BoundMethod(..) | Intermediate::BuiltinFunction(_) => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
                 "bare function reference",
@@ -781,9 +769,7 @@ where
                     )?;
                     process_item_property(obj, x.property, ExprKind::Rvalue, source, diagnostics)
                 }
-                Intermediate::BoundMethod(..)
-                | Intermediate::BoundBuiltinMethod(..)
-                | Intermediate::BuiltinFunction(_) => {
+                Intermediate::BoundMethod(..) | Intermediate::BuiltinFunction(_) => {
                     diagnostics.push(Diagnostic::error(
                         node.byte_range(),
                         "function has no property/method",
@@ -806,17 +792,6 @@ where
                     .consume_node_err(
                         node,
                         visitor.visit_object_method_call(it, ms, arguments, node.byte_range()),
-                    )
-                    .map(Intermediate::Item),
-                Intermediate::BoundBuiltinMethod(it, f) => diagnostics
-                    .consume_node_err(
-                        node,
-                        visitor.visit_object_builtin_method_call(
-                            it,
-                            f,
-                            arguments,
-                            node.byte_range(),
-                        ),
                     )
                     .map(Intermediate::Item),
                 Intermediate::BuiltinFunction(f) => diagnostics
@@ -871,7 +846,6 @@ where
                 }
                 Intermediate::Item(_)
                 | Intermediate::BoundMethod(..)
-                | Intermediate::BoundBuiltinMethod(..)
                 | Intermediate::BuiltinFunction(_)
                 | Intermediate::Type(_) => {
                     diagnostics.push(Diagnostic::error(x.left.byte_range(), "not assignable"));
