@@ -12,6 +12,17 @@ pub enum PrimitiveType {
 }
 
 impl PrimitiveType {
+    pub(super) const ALL: [Self; 8] = [
+        PrimitiveType::Bool,
+        PrimitiveType::Double,
+        PrimitiveType::Int,
+        PrimitiveType::QString,
+        PrimitiveType::QStringList,
+        PrimitiveType::QVariant,
+        PrimitiveType::Uint,
+        PrimitiveType::Void,
+    ];
+
     pub const fn name(&self) -> &'static str {
         match self {
             PrimitiveType::Bool => "bool",
