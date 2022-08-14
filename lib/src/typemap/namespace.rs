@@ -37,6 +37,15 @@ enum TypeIndex {
 
 impl<'a> Namespace<'a> {
     // TODO: map C++ namespace to this type
+
+    pub(super) fn root(data: TypeDataRef<'a, NamespaceData>) -> Self {
+        Namespace {
+            data,
+            type_map_opt: None,
+            parent_space: None,
+        }
+    }
+
     pub(super) fn with_type_map(
         data: TypeDataRef<'a, NamespaceData>,
         type_map: TypeMapRef<'a>,
