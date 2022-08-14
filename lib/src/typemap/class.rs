@@ -793,47 +793,11 @@ mod tests {
                 },
             ],
             signals: vec![
-                metatype::Method {
-                    name: "prop1Changed".to_owned(),
-                    access: metatype::AccessSpecifier::Public,
-                    return_type: "void".to_owned(),
-                    arguments: vec![],
-                    ..Default::default()
-                },
+                metatype::Method::nullary("prop1Changed", "void"),
                 // prop2Changed(int = default_value), prop2Changed(QString, int)
-                metatype::Method {
-                    name: "prop2Changed".to_owned(),
-                    access: metatype::AccessSpecifier::Public,
-                    return_type: "void".to_owned(),
-                    arguments: vec![metatype::Argument {
-                        name: None,
-                        r#type: "int".to_owned(),
-                    }],
-                    ..Default::default()
-                },
-                metatype::Method {
-                    name: "prop2Changed".to_owned(),
-                    access: metatype::AccessSpecifier::Public,
-                    return_type: "void".to_owned(),
-                    arguments: vec![],
-                    ..Default::default()
-                },
-                metatype::Method {
-                    name: "prop2Changed".to_owned(),
-                    access: metatype::AccessSpecifier::Public,
-                    return_type: "void".to_owned(),
-                    arguments: vec![
-                        metatype::Argument {
-                            name: None,
-                            r#type: "QString".to_owned(),
-                        },
-                        metatype::Argument {
-                            name: None,
-                            r#type: "int".to_owned(),
-                        },
-                    ],
-                    ..Default::default()
-                },
+                metatype::Method::with_argument_types("prop2Changed", "void", ["int"]),
+                metatype::Method::nullary("prop2Changed", "void"),
+                metatype::Method::with_argument_types("prop2Changed", "void", ["QString", "int"]),
             ],
             ..Default::default()
         }]);

@@ -264,35 +264,11 @@ mod tests {
             metatype::Class {
                 class_name: "Root".to_owned(),
                 qualified_class_name: "Root".to_owned(),
-                signals: vec![metatype::Method {
-                    name: "signal0".to_owned(),
-                    access: metatype::AccessSpecifier::Public,
-                    return_type: "void".to_owned(),
-                    ..Default::default()
-                }],
-                slots: vec![metatype::Method {
-                    name: "slot0".to_owned(),
-                    access: metatype::AccessSpecifier::Public,
-                    return_type: "void".to_owned(),
-                    ..Default::default()
-                }],
+                signals: vec![metatype::Method::nullary("signal0", "void")],
+                slots: vec![metatype::Method::nullary("slot0", "void")],
                 methods: vec![
-                    metatype::Method {
-                        name: "overloaded0".to_owned(),
-                        access: metatype::AccessSpecifier::Public,
-                        return_type: "void".to_owned(),
-                        ..Default::default()
-                    },
-                    metatype::Method {
-                        name: "overloaded0".to_owned(),
-                        access: metatype::AccessSpecifier::Public,
-                        return_type: "void".to_owned(),
-                        arguments: vec![metatype::Argument {
-                            name: None,
-                            r#type: "int".to_owned(),
-                        }],
-                        ..Default::default()
-                    },
+                    metatype::Method::nullary("overloaded0", "void"),
+                    metatype::Method::with_argument_types("overloaded0", "void", ["int"]),
                 ],
                 ..Default::default()
             },

@@ -64,41 +64,16 @@ impl Env {
                 },
             ],
             signals: vec![
-                metatype::Method {
-                    name: "toggled".to_owned(),
-                    access: metatype::AccessSpecifier::Public,
-                    return_type: "void".to_owned(),
-                    ..Default::default()
-                },
-                metatype::Method {
-                    name: "currentDataChanged".to_owned(),
-                    access: metatype::AccessSpecifier::Public,
-                    return_type: "void".to_owned(),
-                    ..Default::default()
-                },
-                metatype::Method {
-                    name: "currentIndexChanged".to_owned(),
-                    access: metatype::AccessSpecifier::Public,
-                    return_type: "void".to_owned(),
-                    ..Default::default()
-                },
-                metatype::Method {
-                    name: "textChanged".to_owned(),
-                    access: metatype::AccessSpecifier::Public,
-                    return_type: "void".to_owned(),
-                    ..Default::default()
-                },
+                metatype::Method::nullary("toggled", "void"),
+                metatype::Method::nullary("currentDataChanged", "void"),
+                metatype::Method::nullary("currentIndexChanged", "void"),
+                metatype::Method::nullary("textChanged", "void"),
             ],
-            slots: vec![metatype::Method {
-                name: "done".to_owned(),
-                access: metatype::AccessSpecifier::Public,
-                return_type: "void".to_owned(),
-                arguments: vec![metatype::Argument {
-                    name: None,
-                    r#type: "int".to_owned(),
-                }],
-                ..Default::default()
-            }],
+            slots: vec![metatype::Method::with_argument_types(
+                "done",
+                "void",
+                ["int"],
+            )],
             ..Default::default()
         };
         let foo_sub_meta = metatype::Class::with_supers("FooSub", ["Foo"]);

@@ -325,6 +325,37 @@ pub struct Method {
     pub revision: Revision,
 }
 
+impl Method {
+    /// Creates method metadata without arguments.
+    pub fn nullary<S, T>(name: S, return_type: T) -> Self
+    where
+        S: Into<String>,
+        T: Into<String>,
+    {
+        Method {
+            name: name.into(),
+            return_type: return_type.into(),
+            ..Default::default()
+        }
+    }
+
+    /// Creates method metadata with argument types.
+    pub fn with_argument_types<S, T, I>(name: S, return_type: T, argument_types: I) -> Self
+    where
+        S: Into<String>,
+        T: Into<String>,
+        I: IntoIterator,
+        I::Item: Into<String>,
+    {
+        Method {
+            name: name.into(),
+            return_type: return_type.into(),
+            arguments: argument_types.into_iter().map(Argument::unnamed).collect(),
+            ..Default::default()
+        }
+    }
+}
+
 impl Default for Method {
     fn default() -> Self {
         Self {
@@ -344,6 +375,19 @@ pub struct Argument {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     pub r#type: String,
+}
+
+impl Argument {
+    /// Creates argument metadata without name.
+    pub fn unnamed<T>(type_name: T) -> Self
+    where
+        T: Into<String>,
+    {
+        Argument {
+            name: None,
+            r#type: type_name.into(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
