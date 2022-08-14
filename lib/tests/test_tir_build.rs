@@ -327,7 +327,7 @@ fn call_string_arg_method() {
     insta::assert_snapshot!(dump("'Hello %1'.arg('world')"), @r###"
         %0: QString
     .0:
-        %0 = call_builtin_method "Hello %1": QString, Arg, {"world": string}
+        %0 = call_method "Hello %1": QString, "arg", {"world": QString}
         return %0: QString
     "###);
 }

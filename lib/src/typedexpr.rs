@@ -9,8 +9,7 @@ use crate::qmlast::{
     Statement,
 };
 use crate::typemap::{
-    Class, Enum, MethodMatches, NamedType, PrimitiveType, Property, TypeKind, TypeMapError,
-    TypeSpace,
+    Class, Enum, MethodMatches, NamedType, Property, TypeKind, TypeMapError, TypeSpace,
 };
 use crate::typeutil;
 use itertools::Itertools as _;
@@ -1075,91 +1074,46 @@ where
         )
     };
     let name = id.to_str(source);
-    match &item.type_desc() {
-        // simple value types
-        TypeDesc::ConstInteger
-        | TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(
-            PrimitiveType::Bool
-            | PrimitiveType::Double
-            | PrimitiveType::Int
-            | PrimitiveType::QVariant
-            | PrimitiveType::Uint,
-        )))
-        | TypeDesc::Concrete(TypeKind::Just(NamedType::Enum(_))) => {
-            diagnostics.push(not_found());
-            None
-        }
-        TypeDesc::ConstString | &TypeDesc::STRING => match name {
-            "arg" => Some(Intermediate::BoundBuiltinMethod(
-                item,
-                BuiltinMethodKind::Arg,
-            )),
-            _ => {
-                diagnostics.push(not_found());
-                None
-            }
-        },
-        // gadget or object types
-        t @ (TypeDesc::Concrete(TypeKind::Just(NamedType::Class(cls)))
-        | TypeDesc::Concrete(TypeKind::Pointer(NamedType::Class(cls)))) => {
-            let k = if t.is_pointer() {
-                ReceiverKind::Object
-            } else {
-                ReceiverKind::Gadget(item_kind)
-            };
-            if let Some(r) = cls.get_property(name) {
-                match r {
-                    Ok(p) => Some(Intermediate::BoundProperty(item, p, k)),
-                    Err(e) => {
-                        diagnostics.push(Diagnostic::error(
-                            id.node().byte_range(),
-                            format!("property resolution failed: {e}"),
-                        ));
-                        None
-                    }
+    let cls_pointer_opt = match typeutil::to_concrete_type(item.type_desc()) {
+        Ok(TypeKind::Just(ty)) => ty.into_class().map(|c| (c, false)),
+        Ok(TypeKind::Pointer(ty)) => ty.into_class().map(|c| (c, true)),
+        Ok(TypeKind::PointerList(_)) | Err(_) => None,
+    };
+    if let Some((cls, is_pointer)) = cls_pointer_opt {
+        let k = if is_pointer {
+            ReceiverKind::Object
+        } else {
+            ReceiverKind::Gadget(item_kind)
+        };
+        if let Some(r) = cls.get_property(name) {
+            match r {
+                Ok(p) => Some(Intermediate::BoundProperty(item, p, k)),
+                Err(e) => {
+                    diagnostics.push(Diagnostic::error(
+                        id.node().byte_range(),
+                        format!("property resolution failed: {e}"),
+                    ));
+                    None
                 }
-            } else if let Some(r) = cls.get_public_method(name) {
-                match r {
-                    Ok(m) => Some(Intermediate::BoundMethod(item, m)),
-                    Err(e) => {
-                        diagnostics.push(Diagnostic::error(
-                            id.node().byte_range(),
-                            format!("method resolution failed: {e}"),
-                        ));
-                        None
-                    }
-                }
-            } else {
-                diagnostics.push(not_found());
-                None
             }
-        }
-        TypeDesc::NullPointer => {
+        } else if let Some(r) = cls.get_public_method(name) {
+            match r {
+                Ok(m) => Some(Intermediate::BoundMethod(item, m)),
+                Err(e) => {
+                    diagnostics.push(Diagnostic::error(
+                        id.node().byte_range(),
+                        format!("method resolution failed: {e}"),
+                    ));
+                    None
+                }
+            }
+        } else {
             diagnostics.push(not_found());
             None
         }
-        // list types
-        TypeDesc::EmptyList
-        | TypeDesc::Concrete(TypeKind::Just(NamedType::Primitive(PrimitiveType::QStringList)))
-        | TypeDesc::Concrete(TypeKind::PointerList(_)) => {
-            diagnostics.push(not_found());
-            None
-        }
-        // unsupported/invalid types
-        TypeDesc::Concrete(TypeKind::Just(
-            NamedType::Namespace(_)
-            | NamedType::Primitive(PrimitiveType::Void)
-            | NamedType::QmlComponent(_),
-        ))
-        | TypeDesc::Concrete(TypeKind::Pointer(
-            NamedType::Enum(_)
-            | NamedType::Namespace(_)
-            | NamedType::Primitive(_)
-            | NamedType::QmlComponent(_),
-        )) => {
-            diagnostics.push(not_found());
-            None
-        }
+    } else {
+        diagnostics.push(not_found());
+        None
     }
 }
 
