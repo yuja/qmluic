@@ -247,6 +247,7 @@ struct PropertyData {
     read_func_name: Option<String>,
     write_func_name: Option<String>,
     notify_signal_name: Option<String>,
+    constant: bool,
 }
 
 impl<'a> Property<'a> {
@@ -293,6 +294,11 @@ impl<'a> Property<'a> {
     /// Whether or not changes on this property can be notified.
     pub fn is_notifiable(&self) -> bool {
         self.data.as_ref().notify_signal_name.is_some()
+    }
+
+    /// Whether or not this property never changes.
+    pub fn is_constant(&self) -> bool {
+        self.data.as_ref().constant
     }
 
     /// Whether or not this property provides the standard setter function.
@@ -363,6 +369,7 @@ impl PropertyData {
             read_func_name: meta.read,
             write_func_name: meta.write,
             notify_signal_name: meta.notify,
+            constant: meta.constant,
         };
         (meta.name, data)
     }
