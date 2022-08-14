@@ -13,7 +13,7 @@ use std::collections::HashMap;
 pub struct Namespace<'a> {
     data: TypeDataRef<'a, NamespaceData>,
     type_map_opt: Option<TypeMapRef<'a>>,
-    parent_space: Box<ParentSpace<'a>>,
+    parent_space: Option<Box<ParentSpace<'a>>>,
 }
 
 /// Stored type namespace.
@@ -45,7 +45,7 @@ impl<'a> Namespace<'a> {
         Namespace {
             data,
             type_map_opt: Some(type_map),
-            parent_space: Box::new(parent_space),
+            parent_space: Some(Box::new(parent_space)),
         }
     }
 }
@@ -64,7 +64,7 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
     }
 
     fn lexical_parent(&self) -> Option<&ParentSpace<'a>> {
-        Some(&self.parent_space)
+        self.parent_space.as_deref()
     }
 
     fn get_enum_by_variant(&self, name: &str) -> Option<Result<Enum<'a>, TypeMapError>> {
