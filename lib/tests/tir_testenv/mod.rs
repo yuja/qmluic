@@ -62,6 +62,13 @@ impl Env {
                     notify: Some("textChanged".to_owned()),
                     ..Default::default()
                 },
+                metatype::Property {
+                    name: "constInt".to_owned(),
+                    r#type: "int".to_owned(),
+                    read: Some("constInt".to_owned()),
+                    constant: true,
+                    ..Default::default()
+                },
             ],
             signals: vec![
                 metatype::Method::nullary("toggled", "void"),

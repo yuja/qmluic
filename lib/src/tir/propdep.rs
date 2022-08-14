@@ -20,7 +20,9 @@ fn analyze_block<'a>(code: &mut CodeBody<'a>, block_index: usize, diagnostics: &
     for (line, stmt) in block.statements.iter().enumerate() {
         match stmt {
             Statement::Assign(_, r) | Statement::Exec(r) => match r {
-                Rvalue::ReadProperty(a, prop) if a.type_desc().is_pointer() => {
+                Rvalue::ReadProperty(a, prop)
+                    if a.type_desc().is_pointer() && !prop.is_constant() =>
+                {
                     match prop.notify_signal().transpose() {
                         Ok(Some(signal)) => match a {
                             Operand::NamedObject(x) => {

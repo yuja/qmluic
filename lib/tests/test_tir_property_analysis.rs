@@ -296,3 +296,17 @@ fn dynamic_deps_multiple() {
     "###);
     assert_eq!(code.property_observer_count, 2);
 }
+
+#[test]
+fn constant_simple() {
+    let env = Env::new();
+    let mut code = env.build("foo.constInt");
+
+    analyze_code(&mut code);
+    insta::assert_snapshot!(dump_code(&code), @r###"
+        %0: int
+    .0:
+        %0 = read_property [foo]: Foo*, "constInt"
+        return %0: int
+    "###);
+}
