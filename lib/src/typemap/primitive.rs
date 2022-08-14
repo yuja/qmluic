@@ -9,7 +9,6 @@ pub enum PrimitiveType {
     QVariant,
     Uint,
     Void,
-    // TODO: ...
 }
 
 impl PrimitiveType {
