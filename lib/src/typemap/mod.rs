@@ -46,18 +46,8 @@ impl TypeMap {
 
     /// Creates type map containing the primitive types.
     pub fn with_primitive_types() -> Self {
-        use PrimitiveType::*;
-
-        let mut builtins = ModuleData::with_namespace(NamespaceData::with_primitive_types(&[
-            Bool,
-            Double,
-            Int,
-            QString,
-            QStringList,
-            QVariant,
-            Uint,
-            Void,
-        ]));
+        let mut builtins =
+            ModuleData::with_namespace(NamespaceData::with_primitive_types(&PrimitiveType::ALL));
         builtins.push_alias("qreal", "double").unwrap();
 
         TypeMap {
