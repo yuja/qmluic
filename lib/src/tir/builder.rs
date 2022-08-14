@@ -251,6 +251,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         if !property.is_readable() {
             return Err(ExpressionError::UnreadableProperty);
         }
+        let object = ensure_concrete_string(object);
         Ok(self.emit_result(
             property.value_type().clone(),
             Rvalue::ReadProperty(object, property),
@@ -269,6 +270,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
             return Err(ExpressionError::UnwritableProperty);
         }
         let ty = property.value_type();
+        let object = ensure_concrete_string(object);
         let right = ensure_concrete_string(right);
         if !typeutil::is_assignable(ty, &right.type_desc())? {
             return Err(ExpressionError::OperationOnIncompatibleTypes(
@@ -293,6 +295,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         arguments: Vec<Self::Item>,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, ExpressionError<'a>> {
+        let object = ensure_concrete_string(object);
         let arguments: Vec<_> = arguments.into_iter().map(ensure_concrete_string).collect();
         let mut matched_index: Option<usize> = None;
         for (i, m) in methods.iter().enumerate() {
