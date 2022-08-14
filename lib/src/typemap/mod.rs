@@ -140,7 +140,7 @@ impl<'a> NamedType<'a> {
             NamedType::Class(cls) => Some(cls),
             NamedType::Enum(_) => None,
             NamedType::Namespace(_) => None,
-            NamedType::Primitive(_) => None,
+            NamedType::Primitive(pt) => pt.to_class(),
             NamedType::QmlComponent(ns) => Some(ns.into_class()),
         }
     }
