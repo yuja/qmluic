@@ -130,7 +130,7 @@ pub enum NamedType<'a> {
     QmlComponent(QmlComponent<'a>),
 }
 
-impl NamedType<'_> {
+impl<'a> NamedType<'a> {
     /// Returns true if this type is supposed to be passed by `const T &`.
     fn is_const_ref_preferred(&self) -> bool {
         match self {
@@ -139,6 +139,17 @@ impl NamedType<'_> {
             NamedType::Namespace(_) => false, // invalid
             NamedType::Primitive(pt) => pt.is_const_ref_preferred(),
             NamedType::QmlComponent(_) => true,
+        }
+    }
+
+    /// Turns this into class representation if supported by the underlying type.
+    pub fn into_class(self) -> Option<Class<'a>> {
+        match self {
+            NamedType::Class(cls) => Some(cls),
+            NamedType::Enum(_) => None,
+            NamedType::Namespace(_) => None,
+            NamedType::Primitive(_) => None,
+            NamedType::QmlComponent(ns) => Some(ns.into_class()),
         }
     }
 }
