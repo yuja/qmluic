@@ -452,13 +452,8 @@ fn resolve_class_scoped<'a>(
     let ty = parent_space
         .resolve_type_scoped(scoped_name)
         .unwrap_or_else(|| Err(TypeMapError::InvalidTypeRef(scoped_name.to_owned())))?;
-    match ty {
-        NamedType::Class(x) => Ok(x),
-        NamedType::QmlComponent(ns) => Ok(ns.into_class()),
-        NamedType::Enum(_) | NamedType::Namespace(_) | NamedType::Primitive(_) => {
-            Err(TypeMapError::InvalidSuperClassType(scoped_name.to_owned()))
-        }
-    }
+    ty.into_class()
+        .ok_or_else(|| TypeMapError::InvalidSuperClassType(scoped_name.to_owned()))
 }
 
 #[cfg(test)]

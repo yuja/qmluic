@@ -8,8 +8,8 @@ use qmluic::qmldoc::UiDocument;
 use qmluic::tir::{self, CodeBody};
 use qmluic::typedexpr::{RefKind, RefSpace, TypeAnnotationSpace};
 use qmluic::typemap::{
-    Class, ImportedModuleSpace, ModuleData, ModuleId, ModuleIdBuf, NamedType, TypeKind, TypeMap,
-    TypeMapError, TypeSpace as _,
+    Class, ImportedModuleSpace, ModuleData, ModuleId, ModuleIdBuf, TypeKind, TypeMap, TypeMapError,
+    TypeSpace as _,
 };
 
 pub struct Env {
@@ -136,9 +136,9 @@ struct Context<'a> {
 
 impl<'a> RefSpace<'a> for Context<'a> {
     fn get_ref(&self, name: &str) -> Option<Result<RefKind<'a>, TypeMapError>> {
-        let unwrap_class_ref = |name| match self.type_space.get_type(name).unwrap().unwrap() {
-            NamedType::Class(cls) => Some(Ok(RefKind::Object(cls))),
-            _ => panic!("{name} must be of class type"),
+        let unwrap_class_ref = |name| {
+            let ty = self.type_space.get_type(name).unwrap().unwrap();
+            Some(Ok(RefKind::Object(ty.into_class().unwrap())))
         };
         match name {
             "foo" | "foo2" | "foo3" | "foo4" => unwrap_class_ref("Foo"),

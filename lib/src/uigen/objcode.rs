@@ -171,14 +171,16 @@ fn resolve_attached_class<'a>(
     diagnostics: &mut Diagnostics,
 ) -> Option<(Class<'a>, Class<'a>)> {
     let cls = match ctx.type_space.get_type_scoped(type_name) {
-        Some(Ok(NamedType::Class(cls))) => cls,
-        Some(Ok(NamedType::QmlComponent(ns))) => ns.into_class(),
-        Some(Ok(NamedType::Enum(_) | NamedType::Namespace(_) | NamedType::Primitive(_))) => {
-            diagnostics.push(Diagnostic::error(
-                node.byte_range(),
-                format!("invalid attaching type: {type_name}"),
-            ));
-            return None;
+        Some(Ok(ty)) => {
+            if let Some(cls) = ty.into_class() {
+                cls
+            } else {
+                diagnostics.push(Diagnostic::error(
+                    node.byte_range(),
+                    format!("invalid attaching type: {type_name}"),
+                ));
+                return None;
+            }
         }
         Some(Err(e)) => {
             diagnostics.push(Diagnostic::error(
