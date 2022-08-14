@@ -12,7 +12,7 @@ use std::collections::HashMap;
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Namespace<'a> {
     data: TypeDataRef<'a, NamespaceData>,
-    type_map: TypeMapRef<'a>,
+    type_map_opt: Option<TypeMapRef<'a>>,
     parent_space: Box<ParentSpace<'a>>,
 }
 
@@ -37,14 +37,14 @@ enum TypeIndex {
 
 impl<'a> Namespace<'a> {
     // TODO: map C++ namespace to this type
-    pub(super) fn new(
+    pub(super) fn with_type_map(
         data: TypeDataRef<'a, NamespaceData>,
         type_map: TypeMapRef<'a>,
         parent_space: ParentSpace<'a>,
     ) -> Self {
         Namespace {
             data,
-            type_map,
+            type_map_opt: Some(type_map),
             parent_space: Box::new(parent_space),
         }
     }
@@ -58,7 +58,7 @@ impl<'a> TypeSpace<'a> for Namespace<'a> {
     fn get_type(&self, name: &str) -> Option<Result<NamedType<'a>, TypeMapError>> {
         self.data
             .as_ref()
-            .get_type_with(name, Some(self.type_map), || {
+            .get_type_with(name, self.type_map_opt, || {
                 ParentSpace::Namespace(self.clone())
             })
     }

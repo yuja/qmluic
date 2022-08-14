@@ -99,7 +99,7 @@ impl ModuleData {
         type_map: TypeMapRef<'a>,
     ) -> Namespace<'a> {
         let imported_space = ImportedModuleSpace::from_modules(&self.imports, type_map);
-        Namespace::new(
+        Namespace::with_type_map(
             TypeDataRef(&self.namespace),
             type_map,
             ParentSpace::ImportedModuleSpace(imported_space),
