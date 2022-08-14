@@ -333,6 +333,16 @@ fn call_string_arg_method() {
 }
 
 #[test]
+fn call_string_is_empty_method() {
+    insta::assert_snapshot!(dump("'Hello %1'.isEmpty()"), @r###"
+        %0: bool
+    .0:
+        %0 = call_method "Hello %1": QString, "isEmpty", {}
+        return %0: bool
+    "###);
+}
+
+#[test]
 fn call_tr_function() {
     insta::assert_snapshot!(dump("qsTr('Hello')"), @r###"
         %0: QString

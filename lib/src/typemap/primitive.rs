@@ -97,6 +97,7 @@ static STRING_CLASS_DATA: Lazy<ClassData> = Lazy::new(|| {
             metatype::Method::with_argument_types("arg", QString.name(), [Int.name()]),
             metatype::Method::with_argument_types("arg", QString.name(), [QString.name()]),
             metatype::Method::with_argument_types("arg", QString.name(), [Uint.name()]),
+            metatype::Method::nullary("isEmpty", Bool.name()),
         ],
         ..Default::default()
     };

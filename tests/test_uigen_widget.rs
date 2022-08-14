@@ -482,7 +482,7 @@ fn test_ternary_condition_string() {
     3 │     text: windowTitle ? windowTitle : "untitled"
       │           ----------- type: QString
       │
-      = use (expr != "") to test empty string
+      = use (!expr.isEmpty()) to test empty string
     "###);
 }
 
