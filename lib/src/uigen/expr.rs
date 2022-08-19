@@ -41,12 +41,15 @@ impl SerializableValue {
                     TypeKind::Just(t) => {
                         parse_as_value_type(ctx, ty, t, node, code, res, diagnostics)
                     }
-                    // TODO: TypeKind::List(...STRING)
                     TypeKind::Pointer(NamedType::Class(_)) => {
                         verify_code_return_type(node, code, ty, diagnostics)?;
                         Some(SerializableValue::Simple(SimpleValue::Cstring(
                             res.unwrap_object_ref(),
                         )))
+                    }
+                    TypeKind::List(t) if t.as_ref() == &TypeKind::STRING => {
+                        verify_code_return_type(node, code, ty, diagnostics)?;
+                        extract_string_list(node, res, diagnostics)
                     }
                     TypeKind::Pointer(_) | TypeKind::List(_) => {
                         diagnostics.push(Diagnostic::error(
@@ -353,10 +356,6 @@ fn parse_as_value_type(
             verify_code_return_type(node, code, expected_ty, diagnostics)?;
             Some(SerializableValue::Simple(res.unwrap_into_simple_value()))
         }
-        NamedType::Primitive(PrimitiveType::QStringList) => {
-            verify_code_return_type(node, code, expected_ty, diagnostics)?;
-            extract_string_list(node, res, diagnostics)
-        }
         NamedType::Primitive(PrimitiveType::Void) | NamedType::Namespace(_) => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
@@ -436,7 +435,8 @@ pub(super) fn build_item_model(
     match property_code.kind() {
         PropertyCodeKind::Expr(_, code) => {
             let res = property_code.evaluate()?; // no warning; to be processed by cxx pass
-            verify_code_return_type(node, code, &TypeKind::STRING_LIST, diagnostics)?;
+            let ty = TypeKind::List(Box::new(TypeKind::STRING));
+            verify_code_return_type(node, code, &ty, diagnostics)?;
             let items = res
                 .unwrap_string_list()
                 .into_iter()

@@ -39,7 +39,6 @@ impl<'a> TypeDesc<'a> {
     pub const INT: Self = TypeDesc::Concrete(TypeKind::INT);
     pub const UINT: Self = TypeDesc::Concrete(TypeKind::UINT);
     pub const STRING: Self = TypeDesc::Concrete(TypeKind::STRING);
-    pub const STRING_LIST: Self = TypeDesc::Concrete(TypeKind::STRING_LIST);
     pub const VARIANT: Self = TypeDesc::Concrete(TypeKind::VARIANT);
     pub const VOID: Self = TypeDesc::Concrete(TypeKind::VOID);
 

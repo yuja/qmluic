@@ -77,7 +77,7 @@ types are defined.
 * `QIcon`
 * `QPalette`
 * `QString`
-* `QStringList`
+* `QStringList` (aliased to a list of `QString`)
 * `QVariant`
 * `void`
 

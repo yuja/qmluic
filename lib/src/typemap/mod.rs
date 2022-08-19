@@ -275,7 +275,6 @@ impl TypeKind<'_> {
     pub const INT: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::Int));
     pub const UINT: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::Uint));
     pub const STRING: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::QString));
-    pub const STRING_LIST: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::QStringList));
     pub const VARIANT: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::QVariant));
     pub const VOID: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::Void));
 
@@ -292,7 +291,11 @@ impl TypeKind<'_> {
         match self {
             TypeKind::Just(ty) => ty.qualified_cxx_name(),
             TypeKind::Pointer(ty) => ty.qualified_cxx_name() + "*",
-            TypeKind::List(ty) => format!("QList<{}>", ty.qualified_cxx_name()).into(),
+            TypeKind::List(ty) => match ty.as_ref() {
+                // see also util::decorated_type()
+                &TypeKind::STRING => "QStringList".into(),
+                _ => format!("QList<{}>", ty.qualified_cxx_name()).into(),
+            },
         }
     }
 }
