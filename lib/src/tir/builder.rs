@@ -671,9 +671,6 @@ fn to_operation_type_error(op_desc: impl ToString, err: TypeError) -> Expression
         TypeError::UndeterminedType(t) => {
             ExpressionError::OperationOnUndeterminedType(op_desc.to_string(), t)
         }
-        TypeError::UnsupportedType(t) => {
-            ExpressionError::OperationOnUnsupportedType(op_desc.to_string(), t)
-        }
     }
 }
 

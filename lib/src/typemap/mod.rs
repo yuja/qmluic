@@ -265,12 +265,8 @@ pub enum TypeKind<'a> {
     /// a value type.
     Pointer(NamedType<'a>),
 
-    /// List of pointers to a named object type.
-    ///
-    /// The type should be an object [`Class`].
-    ///
-    /// This may be structured as `List(Box<Pointer(Type)>)`, but is flattened for convenience.
-    PointerList(NamedType<'a>),
+    /// List of the given (possibly nested) type.
+    List(Box<TypeKind<'a>>),
 }
 
 impl TypeKind<'_> {
@@ -288,7 +284,7 @@ impl TypeKind<'_> {
         match self {
             TypeKind::Just(ty) => ty.is_const_ref_preferred(),
             TypeKind::Pointer(_) => false,
-            TypeKind::PointerList(_) => true,
+            TypeKind::List(_) => true,
         }
     }
 
@@ -296,7 +292,7 @@ impl TypeKind<'_> {
         match self {
             TypeKind::Just(ty) => ty.qualified_cxx_name(),
             TypeKind::Pointer(ty) => ty.qualified_cxx_name() + "*",
-            TypeKind::PointerList(ty) => format!("QList<{}*>", ty.qualified_cxx_name()).into(),
+            TypeKind::List(ty) => format!("QList<{}>", ty.qualified_cxx_name()).into(),
         }
     }
 }
@@ -631,7 +627,9 @@ mod tests {
                 .unwrap()
                 .unwrap()
                 .value_type(),
-            &TypeKind::PointerList(NamedType::Class(foo_class.clone()))
+            &TypeKind::List(Box::new(TypeKind::Pointer(NamedType::Class(
+                foo_class.clone()
+            ))))
         );
         assert_eq!(
             foo_class
@@ -639,7 +637,9 @@ mod tests {
                 .unwrap()
                 .unwrap()
                 .value_type(),
-            &TypeKind::PointerList(NamedType::Class(foo_class.clone()))
+            &TypeKind::List(Box::new(TypeKind::Pointer(NamedType::Class(
+                foo_class.clone()
+            ))))
         );
     }
 
