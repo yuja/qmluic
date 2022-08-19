@@ -1051,7 +1051,7 @@ where
     let cls_pointer_opt = match typeutil::to_concrete_type(item.type_desc()) {
         Ok(TypeKind::Just(ty)) => ty.into_class().map(|c| (c, false)),
         Ok(TypeKind::Pointer(ty)) => ty.into_class().map(|c| (c, true)),
-        Ok(TypeKind::PointerList(_)) | Err(_) => None,
+        Ok(TypeKind::List(_)) | Err(_) => None,
     };
     if let Some((cls, is_pointer)) = cls_pointer_opt {
         let k = if is_pointer {

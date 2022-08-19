@@ -41,13 +41,14 @@ impl SerializableValue {
                     TypeKind::Just(t) => {
                         parse_as_value_type(ctx, ty, t, node, code, res, diagnostics)
                     }
+                    // TODO: TypeKind::List(...STRING)
                     TypeKind::Pointer(NamedType::Class(_)) => {
                         verify_code_return_type(node, code, ty, diagnostics)?;
                         Some(SerializableValue::Simple(SimpleValue::Cstring(
                             res.unwrap_object_ref(),
                         )))
                     }
-                    TypeKind::Pointer(_) | TypeKind::PointerList(_) => {
+                    TypeKind::Pointer(_) | TypeKind::List(_) => {
                         diagnostics.push(Diagnostic::error(
                             node.byte_range(),
                             format!("unexpected value type: {}", ty.qualified_cxx_name(),),

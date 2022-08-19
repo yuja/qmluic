@@ -84,15 +84,11 @@ pub(super) fn decorated_type<'a>(
     name: &str,
     lookup: impl FnOnce(&str) -> Option<Result<NamedType<'a>, TypeMapError>>,
 ) -> Result<TypeKind<'a>, TypeMapError> {
-    if let Some(s) = name.strip_suffix("*>") {
+    if let Some(s) = name.strip_suffix('>') {
         if let Some(t) = s.strip_prefix("QList<") {
-            lookup(t)
-                .unwrap_or_else(|| Err(TypeMapError::InvalidTypeRef(t.to_owned())))
-                .map(TypeKind::PointerList)
+            Ok(TypeKind::List(Box::new(decorated_type(t, lookup)?)))
         } else if let Some(t) = s.strip_prefix("QVector<") {
-            lookup(t)
-                .unwrap_or_else(|| Err(TypeMapError::InvalidTypeRef(t.to_owned())))
-                .map(TypeKind::PointerList)
+            Ok(TypeKind::List(Box::new(decorated_type(t, lookup)?)))
         } else {
             Err(TypeMapError::UnsupportedDecoration(name.to_owned()))
         }
