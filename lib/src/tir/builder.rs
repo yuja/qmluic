@@ -156,11 +156,8 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
                     e => to_operation_type_error("array", e),
                 })?;
             }
-            Ok(self.emit_result(
-                TypeKind::List(Box::new(to_concrete_type("array", elem_t)?)),
-                Rvalue::MakeList(operands),
-                byte_range,
-            ))
+            let ty = TypeKind::List(Box::new(to_concrete_type("array", elem_t)?));
+            Ok(self.emit_result(ty.clone(), Rvalue::MakeList(ty, operands), byte_range))
         } else {
             Ok(Operand::Constant(Constant::new(
                 ConstantValue::EmptyList,

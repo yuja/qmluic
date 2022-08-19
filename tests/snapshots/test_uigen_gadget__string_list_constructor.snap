@@ -1,0 +1,67 @@
+---
+source: tests/test_uigen_gadget.rs
+expression: ui_support_h
+---
+#pragma once
+#include "ui_mytype.h"
+
+namespace UiSupport {
+class MyType
+{
+public:
+    MyType(QTextBrowser *root, Ui::MyType *ui): root_(root), ui_(ui) {}
+
+    void setup()
+    {
+        this->setupTextBrowserSearchPaths();
+        this->updateTextBrowserSearchPaths();
+    }
+
+private:
+    enum class BindingIndex : unsigned {
+        TextBrowserSearchPaths,
+    };
+
+    void setupTextBrowserSearchPaths()
+    {
+        QObject::connect(this->root_, QOverload<const QString &>::of(&QWidget::windowTitleChanged), this->root_, [this]() { this->updateTextBrowserSearchPaths(); });
+    }
+
+    void updateTextBrowserSearchPaths()
+    {
+#ifndef QT_NO_DEBUG
+        constexpr unsigned index = static_cast<unsigned>(BindingIndex::TextBrowserSearchPaths);
+        Q_ASSERT_X(!(this->bindingGuard_[index >> 5] & (1U << (index & 0x1f))), __func__, "binding loop detected");
+        this->bindingGuard_[index >> 5] |= (1U << (index & 0x1f));
+#endif
+        this->root_->setSearchPaths(this->evalTextBrowserSearchPaths());
+#ifndef QT_NO_DEBUG
+        this->bindingGuard_[index >> 5] &= ~(1U << (index & 0x1f));
+#endif
+    }
+
+    QStringList evalTextBrowserSearchPaths()
+    {
+        QString a0;
+        QStringList a1;
+    b0:
+        a0 = this->root_->windowTitle();
+        a1 = QStringList{a0};
+        return a1;
+    }
+
+    struct PropertyObserver
+    {
+        QMetaObject::Connection connection;
+        QObject *object = nullptr;
+    };
+
+    QTextBrowser *const root_;
+    Ui::MyType *const ui_;
+#ifndef QT_NO_DEBUG
+    quint32 bindingGuard_[1] = {0};
+#endif
+
+};
+} // namespace UiSupport
+

@@ -468,6 +468,18 @@ fn test_string_list_mixed() {
 }
 
 #[test]
+fn test_string_list_constructor() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QTextBrowser { searchPaths: [windowTitle] }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
 fn test_gadget_property_read_expr() {
     let doc = common::parse_doc(
         r###"

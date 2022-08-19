@@ -39,7 +39,7 @@ fn string_array_literal() {
     insta::assert_snapshot!(dump("['foo', 'bar']"), @r###"
         %0: QStringList
     .0:
-        %0 = make_list {"foo": QString, "bar": QString}
+        %0 = make_list 'QStringList', {"foo": QString, "bar": QString}
         return %0: QStringList
     "###);
 }
@@ -51,7 +51,7 @@ fn object_array_literal() {
         %1: QList<Foo*>
     .0:
         %0 = copy [foo_sub]: FooSub*
-        %1 = make_list {[foo]: Foo*, [foo2]: Foo*, %0: Foo*, nullptr: nullptr_t}
+        %1 = make_list 'QList<Foo*>', {[foo]: Foo*, [foo2]: Foo*, %0: Foo*, nullptr: nullptr_t}
         return %1: QList<Foo*>
     "###);
 }
@@ -71,7 +71,7 @@ fn dynamic_array_literal() {
     .0:
         %0 = read_property [foo]: Foo*, "text"
         %1 = read_property [foo2]: Foo*, "text"
-        %2 = make_list {%0: QString, %1: QString}
+        %2 = make_list 'QStringList', {%0: QString, %1: QString}
         return %2: QStringList
     "###);
 }
