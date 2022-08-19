@@ -157,7 +157,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
                 })?;
             }
             Ok(self.emit_result(
-                to_concrete_list_type("array", elem_t)?,
+                TypeKind::List(Box::new(to_concrete_type("array", elem_t)?)),
                 Rvalue::MakeList(operands),
                 byte_range,
             ))
@@ -684,13 +684,6 @@ fn deduce_concrete_type<'a>(
 
 fn to_concrete_type(op_desc: impl ToString, t: TypeDesc) -> Result<TypeKind, ExpressionError> {
     typeutil::to_concrete_type(t).map_err(|e| to_operation_type_error(op_desc, e))
-}
-
-fn to_concrete_list_type(
-    op_desc: impl ToString,
-    elem_t: TypeDesc,
-) -> Result<TypeKind, ExpressionError> {
-    typeutil::to_concrete_list_type(elem_t).map_err(|e| to_operation_type_error(op_desc, e))
 }
 
 fn ensure_concrete_string(x: Operand) -> Operand {

@@ -42,12 +42,6 @@ pub fn to_concrete_type(t: TypeDesc) -> Result<TypeKind, TypeError> {
     }
 }
 
-pub fn to_concrete_list_type(elem_t: TypeDesc) -> Result<TypeKind, TypeError> {
-    match to_concrete_type(elem_t)? {
-        t => Ok(TypeKind::List(Box::new(t))),
-    }
-}
-
 /// Determines the compatible type from `left` and `right`.
 ///
 /// If either type is concrete, and if it is compatible with the other concrete type,
