@@ -12,19 +12,17 @@ pub enum PrimitiveType {
     Double,
     Int,
     QString,
-    QStringList,
     QVariant,
     Uint,
     Void,
 }
 
 impl PrimitiveType {
-    pub(super) const ALL: [Self; 8] = [
+    pub(super) const ALL: [Self; 7] = [
         PrimitiveType::Bool,
         PrimitiveType::Double,
         PrimitiveType::Int,
         PrimitiveType::QString,
-        PrimitiveType::QStringList,
         PrimitiveType::QVariant,
         PrimitiveType::Uint,
         PrimitiveType::Void,
@@ -36,7 +34,6 @@ impl PrimitiveType {
             PrimitiveType::Double => "double",
             PrimitiveType::Int => "int",
             PrimitiveType::QString => "QString",
-            PrimitiveType::QStringList => "QStringList",
             PrimitiveType::QVariant => "QVariant",
             PrimitiveType::Uint => "uint",
             PrimitiveType::Void => "void",
@@ -50,7 +47,6 @@ impl PrimitiveType {
             PrimitiveType::Double => false,
             PrimitiveType::Int => false,
             PrimitiveType::QString => true,
-            PrimitiveType::QStringList => true,
             PrimitiveType::QVariant => true,
             PrimitiveType::Uint => false,
             PrimitiveType::Void => false, // invalid
@@ -67,7 +63,6 @@ impl PrimitiveType {
                 TypeDataRef(&STRING_CLASS_DATA),
                 make_primitive_space(),
             )),
-            PrimitiveType::QStringList => None,
             PrimitiveType::QVariant => None,
             PrimitiveType::Uint => None,
             PrimitiveType::Void => None,

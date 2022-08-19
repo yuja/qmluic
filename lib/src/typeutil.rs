@@ -44,7 +44,6 @@ pub fn to_concrete_type(t: TypeDesc) -> Result<TypeKind, TypeError> {
 
 pub fn to_concrete_list_type(elem_t: TypeDesc) -> Result<TypeKind, TypeError> {
     match to_concrete_type(elem_t)? {
-        TypeKind::STRING => Ok(TypeKind::STRING_LIST),
         t => Ok(TypeKind::List(Box::new(t))),
     }
 }
@@ -72,14 +71,8 @@ pub fn deduce_type<'a>(
         }
         (l @ TypeDesc::Concrete(TypeKind::Pointer(_)), TypeDesc::NullPointer) => Ok(l),
         (TypeDesc::NullPointer, r @ TypeDesc::Concrete(TypeKind::Pointer(_))) => Ok(r),
-        (
-            l @ (TypeDesc::STRING_LIST | TypeDesc::Concrete(TypeKind::List(_))),
-            TypeDesc::EmptyList,
-        ) => Ok(l),
-        (
-            TypeDesc::EmptyList,
-            r @ (TypeDesc::STRING_LIST | TypeDesc::Concrete(TypeKind::List(_))),
-        ) => Ok(r),
+        (l @ TypeDesc::Concrete(TypeKind::List(_)), TypeDesc::EmptyList) => Ok(l),
+        (TypeDesc::EmptyList, r @ TypeDesc::Concrete(TypeKind::List(_))) => Ok(r),
         (left, right) => Err(TypeError::IncompatibleTypes(left, right)),
     }
 }
@@ -111,9 +104,7 @@ pub fn pick_type_cast(
         // TODO: should we allow bool <- integer cast?
         (&TypeKind::STRING, TypeDesc::ConstString) => Ok(TypeCastKind::Implicit),
         (TypeKind::Pointer(_), TypeDesc::NullPointer) => Ok(TypeCastKind::Implicit),
-        (&TypeKind::STRING_LIST | TypeKind::List(_), TypeDesc::EmptyList) => {
-            Ok(TypeCastKind::Implicit)
-        }
+        (TypeKind::List(_), TypeDesc::EmptyList) => Ok(TypeCastKind::Implicit),
         (&TypeKind::VOID, _) => Ok(TypeCastKind::Static),
         _ => Ok(TypeCastKind::Invalid),
     }

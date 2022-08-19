@@ -84,6 +84,11 @@ pub(super) fn decorated_type<'a>(
     name: &str,
     lookup: impl FnOnce(&str) -> Option<Result<NamedType<'a>, TypeMapError>>,
 ) -> Result<TypeKind<'a>, TypeMapError> {
+    // TODO: type alias map at decorated type spec level?
+    let name = match name {
+        "QStringList" => "QList<QString>",
+        n => n,
+    };
     if let Some(s) = name.strip_suffix('>') {
         if let Some(t) = s.strip_prefix("QList<") {
             Ok(TypeKind::List(Box::new(decorated_type(t, lookup)?)))
