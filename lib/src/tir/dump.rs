@@ -112,8 +112,12 @@ fn format_rvalue(rv: &Rvalue) -> String {
                 format_operand(r)
             )
         }
-        Rvalue::MakeList(xs) => {
-            format!("make_list {{{}}}", xs.iter().map(format_operand).join(", "))
+        Rvalue::MakeList(ty, xs) => {
+            format!(
+                "make_list '{}', {{{}}}",
+                ty.qualified_cxx_name(),
+                xs.iter().map(format_operand).join(", "),
+            )
         }
     }
 }

@@ -113,7 +113,7 @@ pub fn evaluate_code(code: &CodeBody) -> Option<EvaluatedValue> {
                             // translate menu.menuAction() to <addaction name="menu"/>
                             Some(EvaluatedValue::ObjectRef(x.name.0.clone()))
                         }
-                        Rvalue::MakeList(args) => to_evaluated_list(&locals, args),
+                        Rvalue::MakeList(_, args) => to_evaluated_list(&locals, args),
                         // No need to support other operations since constants are evaluated
                         // by TIR builder.
                         _ => return None,

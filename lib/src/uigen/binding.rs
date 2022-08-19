@@ -909,9 +909,10 @@ impl CxxCodeBodyTranslator {
                     self.format_operand(r)
                 )
             }
-            Rvalue::MakeList(xs) => {
+            Rvalue::MakeList(ty, xs) => {
                 format!(
-                    "{{{}}}",
+                    "{}{{{}}}",
+                    ty.qualified_cxx_name(),
                     xs.iter().map(|a| self.format_operand(a)).join(", ")
                 )
             }
