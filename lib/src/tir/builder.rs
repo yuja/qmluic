@@ -283,6 +283,25 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         ))
     }
 
+    fn visit_object_subscript(
+        &mut self,
+        object: Self::Item,
+        index: Self::Item,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, ExpressionError<'a>> {
+        todo!()
+    }
+
+    fn visit_object_subscript_assignment(
+        &mut self,
+        object: Self::Item,
+        index: Self::Item,
+        right: Self::Item,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, ExpressionError<'a>> {
+        todo!()
+    }
+
     fn visit_object_method_call(
         &mut self,
         object: Self::Item,
