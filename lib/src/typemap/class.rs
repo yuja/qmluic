@@ -15,6 +15,7 @@ use std::slice;
 pub struct Class<'a> {
     data: TypeDataRef<'a, ClassData>,
     parent_space: Box<ParentSpace<'a>>,
+    temporary_class_name: Option<String>, // generated name e.g. QList<T>
 }
 
 /// Stored class representation.
@@ -33,6 +34,19 @@ impl<'a> Class<'a> {
         Class {
             data,
             parent_space: Box::new(parent_space),
+            temporary_class_name: None,
+        }
+    }
+
+    pub(super) fn with_temporary_name(
+        name: impl Into<String>,
+        data: TypeDataRef<'a, ClassData>,
+        parent_space: ParentSpace<'a>,
+    ) -> Self {
+        Class {
+            data,
+            parent_space: Box::new(parent_space),
+            temporary_class_name: Some(name.into()),
         }
     }
 
@@ -141,7 +155,9 @@ impl<'a> Class<'a> {
 
 impl<'a> TypeSpace<'a> for Class<'a> {
     fn name(&self) -> &str {
-        &self.data.as_ref().class_name
+        self.temporary_class_name
+            .as_ref()
+            .unwrap_or(&self.data.as_ref().class_name)
     }
 
     fn get_type(&self, name: &str) -> Option<Result<NamedType<'a>, TypeMapError>> {
