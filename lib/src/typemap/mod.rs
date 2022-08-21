@@ -287,6 +287,14 @@ impl TypeKind<'_> {
         }
     }
 
+    pub fn is_pointer(&self) -> bool {
+        match self {
+            TypeKind::Just(_) => false,
+            TypeKind::Pointer(_) => true,
+            TypeKind::List(_) => false,
+        }
+    }
+
     pub fn qualified_cxx_name(&self) -> Cow<'_, str> {
         match self {
             TypeKind::Just(ty) => ty.qualified_cxx_name(),
