@@ -173,7 +173,9 @@ pub fn diagnose_bool_conversion(
         TypeDesc::Concrete(TypeKind::Pointer(_)) => {
             diag.push_note(format!("use (expr {ne} null) to test null pointer"));
         }
-        // TODO: empty list
+        TypeDesc::Concrete(TypeKind::List(_)) => {
+            diag.push_note(format!(r#"use ({neg}expr.isEmpty()) to test empty list"#));
+        }
         _ => {}
     }
 }

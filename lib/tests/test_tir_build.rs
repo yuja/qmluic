@@ -343,6 +343,18 @@ fn call_string_is_empty_method() {
 }
 
 #[test]
+fn call_array_is_empty_method() {
+    insta::assert_snapshot!(dump("[0, 1, 2].isEmpty()"), @r###"
+        %0: QList<int>
+        %1: bool
+    .0:
+        %0 = make_list 'QList<int>', {0: integer, 1: integer, 2: integer}
+        %1 = call_method %0: QList<int>, "isEmpty", {}
+        return %1: bool
+    "###);
+}
+
+#[test]
 fn call_tr_function() {
     insta::assert_snapshot!(dump("qsTr('Hello')"), @r###"
         %0: QString
