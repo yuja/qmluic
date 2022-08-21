@@ -1048,9 +1048,15 @@ where
             ),
         )
     };
-    if let Ok((is_pointer, Some(cls))) =
-        typeutil::to_concrete_type(item.type_desc()).map(|ty| (ty.is_pointer(), ty.into_class()))
-    {
+    let ty = match typeutil::to_concrete_type(item.type_desc()) {
+        Ok(ty) => ty,
+        Err(e) => {
+            diagnostics.push(Diagnostic::error(id.node().byte_range(), e.to_string()));
+            return None;
+        }
+    };
+    let is_pointer = ty.is_pointer();
+    if let Some(cls) = ty.into_class() {
         let k = if is_pointer {
             ReceiverKind::Object
         } else {
