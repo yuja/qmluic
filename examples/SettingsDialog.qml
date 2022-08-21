@@ -97,8 +97,7 @@ QDialog {
                         font: {
                             let fontEdit = textFontRadio.checked ? textFontFamilyEdit
                                                                  : altFontFamilyEdit;
-                            let sizeEdit = textFontRadio.checked ? textFontSizeEdit
-                                                                 : altFontSizeEdit;
+                            let sizeEdit = [altFontSizeEdit, textFontSizeEdit][textFontRadio.checked as int];
                             let font = fontEdit.currentFont;
                             font.pointSize = sizeEdit.value;
                             return font;

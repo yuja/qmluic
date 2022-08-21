@@ -133,12 +133,14 @@ private:
         bool a0;
         QFontComboBox* a1;
         QFontComboBox* a2;
-        bool a3;
-        QSpinBox* a4;
-        QSpinBox* a5;
-        QFont a6;
-        QFont a7;
-        int a8;
+        QList<QSpinBox*> a3;
+        bool a4;
+        int a5;
+        QSpinBox* a6;
+        QSpinBox* a7;
+        QFont a8;
+        QFont a9;
+        int a10;
     b0:
         a0 = this->ui_->textFontRadio->isChecked();
         if (a0)
@@ -153,19 +155,11 @@ private:
         goto b3;
     b3:
         a2 = a1;
-        a3 = this->ui_->textFontRadio->isChecked();
-        if (a3)
-            goto b4;
-        else
-            goto b5;
-    b4:
-        a4 = this->ui_->textFontSizeEdit;
-        goto b6;
-    b5:
-        a4 = this->ui_->altFontSizeEdit;
-        goto b6;
-    b6:
-        a5 = a4;
+        a3 = QList<QSpinBox*>{this->ui_->altFontSizeEdit, this->ui_->textFontSizeEdit};
+        a4 = this->ui_->textFontRadio->isChecked();
+        a5 = static_cast<int>(a4);
+        a6 = a3.at(a5);
+        a7 = a6;
         if (Q_UNLIKELY(!observed[0].connection || observed[0].object != a2)) {
             QObject::disconnect(observed[0].connection);
             if (a2) {
@@ -173,19 +167,19 @@ private:
             }
             observed[0].object = a2;
         }
-        a6 = a2->currentFont();
-        a7 = a6;
-        if (Q_UNLIKELY(!observed[1].connection || observed[1].object != a5)) {
+        a8 = a2->currentFont();
+        a9 = a8;
+        if (Q_UNLIKELY(!observed[1].connection || observed[1].object != a7)) {
             QObject::disconnect(observed[1].connection);
-            if (a5) {
-                observed[1].connection = QObject::connect(a5, QOverload<int>::of(&QSpinBox::valueChanged), this->root_, update);
+            if (a7) {
+                observed[1].connection = QObject::connect(a7, QOverload<int>::of(&QSpinBox::valueChanged), this->root_, update);
             }
-            observed[1].object = a5;
+            observed[1].object = a7;
         }
-        a8 = a5->value();
-        a7.setPointSize(a8);
-        return a7;
-    b7:
+        a10 = a7->value();
+        a9.setPointSize(a10);
+        return a9;
+    b4:
         Q_UNREACHABLE();
     }
 
