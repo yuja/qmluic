@@ -198,6 +198,19 @@ pub trait ExpressionVisitor<'a> {
         right: Self::Item,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, ExpressionError<'a>>;
+    fn visit_object_subscript(
+        &mut self,
+        object: Self::Item,
+        index: Self::Item,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, ExpressionError<'a>>;
+    fn visit_object_subscript_assignment(
+        &mut self,
+        object: Self::Item,
+        index: Self::Item,
+        right: Self::Item,
+        byte_range: Range<usize>,
+    ) -> Result<Self::Item, ExpressionError<'a>>;
     fn visit_object_method_call(
         &mut self,
         object: Self::Item,
@@ -300,6 +313,7 @@ enum Intermediate<'a, T, L> {
     Item(T),
     Local(L, LexicalDeclarationKind),
     BoundProperty(T, Property<'a>, ReceiverKind),
+    BoundSubscript(T, T, ExprKind),
     BoundMethod(T, MethodMatches<'a>),
     BuiltinFunction(BuiltinFunctionKind),
     Type(NamedType<'a>),
@@ -664,6 +678,10 @@ where
             node,
             visitor.visit_object_property(it, p, node.byte_range()),
         ),
+        Intermediate::BoundSubscript(it, i, _) => diagnostics.consume_node_err(
+            node,
+            visitor.visit_object_subscript(it, i, node.byte_range()),
+        ),
         Intermediate::BoundMethod(..) | Intermediate::BuiltinFunction(_) => {
             diagnostics.push(Diagnostic::error(
                 node.byte_range(),
@@ -769,6 +787,13 @@ where
                     )?;
                     process_item_property(obj, x.property, ExprKind::Rvalue, source, diagnostics)
                 }
+                Intermediate::BoundSubscript(it, i, _) => {
+                    let obj = diagnostics.consume_node_err(
+                        x.object,
+                        visitor.visit_object_subscript(it, i, x.object.byte_range()),
+                    )?;
+                    process_item_property(obj, x.property, ExprKind::Rvalue, source, diagnostics)
+                }
                 Intermediate::BoundMethod(..) | Intermediate::BuiltinFunction(_) => {
                     diagnostics.push(Diagnostic::error(
                         node.byte_range(),
@@ -781,7 +806,45 @@ where
                 }
             }
         }
-        Expression::Subscript(_) => todo!(),
+        Expression::Subscript(x) => {
+            let (obj, k) = match walk_expr(ctx, locals, x.object, source, visitor, diagnostics)? {
+                Intermediate::Item(it) => (it, ExprKind::Rvalue),
+                Intermediate::Local(l, _) => {
+                    let it = diagnostics.consume_node_err(node, visitor.visit_local_ref(l))?;
+                    (it, ExprKind::Lvalue)
+                }
+                Intermediate::BoundProperty(it, p, _) => {
+                    let obj = diagnostics.consume_node_err(
+                        x.object,
+                        visitor.visit_object_property(it, p, x.object.byte_range()),
+                    )?;
+                    (obj, ExprKind::Rvalue)
+                }
+                Intermediate::BoundSubscript(it, i, _) => {
+                    let obj = diagnostics.consume_node_err(
+                        x.object,
+                        visitor.visit_object_subscript(it, i, x.object.byte_range()),
+                    )?;
+                    (obj, ExprKind::Rvalue)
+                }
+                Intermediate::BoundMethod(..) | Intermediate::BuiltinFunction(_) => {
+                    diagnostics.push(Diagnostic::error(
+                        x.object.byte_range(),
+                        "bare function reference",
+                    ));
+                    return None;
+                }
+                Intermediate::Type(_) => {
+                    diagnostics.push(Diagnostic::error(
+                        x.object.byte_range(),
+                        "bare type reference",
+                    ));
+                    return None;
+                }
+            };
+            let index = walk_rvalue(ctx, locals, x.index, source, visitor, diagnostics)?;
+            Some(Intermediate::BoundSubscript(obj, index, k))
+        }
         Expression::Call(x) => {
             let arguments = x
                 .arguments
@@ -804,6 +867,7 @@ where
                 Intermediate::Item(_)
                 | Intermediate::Local(..)
                 | Intermediate::BoundProperty(..)
+                | Intermediate::BoundSubscript(..)
                 | Intermediate::Type(_) => {
                     diagnostics.push(Diagnostic::error(x.function.byte_range(), "not callable"));
                     None
@@ -842,6 +906,19 @@ where
                     diagnostics.push(Diagnostic::error(
                         x.left.byte_range(),
                         "rvalue gadget property is not assignable",
+                    ));
+                    None
+                }
+                Intermediate::BoundSubscript(it, i, ExprKind::Lvalue) => diagnostics
+                    .consume_node_err(
+                        node,
+                        visitor.visit_object_subscript_assignment(it, i, right, node.byte_range()),
+                    )
+                    .map(Intermediate::Item),
+                Intermediate::BoundSubscript(_, _, ExprKind::Rvalue) => {
+                    diagnostics.push(Diagnostic::error(
+                        x.left.byte_range(),
+                        "rvalue subscript is not assignable",
                     ));
                     None
                 }
