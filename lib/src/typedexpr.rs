@@ -53,10 +53,11 @@ impl<'a> TypeDesc<'a> {
     }
 
     pub fn is_pointer(&self) -> bool {
-        matches!(
-            self,
-            TypeDesc::NullPointer | TypeDesc::Concrete(TypeKind::Pointer(_))
-        )
+        match self {
+            TypeDesc::ConstInteger | TypeDesc::ConstString | TypeDesc::EmptyList => false,
+            TypeDesc::NullPointer => true,
+            TypeDesc::Concrete(k) => k.is_pointer(),
+        }
     }
 }
 
