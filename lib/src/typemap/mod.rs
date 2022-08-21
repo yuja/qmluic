@@ -269,7 +269,7 @@ pub enum TypeKind<'a> {
     List(Box<TypeKind<'a>>),
 }
 
-impl TypeKind<'_> {
+impl<'a> TypeKind<'a> {
     pub const BOOL: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::Bool));
     pub const DOUBLE: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::Double));
     pub const INT: Self = TypeKind::Just(NamedType::Primitive(PrimitiveType::Int));
@@ -304,6 +304,18 @@ impl TypeKind<'_> {
                 &TypeKind::STRING => "QStringList".into(),
                 _ => format!("QList<{}>", ty.qualified_cxx_name()).into(),
             },
+        }
+    }
+
+    /// Turns this into class representation if supported by the underlying value/pointer type.
+    ///
+    /// Be aware that the returned class represents the inner type, not the pointer type if
+    /// this is a pointer.
+    pub fn into_class(self) -> Option<Class<'a>> {
+        match self {
+            TypeKind::Just(ty) => ty.into_class(),
+            TypeKind::Pointer(ty) => ty.into_class(),
+            TypeKind::List(_) => None,
         }
     }
 }
