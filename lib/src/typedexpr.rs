@@ -288,6 +288,8 @@ pub enum ExpressionError<'a> {
     IncompatibleArrayElementType(usize, TypeDesc<'a>, TypeDesc<'a>),
     #[error("condition must be of bool type, but got: {}", .0.qualified_name())]
     IncompatibleConditionType(TypeDesc<'a>),
+    #[error("index must be of integer type, but got: {}", .0.qualified_name())]
+    IncompatibleIndexType(TypeDesc<'a>),
     #[error("invalid argument: {0}")]
     InvalidArgument(String),
     #[error(

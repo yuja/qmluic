@@ -410,6 +410,10 @@ pub enum Rvalue<'a> {
     ReadProperty(Operand<'a>, Property<'a>),
     /// `<obj> -> <write_property>(<right>)`
     WriteProperty(Operand<'a>, Property<'a>, Operand<'a>),
+    /// `<obj>[<index>]`
+    ReadSubscript(Operand<'a>, Operand<'a>),
+    /// `<obj>[<index>] = <right>`
+    WriteSubscript(Operand<'a>, Operand<'a>, Operand<'a>),
     /// `<ty>{<0>, <1>, ...}`
     MakeList(TypeKind<'a>, Vec<Operand<'a>>),
 }

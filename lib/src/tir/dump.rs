@@ -112,6 +112,21 @@ fn format_rvalue(rv: &Rvalue) -> String {
                 format_operand(r)
             )
         }
+        Rvalue::ReadSubscript(obj, index) => {
+            format!(
+                "read_subscript {}, {}",
+                format_operand(obj),
+                format_operand(index),
+            )
+        }
+        Rvalue::WriteSubscript(obj, index, r) => {
+            format!(
+                "write_subscript {}, {}, {}",
+                format_operand(obj),
+                format_operand(index),
+                format_operand(r),
+            )
+        }
         Rvalue::MakeList(ty, xs) => {
             format!(
                 "make_list '{}', {{{}}}",

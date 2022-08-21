@@ -909,6 +909,22 @@ impl CxxCodeBodyTranslator {
                     self.format_operand(r)
                 )
             }
+            Rvalue::ReadSubscript(obj, index) => {
+                format!(
+                    "{}{}at({})", // operator()[] may detach the shared data
+                    self.format_operand(obj),
+                    member_access_op(obj),
+                    self.format_operand(index),
+                )
+            }
+            Rvalue::WriteSubscript(obj, index, r) => {
+                format!(
+                    "{}[{}] = {}",
+                    self.format_operand(obj),
+                    self.format_operand(index),
+                    self.format_operand(r),
+                )
+            }
             Rvalue::MakeList(ty, xs) => {
                 format!(
                     "{}{{{}}}",

@@ -289,7 +289,8 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         index: Self::Item,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, ExpressionError<'a>> {
-        todo!()
+        let elem_ty = check_object_subscript_type(&object, &index)?;
+        Ok(self.emit_result(elem_ty, Rvalue::ReadSubscript(object, index), byte_range))
     }
 
     fn visit_object_subscript_assignment(
@@ -299,7 +300,20 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         right: Self::Item,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, ExpressionError<'a>> {
-        todo!()
+        let elem_ty = check_object_subscript_type(&object, &index)?;
+        if !typeutil::is_assignable(&elem_ty, &right.type_desc())? {
+            return Err(ExpressionError::OperationOnIncompatibleTypes(
+                "=".to_owned(),
+                TypeDesc::Concrete(elem_ty),
+                right.type_desc(),
+            ));
+        }
+        // TODO: or return rvalue?, but property assignment doesn't because it would have
+        // to re-read property
+        self.push_statement(Statement::Exec(Rvalue::WriteSubscript(
+            object, index, right,
+        )));
+        Ok(Operand::Void(Void::new(byte_range)))
     }
 
     fn visit_object_method_call(
@@ -713,6 +727,25 @@ fn ensure_concrete_string(x: Operand) -> Operand {
         }),
         x => x,
     }
+}
+
+fn check_object_subscript_type<'a>(
+    object: &Operand<'a>,
+    index: &Operand<'a>,
+) -> Result<TypeKind<'a>, ExpressionError<'a>> {
+    let elem_ty = match to_concrete_type("subscript", object.type_desc())? {
+        TypeKind::Just(_) | TypeKind::Pointer(_) => {
+            return Err(ExpressionError::UnsupportedOperation(
+                "subscript".to_owned(),
+            ))
+        }
+        TypeKind::List(ty) => *ty,
+    };
+    match index.type_desc() {
+        TypeDesc::ConstInteger | TypeDesc::INT | TypeDesc::UINT => {}
+        t => return Err(ExpressionError::IncompatibleIndexType(t)),
+    };
+    Ok(elem_ty)
 }
 
 /// Translates expression AST nodes into type-checked IR.
