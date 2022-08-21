@@ -781,6 +781,7 @@ where
                 }
             }
         }
+        Expression::Subscript(_) => todo!(),
         Expression::Call(x) => {
             let arguments = x
                 .arguments
