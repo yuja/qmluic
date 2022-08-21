@@ -18,6 +18,7 @@ pub enum Expression<'tree> {
     Function(Function<'tree>),
     ArrowFunction(Function<'tree>),
     Member(MemberExpression<'tree>),
+    Subscript(SubscriptExpression<'tree>),
     Call(CallExpression<'tree>),
     Assignment(AssignmentExpression<'tree>),
     Unary(UnaryExpression<'tree>),
@@ -78,6 +79,18 @@ impl<'tree> Expression<'tree> {
                     return Err(ParseError::new(n, ParseErrorKind::UnexpectedNodeKind));
                 }
                 Expression::Member(MemberExpression { object, property })
+            }
+            "subscript_expression" => {
+                let object = astutil::get_child_by_field_name(node, "object")?;
+                let index = astutil::get_child_by_field_name(node, "index")?;
+                // reject optional chaining: <object>?.[<index>]
+                if let Some((n, _)) =
+                    astutil::children_between_field_names(node, cursor, "object", "index")
+                        .find(|(n, _)| !n.is_extra() && n.kind() != "[")
+                {
+                    return Err(ParseError::new(n, ParseErrorKind::UnexpectedNodeKind));
+                }
+                Expression::Subscript(SubscriptExpression { object, index })
             }
             "call_expression" => {
                 let function = astutil::get_child_by_field_name(node, "function")?;
@@ -287,6 +300,13 @@ impl<'tree> FormalParameter<'tree> {
 pub struct MemberExpression<'tree> {
     pub object: Node<'tree>,
     pub property: Identifier<'tree>,
+}
+
+/// Represents a subscript expression.
+#[derive(Clone, Debug)]
+pub struct SubscriptExpression<'tree> {
+    pub object: Node<'tree>,
+    pub index: Node<'tree>,
 }
 
 /// Represents a call expression.
@@ -547,6 +567,11 @@ mod tests {
             Function<'tree>
         );
         impl_unwrap_fn!(unwrap_member, Expression::Member, MemberExpression<'tree>);
+        impl_unwrap_fn!(
+            unwrap_subscript,
+            Expression::Subscript,
+            SubscriptExpression<'tree>
+        );
         impl_unwrap_fn!(unwrap_call, Expression::Call, CallExpression<'tree>);
         impl_unwrap_fn!(
             unwrap_assignment,
@@ -770,6 +795,32 @@ mod tests {
         assert_eq!(x.property.to_str(doc.source()), "bar");
 
         assert!(extract_expr(&doc, "member_opt").is_err());
+    }
+
+    #[test]
+    fn subscript_expression() {
+        let doc = parse(
+            r###"
+            Foo {
+                subscript: foo /*garbage*/ [ /*garbage*/ bar ]
+                subscript_opt: foo?.[bar]
+            }
+            "###,
+        );
+
+        let x = unwrap_expr(&doc, "subscript").unwrap_subscript();
+        assert_eq!(
+            Identifier::from_node(x.object)
+                .unwrap()
+                .to_str(doc.source()),
+            "foo"
+        );
+        assert_eq!(
+            Identifier::from_node(x.index).unwrap().to_str(doc.source()),
+            "bar"
+        );
+
+        assert!(extract_expr(&doc, "subscript_opt").is_err());
     }
 
     #[test]
