@@ -480,6 +480,27 @@ fn test_string_list_constructor() {
 }
 
 #[test]
+fn test_string_list_subscript() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QTextBrowser {
+            id: root
+            QPushButton {
+                onClicked: {
+                    let a = root.searchPaths;
+                    a[0] = a[1]; // crash if a.size() < 2
+                    root.searchPaths = a;
+                }
+            }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
 fn test_gadget_property_read_expr() {
     let doc = common::parse_doc(
         r###"

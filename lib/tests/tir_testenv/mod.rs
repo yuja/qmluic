@@ -69,6 +69,14 @@ impl Env {
                     constant: true,
                     ..Default::default()
                 },
+                metatype::Property {
+                    name: "stringList".to_owned(),
+                    r#type: "QStringList".to_owned(),
+                    read: Some("stringList".to_owned()),
+                    write: Some("setStringList".to_owned()),
+                    notify: Some("stringListChanged".to_owned()),
+                    ..Default::default()
+                },
             ],
             signals: vec![
                 metatype::Method::nullary("toggled", "void"),

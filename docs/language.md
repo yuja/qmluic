@@ -97,6 +97,7 @@ Operators
 * Shift: `>>`, `<<`
 * Binary logical: `&&`, `||`
 * Comparison: `==`, `!=`, `<`, `<=`, `>`, `>=`
+* List subscript: `<list>[<index>]` (no bounds check)
 * Type cast: `<value> as <type>`
   * numeric cast amongst `int` / `uint` / `double`
   * `enum` to integer

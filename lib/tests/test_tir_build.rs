@@ -314,6 +314,43 @@ fn write_object_property() {
 }
 
 #[test]
+fn read_list_subscript() {
+    insta::assert_snapshot!(dump("foo.stringList[0]"), @r###"
+        %0: QStringList
+        %1: QString
+    .0:
+        %0 = read_property [foo]: Foo*, "stringList"
+        %1 = read_subscript %0: QStringList, 0: integer
+        return %1: QString
+    "###);
+}
+
+#[test]
+fn write_list_subscript() {
+    insta::assert_snapshot!(dump("{ let a = foo.stringList; a[0] = 'baz'; }"), @r###"
+        %0: QStringList
+        %1: QStringList
+    .0:
+        %0 = read_property [foo]: Foo*, "stringList"
+        %1 = copy %0: QStringList
+        write_subscript %1: QStringList, 0: integer, "baz": string
+        return _: void
+    "###);
+}
+
+#[test]
+fn write_list_subscript_incompatible_type() {
+    let env = Env::new();
+    assert!(env.try_build("{ let a = ['foo']; a[0] = 0; }").is_err());
+}
+
+#[test]
+fn write_list_subscript_rvalue() {
+    let env = Env::new();
+    assert!(env.try_build("{ foo.stringList[0] = 'baz'; }").is_err());
+}
+
+#[test]
 fn call_object_method() {
     insta::assert_snapshot!(dump("foo.done(1)"), @r###"
     .0:
