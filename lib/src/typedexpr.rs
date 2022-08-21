@@ -1048,12 +1048,9 @@ where
             ),
         )
     };
-    let cls_pointer_opt = match typeutil::to_concrete_type(item.type_desc()) {
-        Ok(TypeKind::Just(ty)) => ty.into_class().map(|c| (c, false)),
-        Ok(TypeKind::Pointer(ty)) => ty.into_class().map(|c| (c, true)),
-        Ok(TypeKind::List(_)) | Err(_) => None,
-    };
-    if let Some((cls, is_pointer)) = cls_pointer_opt {
+    if let Ok((is_pointer, Some(cls))) =
+        typeutil::to_concrete_type(item.type_desc()).map(|ty| (ty.is_pointer(), ty.into_class()))
+    {
         let k = if is_pointer {
             ReceiverKind::Object
         } else {
