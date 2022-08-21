@@ -315,7 +315,10 @@ impl<'a> TypeKind<'a> {
         match self {
             TypeKind::Just(ty) => ty.into_class(),
             TypeKind::Pointer(ty) => ty.into_class(),
-            TypeKind::List(_) => None,
+            TypeKind::List(_) => {
+                // name should be unqualified<qualified>, but we know 'QList<>' has no scope
+                Some(primitive::make_list_class(self.qualified_cxx_name()))
+            }
         }
     }
 }

@@ -79,6 +79,14 @@ fn make_primitive_space() -> ParentSpace<'static> {
     ParentSpace::Namespace(Namespace::root(TypeDataRef(&PRIMITIVE_SPACE_DATA)))
 }
 
+/// Creates a class representation for the specified list type.
+///
+/// Note that this class representation cannot have any method that references the element
+/// type such as `T &at(index)`.
+pub(super) fn make_list_class(name: impl Into<String>) -> Class<'static> {
+    Class::with_temporary_name(name, TypeDataRef(&LIST_CLASS_DATA), make_primitive_space())
+}
+
 static PRIMITIVE_SPACE_DATA: Lazy<NamespaceData> =
     Lazy::new(|| NamespaceData::with_primitive_types(&PrimitiveType::ALL));
 
@@ -94,6 +102,18 @@ static STRING_CLASS_DATA: Lazy<ClassData> = Lazy::new(|| {
             metatype::Method::with_argument_types("arg", QString.name(), [Uint.name()]),
             metatype::Method::nullary("isEmpty", Bool.name()),
         ],
+        ..Default::default()
+    };
+    ClassData::from_meta(meta)
+});
+
+static LIST_CLASS_DATA: Lazy<ClassData> = Lazy::new(|| {
+    use PrimitiveType::*;
+    let class_name = "QList"; // unused
+    let meta = metatype::Class {
+        class_name: class_name.to_owned(),
+        qualified_class_name: class_name.to_owned(),
+        methods: vec![metatype::Method::nullary("isEmpty", Bool.name())],
         ..Default::default()
     };
     ClassData::from_meta(meta)
