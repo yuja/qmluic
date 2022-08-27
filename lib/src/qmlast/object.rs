@@ -1,5 +1,6 @@
 use super::astutil;
 use super::node::StatementNode;
+use super::stmt::Statement;
 use super::term::{Identifier, NestedIdentifier};
 use super::{ParseError, ParseErrorKind};
 use std::collections::HashMap;
@@ -141,14 +142,14 @@ impl<'tree> UiImport<'tree> {
 }
 
 fn extract_object_id(node: StatementNode) -> Result<Identifier, ParseError> {
-    // (expression_statement (identifier))
-    let mut node = node.inner_node(); // TODO: maybe use node.parse()?
-    if node.kind() == "expression_statement" {
-        node = node
-            .child(0)
-            .ok_or_else(|| ParseError::new(node, ParseErrorKind::InvalidSyntax))?;
+    if let Statement::Expression(n) = node.parse()? {
+        Identifier::from_node(n)
+    } else {
+        Err(ParseError::new(
+            node.inner_node(),
+            ParseErrorKind::UnexpectedNodeKind,
+        ))
     }
-    Identifier::from_node(node)
 }
 
 /// Represents a QML object or top-level component.
