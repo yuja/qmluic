@@ -210,10 +210,7 @@ impl<'tree> UiObjectDefinition<'tree> {
         source: &'s str,
     ) -> Result<UiAttachedTypeBindingMap<'tree, 's>, ParseError<'tree>> {
         let mut type_map = UiAttachedTypeBindingMap::new();
-        for UiBinding {
-            name, value_node, ..
-        } in self.attached_type_bindings()
-        {
+        for UiBinding { name, notation } in self.attached_type_bindings() {
             let (type_name, prop_name) = name
                 .split_type_name_prefix(source)
                 .expect("attached binding name should have type prefix");
@@ -226,8 +223,12 @@ impl<'tree> UiObjectDefinition<'tree> {
                         .collect(),
                 )
                 .or_insert_with(|| (type_name, HashMap::new()));
-            // attached binding can't be grouped
-            try_insert_ui_binding_node(map, &prop_name, *value_node, source)?;
+            match *notation {
+                UiBindingNotation::Scalar(n) => {
+                    try_insert_ui_binding_node(map, &prop_name, n, source)?
+                }
+                UiBindingNotation::Grouped(_) => unreachable!("attached binding can't be grouped"),
+            }
         }
         Ok(type_map)
     }
@@ -243,18 +244,13 @@ impl<'tree> UiObjectDefinition<'tree> {
         source: &'s str,
     ) -> Result<UiBindingMap<'tree, 's>, ParseError<'tree>> {
         let mut map = HashMap::new();
-        for UiBinding {
-            name,
-            value_node,
-            notation,
-        } in self.bindings()
-        {
-            match notation {
-                UiBindingNotation::Scalar => {
-                    try_insert_ui_binding_node(&mut map, name, *value_node, source)?;
+        for UiBinding { name, notation } in self.bindings() {
+            match *notation {
+                UiBindingNotation::Scalar(n) => {
+                    try_insert_ui_binding_node(&mut map, name, n, source)?;
                 }
-                UiBindingNotation::Grouped => {
-                    try_insert_ui_grouped_binding_node(&mut map, name, *value_node, source)?;
+                UiBindingNotation::Grouped(n) => {
+                    try_insert_ui_grouped_binding_node(&mut map, name, n, source)?;
                 }
             }
         }
@@ -301,8 +297,7 @@ impl<'tree> UiObjectBody<'tree> {
                         let value_node = astutil::get_child_by_field_name(node, "initializer")?;
                         bindings.push(UiBinding {
                             name,
-                            value_node,
-                            notation: UiBindingNotation::Grouped,
+                            notation: UiBindingNotation::Grouped(value_node),
                         });
                     }
                 }
@@ -321,14 +316,12 @@ impl<'tree> UiObjectBody<'tree> {
                     } else if name.split_type_name_prefix(source).is_some() {
                         attached_type_bindings.push(UiBinding {
                             name,
-                            value_node,
-                            notation: UiBindingNotation::Scalar,
+                            notation: UiBindingNotation::Scalar(value_node),
                         });
                     } else {
                         bindings.push(UiBinding {
                             name,
-                            value_node,
-                            notation: UiBindingNotation::Scalar,
+                            notation: UiBindingNotation::Scalar(value_node),
                         });
                     }
                 }
@@ -350,17 +343,16 @@ impl<'tree> UiObjectBody<'tree> {
 #[derive(Clone, Debug)]
 pub struct UiBinding<'tree> {
     name: NestedIdentifier<'tree>,
-    value_node: Node<'tree>,
-    notation: UiBindingNotation,
+    notation: UiBindingNotation<'tree>,
 }
 
 // TODO: public interface to UiBinding
 
 /// Variant for the property binding notation.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum UiBindingNotation {
-    Scalar,
-    Grouped,
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum UiBindingNotation<'tree> {
+    Scalar(Node<'tree>),
+    Grouped(Node<'tree>),
 }
 
 /// Map of type name to attached property binding map.
