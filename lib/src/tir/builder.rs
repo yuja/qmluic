@@ -469,11 +469,6 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         (alternative, alternative_ref): (Self::Item, Self::Label),
         byte_range: Range<usize>,
     ) -> Result<Self::Item, ExpressionError<'a>> {
-        if condition.type_desc() != TypeDesc::BOOL {
-            return Err(ExpressionError::IncompatibleConditionType(
-                condition.type_desc(),
-            ));
-        }
         let consequence = ensure_concrete_string(consequence);
         let alternative = ensure_concrete_string(alternative);
         let ty = deduce_concrete_type("ternary", consequence.type_desc(), alternative.type_desc())?;
@@ -508,11 +503,6 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         consequence_ref: Self::Label,
         alternative_ref: Option<Self::Label>,
     ) -> Result<(), ExpressionError<'a>> {
-        if condition.type_desc() != TypeDesc::BOOL {
-            return Err(ExpressionError::IncompatibleConditionType(
-                condition.type_desc(),
-            ));
-        }
         self.get_basic_block_mut(condition_ref)
             .finalize(Terminator::BrCond(
                 condition,
