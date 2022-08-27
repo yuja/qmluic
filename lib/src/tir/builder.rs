@@ -492,9 +492,8 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         Ok(sink.map(Operand::Local).unwrap_or_else(Operand::Void))
     }
 
-    fn visit_expression_statement(&mut self, value: Self::Item) -> Result<(), ExpressionError<'a>> {
+    fn visit_expression_statement(&mut self, value: Self::Item) {
         self.set_completion_value(ensure_concrete_string(value));
-        Ok(())
     }
 
     fn visit_if_statement(
@@ -502,7 +501,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         (condition, condition_ref): (Self::Item, Self::Label),
         consequence_ref: Self::Label,
         alternative_ref: Option<Self::Label>,
-    ) -> Result<(), ExpressionError<'a>> {
+    ) {
         self.get_basic_block_mut(condition_ref)
             .finalize(Terminator::BrCond(
                 condition,
@@ -516,7 +515,6 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
             self.get_basic_block_mut(l)
                 .finalize(Terminator::Br(end_ref));
         }
-        Ok(())
     }
 
     fn visit_switch_statement(
@@ -525,7 +523,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         default: Option<(usize, Self::Label)>,
         head_ref: Self::Label,
         exit_ref: Self::Label,
-    ) -> Result<(), ExpressionError<'a>> {
+    ) {
         // order of blocks: ...|exit|case0|body0|case1|body1|...|default body|
         let last_case_body_ref = cases.last().map(|&(_, _, b)| b).unwrap_or(exit_ref);
         let last_body_ref = default.map(|(_, b)| b).unwrap_or(last_case_body_ref);
@@ -557,22 +555,19 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
             .finalize(Terminator::Br(exit_ref.next())); // first case/default start
         self.get_basic_block_mut(exit_ref)
             .finalize(Terminator::Br(last_body_ref.next())); // end
-        Ok(())
     }
 
-    fn visit_break_statement(&mut self, exit_ref: Self::Label) -> Result<(), ExpressionError<'a>> {
+    fn visit_break_statement(&mut self, exit_ref: Self::Label) {
         self.current_basic_block_mut()
             .finalize(Terminator::Br(exit_ref));
         self.code.basic_blocks.push(BasicBlock::empty()); // unreachable code may be inserted here
-        Ok(())
     }
 
-    fn visit_return_statement(&mut self, value: Self::Item) -> Result<(), ExpressionError<'a>> {
+    fn visit_return_statement(&mut self, value: Self::Item) {
         let value = ensure_concrete_string(value);
         self.current_basic_block_mut()
             .finalize(Terminator::Return(value));
         self.code.basic_blocks.push(BasicBlock::empty()); // unreachable code may be inserted here
-        Ok(())
     }
 
     /// Inserts new basic block for the statements after the branch, returns the reference

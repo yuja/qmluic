@@ -252,22 +252,22 @@ pub trait ExpressionVisitor<'a> {
         byte_range: Range<usize>,
     ) -> Result<Self::Item, ExpressionError<'a>>;
 
-    fn visit_expression_statement(&mut self, value: Self::Item) -> Result<(), ExpressionError<'a>>;
+    fn visit_expression_statement(&mut self, value: Self::Item);
     fn visit_if_statement(
         &mut self,
         condition: (Self::Item, Self::Label),
         consequence_ref: Self::Label,
         alternative_ref: Option<Self::Label>,
-    ) -> Result<(), ExpressionError<'a>>;
+    );
     fn visit_switch_statement(
         &mut self,
         cases: Vec<(Self::Item, Self::Label, Self::Label)>,
         default: Option<(usize, Self::Label)>,
         head_ref: Self::Label,
         exit_ref: Self::Label,
-    ) -> Result<(), ExpressionError<'a>>;
-    fn visit_break_statement(&mut self, exit_ref: Self::Label) -> Result<(), ExpressionError<'a>>;
-    fn visit_return_statement(&mut self, value: Self::Item) -> Result<(), ExpressionError<'a>>;
+    );
+    fn visit_break_statement(&mut self, exit_ref: Self::Label);
+    fn visit_return_statement(&mut self, value: Self::Item);
 
     fn mark_branch_point(&mut self) -> Self::Label;
 }
@@ -370,7 +370,8 @@ where
     match diagnostics.consume_err(Statement::from_node(node))? {
         Statement::Expression(n) => {
             let value = walk_rvalue(ctx, locals, n, source, visitor, diagnostics)?;
-            diagnostics.consume_node_err(node, visitor.visit_expression_statement(value))
+            visitor.visit_expression_statement(value);
+            Some(())
         }
         Statement::Block(ns) => {
             let mut locals = locals.clone(); // inner scope inheriting outer
@@ -443,18 +444,12 @@ where
                 None
             };
             check_condition_type(&condition, x.condition, diagnostics)?;
-            match visitor.visit_if_statement(
+            visitor.visit_if_statement(
                 (condition, condition_label),
                 consequence_label,
                 alternative_label,
-            ) {
-                Ok(()) => Some(()),
-                Err(e) => {
-                    let diag = Diagnostic::error(node.byte_range(), e.to_string());
-                    diagnostics.push(diag);
-                    None
-                }
-            }
+            );
+            Some(())
         }
         Statement::Switch(x) => {
             let left = walk_rvalue(ctx, locals, x.value, source, visitor, diagnostics)?;
@@ -506,10 +501,8 @@ where
                 None
             };
             if x.cases.len() == cases.len() {
-                diagnostics.consume_node_err(
-                    node,
-                    visitor.visit_switch_statement(cases, default, head_ref, exit_ref),
-                )
+                visitor.visit_switch_statement(cases, default, head_ref, exit_ref);
+                Some(())
             } else {
                 None
             }
@@ -522,7 +515,8 @@ where
                 ));
                 None
             } else if let Some(l) = break_label {
-                diagnostics.consume_node_err(node, visitor.visit_break_statement(l))
+                visitor.visit_break_statement(l);
+                Some(())
             } else {
                 diagnostics.push(Diagnostic::error(
                     node.byte_range(),
@@ -537,7 +531,8 @@ where
             } else {
                 visitor.make_void(node.byte_range())
             };
-            diagnostics.consume_node_err(node, visitor.visit_return_statement(value))
+            visitor.visit_return_statement(value);
+            Some(())
         }
     }
 }
@@ -643,7 +638,8 @@ where
     match func.body {
         FunctionBody::Expression(n) => {
             let value = walk_rvalue(ctx, &mut locals, n, source, visitor, diagnostics)?;
-            diagnostics.consume_node_err(n, visitor.visit_expression_statement(value))
+            visitor.visit_expression_statement(value);
+            Some(())
         }
         FunctionBody::Statement(n) => {
             walk_stmt(ctx, &mut locals, None, n, source, visitor, diagnostics)
