@@ -286,8 +286,6 @@ pub enum ExpressionError<'a> {
         .2.qualified_name(),
     )]
     IncompatibleArrayElementType(usize, TypeDesc<'a>, TypeDesc<'a>),
-    #[error("condition must be of bool type, but got: {}", .0.qualified_name())]
-    IncompatibleConditionType(TypeDesc<'a>),
     #[error("index must be of integer type, but got: {}", .0.qualified_name())]
     IncompatibleIndexType(TypeDesc<'a>),
     #[error("invalid argument: {0}")]
@@ -444,6 +442,7 @@ where
             } else {
                 None
             };
+            check_condition_type(&condition, x.condition, diagnostics)?;
             match visitor.visit_if_statement(
                 (condition, condition_label),
                 consequence_label,
@@ -451,15 +450,7 @@ where
             ) {
                 Ok(()) => Some(()),
                 Err(e) => {
-                    let mut diag = Diagnostic::error(node.byte_range(), e.to_string());
-                    if let ExpressionError::IncompatibleConditionType(t) = &e {
-                        typeutil::diagnose_bool_conversion(
-                            &mut diag,
-                            x.condition.byte_range(),
-                            t,
-                            true, // truthy
-                        );
-                    }
+                    let diag = Diagnostic::error(node.byte_range(), e.to_string());
                     diagnostics.push(diag);
                     None
                 }
@@ -1011,6 +1002,7 @@ where
             let alternative =
                 walk_rvalue(ctx, locals, x.alternative, source, visitor, diagnostics)?;
             let alternative_label = visitor.mark_branch_point();
+            check_condition_type(&condition, x.condition, diagnostics)?;
             match visitor.visit_ternary_expression(
                 (condition, condition_label),
                 (consequence, consequence_label),
@@ -1020,26 +1012,15 @@ where
                 Ok(it) => Some(Intermediate::Item(it)),
                 Err(e) => {
                     let mut diag = Diagnostic::error(node.byte_range(), e.to_string());
-                    match &e {
-                        ExpressionError::IncompatibleConditionType(t) => {
-                            typeutil::diagnose_bool_conversion(
-                                &mut diag,
-                                x.condition.byte_range(),
-                                t,
-                                true, // truthy
-                            );
-                        }
-                        ExpressionError::OperationOnIncompatibleTypes(_, l, r) => {
-                            typeutil::diagnose_incompatible_types(
-                                &mut diag,
-                                x.consequence.byte_range(),
-                                l,
-                                x.alternative.byte_range(),
-                                r,
-                            );
-                        }
-                        _ => {}
-                    }
+                    if let ExpressionError::OperationOnIncompatibleTypes(_, l, r) = &e {
+                        typeutil::diagnose_incompatible_types(
+                            &mut diag,
+                            x.consequence.byte_range(),
+                            l,
+                            x.alternative.byte_range(),
+                            r,
+                        );
+                    };
                     diagnostics.push(diag);
                     None
                 }
@@ -1196,6 +1177,36 @@ where
         }
         None => {
             diagnostics.push(Diagnostic::error(id.node().byte_range(), "undefined type"));
+            None
+        }
+    }
+}
+
+fn check_condition_type<'a, T>(
+    condition: &T,
+    node: Node,
+    diagnostics: &mut Diagnostics,
+) -> Option<()>
+where
+    T: DescribeType<'a>,
+{
+    match condition.type_desc() {
+        TypeDesc::BOOL => Some(()),
+        t => {
+            let mut diag = Diagnostic::error(
+                node.byte_range(),
+                format!(
+                    "condition must be of bool type, but got: {}",
+                    t.qualified_name()
+                ),
+            );
+            typeutil::diagnose_bool_conversion(
+                &mut diag,
+                node.byte_range(),
+                &t,
+                true, // truthy
+            );
+            diagnostics.push(diag);
             None
         }
     }

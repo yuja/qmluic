@@ -480,7 +480,7 @@ fn test_ternary_condition_string() {
       ┌─ <unknown>:3:11
       │
     3 │     text: windowTitle ? windowTitle : "untitled"
-      │           ----------- type: QString
+      │           ^^^^^^^^^^^ type: QString
       │
       = use (!expr.isEmpty()) to test empty string
     "###);
@@ -500,7 +500,7 @@ fn test_if_condition_int() {
       ┌─ <unknown>:4:12
       │
     4 │         if (value) {}
-      │            ------- type: int
+      │            ^^^^^^^ type: int
       │
       = use (expr != 0) to test zero
     "###);
@@ -520,7 +520,7 @@ fn test_if_condition_flag() {
       ┌─ <unknown>:4:12
       │
     4 │         if (alignment & Qt.AlignLeft) {}
-      │            -------------------------- type: Qt::Alignment
+      │            ^^^^^^^^^^^^^^^^^^^^^^^^^^ type: Qt::Alignment
       │
       = use ((expr as int) != 0) to test flag
     "###);
