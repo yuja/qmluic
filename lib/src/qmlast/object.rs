@@ -143,7 +143,7 @@ impl<'tree> UiImport<'tree> {
 
 fn extract_object_id(node: StatementNode) -> Result<Identifier, ParseError> {
     if let Statement::Expression(n) = node.parse()? {
-        Identifier::from_node(n)
+        Identifier::from_node(n.inner_node())
     } else {
         Err(ParseError::new(
             node.inner_node(),

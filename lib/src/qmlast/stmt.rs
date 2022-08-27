@@ -1,5 +1,5 @@
 use super::astutil;
-use super::node::StatementNode;
+use super::node::{ExpressionNode, StatementNode};
 use super::term::{self, Identifier, NestedIdentifier};
 use super::{ParseError, ParseErrorKind};
 use tree_sitter::{Node, TreeCursor};
@@ -8,7 +8,7 @@ use tree_sitter::{Node, TreeCursor};
 #[derive(Clone, Debug)]
 pub enum Statement<'tree> {
     /// Expression node.
-    Expression(Node<'tree>),
+    Expression(ExpressionNode<'tree>),
     /// Block of statement nodes, or an empty statement without block.
     Block(Vec<StatementNode<'tree>>),
 
@@ -19,7 +19,7 @@ pub enum Statement<'tree> {
     /// Break with optional label.
     Break(Option<Identifier<'tree>>),
     /// Return with optionally expression node.
-    Return(Option<Node<'tree>>),
+    Return(Option<ExpressionNode<'tree>>),
 }
 
 impl<'tree> Statement<'tree> {
@@ -32,7 +32,7 @@ impl<'tree> Statement<'tree> {
         let stmt = match node.kind() {
             "expression_statement" => {
                 astutil::goto_first_named_child(cursor)?;
-                Statement::Expression(cursor.node())
+                Statement::Expression(ExpressionNode(cursor.node()))
             }
             "statement_block" => {
                 let stmts = node
@@ -47,7 +47,8 @@ impl<'tree> Statement<'tree> {
                 LexicalDeclaration::with_cursor(cursor).map(Statement::LexicalDeclaration)?
             }
             "if_statement" => {
-                let condition = astutil::get_child_by_field_name(node, "condition")?;
+                let condition =
+                    astutil::get_child_by_field_name(node, "condition").map(ExpressionNode)?;
                 let consequence =
                     astutil::get_child_by_field_name(node, "consequence").map(StatementNode)?;
                 let alternative = node
@@ -73,7 +74,10 @@ impl<'tree> Statement<'tree> {
                 Statement::Break(label)
             }
             "return_statement" => {
-                let expr = node.named_children(cursor).find(|n| !n.is_extra());
+                let expr = node
+                    .named_children(cursor)
+                    .find(|n| !n.is_extra())
+                    .map(ExpressionNode);
                 Statement::Return(expr)
             }
             _ => {
@@ -132,7 +136,7 @@ impl LexicalDeclarationKind {
 pub struct VariableDeclarator<'tree> {
     pub name: Identifier<'tree>,
     pub ty: Option<NestedIdentifier<'tree>>,
-    pub value: Option<Node<'tree>>,
+    pub value: Option<ExpressionNode<'tree>>,
 }
 
 impl<'tree> VariableDeclarator<'tree> {
@@ -146,7 +150,7 @@ impl<'tree> VariableDeclarator<'tree> {
             .child_by_field_name("type")
             .map(term::extract_type_annotation)
             .transpose()?;
-        let value = node.child_by_field_name("value");
+        let value = node.child_by_field_name("value").map(ExpressionNode);
         Ok(VariableDeclarator { name, ty, value })
     }
 
@@ -161,7 +165,7 @@ impl<'tree> VariableDeclarator<'tree> {
 /// Represents an "if" statement.
 #[derive(Clone, Debug)]
 pub struct IfStatement<'tree> {
-    pub condition: Node<'tree>,
+    pub condition: ExpressionNode<'tree>,
     pub consequence: StatementNode<'tree>,
     pub alternative: Option<StatementNode<'tree>>,
 }
@@ -170,7 +174,7 @@ pub struct IfStatement<'tree> {
 #[derive(Clone, Debug)]
 pub struct SwitchStatement<'tree> {
     /// Expression to be matched against each case clause.
-    pub value: Node<'tree>,
+    pub value: ExpressionNode<'tree>,
     /// Case clauses.
     pub cases: Vec<SwitchCase<'tree>>,
     /// Default clause.
@@ -181,7 +185,7 @@ pub struct SwitchStatement<'tree> {
 #[derive(Clone, Debug)]
 pub struct SwitchCase<'tree> {
     /// Expression to be matched.
-    pub value: Node<'tree>,
+    pub value: ExpressionNode<'tree>,
     /// Statements to be executed.
     pub body: Vec<StatementNode<'tree>>,
 }
@@ -198,7 +202,8 @@ pub struct SwitchDefault<'tree> {
 impl<'tree> SwitchStatement<'tree> {
     fn with_cursor(cursor: &mut TreeCursor<'tree>) -> Result<Self, ParseError<'tree>> {
         let switch_node = cursor.node();
-        let switch_value = astutil::get_child_by_field_name(switch_node, "value")?;
+        let switch_value =
+            astutil::get_child_by_field_name(switch_node, "value").map(ExpressionNode)?;
 
         let switch_body_node = astutil::get_child_by_field_name(switch_node, "body")?;
         let mut cases = Vec::new();
@@ -206,7 +211,8 @@ impl<'tree> SwitchStatement<'tree> {
         for (i, node) in switch_body_node.named_children(cursor).enumerate() {
             match node.kind() {
                 "switch_case" => {
-                    let value = astutil::get_child_by_field_name(node, "value")?;
+                    let value =
+                        astutil::get_child_by_field_name(node, "value").map(ExpressionNode)?;
                     let body = node
                         .children_by_field_name("body", &mut node.walk())
                         .map(StatementNode)
@@ -256,7 +262,11 @@ mod tests {
     }
 
     impl<'tree> Statement<'tree> {
-        impl_unwrap_fn!(unwrap_expression, Statement::Expression, Node<'tree>);
+        impl_unwrap_fn!(
+            unwrap_expression,
+            Statement::Expression,
+            ExpressionNode<'tree>
+        );
         impl_unwrap_fn!(unwrap_block, Statement::Block, Vec<StatementNode<'tree>>);
         impl_unwrap_fn!(
             unwrap_lexical_declaration,
@@ -266,7 +276,11 @@ mod tests {
         impl_unwrap_fn!(unwrap_if, Statement::If, IfStatement<'tree>);
         impl_unwrap_fn!(unwrap_switch, Statement::Switch, SwitchStatement<'tree>);
         impl_unwrap_fn!(unwrap_break, Statement::Break, Option<Identifier<'tree>>);
-        impl_unwrap_fn!(unwrap_return, Statement::Return, Option<Node<'tree>>);
+        impl_unwrap_fn!(
+            unwrap_return,
+            Statement::Return,
+            Option<ExpressionNode<'tree>>
+        );
     }
 
     fn parse(source: &str) -> UiDocument {

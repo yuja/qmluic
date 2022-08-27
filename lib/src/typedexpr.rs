@@ -3,8 +3,8 @@
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::opcode::{BinaryOp, BuiltinFunctionKind, ComparisonOp, UnaryLogicalOp, UnaryOp};
 use crate::qmlast::{
-    Expression, Function, FunctionBody, Identifier, LexicalDeclarationKind, NestedIdentifier, Node,
-    Statement, StatementNode,
+    Expression, ExpressionNode, Function, FunctionBody, Identifier, LexicalDeclarationKind,
+    NestedIdentifier, Node, Statement, StatementNode,
 };
 use crate::typemap::{
     Class, Enum, MethodMatches, NamedType, Property, TypeKind, TypeMapError, TypeSpace,
@@ -402,7 +402,7 @@ where
                 let ty = if let Some(n) = &decl.ty {
                     process_type_annotation(ctx, n, source, diagnostics)?
                 } else if let Some((v, n)) = &rvalue_node {
-                    diagnostics.consume_node_err(*n, typeutil::to_concrete_type(v.type_desc()))?
+                    diagnostics.consume_expr_err(*n, typeutil::to_concrete_type(v.type_desc()))?
                 } else {
                     diagnostics.push(Diagnostic::error(
                         decl.node().byte_range(),
@@ -462,7 +462,7 @@ where
                 .iter()
                 .filter_map(|c| {
                     let right = walk_rvalue(ctx, locals, c.value, source, visitor, diagnostics)?;
-                    let condition = diagnostics.consume_node_err(
+                    let condition = diagnostics.consume_expr_err(
                         c.value,
                         visitor.visit_binary_expression(
                             BinaryOp::Comparison(ComparisonOp::Equal),
@@ -576,7 +576,7 @@ where
     match diagnostics.consume_err(node.parse())? {
         // explicitly test the node kind since any expression surrounded by parentheses
         // shouldn't be parsed as a top-level function block.
-        Statement::Expression(n) if n.kind() == "function" || n.kind() == "arrow_function" => {
+        Statement::Expression(n) if n.is_bare_function() => {
             walk_callback_function(ctx, n, source, visitor, diagnostics)
         }
         _ => walk(ctx, node, source, visitor, diagnostics),
@@ -585,7 +585,7 @@ where
 
 fn walk_callback_function<'a, C, V>(
     ctx: &C,
-    node: Node,
+    node: ExpressionNode,
     source: &str,
     visitor: &mut V,
     diagnostics: &mut Diagnostics,
@@ -651,7 +651,7 @@ where
 fn walk_rvalue<'a, C, V>(
     ctx: &C,
     locals: &mut HashMap<String, (V::Local, LexicalDeclarationKind)>,
-    node: Node,
+    node: ExpressionNode,
     source: &str,
     visitor: &mut V,
     diagnostics: &mut Diagnostics,
@@ -662,12 +662,12 @@ where
 {
     match walk_expr(ctx, locals, node, source, visitor, diagnostics)? {
         Intermediate::Item(x) => Some(x),
-        Intermediate::Local(l, _) => diagnostics.consume_node_err(node, visitor.visit_local_ref(l)),
-        Intermediate::BoundProperty(it, p, _) => diagnostics.consume_node_err(
+        Intermediate::Local(l, _) => diagnostics.consume_expr_err(node, visitor.visit_local_ref(l)),
+        Intermediate::BoundProperty(it, p, _) => diagnostics.consume_expr_err(
             node,
             visitor.visit_object_property(it, p, node.byte_range()),
         ),
-        Intermediate::BoundSubscript(it, i, _) => diagnostics.consume_node_err(
+        Intermediate::BoundSubscript(it, i, _) => diagnostics.consume_expr_err(
             node,
             visitor.visit_object_subscript(it, i, node.byte_range()),
         ),
@@ -689,7 +689,7 @@ where
 fn walk_expr<'a, C, V>(
     ctx: &C,
     locals: &mut HashMap<String, (V::Local, LexicalDeclarationKind)>,
-    node: Node,
+    node: ExpressionNode,
     source: &str,
     visitor: &mut V,
     diagnostics: &mut Diagnostics,
@@ -698,14 +698,14 @@ where
     C: RefSpace<'a> + TypeAnnotationSpace<'a>,
     V: ExpressionVisitor<'a>,
 {
-    match diagnostics.consume_err(Expression::from_node(node, source))? {
+    match diagnostics.consume_err(node.parse(source))? {
         Expression::Identifier(x) => {
             process_identifier(ctx, locals, x, source, visitor, diagnostics)
         }
         Expression::This => {
             if let Some((cls, name)) = ctx.this_object() {
                 diagnostics
-                    .consume_node_err(
+                    .consume_expr_err(
                         node,
                         visitor.visit_object_ref(cls, &name, node.byte_range()),
                     )
@@ -716,19 +716,19 @@ where
             }
         }
         Expression::Integer(v) => diagnostics
-            .consume_node_err(node, visitor.visit_integer(v, node.byte_range()))
+            .consume_expr_err(node, visitor.visit_integer(v, node.byte_range()))
             .map(Intermediate::Item),
         Expression::Float(v) => diagnostics
-            .consume_node_err(node, visitor.visit_float(v, node.byte_range()))
+            .consume_expr_err(node, visitor.visit_float(v, node.byte_range()))
             .map(Intermediate::Item),
         Expression::String(v) => diagnostics
-            .consume_node_err(node, visitor.visit_string(v, node.byte_range()))
+            .consume_expr_err(node, visitor.visit_string(v, node.byte_range()))
             .map(Intermediate::Item),
         Expression::Bool(v) => diagnostics
-            .consume_node_err(node, visitor.visit_bool(v, node.byte_range()))
+            .consume_expr_err(node, visitor.visit_bool(v, node.byte_range()))
             .map(Intermediate::Item),
         Expression::Null => diagnostics
-            .consume_node_err(node, visitor.visit_null(node.byte_range()))
+            .consume_expr_err(node, visitor.visit_null(node.byte_range()))
             .map(Intermediate::Item),
         Expression::Array(ns) => {
             let elements = ns
@@ -766,18 +766,18 @@ where
                     process_item_property(it, x.property, ExprKind::Rvalue, source, diagnostics)
                 }
                 Intermediate::Local(l, _) => {
-                    let it = diagnostics.consume_node_err(node, visitor.visit_local_ref(l))?;
+                    let it = diagnostics.consume_expr_err(node, visitor.visit_local_ref(l))?;
                     process_item_property(it, x.property, ExprKind::Lvalue, source, diagnostics)
                 }
                 Intermediate::BoundProperty(it, p, _) => {
-                    let obj = diagnostics.consume_node_err(
+                    let obj = diagnostics.consume_expr_err(
                         x.object,
                         visitor.visit_object_property(it, p, x.object.byte_range()),
                     )?;
                     process_item_property(obj, x.property, ExprKind::Rvalue, source, diagnostics)
                 }
                 Intermediate::BoundSubscript(it, i, _) => {
-                    let obj = diagnostics.consume_node_err(
+                    let obj = diagnostics.consume_expr_err(
                         x.object,
                         visitor.visit_object_subscript(it, i, x.object.byte_range()),
                     )?;
@@ -799,18 +799,18 @@ where
             let (obj, k) = match walk_expr(ctx, locals, x.object, source, visitor, diagnostics)? {
                 Intermediate::Item(it) => (it, ExprKind::Rvalue),
                 Intermediate::Local(l, _) => {
-                    let it = diagnostics.consume_node_err(node, visitor.visit_local_ref(l))?;
+                    let it = diagnostics.consume_expr_err(node, visitor.visit_local_ref(l))?;
                     (it, ExprKind::Lvalue)
                 }
                 Intermediate::BoundProperty(it, p, _) => {
-                    let obj = diagnostics.consume_node_err(
+                    let obj = diagnostics.consume_expr_err(
                         x.object,
                         visitor.visit_object_property(it, p, x.object.byte_range()),
                     )?;
                     (obj, ExprKind::Rvalue)
                 }
                 Intermediate::BoundSubscript(it, i, _) => {
-                    let obj = diagnostics.consume_node_err(
+                    let obj = diagnostics.consume_expr_err(
                         x.object,
                         visitor.visit_object_subscript(it, i, x.object.byte_range()),
                     )?;
@@ -842,13 +842,13 @@ where
                 .collect::<Option<Vec<_>>>()?;
             match walk_expr(ctx, locals, x.function, source, visitor, diagnostics)? {
                 Intermediate::BoundMethod(it, ms) => diagnostics
-                    .consume_node_err(
+                    .consume_expr_err(
                         node,
                         visitor.visit_object_method_call(it, ms, arguments, node.byte_range()),
                     )
                     .map(Intermediate::Item),
                 Intermediate::BuiltinFunction(f) => diagnostics
-                    .consume_node_err(
+                    .consume_expr_err(
                         node,
                         visitor.visit_builtin_call(f, arguments, node.byte_range()),
                     )
@@ -868,7 +868,7 @@ where
             match walk_expr(ctx, locals, x.left, source, visitor, diagnostics)? {
                 Intermediate::Local(l, k) => match k {
                     LexicalDeclarationKind::Let => diagnostics
-                        .consume_node_err(
+                        .consume_expr_err(
                             node,
                             visitor.visit_local_assignment(l, right, node.byte_range()),
                         )
@@ -886,7 +886,7 @@ where
                     p,
                     ReceiverKind::Object | ReceiverKind::Gadget(ExprKind::Lvalue),
                 ) => diagnostics
-                    .consume_node_err(
+                    .consume_expr_err(
                         node,
                         visitor.visit_object_property_assignment(it, p, right, node.byte_range()),
                     )
@@ -899,7 +899,7 @@ where
                     None
                 }
                 Intermediate::BoundSubscript(it, i, ExprKind::Lvalue) => diagnostics
-                    .consume_node_err(
+                    .consume_expr_err(
                         node,
                         visitor.visit_object_subscript_assignment(it, i, right, node.byte_range()),
                     )
@@ -983,7 +983,7 @@ where
             let value = walk_rvalue(ctx, locals, x.value, source, visitor, diagnostics)?;
             let ty = process_type_annotation(ctx, &x.ty, source, diagnostics)?;
             diagnostics
-                .consume_node_err(
+                .consume_expr_err(
                     node,
                     visitor.visit_as_expression(value, ty, node.byte_range()),
                 )
@@ -1180,7 +1180,7 @@ where
 
 fn check_condition_type<'a, T>(
     condition: &T,
-    node: Node,
+    node: ExpressionNode,
     diagnostics: &mut Diagnostics,
 ) -> Option<()>
 where
@@ -1208,7 +1208,15 @@ where
     }
 }
 
+// TODO: maybe rewrite this extension methods with a plain function?
 impl Diagnostics {
+    fn consume_expr_err<T, E>(&mut self, node: ExpressionNode, result: Result<T, E>) -> Option<T>
+    where
+        E: ToString,
+    {
+        self.consume_err(result.map_err(|e| Diagnostic::error(node.byte_range(), e.to_string())))
+    }
+
     fn consume_node_err<T, E>(&mut self, node: Node, result: Result<T, E>) -> Option<T>
     where
         E: ToString,

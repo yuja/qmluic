@@ -1,5 +1,5 @@
 use super::astutil::{self, Number};
-use super::node::StatementNode;
+use super::node::{ExpressionNode, StatementNode};
 use super::term::{self, Identifier, NestedIdentifier};
 use super::{ParseError, ParseErrorKind};
 use std::fmt;
@@ -15,7 +15,7 @@ pub enum Expression<'tree> {
     String(String),
     Bool(bool),
     Null,
-    Array(Vec<Node<'tree>>),
+    Array(Vec<ExpressionNode<'tree>>),
     Function(Function<'tree>),
     ArrowFunction(Function<'tree>),
     Member(MemberExpression<'tree>),
@@ -30,7 +30,7 @@ pub enum Expression<'tree> {
 }
 
 impl<'tree> Expression<'tree> {
-    pub fn from_node(node: Node<'tree>, source: &str) -> Result<Self, ParseError<'tree>> {
+    pub fn from_node(node: ExpressionNode<'tree>, source: &str) -> Result<Self, ParseError<'tree>> {
         Self::with_cursor(&mut node.walk(), source)
     }
 
@@ -63,13 +63,15 @@ impl<'tree> Expression<'tree> {
                 let items = node
                     .named_children(cursor)
                     .filter(|n| !n.is_extra())
+                    .map(ExpressionNode)
                     .collect();
                 Expression::Array(items)
             }
             "function" => Function::with_cursor(cursor).map(Expression::Function)?,
             "arrow_function" => Function::with_cursor(cursor).map(Expression::ArrowFunction)?,
             "member_expression" => {
-                let object = astutil::get_child_by_field_name(node, "object")?;
+                let object =
+                    astutil::get_child_by_field_name(node, "object").map(ExpressionNode)?;
                 let property =
                     Identifier::from_node(astutil::get_child_by_field_name(node, "property")?)?;
                 // reject optional chaining: <object>?.<property>
@@ -82,8 +84,9 @@ impl<'tree> Expression<'tree> {
                 Expression::Member(MemberExpression { object, property })
             }
             "subscript_expression" => {
-                let object = astutil::get_child_by_field_name(node, "object")?;
-                let index = astutil::get_child_by_field_name(node, "index")?;
+                let object =
+                    astutil::get_child_by_field_name(node, "object").map(ExpressionNode)?;
+                let index = astutil::get_child_by_field_name(node, "index").map(ExpressionNode)?;
                 // reject optional chaining: <object>?.[<index>]
                 if let Some((n, _)) =
                     astutil::children_between_field_names(node, cursor, "object", "index")
@@ -94,10 +97,12 @@ impl<'tree> Expression<'tree> {
                 Expression::Subscript(SubscriptExpression { object, index })
             }
             "call_expression" => {
-                let function = astutil::get_child_by_field_name(node, "function")?;
+                let function =
+                    astutil::get_child_by_field_name(node, "function").map(ExpressionNode)?;
                 let arguments = astutil::get_child_by_field_name(node, "arguments")?
                     .named_children(cursor)
                     .filter(|n| !n.is_extra())
+                    .map(ExpressionNode)
                     .collect();
                 // reject optional chaining: <function>?.(<arguments>)
                 if let Some((n, _)) =
@@ -112,21 +117,22 @@ impl<'tree> Expression<'tree> {
                 })
             }
             "assignment_expression" => {
-                let left = astutil::get_child_by_field_name(node, "left")?;
-                let right = astutil::get_child_by_field_name(node, "right")?;
+                let left = astutil::get_child_by_field_name(node, "left").map(ExpressionNode)?;
+                let right = astutil::get_child_by_field_name(node, "right").map(ExpressionNode)?;
                 Expression::Assignment(AssignmentExpression { left, right })
             }
             "unary_expression" => {
                 let operator =
                     UnaryOperator::from_node(astutil::get_child_by_field_name(node, "operator")?)?;
-                let argument = astutil::get_child_by_field_name(node, "argument")?;
+                let argument =
+                    astutil::get_child_by_field_name(node, "argument").map(ExpressionNode)?;
                 Expression::Unary(UnaryExpression { operator, argument })
             }
             "binary_expression" => {
                 let operator =
                     BinaryOperator::from_node(astutil::get_child_by_field_name(node, "operator")?)?;
-                let left = astutil::get_child_by_field_name(node, "left")?;
-                let right = astutil::get_child_by_field_name(node, "right")?;
+                let left = astutil::get_child_by_field_name(node, "left").map(ExpressionNode)?;
+                let right = astutil::get_child_by_field_name(node, "right").map(ExpressionNode)?;
                 Expression::Binary(BinaryExpression {
                     operator,
                     left,
@@ -136,7 +142,10 @@ impl<'tree> Expression<'tree> {
             "as_expression" => {
                 let invalid_syntax = || ParseError::new(node, ParseErrorKind::InvalidSyntax);
                 let mut children = node.children(cursor).filter(|n| !n.is_extra());
-                let value = children.next().ok_or_else(invalid_syntax)?;
+                let value = children
+                    .next()
+                    .ok_or_else(invalid_syntax)
+                    .map(ExpressionNode)?;
                 let as_node = children.next().ok_or_else(invalid_syntax)?;
                 let ty_node = children.next().ok_or_else(invalid_syntax)?;
                 if let Some(n) = children.next() {
@@ -151,9 +160,12 @@ impl<'tree> Expression<'tree> {
                 })
             }
             "ternary_expression" => {
-                let condition = astutil::get_child_by_field_name(node, "condition")?;
-                let consequence = astutil::get_child_by_field_name(node, "consequence")?;
-                let alternative = astutil::get_child_by_field_name(node, "alternative")?;
+                let condition =
+                    astutil::get_child_by_field_name(node, "condition").map(ExpressionNode)?;
+                let consequence =
+                    astutil::get_child_by_field_name(node, "consequence").map(ExpressionNode)?;
+                let alternative =
+                    astutil::get_child_by_field_name(node, "alternative").map(ExpressionNode)?;
                 Expression::Ternary(TernaryExpression {
                     condition,
                     consequence,
@@ -179,7 +191,7 @@ pub struct Function<'tree> {
 }
 
 impl<'tree> Function<'tree> {
-    pub fn from_node(node: Node<'tree>) -> Result<Self, ParseError<'tree>> {
+    pub fn from_node(node: ExpressionNode<'tree>) -> Result<Self, ParseError<'tree>> {
         Self::with_cursor(&mut node.walk())
     }
 
@@ -242,7 +254,7 @@ impl<'tree> Function<'tree> {
                 let body = if body_node.kind() == "statement_block" {
                     FunctionBody::Statement(StatementNode(body_node))
                 } else {
-                    FunctionBody::Expression(body_node)
+                    FunctionBody::Expression(ExpressionNode(body_node))
                 };
                 Ok(Function {
                     name: None,
@@ -261,7 +273,7 @@ impl<'tree> Function<'tree> {
 /// If the function isn't an arrow function, the body should be `Statement` kind.
 #[derive(Clone, Copy, Debug)]
 pub enum FunctionBody<'tree> {
-    Expression(Node<'tree>),
+    Expression(ExpressionNode<'tree>),
     Statement(StatementNode<'tree>),
 }
 
@@ -299,36 +311,36 @@ impl<'tree> FormalParameter<'tree> {
 /// Represents a member expression.
 #[derive(Clone, Debug)]
 pub struct MemberExpression<'tree> {
-    pub object: Node<'tree>,
+    pub object: ExpressionNode<'tree>,
     pub property: Identifier<'tree>,
 }
 
 /// Represents a subscript expression.
 #[derive(Clone, Debug)]
 pub struct SubscriptExpression<'tree> {
-    pub object: Node<'tree>,
-    pub index: Node<'tree>,
+    pub object: ExpressionNode<'tree>,
+    pub index: ExpressionNode<'tree>,
 }
 
 /// Represents a call expression.
 #[derive(Clone, Debug)]
 pub struct CallExpression<'tree> {
-    pub function: Node<'tree>,
-    pub arguments: Vec<Node<'tree>>,
+    pub function: ExpressionNode<'tree>,
+    pub arguments: Vec<ExpressionNode<'tree>>,
 }
 
 /// Represents an assignment expression.
 #[derive(Clone, Debug)]
 pub struct AssignmentExpression<'tree> {
-    pub left: Node<'tree>,
-    pub right: Node<'tree>,
+    pub left: ExpressionNode<'tree>,
+    pub right: ExpressionNode<'tree>,
 }
 
 /// Represents a unary expression.
 #[derive(Clone, Debug)]
 pub struct UnaryExpression<'tree> {
     pub operator: UnaryOperator,
-    pub argument: Node<'tree>,
+    pub argument: ExpressionNode<'tree>,
 }
 
 /// Unary operation type.
@@ -390,8 +402,8 @@ impl fmt::Display for UnaryOperator {
 #[derive(Clone, Debug)]
 pub struct BinaryExpression<'tree> {
     pub operator: BinaryOperator,
-    pub left: Node<'tree>,
-    pub right: Node<'tree>,
+    pub left: ExpressionNode<'tree>,
+    pub right: ExpressionNode<'tree>,
 }
 
 /// Binary operation type.
@@ -524,16 +536,16 @@ impl fmt::Display for BinaryOperator {
 /// Represents an `as` (or type cast) expression.
 #[derive(Clone, Debug)]
 pub struct AsExpression<'tree> {
-    pub value: Node<'tree>,
+    pub value: ExpressionNode<'tree>,
     pub ty: NestedIdentifier<'tree>,
 }
 
 /// Represents a ternary (or conditional) expression.
 #[derive(Clone, Debug)]
 pub struct TernaryExpression<'tree> {
-    pub condition: Node<'tree>,
-    pub consequence: Node<'tree>,
-    pub alternative: Node<'tree>,
+    pub condition: ExpressionNode<'tree>,
+    pub consequence: ExpressionNode<'tree>,
+    pub alternative: ExpressionNode<'tree>,
 }
 
 #[cfg(test)]
@@ -560,7 +572,7 @@ mod tests {
         impl_unwrap_fn!(unwrap_float, Expression::Float, f64);
         impl_unwrap_fn!(unwrap_string, Expression::String, String);
         impl_unwrap_fn!(unwrap_bool, Expression::Bool, bool);
-        impl_unwrap_fn!(unwrap_array, Expression::Array, Vec<Node<'tree>>);
+        impl_unwrap_fn!(unwrap_array, Expression::Array, Vec<ExpressionNode<'tree>>);
         impl_unwrap_fn!(unwrap_function, Expression::Function, Function<'tree>);
         impl_unwrap_fn!(
             unwrap_arrow_function,
@@ -599,7 +611,7 @@ mod tests {
         let map = obj.build_binding_map(doc.source()).unwrap();
         let node = map.get(name).unwrap().get_node().unwrap();
         match Statement::from_node(node).unwrap() {
-            Statement::Expression(n) => Expression::from_node(n, doc.source()),
+            Statement::Expression(n) => n.parse(doc.source()),
             stmt => panic!("expression statement node must be specified, but got {stmt:?}"),
         }
     }
@@ -650,9 +662,7 @@ mod tests {
             unwrap_expr(&doc, "array")
                 .unwrap_array()
                 .iter()
-                .map(|&n| Expression::from_node(n, doc.source())
-                    .unwrap()
-                    .unwrap_integer())
+                .map(|&n| n.parse(doc.source()).unwrap().unwrap_integer())
                 .collect::<Vec<_>>(),
             [0, 1, 2]
         );
@@ -788,8 +798,10 @@ mod tests {
 
         let x = unwrap_expr(&doc, "member").unwrap_member();
         assert_eq!(
-            Identifier::from_node(x.object)
+            x.object
+                .parse(doc.source())
                 .unwrap()
+                .unwrap_identifier()
                 .to_str(doc.source()),
             "foo"
         );
@@ -811,13 +823,19 @@ mod tests {
 
         let x = unwrap_expr(&doc, "subscript").unwrap_subscript();
         assert_eq!(
-            Identifier::from_node(x.object)
+            x.object
+                .parse(doc.source())
                 .unwrap()
+                .unwrap_identifier()
                 .to_str(doc.source()),
             "foo"
         );
         assert_eq!(
-            Identifier::from_node(x.index).unwrap().to_str(doc.source()),
+            x.index
+                .parse(doc.source())
+                .unwrap()
+                .unwrap_identifier()
+                .to_str(doc.source()),
             "bar"
         );
 
@@ -837,8 +855,10 @@ mod tests {
 
         let x = unwrap_expr(&doc, "call").unwrap_call();
         assert_eq!(
-            Identifier::from_node(x.function)
+            x.function
+                .parse(doc.source())
                 .unwrap()
+                .unwrap_identifier()
                 .to_str(doc.source()),
             "foo"
         );
@@ -858,7 +878,11 @@ mod tests {
         );
         let x = unwrap_expr(&doc, "assign").unwrap_assignment();
         assert_eq!(
-            Identifier::from_node(x.left).unwrap().to_str(doc.source()),
+            x.left
+                .parse(doc.source())
+                .unwrap()
+                .unwrap_identifier()
+                .to_str(doc.source()),
             "foo"
         );
         assert_ne!(x.left, x.right);
@@ -901,7 +925,7 @@ mod tests {
             "###,
         );
         let x = unwrap_expr(&doc, "as_").unwrap_as();
-        assert_ne!(x.value, x.ty.node());
+        assert_ne!(x.value.inner_node(), x.ty.node());
         assert_eq!(x.ty.to_string(doc.source()), "int");
     }
 
