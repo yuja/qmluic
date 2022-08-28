@@ -1563,27 +1563,27 @@ fn switch_basic() {
         %0: QString
         %1: QString
         %2: bool
-        %3: QString
-        %4: bool
+        %3: bool
+        %4: QString
         %5: QString
         %6: QString
     .0:
         %0 = read_property [foo]: Foo*, "text"
         %1 = copy %0: QString
-        br .2
-    .1:
-        unreachable
-    .2:
         %2 = binary_op '==', %1: QString, "foo2": QString
-        br_cond %2: bool, .3, .5
+        br_cond %2: bool, .4, .1
+    .1:
+        %3 = binary_op '==', %1: QString, "foo3": QString
+        br_cond %3: bool, .6, .8
+    .2:
+        br .4
     .3:
-        %3 = read_property [foo2]: Foo*, "text"
-        return %3: QString
+        unreachable
     .4:
-        br .6
+        %4 = read_property [foo2]: Foo*, "text"
+        return %4: QString
     .5:
-        %4 = binary_op '==', %1: QString, "foo3": QString
-        br_cond %4: bool, .6, .8
+        br .6
     .6:
         %5 = read_property [foo3]: Foo*, "text"
         return %5: QString
@@ -1623,6 +1623,34 @@ fn switch_default_only() {
 }
 
 #[test]
+fn switch_default_only_break() {
+    insta::assert_snapshot!(
+        dump(r###"{
+        switch (foo.currentIndex) {
+        default:
+            foo.done(0);
+            break;
+        }
+        foo.done(-1);
+    }"###), @r###"
+        %0: int
+    .0:
+        %0 = read_property [foo]: Foo*, "currentIndex"
+        br .2
+    .1:
+        br .4
+    .2:
+        call_method [foo]: Foo*, "done", {0: integer}
+        br .1
+    .3:
+        br .4
+    .4:
+        call_method [foo]: Foo*, "done", {-1: integer}
+        return _: void
+    "###);
+}
+
+#[test]
 fn switch_case_only() {
     insta::assert_snapshot!(
         dump(r###"{
@@ -1637,15 +1665,15 @@ fn switch_case_only() {
         %1: bool
     .0:
         %0 = read_property [foo]: Foo*, "currentIndex"
-        br .2
-    .1:
-        br .5
-    .2:
         %1 = binary_op '==', %0: int, 1: integer
         br_cond %1: bool, .3, .5
+    .1:
+        br .3
+    .2:
+        br .5
     .3:
         call_method [foo]: Foo*, "done", {1: integer}
-        br .1
+        br .2
     .4:
         br .5
     .5:
@@ -1673,24 +1701,24 @@ fn switch_default_first_fall_through() {
         %2: bool
     .0:
         %0 = read_property [foo]: Foo*, "currentIndex"
-        br .2
-    .1:
-        br .7
-    .2:
         %1 = binary_op '==', %0: int, 1: integer
-        br_cond %1: bool, .3, .4
-    .3:
-        call_method [foo]: Foo*, "done", {1: integer}
-        br .5
-    .4:
+        br_cond %1: bool, .5, .1
+    .1:
         %2 = binary_op '==', %0: int, 2: integer
-        br_cond %2: bool, .5, .6
+        br_cond %2: bool, .6, .4
+    .2:
+        br .4
+    .3:
+        br .7
+    .4:
+        call_method [foo]: Foo*, "done", {0: integer}
+        br .5
     .5:
+        call_method [foo]: Foo*, "done", {1: integer}
+        br .6
+    .6:
         call_method [foo]: Foo*, "done", {2: integer}
         br .7
-    .6:
-        call_method [foo]: Foo*, "done", {0: integer}
-        br .3
     .7:
         call_method [foo]: Foo*, "done", {-1: integer}
         return _: void
@@ -1716,24 +1744,24 @@ fn switch_default_mid_fall_through() {
         %2: bool
     .0:
         %0 = read_property [foo]: Foo*, "currentIndex"
-        br .2
-    .1:
-        br .7
-    .2:
         %1 = binary_op '==', %0: int, 1: integer
-        br_cond %1: bool, .3, .4
-    .3:
-        call_method [foo]: Foo*, "done", {1: integer}
-        br .6
-    .4:
+        br_cond %1: bool, .4, .1
+    .1:
         %2 = binary_op '==', %0: int, 2: integer
-        br_cond %2: bool, .5, .6
+        br_cond %2: bool, .6, .5
+    .2:
+        br .4
+    .3:
+        br .7
+    .4:
+        call_method [foo]: Foo*, "done", {1: integer}
+        br .5
     .5:
+        call_method [foo]: Foo*, "done", {0: integer}
+        br .6
+    .6:
         call_method [foo]: Foo*, "done", {2: integer}
         br .7
-    .6:
-        call_method [foo]: Foo*, "done", {0: integer}
-        br .5
     .7:
         call_method [foo]: Foo*, "done", {-1: integer}
         return _: void
@@ -1759,18 +1787,18 @@ fn switch_default_end_fall_through() {
         %2: bool
     .0:
         %0 = read_property [foo]: Foo*, "currentIndex"
-        br .2
-    .1:
-        br .7
-    .2:
         %1 = binary_op '==', %0: int, 1: integer
-        br_cond %1: bool, .3, .4
-    .3:
-        call_method [foo]: Foo*, "done", {1: integer}
-        br .5
-    .4:
+        br_cond %1: bool, .4, .1
+    .1:
         %2 = binary_op '==', %0: int, 2: integer
         br_cond %2: bool, .5, .6
+    .2:
+        br .4
+    .3:
+        br .7
+    .4:
+        call_method [foo]: Foo*, "done", {1: integer}
+        br .5
     .5:
         call_method [foo]: Foo*, "done", {2: integer}
         br .6
@@ -1804,28 +1832,28 @@ fn switch_empty_fall_through() {
         %3: bool
     .0:
         %0 = read_property [foo]: Foo*, "currentIndex"
-        br .2
-    .1:
-        br .10
-    .2:
         %1 = binary_op '==', %0: int, 1: integer
-        br_cond %1: bool, .3, .4
+        br_cond %1: bool, .5, .1
+    .1:
+        %2 = binary_op '==', %0: int, 2: integer
+        br_cond %2: bool, .6, .2
+    .2:
+        %3 = binary_op '==', %0: int, 3: integer
+        br_cond %3: bool, .8, .10
     .3:
         br .5
     .4:
-        %2 = binary_op '==', %0: int, 2: integer
-        br_cond %2: bool, .5, .7
+        br .10
     .5:
-        call_method [foo]: Foo*, "done", {1: integer}
-        br .1
+        br .6
     .6:
-        br .8
+        call_method [foo]: Foo*, "done", {1: integer}
+        br .4
     .7:
-        %3 = binary_op '==', %0: int, 3: integer
-        br_cond %3: bool, .8, .10
+        br .8
     .8:
         call_method [foo]: Foo*, "done", {3: integer}
-        br .1
+        br .4
     .9:
         br .10
     .10:
@@ -1853,19 +1881,19 @@ fn switch_return() {
         %2: bool
     .0:
         %0 = read_property [foo]: Foo*, "currentIndex"
-        br .2
-    .1:
-        br .10
-    .2:
         %1 = binary_op '==', %0: int, 0: integer
-        br_cond %1: bool, .3, .5
-    .3:
-        return "0": QString
-    .4:
-        br .6
-    .5:
+        br_cond %1: bool, .4, .1
+    .1:
         %2 = binary_op '==', %0: int, 1: integer
         br_cond %2: bool, .6, .8
+    .2:
+        br .4
+    .3:
+        br .10
+    .4:
+        return "0": QString
+    .5:
+        br .6
     .6:
         return "1": QString
     .7:
@@ -1907,31 +1935,31 @@ fn switch_conditional_break() {
         %5: bool
     .0:
         %0 = read_property [foo]: Foo*, "currentIndex"
-        br .2
-    .1:
-        br .19
-    .2:
         %1 = binary_op '==', %0: int, 2: integer
-        br_cond %1: bool, .3, .8
+        br_cond %1: bool, .4, .1
+    .1:
+        %2 = binary_op '==', %0: int, 3: integer
+        br_cond %2: bool, .9, .14
+    .2:
+        br .4
     .3:
-        %2 = read_property [foo2]: Foo*, "checked"
-        br_cond %2: bool, .4, .6
+        br .19
     .4:
-        br .1
+        %3 = read_property [foo2]: Foo*, "checked"
+        br_cond %3: bool, .5, .7
     .5:
-        br .6
+        br .3
     .6:
-        return "2": QString
+        br .7
     .7:
-        br .9
+        return "2": QString
     .8:
-        %3 = binary_op '==', %0: int, 3: integer
-        br_cond %3: bool, .9, .14
+        br .9
     .9:
         %4 = read_property [foo3]: Foo*, "checked"
         br_cond %4: bool, .10, .12
     .10:
-        br .1
+        br .3
     .11:
         br .12
     .12:
@@ -1942,7 +1970,7 @@ fn switch_conditional_break() {
         %5 = read_property [foo]: Foo*, "checked"
         br_cond %5: bool, .15, .17
     .15:
-        br .1
+        br .3
     .16:
         br .17
     .17:
@@ -1986,23 +2014,23 @@ fn switch_ternary_in_left_value() {
         %3 = copy %2: int
         br .3
     .3:
-        br .5
-    .4:
-        br .11
-    .5:
         %4 = binary_op '==', %3: int, 1: integer
-        br_cond %4: bool, .6, .8
-    .6:
-        call_method [foo]: Foo*, "done", {1: integer}
-        br .4
-    .7:
-        br .9
-    .8:
+        br_cond %4: bool, .7, .4
+    .4:
         %5 = binary_op '==', %3: int, 2: integer
         br_cond %5: bool, .9, .11
+    .5:
+        br .7
+    .6:
+        br .11
+    .7:
+        call_method [foo]: Foo*, "done", {1: integer}
+        br .6
+    .8:
+        br .9
     .9:
         call_method [foo]: Foo*, "done", {2: integer}
-        br .4
+        br .6
     .10:
         br .11
     .11:

@@ -57,45 +57,45 @@ private:
         bool a4;
     b0:
         a0 = this->ui_->textAlignmentEdit->currentIndex();
-        goto b2;
-    b1:
-        Q_UNREACHABLE();
-    b2:
         a1 = a0 == 0;
         if (a1)
-            goto b3;
-        else
-            goto b5;
-    b3:
-        return Qt::AlignLeft;
-    b4:
-        goto b6;
-    b5:
-        a2 = a0 == 1;
-        if (a2)
             goto b6;
         else
+            goto b1;
+    b1:
+        a2 = a0 == 1;
+        if (a2)
             goto b8;
-    b6:
-        return Qt::AlignRight;
-    b7:
-        goto b9;
-    b8:
+        else
+            goto b2;
+    b2:
         a3 = a0 == 2;
         if (a3)
-            goto b9;
+            goto b10;
         else
-            goto b11;
-    b9:
-        return Qt::AlignHCenter;
-    b10:
-        goto b12;
-    b11:
+            goto b3;
+    b3:
         a4 = a0 == 3;
         if (a4)
             goto b12;
         else
             goto b14;
+    b4:
+        goto b6;
+    b5:
+        Q_UNREACHABLE();
+    b6:
+        return Qt::AlignLeft;
+    b7:
+        goto b8;
+    b8:
+        return Qt::AlignRight;
+    b9:
+        goto b10;
+    b10:
+        return Qt::AlignHCenter;
+    b11:
+        goto b12;
     b12:
         return Qt::AlignJustify;
     b13:

@@ -550,40 +550,47 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
 
     fn visit_switch_statement(
         &mut self,
-        cases: Vec<(Self::Item, Self::Label, Self::Label)>,
-        default: Option<(usize, Self::Label)>,
+        case_conditions: Vec<(Self::Item, Self::Label)>,
+        bodies: Vec<Self::Label>,
+        default_pos: Option<usize>,
         head_ref: Self::Label,
         exit_ref: Self::Label,
     ) {
-        // order of blocks: ...|exit|case0|body0|case1|body1|...|default body|
-        let last_case_body_ref = cases.last().map(|&(_, _, b)| b).unwrap_or(exit_ref);
-        let last_body_ref = default.map(|(_, b)| b).unwrap_or(last_case_body_ref);
-
-        // connect fall-through paths: |body0|case1|body1|     |default body|
-        //                                   +-----^         --^            +-->
-        let mut fall_through_list: Vec<_> = cases.iter().map(|&(_, c, b)| (c, b)).collect();
-        if let Some((pos, body_ref)) = default {
-            fall_through_list.insert(pos, (last_case_body_ref, body_ref));
+        // order of blocks: ...|case0|case1|...|exit|body0|body1|...|
+        //                                                 ^ default_pos
+        let last_body_ref = bodies.last().copied().unwrap_or(exit_ref);
+        let mut case_body_start_refs = Vec::with_capacity(bodies.len());
+        case_body_start_refs.push(exit_ref.next());
+        if let Some((_, heads)) = bodies.split_last() {
+            case_body_start_refs.extend(heads.iter().map(|r| r.next()));
         }
-        fall_through_list.push((last_body_ref, BasicBlockRef(usize::MAX)));
-        for (&(_, body_ref), &(next_case_ref, _)) in fall_through_list.iter().tuple_windows() {
-            self.get_basic_block_mut(body_ref)
-                .finalize(Terminator::Br(next_case_ref.next())); // next body start
-        }
+        let default_body_start_ref = default_pos.map(|p| case_body_start_refs.remove(p));
 
         // connect case branches
-        for (condition, condition_ref, body_ref) in cases {
+        assert_eq!(case_conditions.len(), case_body_start_refs.len());
+        for (i, ((condition, condition_ref), &body_start_ref)) in case_conditions
+            .into_iter()
+            .zip(&case_body_start_refs)
+            .enumerate()
+        {
+            let next_ref = if i + 1 < case_body_start_refs.len() {
+                condition_ref.next() // next condition start
+            } else {
+                default_body_start_ref.unwrap_or_else(|| last_body_ref.next()) // default or end
+            };
             self.get_basic_block_mut(condition_ref)
-                .finalize(Terminator::BrCond(
-                    condition,
-                    condition_ref.next(), // body start
-                    body_ref.next(),      // next condition start, default body start, or end
-                ));
+                .finalize(Terminator::BrCond(condition, body_start_ref, next_ref));
+        }
+
+        // connect fall-through paths
+        for &body_ref in &bodies {
+            self.get_basic_block_mut(body_ref)
+                .finalize(Terminator::Br(body_ref.next())); // next body start or end
         }
 
         // connect enter/exit paths
         self.get_basic_block_mut(head_ref)
-            .finalize(Terminator::Br(exit_ref.next())); // first case/default start
+            .finalize(Terminator::Br(exit_ref.next())); // jump over "break" slot
         self.get_basic_block_mut(exit_ref)
             .finalize(Terminator::Br(last_body_ref.next())); // end
     }

@@ -270,8 +270,9 @@ pub trait ExpressionVisitor<'a> {
     );
     fn visit_switch_statement(
         &mut self,
-        cases: Vec<(Self::Item, Self::Label, Self::Label)>,
-        default: Option<(usize, Self::Label)>,
+        case_conditions: Vec<(Self::Item, Self::Label)>,
+        bodies: Vec<Self::Label>,
+        default_pos: Option<usize>,
         head_ref: Self::Label,
         exit_ref: Self::Label,
     );
@@ -461,12 +462,10 @@ where
             Some(())
         }
         Statement::Switch(x) => {
+            // build separate set of condition blocks and body blocks so the compiler can
+            // easily detect multiple branches
             let left = walk_rvalue(ctx, locals, x.value, source, visitor, diagnostics)?;
-            // allocate empty block where "break" will be directed
-            let head_ref = visitor.mark_branch_point();
-            let exit_ref = visitor.mark_branch_point();
-            let break_label = Some(exit_ref);
-            let cases: Vec<_> = x
+            let case_conditions: Vec<_> = x
                 .cases
                 .iter()
                 .filter_map(|c| {
@@ -481,36 +480,44 @@ where
                         ),
                     )?;
                     let condition_label = visitor.mark_branch_point();
+                    Some((condition, condition_label))
+                })
+                .collect();
+            let mut body_statements: Vec<_> = x.cases.iter().map(|c| &c.body).collect();
+            let default_pos = if let Some(d) = &x.default {
+                body_statements.insert(d.position, &d.body);
+                Some(d.position)
+            } else {
+                None
+            };
+            // allocate empty block where "break" will be directed
+            let head_ref = visitor.mark_branch_point();
+            let exit_ref = visitor.mark_branch_point();
+            let break_label = Some(exit_ref);
+            let bodies: Vec<_> = body_statements
+                .iter()
+                .filter_map(|nodes| {
                     walk_stmt_nodes(
                         ctx,
                         locals,
                         break_label,
-                        &c.body,
+                        nodes,
                         source,
                         visitor,
                         diagnostics,
                     )?;
                     let body_label = visitor.mark_branch_point();
-                    Some((condition, condition_label, body_label))
+                    Some(body_label)
                 })
                 .collect();
-            let default = if let Some(d) = &x.default {
-                walk_stmt_nodes(
-                    ctx,
-                    locals,
-                    break_label,
-                    &d.body,
-                    source,
-                    visitor,
-                    diagnostics,
-                )?;
-                let body_label = visitor.mark_branch_point();
-                Some((d.position, body_label))
-            } else {
-                None
-            };
-            if x.cases.len() == cases.len() {
-                visitor.visit_switch_statement(cases, default, head_ref, exit_ref);
+            if x.cases.len() == case_conditions.len() && body_statements.len() == bodies.len() {
+                visitor.visit_switch_statement(
+                    case_conditions,
+                    bodies,
+                    default_pos,
+                    head_ref,
+                    exit_ref,
+                );
                 Some(())
             } else {
                 None
