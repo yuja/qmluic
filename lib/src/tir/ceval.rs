@@ -6,8 +6,8 @@
 
 use super::core::ConstantValue;
 use crate::opcode::{
-    BinaryArithOp, BinaryBitwiseOp, BinaryLogicalOp, ComparisonOp, ShiftOp, UnaryArithOp,
-    UnaryBitwiseOp, UnaryLogicalOp,
+    BinaryArithOp, BinaryBitwiseOp, ComparisonOp, ShiftOp, UnaryArithOp, UnaryBitwiseOp,
+    UnaryLogicalOp,
 };
 use crate::typedexpr::{DescribeType, ExpressionError};
 
@@ -178,24 +178,6 @@ pub(super) fn eval_shift_expression(
             };
             a.map(ConstantValue::Integer)
                 .ok_or(ExpressionError::IntegerOverflow)
-        }
-        _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
-    }
-}
-
-pub(super) fn eval_binary_logical_expression(
-    op: BinaryLogicalOp,
-    left: ConstantValue,
-    right: ConstantValue,
-) -> Result<ConstantValue, ExpressionError<'static>> {
-    use BinaryLogicalOp::*;
-    match (left, right) {
-        (ConstantValue::Bool(l), ConstantValue::Bool(r)) => {
-            let a = match op {
-                And => l && r,
-                Or => l || r,
-            };
-            Ok(ConstantValue::Bool(a))
         }
         _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
     }

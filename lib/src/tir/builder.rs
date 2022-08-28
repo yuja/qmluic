@@ -4,7 +4,7 @@ use super::core::{
     NamedObject, Operand, Rvalue, Statement, Terminator, Void,
 };
 use crate::diagnostic::Diagnostics;
-use crate::opcode::{BinaryArithOp, BinaryOp, BuiltinFunctionKind, UnaryOp};
+use crate::opcode::{BinaryArithOp, BinaryLogicalOp, BinaryOp, BuiltinFunctionKind, UnaryOp};
 use crate::qmlast::StatementNode;
 use crate::typedexpr::{
     self, DescribeType, ExpressionError, ExpressionVisitor, RefSpace, TypeAnnotationSpace, TypeDesc,
@@ -428,14 +428,45 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
                     ceval::eval_binary_bitwise_expression(op, l.value, r.value)
                 }
                 BinaryOp::Shift(op) => ceval::eval_shift_expression(op, l.value, r.value),
-                BinaryOp::Logical(op) => {
-                    ceval::eval_binary_logical_expression(op, l.value, r.value)
+                BinaryOp::Logical(_) => {
+                    unreachable!("visit_binary_logical_expression() should be called")
                 }
                 BinaryOp::Comparison(op) => ceval::eval_comparison_expression(op, l.value, r.value),
             }
             .map(|v| Operand::Constant(Constant::new(v, byte_range))),
             (left, right) => self.emit_binary_expression(binary, left, right, byte_range),
         }
+    }
+
+    fn visit_binary_logical_expression(
+        &mut self,
+        op: BinaryLogicalOp,
+        (left, left_ref): (Self::Item, Self::Label),
+        (right, right_ref): (Self::Item, Self::Label),
+        byte_range: Range<usize>,
+    ) -> Self::Item {
+        // no constant evaluation path needed as we know the concrete type of the operands
+        assert_eq!(left.type_desc(), TypeDesc::BOOL);
+        assert_eq!(right.type_desc(), TypeDesc::BOOL);
+        // short circult if left == init_value
+        let (init_value, true_ref, false_ref) = match op {
+            BinaryLogicalOp::And => (false, left_ref.next(), right_ref.next()), // right start, end
+            BinaryLogicalOp::Or => (true, right_ref.next(), left_ref.next()),   // end, right start
+        };
+        let sink = self.alloca(TypeKind::BOOL, byte_range).unwrap();
+        let block = self.get_basic_block_mut(left_ref);
+        block.push_statement(Statement::Assign(
+            sink.name,
+            Rvalue::Copy(Operand::Constant(Constant::new(
+                ConstantValue::Bool(init_value),
+                left.byte_range(),
+            ))),
+        ));
+        block.finalize(Terminator::BrCond(left, true_ref, false_ref));
+        let block = self.get_basic_block_mut(right_ref);
+        block.push_statement(Statement::Assign(sink.name, Rvalue::Copy(right)));
+        block.finalize(Terminator::Br(right_ref.next())); // end
+        Operand::Local(sink)
     }
 
     fn visit_as_expression(
@@ -656,10 +687,9 @@ impl<'a> CodeBuilder<'a> {
                     _ => Err(unsupported()),
                 }
             }
-            BinaryOp::Logical(_) => match (left.type_desc(), right.type_desc()) {
-                (TypeDesc::BOOL, TypeDesc::BOOL) => Ok(TypeKind::BOOL),
-                _ => Err(unsupported()),
-            },
+            BinaryOp::Logical(_) => {
+                unreachable!("visit_binary_logical_expression() should be called")
+            }
             BinaryOp::Comparison(op) => {
                 match deduce_concrete_type(op, left.type_desc(), right.type_desc())? {
                     TypeKind::BOOL

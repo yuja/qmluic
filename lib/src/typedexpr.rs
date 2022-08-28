@@ -1,7 +1,9 @@
 //! Expression tree visitor with type information.
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
-use crate::opcode::{BinaryOp, BuiltinFunctionKind, ComparisonOp, UnaryLogicalOp, UnaryOp};
+use crate::opcode::{
+    BinaryLogicalOp, BinaryOp, BuiltinFunctionKind, ComparisonOp, UnaryLogicalOp, UnaryOp,
+};
 use crate::qmlast::{
     Expression, ExpressionNode, Function, FunctionBody, Identifier, LexicalDeclarationKind,
     NestedIdentifier, Node, Statement, StatementNode,
@@ -238,6 +240,13 @@ pub trait ExpressionVisitor<'a> {
         right: Self::Item,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, ExpressionError<'a>>;
+    fn visit_binary_logical_expression(
+        &mut self,
+        op: BinaryLogicalOp,
+        left: (Self::Item, Self::Label),
+        right: (Self::Item, Self::Label),
+        byte_range: Range<usize>,
+    ) -> Self::Item;
     fn visit_as_expression(
         &mut self,
         value: Self::Item,
@@ -951,8 +960,6 @@ where
             }
         }
         Expression::Binary(x) => {
-            let left = walk_rvalue(ctx, locals, x.left, source, visitor, diagnostics)?;
-            let right = walk_rvalue(ctx, locals, x.right, source, visitor, diagnostics)?;
             let binary = BinaryOp::try_from(x.operator)
                 .map_err(|()| {
                     diagnostics.push(Diagnostic::error(
@@ -961,21 +968,45 @@ where
                     ))
                 })
                 .ok()?;
-            match visitor.visit_binary_expression(binary, left, right, node.byte_range()) {
-                Ok(it) => Some(Intermediate::Item(it)),
-                Err(e) => {
-                    let mut diag = Diagnostic::error(node.byte_range(), e.to_string());
-                    if let ExpressionError::OperationOnIncompatibleTypes(_, l, r) = &e {
-                        typeutil::diagnose_incompatible_types(
-                            &mut diag,
-                            x.left.byte_range(),
-                            l,
-                            x.right.byte_range(),
-                            r,
-                        );
+            match binary {
+                BinaryOp::Arith(_)
+                | BinaryOp::Bitwise(_)
+                | BinaryOp::Shift(_)
+                | BinaryOp::Comparison(_) => {
+                    let left = walk_rvalue(ctx, locals, x.left, source, visitor, diagnostics)?;
+                    let right = walk_rvalue(ctx, locals, x.right, source, visitor, diagnostics)?;
+                    match visitor.visit_binary_expression(binary, left, right, node.byte_range()) {
+                        Ok(it) => Some(Intermediate::Item(it)),
+                        Err(e) => {
+                            let mut diag = Diagnostic::error(node.byte_range(), e.to_string());
+                            if let ExpressionError::OperationOnIncompatibleTypes(_, l, r) = &e {
+                                typeutil::diagnose_incompatible_types(
+                                    &mut diag,
+                                    x.left.byte_range(),
+                                    l,
+                                    x.right.byte_range(),
+                                    r,
+                                );
+                            }
+                            diagnostics.push(diag);
+                            None
+                        }
                     }
-                    diagnostics.push(diag);
-                    None
+                }
+                BinaryOp::Logical(op) => {
+                    let left = walk_rvalue(ctx, locals, x.left, source, visitor, diagnostics)?;
+                    let left_label = visitor.mark_branch_point();
+                    let right = walk_rvalue(ctx, locals, x.right, source, visitor, diagnostics)?;
+                    let right_label = visitor.mark_branch_point();
+                    check_condition_type(&left, x.left, diagnostics)?;
+                    check_condition_type(&right, x.right, diagnostics)?;
+                    let it = visitor.visit_binary_logical_expression(
+                        op,
+                        (left, left_label),
+                        (right, right_label),
+                        node.byte_range(),
+                    );
+                    Some(Intermediate::Item(it))
                 }
             }
         }

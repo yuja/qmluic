@@ -522,8 +522,22 @@ fn dynamic_integer_bitwise() {
 #[test]
 fn constant_bool_logical() {
     insta::assert_snapshot!(dump("!true && true || false"), @r###"
+        %0: bool
+        %1: bool
     .0:
-        return false: bool
+        %0 = copy false: bool
+        br_cond false: bool, .1, .2
+    .1:
+        %0 = copy true: bool
+        br .2
+    .2:
+        %1 = copy true: bool
+        br_cond %0: bool, .4, .3
+    .3:
+        %1 = copy false: bool
+        br .4
+    .4:
+        return %1: bool
     "###);
 }
 
@@ -539,11 +553,51 @@ fn dynamic_bool_logical() {
     .0:
         %0 = read_property [foo]: Foo*, "checked"
         %1 = unary_op '!', %0: bool
+        %3 = copy false: bool
+        br_cond %1: bool, .1, .2
+    .1:
         %2 = read_property [foo2]: Foo*, "checked"
-        %3 = binary_op '&&', %1: bool, %2: bool
+        %3 = copy %2: bool
+        br .2
+    .2:
+        %5 = copy true: bool
+        br_cond %3: bool, .4, .3
+    .3:
         %4 = read_property [foo3]: Foo*, "checked"
-        %5 = binary_op '||', %3: bool, %4: bool
+        %5 = copy %4: bool
+        br .4
+    .4:
         return %5: bool
+    "###);
+}
+
+#[test]
+fn dynamic_bool_logical_and_in_ternary_condition() {
+    insta::assert_snapshot!(dump("foo !== null && foo.checked ? foo.text : ''"), @r###"
+        %0: bool
+        %1: bool
+        %2: bool
+        %3: QString
+        %4: QString
+    .0:
+        %0 = binary_op '!=', [foo]: Foo*, nullptr: nullptr_t
+        %2 = copy false: bool
+        br_cond %0: bool, .1, .2
+    .1:
+        %1 = read_property [foo]: Foo*, "checked"
+        %2 = copy %1: bool
+        br .2
+    .2:
+        br_cond %2: bool, .3, .4
+    .3:
+        %3 = read_property [foo]: Foo*, "text"
+        %4 = copy %3: QString
+        br .5
+    .4:
+        %4 = copy "": QString
+        br .5
+    .5:
+        return %4: QString
     "###);
 }
 
