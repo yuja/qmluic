@@ -3,7 +3,7 @@
 use anyhow::{anyhow, Context as _};
 use camino::{Utf8Component, Utf8Path, Utf8PathBuf};
 use clap::{Args, Parser, Subcommand};
-use notify::{DebouncedEvent, RecursiveMode, Watcher as _};
+use notify::{RecursiveMode, Watcher as _};
 use once_cell::sync::OnceCell;
 use qmluic::diagnostic::{Diagnostics, ProjectDiagnostics};
 use qmluic::metatype;
@@ -20,7 +20,6 @@ use std::io::{self, BufWriter, Write as _};
 use std::path::Path;
 use std::process;
 use std::sync::mpsc;
-use std::time::Duration;
 use tempfile::NamedTempFile;
 use thiserror::Error;
 
@@ -441,8 +440,7 @@ fn preview(helper: &CommandHelper, args: &PreviewArgs) -> Result<(), CommandErro
     preview_file(&mut viewer, &ctx, &mut docs_cache, &args.source)?;
 
     let (tx, rx) = mpsc::channel();
-    let mut watcher =
-        notify::watcher(tx, Duration::from_millis(100)).context("failed to create file watcher")?;
+    let mut watcher = notify::recommended_watcher(tx).context("failed to create file watcher")?;
     let canonical_doc_path = args
         .source
         .canonicalize()
@@ -454,25 +452,17 @@ fn preview(helper: &CommandHelper, args: &PreviewArgs) -> Result<(), CommandErro
     watcher
         .watch(watch_base_path, RecursiveMode::NonRecursive)
         .with_context(|| format!("failed to watch {:?}", watch_base_path))?;
-    while let Ok(ev) = rx.recv() {
-        log::trace!("watched event: {ev:?}");
-        match ev {
-            DebouncedEvent::Create(p) | DebouncedEvent::Write(p) | DebouncedEvent::Rename(_, p)
-                if p == canonical_doc_path =>
+    while let Ok(r) = rx.recv() {
+        log::trace!("watched event: {r:?}");
+        if let Ok(ev) = r {
+            use notify::EventKind;
+            if matches!(ev.kind, EventKind::Create(_) | EventKind::Modify(_))
+                && ev.paths.contains(&canonical_doc_path)
             {
                 // TODO: refresh populated qmldirs as needed
                 docs_cache.remove(&args.source);
                 preview_file(&mut viewer, &ctx, &mut docs_cache, &args.source)?;
             }
-            DebouncedEvent::Create(_)
-            | DebouncedEvent::Write(_)
-            | DebouncedEvent::Rename(..)
-            | DebouncedEvent::NoticeWrite(_)
-            | DebouncedEvent::NoticeRemove(_)
-            | DebouncedEvent::Chmod(_)
-            | DebouncedEvent::Remove(_)
-            | DebouncedEvent::Rescan
-            | DebouncedEvent::Error(..) => {}
         }
     }
 
