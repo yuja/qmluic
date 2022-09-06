@@ -2,7 +2,6 @@
 
 use qmluic::diagnostic::Diagnostics;
 use qmluic::metatype;
-use qmluic::opcode::BuiltinFunctionKind;
 use qmluic::qmlast::{StatementNode, UiObjectDefinition, UiProgram};
 use qmluic::qmldoc::UiDocument;
 use qmluic::tir::{self, CodeBody};
@@ -152,7 +151,6 @@ impl<'a> RefSpace<'a> for Context<'a> {
             "foo" | "foo2" | "foo3" | "foo4" => unwrap_class_ref("Foo"),
             "foo_sub" => unwrap_class_ref("FooSub"),
             "bar" => unwrap_class_ref("Bar"),
-            "qsTr" => Some(Ok(RefKind::BuiltinFunction(BuiltinFunctionKind::Tr))),
             _ => self.type_space.get_ref(name),
         }
     }

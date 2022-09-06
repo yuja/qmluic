@@ -71,8 +71,6 @@ pub trait DescribeType<'a> {
 /// Resolved type/object reference.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RefKind<'a> {
-    /// Builtin function.
-    BuiltinFunction(BuiltinFunctionKind),
     /// Type reference.
     Type(NamedType<'a>),
     /// Enum variant of the type.
@@ -716,7 +714,7 @@ where
 {
     match diagnostics.consume_err(node.parse(source))? {
         Expression::Identifier(x) => {
-            process_identifier(ctx, Some(locals), x, source, visitor, diagnostics)
+            process_identifier(ctx, Some(locals), true, x, source, visitor, diagnostics)
         }
         Expression::This => {
             if let Some((cls, name)) = ctx.this_object() {
@@ -807,7 +805,7 @@ where
                     None
                 }
                 Intermediate::Type(ty) => {
-                    process_identifier(&ty, None, x.property, source, visitor, diagnostics)
+                    process_identifier(&ty, None, false, x.property, source, visitor, diagnostics)
                 }
             }
         }
@@ -1066,6 +1064,7 @@ where
 fn process_identifier<'a, C, V>(
     ctx: &C,
     locals: Option<&HashMap<String, (V::Local, LexicalDeclarationKind)>>,
+    use_globals: bool,
     id: Identifier,
     source: &str,
     visitor: &mut V,
@@ -1080,7 +1079,6 @@ where
         Some(Intermediate::Local(l, k))
     } else if let Some(r) = ctx.get_ref(name) {
         match r {
-            Ok(RefKind::BuiltinFunction(f)) => Some(Intermediate::BuiltinFunction(f)),
             Ok(RefKind::Type(ty)) => Some(Intermediate::Type(ty)),
             Ok(RefKind::EnumVariant(en)) => diagnostics
                 .consume_node_err(
@@ -1114,12 +1112,21 @@ where
                 None
             }
         }
+    } else if let Some(x) = use_globals.then(|| lookup_global_name(name)).flatten() {
+        Some(x)
     } else {
         diagnostics.push(Diagnostic::error(
             id.node().byte_range(),
             "undefined reference",
         ));
         None
+    }
+}
+
+fn lookup_global_name<T, L>(name: &str) -> Option<Intermediate<'static, T, L>> {
+    match name {
+        "qsTr" => Some(Intermediate::BuiltinFunction(BuiltinFunctionKind::Tr)),
+        _ => None,
     }
 }
 

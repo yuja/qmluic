@@ -1,6 +1,5 @@
 use super::objcode::ObjectCodeMap;
 use crate::objtree::{ObjectNode, ObjectTree};
-use crate::opcode::BuiltinFunctionKind;
 use crate::qmldoc::UiDocument;
 use crate::qtname::FileNameRules;
 use crate::typedexpr::{RefKind, RefSpace, TypeAnnotationSpace};
@@ -212,6 +211,7 @@ impl<'a> RefSpace<'a> for ObjectContext<'a, '_, '_> {
     fn get_ref(&self, name: &str) -> Option<Result<RefKind<'a>, TypeMapError>> {
         // object id lookup is explicit, which should precede any other implicit this lookups.
         let me = &self.obj_node;
+        #[allow(clippy::manual_map)]
         if let Some(obj) = self.object_tree.get_by_id(name) {
             Some(Ok(RefKind::Object(obj.class().clone())))
         } else if let Some(r) = me.class().get_property(name) {
@@ -220,8 +220,6 @@ impl<'a> RefSpace<'a> for ObjectContext<'a, '_, '_> {
             Some(r.map(|m| RefKind::ObjectMethod(me.class().clone(), me.name().to_owned(), m)))
         } else if let Some(r) = self.type_space.get_type(name) {
             Some(r.map(RefKind::Type))
-        } else if name == "qsTr" {
-            Some(Ok(RefKind::BuiltinFunction(BuiltinFunctionKind::Tr)))
         } else {
             None
         }
