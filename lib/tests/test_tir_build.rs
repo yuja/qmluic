@@ -293,6 +293,12 @@ fn local_name_as_type_member() {
 }
 
 #[test]
+fn global_name_as_type_member() {
+    let env = Env::new();
+    assert!(env.try_build("{ Foo.qsTr('') }").is_err());
+}
+
+#[test]
 fn named_object_ref() {
     insta::assert_snapshot!(dump("foo"), @r###"
     .0:
