@@ -716,7 +716,7 @@ where
 {
     match diagnostics.consume_err(node.parse(source))? {
         Expression::Identifier(x) => {
-            process_identifier(ctx, locals, x, source, visitor, diagnostics)
+            process_identifier(ctx, Some(locals), x, source, visitor, diagnostics)
         }
         Expression::This => {
             if let Some((cls, name)) = ctx.this_object() {
@@ -807,7 +807,7 @@ where
                     None
                 }
                 Intermediate::Type(ty) => {
-                    process_identifier(&ty, locals, x.property, source, visitor, diagnostics)
+                    process_identifier(&ty, None, x.property, source, visitor, diagnostics)
                 }
             }
         }
@@ -1065,7 +1065,7 @@ where
 
 fn process_identifier<'a, C, V>(
     ctx: &C,
-    locals: &HashMap<String, (V::Local, LexicalDeclarationKind)>,
+    locals: Option<&HashMap<String, (V::Local, LexicalDeclarationKind)>>,
     id: Identifier,
     source: &str,
     visitor: &mut V,
@@ -1076,7 +1076,7 @@ where
     V: ExpressionVisitor<'a>,
 {
     let name = id.to_str(source);
-    if let Some(&(l, k)) = locals.get(name) {
+    if let Some(&(l, k)) = locals.and_then(|m| m.get(name)) {
         Some(Intermediate::Local(l, k))
     } else if let Some(r) = ctx.get_ref(name) {
         match r {

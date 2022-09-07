@@ -287,6 +287,12 @@ fn local_declaration_with_object_then_write_property() {
 }
 
 #[test]
+fn local_name_as_type_member() {
+    let env = Env::new();
+    assert!(env.try_build("{ let whatever = 0; Foo.whatever }").is_err());
+}
+
+#[test]
 fn named_object_ref() {
     insta::assert_snapshot!(dump("foo"), @r###"
     .0:
