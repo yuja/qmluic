@@ -404,6 +404,34 @@ fn call_array_is_empty_method() {
 }
 
 #[test]
+fn call_max_function_against_ints() {
+    insta::assert_snapshot!(dump("Math.max(foo.currentIndex, 0)"), @r###"
+        %0: int
+        %1: int
+    .0:
+        %0 = read_property [foo]: Foo*, "currentIndex"
+        %1 = call_builtin_function Max, {%0: int, 0: integer}
+        return %1: int
+    "###);
+}
+
+#[test]
+fn call_min_function_against_strings() {
+    insta::assert_snapshot!(dump("Math.min('foo', 'bar')"), @r###"
+        %0: QString
+    .0:
+        %0 = call_builtin_function Min, {"foo": QString, "bar": QString}
+        return %0: QString
+    "###);
+}
+
+#[test]
+fn call_min_function_against_incompatible_args() {
+    let env = Env::new();
+    assert!(env.try_build("Math.min(0, 1.0)").is_err());
+}
+
+#[test]
 fn call_tr_function() {
     insta::assert_snapshot!(dump("qsTr('Hello')"), @r###"
         %0: QString

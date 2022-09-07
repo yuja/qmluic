@@ -375,12 +375,43 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         arguments: Vec<Self::Item>,
         byte_range: Range<usize>,
     ) -> Result<Self::Item, ExpressionError<'a>> {
-        let ty = match function {
-            BuiltinFunctionKind::Max | BuiltinFunctionKind::Min => todo!(),
+        let (ty, arguments) = match function {
+            BuiltinFunctionKind::Max | BuiltinFunctionKind::Min => {
+                if arguments.len() == 2 {
+                    let op = if function == BuiltinFunctionKind::Max {
+                        "max"
+                    } else {
+                        "min"
+                    };
+                    let arguments: Vec<_> =
+                        arguments.into_iter().map(ensure_concrete_string).collect();
+                    let ty = deduce_concrete_type(
+                        op,
+                        arguments[0].type_desc(),
+                        arguments[1].type_desc(),
+                    )?;
+                    match ty {
+                        TypeKind::BOOL
+                        | TypeKind::DOUBLE
+                        | TypeKind::INT
+                        | TypeKind::UINT
+                        | TypeKind::STRING => Ok((ty, arguments)),
+                        _ => Err(ExpressionError::OperationOnUnsupportedType(
+                            op.to_owned(),
+                            TypeDesc::Concrete(ty),
+                        )),
+                    }
+                } else {
+                    Err(ExpressionError::InvalidArgument(format!(
+                        "expects 2 arguments, but got {}",
+                        arguments.len()
+                    )))
+                }
+            }
             BuiltinFunctionKind::Tr => {
                 if arguments.len() == 1 {
                     match arguments[0].type_desc() {
-                        TypeDesc::ConstString => Ok(TypeKind::STRING),
+                        TypeDesc::ConstString => Ok((TypeKind::STRING, arguments)),
                         t => Err(ExpressionError::InvalidArgument(t.qualified_name().into())),
                     }
                 } else {
