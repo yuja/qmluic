@@ -806,7 +806,9 @@ where
                     ));
                     None
                 }
-                Intermediate::BuiltinNamespace(_) => todo!(),
+                Intermediate::BuiltinNamespace(k) => {
+                    process_namespace_name(k, x.property, source, diagnostics)
+                }
                 Intermediate::Type(ty) => {
                     process_identifier(&ty, None, false, x.property, source, visitor, diagnostics)
                 }
@@ -1133,6 +1135,28 @@ fn lookup_global_name<T, L>(name: &str) -> Option<Intermediate<'static, T, L>> {
         "Math" => Some(Intermediate::BuiltinNamespace(BuiltinNamespaceKind::Math)),
         "qsTr" => Some(Intermediate::BuiltinFunction(BuiltinFunctionKind::Tr)),
         _ => None,
+    }
+}
+
+fn process_namespace_name<'a, T, L>(
+    kind: BuiltinNamespaceKind,
+    id: Identifier,
+    source: &str,
+    diagnostics: &mut Diagnostics,
+) -> Option<Intermediate<'a, T, L>> {
+    let name = id.to_str(source);
+    match kind {
+        BuiltinNamespaceKind::Math => match name {
+            "max" => Some(Intermediate::BuiltinFunction(BuiltinFunctionKind::Max)),
+            "min" => Some(Intermediate::BuiltinFunction(BuiltinFunctionKind::Min)),
+            _ => {
+                diagnostics.push(Diagnostic::error(
+                    id.node().byte_range(),
+                    format!("property/method named '{name}' not found in 'Math'"),
+                ));
+                None
+            }
+        },
     }
 }
 

@@ -875,6 +875,7 @@ impl CxxCodeBodyTranslator {
                 ty.qualified_cxx_name(),
             ),
             Rvalue::CallBuiltinFunction(f, args) => match f {
+                BuiltinFunctionKind::Max | BuiltinFunctionKind::Min => todo!(),
                 BuiltinFunctionKind::Tr => format!(
                     "QCoreApplication::translate({:?}, {})",
                     self.tr_context,

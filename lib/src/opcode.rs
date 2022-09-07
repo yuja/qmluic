@@ -6,6 +6,10 @@ use std::fmt;
 /// Builtin functions.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum BuiltinFunctionKind {
+    /// `Math.max()`
+    Max,
+    /// `Math.min()`
+    Min,
     /// `qsTr()`
     Tr,
 }
