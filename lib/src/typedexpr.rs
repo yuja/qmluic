@@ -2,7 +2,8 @@
 
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::opcode::{
-    BinaryLogicalOp, BinaryOp, BuiltinFunctionKind, ComparisonOp, UnaryLogicalOp, UnaryOp,
+    BinaryLogicalOp, BinaryOp, BuiltinFunctionKind, BuiltinNamespaceKind, ComparisonOp,
+    UnaryLogicalOp, UnaryOp,
 };
 use crate::qmlast::{
     Expression, ExpressionNode, Function, FunctionBody, Identifier, LexicalDeclarationKind,
@@ -324,6 +325,7 @@ enum Intermediate<'a, T, L> {
     BoundSubscript(T, T, ExprKind),
     BoundMethod(T, MethodMatches<'a>),
     BuiltinFunction(BuiltinFunctionKind),
+    BuiltinNamespace(BuiltinNamespaceKind),
     Type(NamedType<'a>),
 }
 
@@ -692,7 +694,7 @@ where
             ));
             None
         }
-        Intermediate::Type(_) => {
+        Intermediate::BuiltinNamespace(_) | Intermediate::Type(_) => {
             diagnostics.push(Diagnostic::error(node.byte_range(), "bare type reference"));
             None
         }
@@ -804,6 +806,7 @@ where
                     ));
                     None
                 }
+                Intermediate::BuiltinNamespace(_) => todo!(),
                 Intermediate::Type(ty) => {
                     process_identifier(&ty, None, false, x.property, source, visitor, diagnostics)
                 }
@@ -837,7 +840,7 @@ where
                     ));
                     return None;
                 }
-                Intermediate::Type(_) => {
+                Intermediate::BuiltinNamespace(_) | Intermediate::Type(_) => {
                     diagnostics.push(Diagnostic::error(
                         x.object.byte_range(),
                         "bare type reference",
@@ -871,6 +874,7 @@ where
                 | Intermediate::Local(..)
                 | Intermediate::BoundProperty(..)
                 | Intermediate::BoundSubscript(..)
+                | Intermediate::BuiltinNamespace(_)
                 | Intermediate::Type(_) => {
                     diagnostics.push(Diagnostic::error(x.function.byte_range(), "not callable"));
                     None
@@ -928,6 +932,7 @@ where
                 Intermediate::Item(_)
                 | Intermediate::BoundMethod(..)
                 | Intermediate::BuiltinFunction(_)
+                | Intermediate::BuiltinNamespace(_)
                 | Intermediate::Type(_) => {
                     diagnostics.push(Diagnostic::error(x.left.byte_range(), "not assignable"));
                     None
@@ -1125,6 +1130,7 @@ where
 
 fn lookup_global_name<T, L>(name: &str) -> Option<Intermediate<'static, T, L>> {
     match name {
+        "Math" => Some(Intermediate::BuiltinNamespace(BuiltinNamespaceKind::Math)),
         "qsTr" => Some(Intermediate::BuiltinFunction(BuiltinFunctionKind::Tr)),
         _ => None,
     }
