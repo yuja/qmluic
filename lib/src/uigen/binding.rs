@@ -874,14 +874,17 @@ impl CxxCodeBodyTranslator {
                 member_access_op(a),
                 ty.qualified_cxx_name(),
             ),
-            Rvalue::CallBuiltinFunction(f, args) => match f {
-                BuiltinFunctionKind::Max | BuiltinFunctionKind::Min => todo!(),
-                BuiltinFunctionKind::Tr => format!(
-                    "QCoreApplication::translate({:?}, {})",
-                    self.tr_context,
-                    args.iter().map(|a| self.format_operand(a)).join(", ")
-                ),
-            },
+            Rvalue::CallBuiltinFunction(f, args) => {
+                let formatted_args = args.iter().map(|a| self.format_operand(a)).join(", ");
+                match f {
+                    BuiltinFunctionKind::Max => format!("qMax({formatted_args})"),
+                    BuiltinFunctionKind::Min => format!("qMin({formatted_args})"),
+                    BuiltinFunctionKind::Tr => format!(
+                        "QCoreApplication::translate({context:?}, {formatted_args})",
+                        context = self.tr_context,
+                    ),
+                }
+            }
             Rvalue::CallMethod(obj, meth, args) => {
                 format!(
                     "{}{}{}({})",
