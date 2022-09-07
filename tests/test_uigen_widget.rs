@@ -549,6 +549,22 @@ fn test_if_condition_pointer_negated() {
 }
 
 #[test]
+fn test_min_max() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QLabel {
+            QComboBox { id: combo; currentIndex: Math.max(spin.value, 0) }
+            QSpinBox { id: spin }
+            text: Math.min(combo.currentText, "foo")
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
 fn test_qstring_arg() {
     let doc = common::parse_doc(
         r###"
