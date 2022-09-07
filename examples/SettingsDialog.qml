@@ -99,7 +99,7 @@ QDialog {
                                                                  : altFontFamilyEdit;
                             let sizeEdit = [altFontSizeEdit, textFontSizeEdit][textFontRadio.checked as int];
                             let font = fontEdit.currentFont;
-                            font.pointSize = sizeEdit.value;
+                            font.pointSize = Math.max(sizeEdit.value, 1);
                             return font;
                         }
                         alignment: {
@@ -126,8 +126,11 @@ QDialog {
                         text: "The quick brown fox jumps over the lazy dog."
                         font.family: (textFontRadio.checked ? textFontFamilyEdit
                                                             : altFontFamilyEdit).currentFont.family
-                        font.pointSize: (textFontRadio.checked ? textFontSizeEdit
-                                                               : altFontSizeEdit).value
+                        font.pointSize: {
+                            let value = (textFontRadio.checked ? textFontSizeEdit
+                                                               : altFontSizeEdit).value;
+                            Math.max(value, 1)
+                        }
                         wordWrap: true
                     }
                 }
