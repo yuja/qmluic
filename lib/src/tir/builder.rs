@@ -376,6 +376,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         byte_range: Range<usize>,
     ) -> Result<Self::Item, ExpressionError<'a>> {
         let ty = match function {
+            BuiltinFunctionKind::Max | BuiltinFunctionKind::Min => todo!(),
             BuiltinFunctionKind::Tr => {
                 if arguments.len() == 1 {
                     match arguments[0].type_desc() {
