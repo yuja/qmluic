@@ -10,6 +10,12 @@ pub enum BuiltinFunctionKind {
     Tr,
 }
 
+/// Builtin (pseudo) namespace or object hosting static functions.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum BuiltinNamespaceKind {
+    Math,
+}
+
 /// Unary operator.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UnaryOp {
