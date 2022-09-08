@@ -346,7 +346,7 @@ mod tests {
     fn type_eq() {
         let mut type_map = TypeMap::empty();
         let module_id = ModuleId::Named("foo");
-        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
+        type_map.insert_module(module_id, ModuleData::with_builtins());
         let module_data = type_map.get_module_data_mut(module_id).unwrap();
         module_data.extend([metatype::Class::new("Foo"), metatype::Class::new("Bar")]);
         module_data.extend([metatype::Enum::new("Baz")]);
@@ -374,7 +374,7 @@ mod tests {
     fn named_module() {
         let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo");
-        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
+        type_map.insert_module(module_id, ModuleData::with_builtins());
         type_map
             .get_module_data_mut(module_id)
             .unwrap()
@@ -394,7 +394,7 @@ mod tests {
         let mut module_data = ModuleData::default();
         module_data.extend([metatype::Class::new("Foo")]);
         module_data.push_alias("aliased_foo", "Foo").unwrap();
-        type_map.insert_module(module_id.clone(), module_data);
+        type_map.insert_module(module_id, module_data);
 
         let module = type_map.get_module(module_id).unwrap();
         // generic type alias is purely an alias. no new type wouldn't be created.
@@ -408,7 +408,7 @@ mod tests {
     fn aliased_enum_eq() {
         let mut type_map = TypeMap::empty();
         let module_id = ModuleId::Named("foo");
-        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
+        type_map.insert_module(module_id, ModuleData::with_builtins());
         type_map.get_module_data_mut(module_id).unwrap().extend([
             metatype::Enum::new("Foo"),
             metatype::Enum::new_flag("Foos", "Foo"),
@@ -429,7 +429,7 @@ mod tests {
     fn qualified_cxx_name() {
         let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo");
-        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
+        type_map.insert_module(module_id, ModuleData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         foo_meta.enums.push(metatype::Enum::new("Bar"));
         type_map
@@ -462,7 +462,7 @@ mod tests {
     fn get_type_of_root() {
         let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo");
-        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
+        type_map.insert_module(module_id, ModuleData::with_builtins());
         type_map
             .get_module_data_mut(module_id)
             .unwrap()
@@ -485,7 +485,7 @@ mod tests {
     fn get_type_of_root_scoped() {
         let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo");
-        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
+        type_map.insert_module(module_id, ModuleData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         foo_meta.enums.push(metatype::Enum::new("Bar"));
         type_map
@@ -514,7 +514,7 @@ mod tests {
     fn do_not_resolve_intermediate_type_scoped() {
         let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo");
-        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
+        type_map.insert_module(module_id, ModuleData::with_builtins());
         type_map
             .get_module_data_mut(module_id)
             .unwrap()
@@ -534,7 +534,7 @@ mod tests {
     fn get_super_class_type() {
         let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo");
-        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
+        type_map.insert_module(module_id, ModuleData::with_builtins());
         let mut root_meta = metatype::Class::new("Root");
         root_meta.enums.push(metatype::Enum::new("RootEnum"));
         type_map.get_module_data_mut(module_id).unwrap().extend([
@@ -560,7 +560,7 @@ mod tests {
     fn class_derived_from() {
         let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo");
-        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
+        type_map.insert_module(module_id, ModuleData::with_builtins());
         type_map.get_module_data_mut(module_id).unwrap().extend([
             metatype::Class::new("Root"),
             metatype::Class::with_supers("Sub1", ["Root"]),
@@ -589,7 +589,7 @@ mod tests {
     fn get_type_of_property() {
         let mut type_map = TypeMap::with_primitive_types();
         let module_id = ModuleId::Named("foo");
-        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
+        type_map.insert_module(module_id, ModuleData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         foo_meta
             .properties
@@ -635,7 +635,7 @@ mod tests {
             metatype::Property::new("pointer_vector", "QVector<Foo*>"),
         ]);
         module_data.extend([foo_meta]);
-        type_map.insert_module(module_id.clone(), module_data);
+        type_map.insert_module(module_id, module_data);
 
         let module = type_map.get_module(module_id).unwrap();
         let foo_class = unwrap_class(module.get_type("Foo"));
@@ -673,7 +673,7 @@ mod tests {
     fn get_enum_by_variant() {
         let mut type_map = TypeMap::empty();
         let module_id = ModuleId::Named("foo");
-        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
+        type_map.insert_module(module_id, ModuleData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         let unscoped_meta = metatype::Enum::with_values("Unscoped", ["X", "Y"]);
         let mut scoped_meta = metatype::Enum::with_values("Scoped", ["A", "Y"]);
@@ -709,7 +709,7 @@ mod tests {
     fn get_super_class_enum_by_variant() {
         let mut type_map = TypeMap::empty();
         let module_id = ModuleId::Named("foo");
-        type_map.insert_module(module_id.clone(), ModuleData::with_builtins());
+        type_map.insert_module(module_id, ModuleData::with_builtins());
         let mut foo_meta = metatype::Class::new("Foo");
         let unscoped_meta = metatype::Enum::with_values("Unscoped", ["X", "Y"]);
         foo_meta.enums.extend([unscoped_meta]);

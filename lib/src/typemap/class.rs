@@ -495,7 +495,7 @@ mod tests {
             metatype::Class::with_supers("Sub1", ["Root"]),
             metatype::Class::with_supers("Sub2", ["Sub1"]),
         ]);
-        type_map.insert_module(module_id.clone(), module_data);
+        type_map.insert_module(module_id, module_data);
 
         let module = type_map.get_module(module_id).unwrap();
         let root_class = unwrap_class(module.get_type("Root"));
@@ -536,7 +536,7 @@ mod tests {
             metatype::Class::with_supers("Sub1", ["Root1"]),
             metatype::Class::with_supers("Sub2", ["Sub1", "Root2"]),
         ]);
-        type_map.insert_module(module_id.clone(), module_data);
+        type_map.insert_module(module_id, module_data);
 
         let module = type_map.get_module(module_id).unwrap();
         let root1_class = unwrap_class(module.get_type("Root1"));
@@ -564,7 +564,7 @@ mod tests {
             metatype::Class::with_supers("Mid2", ["Root"]),
             metatype::Class::with_supers("Leaf", ["Mid1", "Mid2"]),
         ]);
-        type_map.insert_module(module_id.clone(), module_data);
+        type_map.insert_module(module_id, module_data);
 
         let module = type_map.get_module(module_id).unwrap();
         let root_class = unwrap_class(module.get_type("Root"));
@@ -595,7 +595,7 @@ mod tests {
             metatype::Class::with_supers("Leaf1", ["Mid1", "Mid2"]),
             metatype::Class::with_supers("Leaf2", ["Mid3"]),
         ]);
-        type_map.insert_module(module_id.clone(), module_data);
+        type_map.insert_module(module_id, module_data);
 
         // Root1 <--- Mid1 <--- Leaf1
         //                   /
@@ -681,7 +681,7 @@ mod tests {
                 ..Default::default()
             },
         ]);
-        type_map.insert_module(module_id.clone(), module_data);
+        type_map.insert_module(module_id, module_data);
 
         let module = type_map.get_module(module_id).unwrap();
         let foo_class = unwrap_class(module.get_type("Foo"));
@@ -739,7 +739,7 @@ mod tests {
                 ..Default::default()
             },
         ]);
-        type_map.insert_module(module_id.clone(), module_data);
+        type_map.insert_module(module_id, module_data);
 
         let module = type_map.get_module(module_id).unwrap();
         let sub_class = unwrap_class(module.get_type("Sub"));
@@ -813,7 +813,7 @@ mod tests {
             ],
             ..Default::default()
         }]);
-        type_map.insert_module(module_id.clone(), module_data);
+        type_map.insert_module(module_id, module_data);
 
         let module = type_map.get_module(module_id).unwrap();
         let foo_class = unwrap_class(module.get_type("Foo"));

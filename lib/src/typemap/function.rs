@@ -274,7 +274,7 @@ mod tests {
             },
             metatype::Class::with_supers("Sub", ["Root"]),
         ]);
-        type_map.insert_module(module_id.clone(), module_data);
+        type_map.insert_module(module_id, module_data);
 
         let module = type_map.get_module(module_id).unwrap();
         let root_class = unwrap_class(module.get_type("Root"));
