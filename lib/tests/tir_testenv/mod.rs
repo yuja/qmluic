@@ -137,6 +137,12 @@ impl Env {
     }
 }
 
+impl Default for Env {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 struct Context<'a> {
     type_space: ImportedModuleSpace<'a>,
 }
