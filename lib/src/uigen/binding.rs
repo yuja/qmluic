@@ -4,11 +4,11 @@ use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::{ObjectNode, ObjectTree};
 use crate::opcode::{BuiltinFunctionKind, ConsoleLogLevel};
 use crate::qtname::{self, FileNameRules, UniqueNameGenerator};
-use crate::tir;
+use crate::tir::{self, CodeBody};
 use crate::typedexpr::DescribeType as _;
 use crate::typemap::{Class, Method, TypeKind, TypeSpace};
 use itertools::Itertools as _;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{self, Write as _};
 use std::iter;
 
@@ -18,6 +18,7 @@ pub struct UiSupportCode {
     self_class: String,
     root_class: String,
     ui_class: String,
+    system_includes: HashSet<&'static str>,
     quote_includes: Vec<String>,
     bindings: Vec<CxxBinding>,
     callbacks: Vec<CxxCallback>,
@@ -31,6 +32,7 @@ impl UiSupportCode {
         object_code_maps: &[ObjectCodeMap],
         diagnostics: &mut Diagnostics,
     ) -> Self {
+        let system_includes = collect_system_includes(object_code_maps);
         let quote_includes = vec![file_name_rules.type_name_to_ui_cxx_header_name(type_name)];
 
         let mut name_gen = UniqueNameGenerator::new();
@@ -109,6 +111,7 @@ impl UiSupportCode {
             self_class: type_name.to_owned(),
             root_class: object_tree.root().class().qualified_cxx_name().into(),
             ui_class: format!("Ui::{}", type_name),
+            system_includes,
             quote_includes,
             bindings,
             callbacks,
@@ -120,6 +123,9 @@ impl UiSupportCode {
         // TODO: code style options, factor out code generator?
         let mut w = CodeWriter::new(writer);
         writeln!(w, "#pragma once")?;
+        for f in self.system_includes.iter().sorted() {
+            writeln!(w, r###"#include <{f}>"###)?;
+        }
         for f in &self.quote_includes {
             writeln!(w, r###"#include "{f}""###)?;
         }
@@ -1065,5 +1071,47 @@ impl<'w, W: io::Write> io::Write for CodeWriter<'w, W> {
 
     fn flush(&mut self) -> io::Result<()> {
         self.inner.flush()
+    }
+}
+
+fn collect_system_includes(object_code_maps: &[ObjectCodeMap]) -> HashSet<&'static str> {
+    let mut includes = HashSet::new();
+    visit_object_code_maps(object_code_maps, |code| {
+        for stmt in code.basic_blocks.iter().flat_map(|block| &block.statements) {
+            use tir::{Rvalue, Statement};
+            match stmt {
+                Statement::Assign(_, r) | Statement::Exec(r) =>
+                {
+                    #[allow(clippy::single_match)]
+                    match r {
+                        Rvalue::CallBuiltinFunction(BuiltinFunctionKind::ConsoleLog(_), _) => {
+                            includes.insert("QtDebug");
+                        }
+                        _ => {}
+                    }
+                }
+                Statement::ObserveProperty(..) => {}
+            }
+        }
+    });
+    includes
+}
+
+fn visit_object_code_maps(object_code_maps: &[ObjectCodeMap], mut f: impl FnMut(&CodeBody)) {
+    for code_map in object_code_maps {
+        code_map
+            .properties()
+            .values()
+            .for_each(|c| visit_property_code(c, &mut f));
+        code_map.callbacks().iter().for_each(|c| f(c.code()));
+    }
+}
+
+fn visit_property_code(property_code: &PropertyCode, f: &mut impl FnMut(&CodeBody)) {
+    match property_code.kind() {
+        PropertyCodeKind::Expr(_, code) => f(code),
+        PropertyCodeKind::GadgetMap(_, map) | PropertyCodeKind::ObjectMap(_, map) => {
+            map.values().for_each(|c| visit_property_code(c, f));
+        }
     }
 }

@@ -3,6 +3,7 @@ source: tests/test_uigen_widget.rs
 expression: ui_support_h
 ---
 #pragma once
+#include <QtDebug>
 #include "ui_mytype.h"
 
 namespace UiSupport {
