@@ -185,6 +185,6 @@ pub fn dump(expr_source: &str) -> String {
 
 pub fn dump_code(code: &CodeBody) -> String {
     let mut buf = Vec::new();
-    tir::dump_code_body(&mut buf, &code).unwrap();
+    tir::dump_code_body(&mut buf, code).unwrap();
     String::from_utf8(buf).unwrap()
 }
