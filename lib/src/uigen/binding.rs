@@ -2,7 +2,7 @@ use super::expr;
 use super::objcode::{CallbackCode, ObjectCodeMap, PropertyCode, PropertyCodeKind};
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::{ObjectNode, ObjectTree};
-use crate::opcode::BuiltinFunctionKind;
+use crate::opcode::{BuiltinFunctionKind, ConsoleLogLevel};
 use crate::qtname::{self, FileNameRules, UniqueNameGenerator};
 use crate::tir;
 use crate::typedexpr::DescribeType as _;
@@ -10,6 +10,7 @@ use crate::typemap::{Class, Method, TypeKind, TypeSpace};
 use itertools::Itertools as _;
 use std::collections::HashMap;
 use std::io::{self, Write as _};
+use std::iter;
 
 /// C++ code to set up dynamic property bindings.
 #[derive(Clone, Debug)]
@@ -875,14 +876,25 @@ impl CxxCodeBodyTranslator {
                 ty.qualified_cxx_name(),
             ),
             Rvalue::CallBuiltinFunction(f, args) => {
-                let formatted_args = args.iter().map(|a| self.format_operand(a)).join(", ");
+                let mut formatted_args = args.iter().map(|a| self.format_operand(a));
                 match f {
-                    BuiltinFunctionKind::ConsoleLog(_) => todo!(),
-                    BuiltinFunctionKind::Max => format!("qMax({formatted_args})"),
-                    BuiltinFunctionKind::Min => format!("qMin({formatted_args})"),
+                    BuiltinFunctionKind::ConsoleLog(lv) => {
+                        let handler = match lv {
+                            ConsoleLogLevel::Log | ConsoleLogLevel::Debug => "qDebug",
+                            ConsoleLogLevel::Info => "qInfo",
+                            ConsoleLogLevel::Warn => "qWarning",
+                            ConsoleLogLevel::Error => "qCritical",
+                        };
+                        iter::once(format!("{handler}().noquote()"))
+                            .chain(formatted_args)
+                            .join(" << ")
+                    }
+                    BuiltinFunctionKind::Max => format!("qMax({})", formatted_args.join(", ")),
+                    BuiltinFunctionKind::Min => format!("qMin({})", formatted_args.join(", ")),
                     BuiltinFunctionKind::Tr => format!(
-                        "QCoreApplication::translate({context:?}, {formatted_args})",
+                        "QCoreApplication::translate({context:?}, {args})",
                         context = self.tr_context,
+                        args = formatted_args.join(", "),
                     ),
                 }
             }
