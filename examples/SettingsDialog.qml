@@ -14,6 +14,7 @@ QDialog {
                 QToolButton {
                     id: hgExecutableBrowseButton
                     text: qsTr("...")
+                    onClicked: console.log("clicked", this)
                 }
             }
 

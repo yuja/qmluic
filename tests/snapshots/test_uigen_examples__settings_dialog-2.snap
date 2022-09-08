@@ -3,6 +3,7 @@ source: tests/test_uigen_examples.rs
 expression: ui_support_h
 ---
 #pragma once
+#include <QtDebug>
 #include "ui_settingsdialog.h"
 
 namespace UiSupport {
@@ -16,6 +17,7 @@ public:
         this->setupLabel6Alignment();
         this->setupLabel6Font();
         this->setupLabel7Font();
+        this->setupHgExecutableBrowseButtonClicked();
         this->setupButtonBoxAccepted();
         this->setupButtonBoxRejected();
         this->updateLabel6Alignment();
@@ -276,6 +278,18 @@ private:
         a3 = a2;
         a4 = qMax(a3, 1);
         return a4;
+    }
+
+    void setupHgExecutableBrowseButtonClicked()
+    {
+        QObject::connect(this->ui_->hgExecutableBrowseButton, QOverload<bool>::of(&QAbstractButton::clicked), this->root_, [this]() { this->onHgExecutableBrowseButtonClicked(); });
+    }
+
+    void onHgExecutableBrowseButtonClicked()
+    {
+    b0:
+        qDebug().noquote() << "clicked" << this->ui_->hgExecutableBrowseButton;
+        return;
     }
 
     void setupButtonBoxAccepted()
