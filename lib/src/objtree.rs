@@ -297,7 +297,7 @@ mod tests {
         ));
         assert!(ptr::eq(
             tree.get_by_id("child0").unwrap().obj(),
-            tree.root().children().nth(0).unwrap().obj()
+            tree.root().children().next().unwrap().obj()
         ));
         assert!(!tree.contains_id("unknown"));
         assert!(tree.get_by_id("unknown").is_none());
