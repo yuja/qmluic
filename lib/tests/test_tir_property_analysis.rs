@@ -4,7 +4,7 @@ use qmluic::tir::{self, CodeBody};
 
 pub mod tir_testenv;
 
-fn analyze_code<'a>(code: &mut CodeBody<'a>) {
+fn analyze_code(code: &mut CodeBody) {
     let mut diagnostics = Diagnostics::new();
     tir::analyze_code_property_dependency(code, &mut diagnostics);
     assert!(!diagnostics.has_error());
