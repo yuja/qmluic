@@ -116,9 +116,12 @@ respectively. There are no lax comparison operators.
 Builtin functions and methods
 -----------------------------
 
+Functions:
 * `Math.max(a, b)`, `Math.min(a, b)`
+* `console.log()`, `.debug()`, `.info()`, `.warn()`, `.error()`
 * `qsTr()`
 
+Methods:
 * `QList<T>::isEmpty()`
 * `QString::arg()`
 * `QString::isEmpty()`
