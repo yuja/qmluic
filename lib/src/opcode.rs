@@ -6,6 +6,8 @@ use std::fmt;
 /// Builtin functions.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum BuiltinFunctionKind {
+    /// `console.log()`, `.debug()`, `.info()`, `.warn()`, `.error()`
+    ConsoleLog(ConsoleLogLevel),
     /// `Math.max()`
     Max,
     /// `Math.min()`
@@ -17,7 +19,18 @@ pub enum BuiltinFunctionKind {
 /// Builtin (pseudo) namespace or object hosting static functions.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum BuiltinNamespaceKind {
+    Console,
     Math,
+}
+
+/// Log level of `console.log()`-family functions.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum ConsoleLogLevel {
+    Log,
+    Debug,
+    Info,
+    Warn,
+    Error,
 }
 
 /// Unary operator.

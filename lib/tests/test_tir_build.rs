@@ -404,6 +404,25 @@ fn call_array_is_empty_method() {
 }
 
 #[test]
+fn call_console_log_function() {
+    insta::assert_snapshot!(dump(r###"{
+            console.log();
+            console.debug("foo");
+            console.info(1);
+            console.warn("bar", 2);
+            console.error("baz", 3.0, foo);
+        }"###), @r###"
+    .0:
+        call_builtin_function ConsoleLog(Log), {}
+        call_builtin_function ConsoleLog(Debug), {"foo": string}
+        call_builtin_function ConsoleLog(Info), {1: integer}
+        call_builtin_function ConsoleLog(Warn), {"bar": string, 2: integer}
+        call_builtin_function ConsoleLog(Error), {"baz": string, 3.0: double, [foo]: Foo*}
+        return _: void
+    "###);
+}
+
+#[test]
 fn call_max_function_against_ints() {
     insta::assert_snapshot!(dump("Math.max(foo.currentIndex, 0)"), @r###"
         %0: int

@@ -877,6 +877,7 @@ impl CxxCodeBodyTranslator {
             Rvalue::CallBuiltinFunction(f, args) => {
                 let formatted_args = args.iter().map(|a| self.format_operand(a)).join(", ");
                 match f {
+                    BuiltinFunctionKind::ConsoleLog(_) => todo!(),
                     BuiltinFunctionKind::Max => format!("qMax({formatted_args})"),
                     BuiltinFunctionKind::Min => format!("qMin({formatted_args})"),
                     BuiltinFunctionKind::Tr => format!(

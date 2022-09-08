@@ -3,7 +3,7 @@
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::opcode::{
     BinaryLogicalOp, BinaryOp, BuiltinFunctionKind, BuiltinNamespaceKind, ComparisonOp,
-    UnaryLogicalOp, UnaryOp,
+    ConsoleLogLevel, UnaryLogicalOp, UnaryOp,
 };
 use crate::qmlast::{
     Expression, ExpressionNode, Function, FunctionBody, Identifier, LexicalDeclarationKind,
@@ -1133,6 +1133,9 @@ where
 fn lookup_global_name<T, L>(name: &str) -> Option<Intermediate<'static, T, L>> {
     match name {
         "Math" => Some(Intermediate::BuiltinNamespace(BuiltinNamespaceKind::Math)),
+        "console" => Some(Intermediate::BuiltinNamespace(
+            BuiltinNamespaceKind::Console,
+        )),
         "qsTr" => Some(Intermediate::BuiltinFunction(BuiltinFunctionKind::Tr)),
         _ => None,
     }
@@ -1145,15 +1148,32 @@ fn process_namespace_name<'a, T, L>(
     diagnostics: &mut Diagnostics,
 ) -> Option<Intermediate<'a, T, L>> {
     let name = id.to_str(source);
+    let not_found_in = |ns: &str| {
+        Diagnostic::error(
+            id.node().byte_range(),
+            format!("property/method named '{name}' not found in '{ns}'"),
+        )
+    };
     match kind {
+        BuiltinNamespaceKind::Console => {
+            let log_fn = |lv| Intermediate::BuiltinFunction(BuiltinFunctionKind::ConsoleLog(lv));
+            match name {
+                "debug" => Some(log_fn(ConsoleLogLevel::Debug)),
+                "error" => Some(log_fn(ConsoleLogLevel::Error)),
+                "info" => Some(log_fn(ConsoleLogLevel::Info)),
+                "log" => Some(log_fn(ConsoleLogLevel::Log)),
+                "warn" => Some(log_fn(ConsoleLogLevel::Warn)),
+                _ => {
+                    diagnostics.push(not_found_in("console"));
+                    None
+                }
+            }
+        }
         BuiltinNamespaceKind::Math => match name {
             "max" => Some(Intermediate::BuiltinFunction(BuiltinFunctionKind::Max)),
             "min" => Some(Intermediate::BuiltinFunction(BuiltinFunctionKind::Min)),
             _ => {
-                diagnostics.push(Diagnostic::error(
-                    id.node().byte_range(),
-                    format!("property/method named '{name}' not found in 'Math'"),
-                ));
+                diagnostics.push(not_found_in("Math"));
                 None
             }
         },
