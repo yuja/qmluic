@@ -376,6 +376,11 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
         byte_range: Range<usize>,
     ) -> Result<Self::Item, ExpressionError<'a>> {
         let (ty, arguments) = match function {
+            BuiltinFunctionKind::ConsoleLog(_) => {
+                // Not all types can be sent to QDebug stream, but it's unlikely we would
+                // use such type in QML.
+                Ok((TypeKind::VOID, arguments))
+            }
             BuiltinFunctionKind::Max | BuiltinFunctionKind::Min => {
                 if arguments.len() == 2 {
                     let op = if function == BuiltinFunctionKind::Max {
