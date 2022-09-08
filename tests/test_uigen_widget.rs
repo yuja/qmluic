@@ -549,6 +549,27 @@ fn test_if_condition_pointer_negated() {
 }
 
 #[test]
+fn test_console_log() {
+    let doc = common::parse_doc(
+        r###"
+        import qmluic.QtWidgets
+        QPushButton {
+            id: button
+            onClicked: {
+                console.log();
+                console.debug("foo");
+                console.info(1);
+                console.warn("bar", 2);
+                console.error("baz", 3.0, button);
+            }
+        }
+        "###,
+    );
+    let (_, ui_support_h) = common::translate_doc(&doc, DynamicBindingHandling::Generate).unwrap();
+    insta::assert_snapshot!(ui_support_h);
+}
+
+#[test]
 fn test_min_max() {
     let doc = common::parse_doc(
         r###"
