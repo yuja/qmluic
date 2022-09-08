@@ -744,38 +744,26 @@ mod tests {
         let module = type_map.get_module(module_id).unwrap();
         let sub_class = unwrap_class(module.get_type("Sub"));
 
-        assert_eq!(
-            sub_class
-                .get_property("rootStd")
-                .unwrap()
-                .unwrap()
-                .is_std_set(),
-            true
-        );
-        assert_eq!(
-            sub_class
-                .get_property("rootNoStd")
-                .unwrap()
-                .unwrap()
-                .is_std_set(),
-            false
-        );
-        assert_eq!(
-            sub_class
-                .get_property("subStd")
-                .unwrap()
-                .unwrap()
-                .is_std_set(),
-            true
-        );
-        assert_eq!(
-            sub_class
-                .get_property("subNoWrite")
-                .unwrap()
-                .unwrap()
-                .is_std_set(),
-            false
-        );
+        assert!(sub_class
+            .get_property("rootStd")
+            .unwrap()
+            .unwrap()
+            .is_std_set());
+        assert!(!sub_class
+            .get_property("rootNoStd")
+            .unwrap()
+            .unwrap()
+            .is_std_set());
+        assert!(sub_class
+            .get_property("subStd")
+            .unwrap()
+            .unwrap()
+            .is_std_set());
+        assert!(!sub_class
+            .get_property("subNoWrite")
+            .unwrap()
+            .unwrap()
+            .is_std_set());
     }
 
     #[test]
