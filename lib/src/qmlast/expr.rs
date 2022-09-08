@@ -621,6 +621,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::bool_assert_comparison)]
     fn trivial_expressions() {
         let doc = parse(
             r###"
