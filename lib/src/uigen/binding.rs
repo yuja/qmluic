@@ -4,7 +4,7 @@ use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::{ObjectNode, ObjectTree};
 use crate::opcode::{BuiltinFunctionKind, ConsoleLogLevel};
 use crate::qtname::{self, FileNameRules, UniqueNameGenerator};
-use crate::tir::{self, CodeBody};
+use crate::tir;
 use crate::typedexpr::DescribeType as _;
 use crate::typemap::{Class, Method, TypeKind, TypeSpace};
 use itertools::Itertools as _;
@@ -1076,7 +1076,7 @@ impl<'w, W: io::Write> io::Write for CodeWriter<'w, W> {
 
 fn collect_system_includes(object_code_maps: &[ObjectCodeMap]) -> HashSet<&'static str> {
     let mut includes = HashSet::new();
-    visit_object_code_maps(object_code_maps, |code| {
+    for code in object_code_maps.iter().flat_map(|m| m.code_bodies()) {
         for stmt in code.basic_blocks.iter().flat_map(|block| &block.statements) {
             use tir::{Rvalue, Statement};
             match stmt {
@@ -1093,25 +1093,6 @@ fn collect_system_includes(object_code_maps: &[ObjectCodeMap]) -> HashSet<&'stat
                 Statement::ObserveProperty(..) => {}
             }
         }
-    });
+    }
     includes
-}
-
-fn visit_object_code_maps(object_code_maps: &[ObjectCodeMap], mut f: impl FnMut(&CodeBody)) {
-    for code_map in object_code_maps {
-        code_map
-            .properties()
-            .values()
-            .for_each(|c| visit_property_code(c, &mut f));
-        code_map.callbacks().iter().for_each(|c| f(c.code()));
-    }
-}
-
-fn visit_property_code(property_code: &PropertyCode, f: &mut impl FnMut(&CodeBody)) {
-    match property_code.kind() {
-        PropertyCodeKind::Expr(_, code) => f(code),
-        PropertyCodeKind::GadgetMap(_, map) | PropertyCodeKind::ObjectMap(_, map) => {
-            map.values().for_each(|c| visit_property_code(c, f));
-        }
-    }
 }

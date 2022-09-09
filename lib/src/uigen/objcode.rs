@@ -12,7 +12,8 @@ use crate::typemap::{
 };
 use crate::typeutil;
 use once_cell::sync::OnceCell;
-use std::collections::HashMap;
+use std::collections::{hash_map, HashMap};
+use std::iter::FusedIterator;
 
 /// Stores codes found in UI object definition.
 #[derive(Debug)]
@@ -79,6 +80,17 @@ impl<'a, 't, 's> ObjectCodeMap<'a, 't, 's> {
         cls: &Class<'a>,
     ) -> Option<&(Class<'a>, HashMap<&'s str, PropertyCode<'a, 't, 's>>)> {
         self.attached_properties.get(cls)
+    }
+
+    /// Iterates `CodeBody` stored in this map.
+    pub fn code_bodies<'m>(&'m self) -> impl Iterator<Item = &'m CodeBody<'a>> {
+        let a = PropertyCodeBodies::new(&self.properties);
+        let b = self.callbacks.iter().map(|c| &c.code);
+        let c = self
+            .attached_properties
+            .values()
+            .flat_map(|(_, m)| PropertyCodeBodies::new(m));
+        a.chain(b).chain(c)
     }
 }
 
@@ -375,6 +387,42 @@ impl<'a, 't, 's> PropertyCodeKind<'a, 't, 's> {
         }
     }
 }
+
+/// Recursive iterator over `CodeBody` of properties stored in `ObjectCodeMap`.
+#[derive(Clone, Debug)]
+pub(super) struct PropertyCodeBodies<'a, 't, 's, 'm> {
+    stack: Vec<hash_map::Values<'m, &'s str, PropertyCode<'a, 't, 's>>>,
+}
+
+impl<'a, 't, 's, 'm> PropertyCodeBodies<'a, 't, 's, 'm> {
+    fn new(map: &'m HashMap<&'s str, PropertyCode<'a, 't, 's>>) -> Self {
+        PropertyCodeBodies {
+            stack: vec![map.values()],
+        }
+    }
+}
+
+impl<'a, 't, 's, 'm> Iterator for PropertyCodeBodies<'a, 't, 's, 'm> {
+    type Item = &'m CodeBody<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(iter) = self.stack.last_mut() {
+            if let Some(p) = iter.next() {
+                match &p.kind {
+                    PropertyCodeKind::Expr(_, code) => return Some(code),
+                    PropertyCodeKind::GadgetMap(_, map) | PropertyCodeKind::ObjectMap(_, map) => {
+                        self.stack.push(map.values())
+                    }
+                }
+            } else {
+                self.stack.pop();
+            }
+        }
+        None
+    }
+}
+
+impl<'a, 't, 's, 'm> FusedIterator for PropertyCodeBodies<'a, 't, 's, 'm> {}
 
 /// Signal callback code with its description.
 #[derive(Clone, Debug)]
