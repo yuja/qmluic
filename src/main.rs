@@ -439,8 +439,22 @@ fn preview(helper: &CommandHelper, args: &PreviewArgs) -> Result<(), CommandErro
         .map_err(anyhow::Error::from)?;
     preview_file(&mut viewer, &ctx, &mut docs_cache, &args.source)?;
 
+    #[derive(Debug)]
+    enum Message {
+        Filesystem(notify::Result<notify::Event>),
+        Interrupted,
+    }
+
     let (tx, rx) = mpsc::channel();
-    let mut watcher = notify::recommended_watcher(tx).context("failed to create file watcher")?;
+    let tx2 = tx.clone();
+    let mut watcher = notify::recommended_watcher(move |r| {
+        let _ = tx.send(Message::Filesystem(r));
+    })
+    .context("failed to create file watcher")?;
+    ctrlc::set_handler(move || {
+        let _ = tx2.send(Message::Interrupted);
+    })
+    .context("failed to register signal handler")?;
     let canonical_doc_path = args
         .source
         .canonicalize()
@@ -452,17 +466,21 @@ fn preview(helper: &CommandHelper, args: &PreviewArgs) -> Result<(), CommandErro
     watcher
         .watch(watch_base_path, RecursiveMode::NonRecursive)
         .with_context(|| format!("failed to watch {:?}", watch_base_path))?;
-    while let Ok(r) = rx.recv() {
-        log::trace!("watched event: {r:?}");
-        if let Ok(ev) = r {
-            use notify::EventKind;
-            if matches!(ev.kind, EventKind::Create(_) | EventKind::Modify(_))
-                && ev.paths.contains(&canonical_doc_path)
-            {
-                // TODO: refresh populated qmldirs as needed
-                docs_cache.remove(&args.source);
-                preview_file(&mut viewer, &ctx, &mut docs_cache, &args.source)?;
+    while let Ok(m) = rx.recv() {
+        log::trace!("message: {m:?}");
+        match m {
+            Message::Filesystem(Ok(ev)) => {
+                use notify::EventKind;
+                if matches!(ev.kind, EventKind::Create(_) | EventKind::Modify(_))
+                    && ev.paths.contains(&canonical_doc_path)
+                {
+                    // TODO: refresh populated qmldirs as needed
+                    docs_cache.remove(&args.source);
+                    preview_file(&mut viewer, &ctx, &mut docs_cache, &args.source)?;
+                }
             }
+            Message::Filesystem(Err(_)) => {}
+            Message::Interrupted => break,
         }
     }
 
