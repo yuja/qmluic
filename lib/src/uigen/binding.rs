@@ -895,8 +895,8 @@ impl CxxCodeBodyTranslator {
                             .chain(formatted_args)
                             .join(" << ")
                     }
-                    BuiltinFunctionKind::Max => format!("qMax({})", formatted_args.join(", ")),
-                    BuiltinFunctionKind::Min => format!("qMin({})", formatted_args.join(", ")),
+                    BuiltinFunctionKind::Max => format!("std::max({})", formatted_args.join(", ")),
+                    BuiltinFunctionKind::Min => format!("std::min({})", formatted_args.join(", ")),
                     BuiltinFunctionKind::Tr => format!(
                         "QCoreApplication::translate({context:?}, {args})",
                         context = self.tr_context,
@@ -1084,9 +1084,15 @@ fn collect_system_includes(object_code_maps: &[ObjectCodeMap]) -> HashSet<&'stat
                 {
                     #[allow(clippy::single_match)]
                     match r {
-                        Rvalue::CallBuiltinFunction(BuiltinFunctionKind::ConsoleLog(_), _) => {
-                            includes.insert("QtDebug");
-                        }
+                        Rvalue::CallBuiltinFunction(k, _) => match k {
+                            BuiltinFunctionKind::ConsoleLog(_) => {
+                                includes.insert("QtDebug");
+                            }
+                            BuiltinFunctionKind::Max | BuiltinFunctionKind::Min => {
+                                includes.insert("algorithm");
+                            }
+                            BuiltinFunctionKind::Tr => {}
+                        },
                         _ => {}
                     }
                 }

@@ -4,6 +4,7 @@ expression: ui_support_h
 ---
 #pragma once
 #include <QtDebug>
+#include <algorithm>
 #include "ui_settingsdialog.h"
 
 namespace UiSupport {
@@ -180,7 +181,7 @@ private:
             observed[1].object = a7;
         }
         a10 = a7->value();
-        a11 = qMax(a10, 1);
+        a11 = std::max(a10, 1);
         a9.setPointSize(a11);
         return a9;
     b4:
@@ -276,7 +277,7 @@ private:
         }
         a2 = a1->value();
         a3 = a2;
-        a4 = qMax(a3, 1);
+        a4 = std::max(a3, 1);
         return a4;
     }
 
