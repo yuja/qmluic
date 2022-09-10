@@ -315,8 +315,6 @@ pub enum ExpressionError<'a> {
         .2.qualified_name(),
     )]
     OperationOnUnsupportedTypes(String, TypeDesc<'a>, TypeDesc<'a>),
-    #[error("unsupported operation '{0}'")]
-    UnsupportedOperation(String),
     #[error("not a readable property")]
     UnreadableProperty,
     #[error("not a writable property")]
