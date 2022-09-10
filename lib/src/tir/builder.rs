@@ -799,9 +799,10 @@ fn check_object_subscript_type<'a>(
     index: &Operand<'a>,
 ) -> Result<TypeKind<'a>, ExpressionError<'a>> {
     let elem_ty = match to_concrete_type("subscript", object.type_desc())? {
-        TypeKind::Just(_) | TypeKind::Pointer(_) => {
-            return Err(ExpressionError::UnsupportedOperation(
+        ty @ (TypeKind::Just(_) | TypeKind::Pointer(_)) => {
+            return Err(ExpressionError::OperationOnUnsupportedType(
                 "subscript".to_owned(),
+                TypeDesc::Concrete(ty),
             ))
         }
         TypeKind::List(ty) => *ty,
