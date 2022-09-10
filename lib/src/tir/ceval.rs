@@ -98,9 +98,9 @@ pub(super) fn eval_binary_arith_expression(
 ) -> Result<ConstantValue, ExpressionError<'static>> {
     use BinaryArithOp::*;
     match (left, right) {
-        (ConstantValue::Bool(_), ConstantValue::Bool(_)) => {
-            Err(ExpressionError::UnsupportedOperation(op.to_string()))
-        }
+        (left @ ConstantValue::Bool(_), ConstantValue::Bool(_)) => Err(
+            ExpressionError::OperationOnUnsupportedType(op.to_string(), left.type_desc()),
+        ),
         (ConstantValue::Integer(l), ConstantValue::Integer(r)) => {
             let a = match op {
                 Add => i64::checked_add(l, r),
@@ -124,11 +124,14 @@ pub(super) fn eval_binary_arith_expression(
         }
         (ConstantValue::CString(l), ConstantValue::CString(r)) => match op {
             Add => Ok(ConstantValue::CString(l + &r)),
-            Sub | Mul | Div | Rem => Err(ExpressionError::UnsupportedOperation(op.to_string())),
+            Sub | Mul | Div | Rem => Err(ExpressionError::OperationOnUnsupportedType(
+                op.to_string(),
+                ConstantValue::CString(l).type_desc(),
+            )),
         },
-        (ConstantValue::QString(_), ConstantValue::QString(_)) => {
-            Err(ExpressionError::UnsupportedOperation(op.to_string()))
-        }
+        (left @ ConstantValue::QString(_), ConstantValue::QString(_)) => Err(
+            ExpressionError::OperationOnUnsupportedType(op.to_string(), left.type_desc()),
+        ),
         (left, right) => Err(ExpressionError::OperationOnIncompatibleTypes(
             op.to_string(),
             left.type_desc(),
@@ -160,11 +163,11 @@ pub(super) fn eval_binary_bitwise_expression(
             };
             Ok(ConstantValue::Integer(a))
         }
-        (ConstantValue::Float(_), ConstantValue::Float(_))
-        | (ConstantValue::CString(_), ConstantValue::CString(_))
-        | (ConstantValue::QString(_), ConstantValue::QString(_)) => {
-            Err(ExpressionError::UnsupportedOperation(op.to_string()))
-        }
+        (left @ ConstantValue::Float(_), ConstantValue::Float(_))
+        | (left @ ConstantValue::CString(_), ConstantValue::CString(_))
+        | (left @ ConstantValue::QString(_), ConstantValue::QString(_)) => Err(
+            ExpressionError::OperationOnUnsupportedType(op.to_string(), left.type_desc()),
+        ),
         (left, right) => Err(ExpressionError::OperationOnIncompatibleTypes(
             op.to_string(),
             left.type_desc(),
@@ -188,7 +191,11 @@ pub(super) fn eval_shift_expression(
             a.map(ConstantValue::Integer)
                 .ok_or(ExpressionError::IntegerOverflow)
         }
-        _ => Err(ExpressionError::UnsupportedOperation(op.to_string())),
+        (left, right) => Err(ExpressionError::OperationOnUnsupportedTypes(
+            op.to_string(),
+            left.type_desc(),
+            right.type_desc(),
+        )),
     }
 }
 

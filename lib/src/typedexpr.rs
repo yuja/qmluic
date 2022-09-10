@@ -309,6 +309,12 @@ pub enum ExpressionError<'a> {
     OperationOnUndeterminedType(String, TypeDesc<'a>),
     #[error("operation '{0}' on unsupported type: {}", .1.qualified_name())]
     OperationOnUnsupportedType(String, TypeDesc<'a>),
+    #[error(
+        "operation '{0}' on unsupported types: {} and {}",
+        .1.qualified_name(),
+        .2.qualified_name(),
+    )]
+    OperationOnUnsupportedTypes(String, TypeDesc<'a>, TypeDesc<'a>),
     #[error("unsupported operation '{0}'")]
     UnsupportedOperation(String),
     #[error("not a readable property")]

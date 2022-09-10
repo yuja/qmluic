@@ -695,7 +695,7 @@ impl<'a> CodeBuilder<'a> {
         right: Operand<'a>,
         byte_range: Range<usize>,
     ) -> Result<Operand<'a>, ExpressionError<'a>> {
-        let unsupported = || ExpressionError::UnsupportedOperation(binary.to_string());
+        let unsupported = |t| ExpressionError::OperationOnUnsupportedType(binary.to_string(), t);
         let left = ensure_concrete_string(left);
         let right = ensure_concrete_string(right);
         match binary {
@@ -706,9 +706,9 @@ impl<'a> CodeBuilder<'a> {
                     &TypeKind::INT | &TypeKind::UINT | &TypeKind::DOUBLE => Ok(ty),
                     &TypeKind::STRING => match op {
                         Add => Ok(ty),
-                        Sub | Mul | Div | Rem => Err(unsupported()),
+                        Sub | Mul | Div | Rem => Err(unsupported(TypeDesc::Concrete(ty))),
                     },
-                    _ => Err(unsupported()),
+                    _ => Err(unsupported(TypeDesc::Concrete(ty))),
                 }
             }
             BinaryOp::Bitwise(op) => {
@@ -718,32 +718,38 @@ impl<'a> CodeBuilder<'a> {
                     | &TypeKind::INT
                     | &TypeKind::UINT
                     | TypeKind::Just(NamedType::Enum(_)) => Ok(ty),
-                    _ => Err(unsupported()),
+                    _ => Err(unsupported(TypeDesc::Concrete(ty))),
                 }
             }
             BinaryOp::Shift(op) => {
                 let lty = to_concrete_type(op, left.type_desc())?;
-                match (&lty, right.type_desc()) {
+                let rt = right.type_desc();
+                match (&lty, &rt) {
                     (
                         &TypeKind::INT | &TypeKind::UINT,
-                        TypeDesc::ConstInteger | TypeDesc::INT | TypeDesc::UINT,
+                        TypeDesc::ConstInteger | &TypeDesc::INT | &TypeDesc::UINT,
                     ) => Ok(lty),
-                    _ => Err(unsupported()),
+                    _ => Err(ExpressionError::OperationOnUnsupportedTypes(
+                        op.to_string(),
+                        TypeDesc::Concrete(lty),
+                        rt,
+                    )),
                 }
             }
             BinaryOp::Logical(_) => {
                 panic!("visit_binary_logical_expression() should be called")
             }
             BinaryOp::Comparison(op) => {
-                match deduce_concrete_type(op, left.type_desc(), right.type_desc())? {
-                    TypeKind::BOOL
-                    | TypeKind::INT
-                    | TypeKind::UINT
-                    | TypeKind::DOUBLE
-                    | TypeKind::STRING
+                let ty = deduce_concrete_type(op, left.type_desc(), right.type_desc())?;
+                match &ty {
+                    &TypeKind::BOOL
+                    | &TypeKind::INT
+                    | &TypeKind::UINT
+                    | &TypeKind::DOUBLE
+                    | &TypeKind::STRING
                     | TypeKind::Just(NamedType::Enum(_))
                     | TypeKind::Pointer(_) => Ok(TypeKind::BOOL),
-                    _ => Err(unsupported()),
+                    _ => Err(unsupported(TypeDesc::Concrete(ty))),
                 }
             }
         }
