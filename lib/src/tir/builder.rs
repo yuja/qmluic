@@ -663,26 +663,26 @@ impl<'a> CodeBuilder<'a> {
         argument: Operand<'a>,
         byte_range: Range<usize>,
     ) -> Result<Operand<'a>, ExpressionError<'a>> {
-        let unsupported = || ExpressionError::UnsupportedOperation(unary.to_string());
+        let unsupported = |t| ExpressionError::OperationOnUnsupportedType(unary.to_string(), t);
         let argument = ensure_concrete_string(argument);
         match unary {
             UnaryOp::Arith(_) => {
                 let ty = to_concrete_type(unary, argument.type_desc())?;
                 match &ty {
                     &TypeKind::INT | &TypeKind::UINT | &TypeKind::DOUBLE => Ok(ty),
-                    _ => Err(unsupported()),
+                    _ => Err(unsupported(TypeDesc::Concrete(ty))),
                 }
             }
             UnaryOp::Bitwise(_) => {
                 let ty = to_concrete_type(unary, argument.type_desc())?;
                 match &ty {
                     &TypeKind::INT | &TypeKind::UINT | TypeKind::Just(NamedType::Enum(_)) => Ok(ty),
-                    _ => Err(unsupported()),
+                    _ => Err(unsupported(TypeDesc::Concrete(ty))),
                 }
             }
             UnaryOp::Logical(_) => match argument.type_desc() {
                 TypeDesc::BOOL => Ok(TypeKind::BOOL),
-                _ => Err(unsupported()),
+                t => Err(unsupported(t)),
             },
         }
         .map(|ty| self.emit_result(ty, Rvalue::UnaryOp(unary, argument), byte_range))

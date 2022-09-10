@@ -36,7 +36,10 @@ pub(super) fn eval_unary_arith_expression(
         | ConstantValue::CString(_)
         | ConstantValue::QString(_)
         | ConstantValue::NullPointer
-        | ConstantValue::EmptyList => Err(ExpressionError::UnsupportedOperation(op.to_string())),
+        | ConstantValue::EmptyList => Err(ExpressionError::OperationOnUnsupportedType(
+            op.to_string(),
+            argument.type_desc(),
+        )),
     }
 }
 
@@ -57,7 +60,10 @@ pub(super) fn eval_unary_bitwise_expression(
         | ConstantValue::CString(_)
         | ConstantValue::QString(_)
         | ConstantValue::NullPointer
-        | ConstantValue::EmptyList => Err(ExpressionError::UnsupportedOperation(op.to_string())),
+        | ConstantValue::EmptyList => Err(ExpressionError::OperationOnUnsupportedType(
+            op.to_string(),
+            argument.type_desc(),
+        )),
     }
 }
 
@@ -78,7 +84,10 @@ pub(super) fn eval_unary_logical_expression(
         | ConstantValue::CString(_)
         | ConstantValue::QString(_)
         | ConstantValue::NullPointer
-        | ConstantValue::EmptyList => Err(ExpressionError::UnsupportedOperation(op.to_string())),
+        | ConstantValue::EmptyList => Err(ExpressionError::OperationOnUnsupportedType(
+            op.to_string(),
+            argument.type_desc(),
+        )),
     }
 }
 

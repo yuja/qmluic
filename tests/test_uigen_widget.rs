@@ -538,7 +538,7 @@ fn test_if_condition_pointer_negated() {
         }
     }
     "###).unwrap_err(), @r###"
-    error: unsupported operation '!'
+    error: operation '!' on unsupported type: QLabel*
       ┌─ <unknown>:5:14
       │
     5 │         if (!obj)

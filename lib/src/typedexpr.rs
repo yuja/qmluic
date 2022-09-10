@@ -957,7 +957,7 @@ where
                 Err(e) => {
                     let mut diag = Diagnostic::error(node.byte_range(), e.to_string());
                     if unary == UnaryOp::Logical(UnaryLogicalOp::Not)
-                        && matches!(&e, ExpressionError::UnsupportedOperation(_))
+                        && matches!(&e, ExpressionError::OperationOnUnsupportedType(..))
                     {
                         typeutil::diagnose_bool_conversion(
                             &mut diag,
