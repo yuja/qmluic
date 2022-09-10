@@ -466,7 +466,7 @@ impl<'a> ExpressionVisitor<'a> for CodeBuilder<'a> {
                 }
                 BinaryOp::Shift(op) => ceval::eval_shift_expression(op, l.value, r.value),
                 BinaryOp::Logical(_) => {
-                    unreachable!("visit_binary_logical_expression() should be called")
+                    panic!("visit_binary_logical_expression() should be called")
                 }
                 BinaryOp::Comparison(op) => ceval::eval_comparison_expression(op, l.value, r.value),
             }
@@ -732,7 +732,7 @@ impl<'a> CodeBuilder<'a> {
                 }
             }
             BinaryOp::Logical(_) => {
-                unreachable!("visit_binary_logical_expression() should be called")
+                panic!("visit_binary_logical_expression() should be called")
             }
             BinaryOp::Comparison(op) => {
                 match deduce_concrete_type(op, left.type_desc(), right.type_desc())? {
