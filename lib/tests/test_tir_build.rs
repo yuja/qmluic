@@ -3,6 +3,22 @@ use self::tir_testenv::*;
 pub mod tir_testenv;
 
 #[test]
+fn float_literal_zeros() {
+    insta::assert_snapshot!(dump("+0.0"), @r###"
+    .0:
+        return 0.0: double
+    "###);
+    insta::assert_snapshot!(dump("-0.0"), @r###"
+    .0:
+        return -0.0: double
+    "###);
+    insta::assert_snapshot!(dump("+0.0 === -0.0"), @r###"
+    .0:
+        return true: bool
+    "###);
+}
+
+#[test]
 fn string_literal() {
     insta::assert_snapshot!(dump("'foo'"), @r###"
     .0:
