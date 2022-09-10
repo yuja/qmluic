@@ -157,7 +157,7 @@ pub fn diagnose_bool_conversion(
     t: &TypeDesc,
     truthy: bool,
 ) {
-    diag.push_label(byte_range, format!("type: {}", t.qualified_name()));
+    push_type_label(diag, byte_range, t);
     let ne = if truthy { "!=" } else { "==" };
     let neg = if truthy { "!" } else { "" };
     match t {
@@ -188,16 +188,8 @@ pub fn diagnose_incompatible_types(
     right_byte_range: Range<usize>,
     right_t: &TypeDesc,
 ) {
-    diag.extend_labels([
-        (
-            left_byte_range,
-            format!("type: {}", left_t.qualified_name()),
-        ),
-        (
-            right_byte_range,
-            format!("type: {}", right_t.qualified_name()),
-        ),
-    ]);
+    push_type_label(diag, left_byte_range, left_t);
+    push_type_label(diag, right_byte_range, right_t);
     match (left_t, right_t) {
         (
             &TypeDesc::DOUBLE | &TypeDesc::INT | &TypeDesc::UINT,
@@ -227,4 +219,8 @@ pub fn diagnose_incompatible_types(
         }
         _ => {}
     }
+}
+
+pub fn push_type_label(diag: &mut Diagnostic, byte_range: Range<usize>, t: &TypeDesc) {
+    diag.push_label(byte_range, format!("type: {}", t.qualified_name()));
 }

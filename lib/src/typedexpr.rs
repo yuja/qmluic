@@ -984,6 +984,30 @@ where
                     ))
                 })
                 .ok()?;
+            let diagnose = |e: &ExpressionError| {
+                let mut diag = Diagnostic::error(node.byte_range(), e.to_string());
+                match e {
+                    ExpressionError::OperationOnIncompatibleTypes(_, l, r) => {
+                        typeutil::diagnose_incompatible_types(
+                            &mut diag,
+                            x.left.byte_range(),
+                            l,
+                            x.right.byte_range(),
+                            r,
+                        );
+                    }
+                    ExpressionError::OperationOnUnsupportedType(_, t) => {
+                        typeutil::push_type_label(&mut diag, x.left.byte_range(), t);
+                        typeutil::push_type_label(&mut diag, x.right.byte_range(), t);
+                    }
+                    ExpressionError::OperationOnUnsupportedTypes(_, l, r) => {
+                        typeutil::push_type_label(&mut diag, x.left.byte_range(), l);
+                        typeutil::push_type_label(&mut diag, x.right.byte_range(), r);
+                    }
+                    _ => {}
+                }
+                diag
+            };
             match binary {
                 BinaryOp::Arith(_)
                 | BinaryOp::Bitwise(_)
@@ -994,17 +1018,7 @@ where
                     match visitor.visit_binary_expression(binary, left, right, node.byte_range()) {
                         Ok(it) => Some(Intermediate::Item(it)),
                         Err(e) => {
-                            let mut diag = Diagnostic::error(node.byte_range(), e.to_string());
-                            if let ExpressionError::OperationOnIncompatibleTypes(_, l, r) = &e {
-                                typeutil::diagnose_incompatible_types(
-                                    &mut diag,
-                                    x.left.byte_range(),
-                                    l,
-                                    x.right.byte_range(),
-                                    r,
-                                );
-                            }
-                            diagnostics.push(diag);
+                            diagnostics.push(diagnose(&e));
                             None
                         }
                     }

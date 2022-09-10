@@ -450,6 +450,42 @@ fn test_object_comparison_type_mismatch() {
 }
 
 #[test]
+fn test_unsupported_binary_expression() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QWidget {
+         windowTitle: "foo" - "bar"
+    }
+    "###).unwrap_err(), @r###"
+    error: operation '-' on unsupported type: string
+      ┌─ <unknown>:3:19
+      │
+    3 │      windowTitle: "foo" - "bar"
+      │                   -----   ----- type: string
+      │                   │        
+      │                   type: string
+    "###);
+}
+
+#[test]
+fn test_unsupported_shift_expression() {
+    insta::assert_snapshot!(common::translate_str(r###"
+    import qmluic.QtWidgets
+    QWidget {
+         windowTitle: "foo" << 1
+    }
+    "###).unwrap_err(), @r###"
+    error: operation '<<' on unsupported types: string and integer
+      ┌─ <unknown>:3:19
+      │
+    3 │      windowTitle: "foo" << 1
+      │                   -----    - type: integer
+      │                   │         
+      │                   type: string
+    "###);
+}
+
+#[test]
 fn test_ternary_expression_type_mismatch() {
     insta::assert_snapshot!(common::translate_str(r###"
     import qmluic.QtWidgets
