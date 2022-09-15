@@ -72,6 +72,7 @@ jobs:
   build-deb:
     # ubuntu-latest is not the latest
     runs-on: ubuntu-22.04
+    if: ${{ false }}  # TODO: til rustc 1.61 gets available
     steps:
       - uses: actions/checkout@v3
         with:
