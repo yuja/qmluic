@@ -14,10 +14,10 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        rust_toolchain: [stable, "1.58"]
+        rust_toolchain: [stable, "1.61"]
         exclude:
           - os: windows-latest
-            rust_toolchain: "1.58"
+            rust_toolchain: "1.61"
 
     runs-on: ${{ matrix.os }}
 
