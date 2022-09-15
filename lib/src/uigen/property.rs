@@ -161,7 +161,7 @@ where
         if *s != PropertySetter::StdSet {
             tag.push_attribute(("stdset", "0"));
         }
-        writer.write_event(Event::Start(tag.to_borrowed()))?;
+        writer.write_event(Event::Start(tag.borrow()))?;
         v.serialize_to_xml(writer)?;
         writer.write_event(Event::End(tag.to_end()))?;
     }
