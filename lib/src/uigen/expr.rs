@@ -182,7 +182,7 @@ impl SimpleValue {
                     tag.push_attribute(("notr", "true"));
                 }
                 writer.write_event(Event::Start(tag.borrow()))?;
-                writer.write_event(Event::Text(BytesText::from_plain_str(s)))?;
+                writer.write_event(Event::Text(BytesText::new(s)))?;
                 writer.write_event(Event::End(tag.to_end()))
             }
             _ => xmlutil::write_tagged_str(writer, tag_name, self.to_string()),
