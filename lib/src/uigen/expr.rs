@@ -181,7 +181,7 @@ impl SimpleValue {
                 if *k == StringKind::NoTr {
                     tag.push_attribute(("notr", "true"));
                 }
-                writer.write_event(Event::Start(tag.to_borrowed()))?;
+                writer.write_event(Event::Start(tag.borrow()))?;
                 writer.write_event(Event::Text(BytesText::from_plain_str(s)))?;
                 writer.write_event(Event::End(tag.to_end()))
             }
@@ -258,7 +258,7 @@ where
     if kind == StringKind::NoTr {
         tag.push_attribute(("notr", "true"));
     }
-    writer.write_event(Event::Start(tag.to_borrowed()))?;
+    writer.write_event(Event::Start(tag.borrow()))?;
     for s in strings {
         xmlutil::write_tagged_str(writer, "string", s)?;
     }

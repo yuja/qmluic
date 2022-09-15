@@ -137,7 +137,7 @@ impl Action {
         W: io::Write,
     {
         let tag = BytesStart::new("action").with_attributes([("name", self.name.as_ref())]);
-        writer.write_event(Event::Start(tag.to_borrowed()))?;
+        writer.write_event(Event::Start(tag.borrow()))?;
 
         property::serialize_properties_to_xml(writer, "property", &self.properties)?;
 
@@ -289,7 +289,7 @@ impl Widget {
     {
         let tag = BytesStart::new("widget")
             .with_attributes([("class", self.class.as_ref()), ("name", self.name.as_ref())]);
-        writer.write_event(Event::Start(tag.to_borrowed()))?;
+        writer.write_event(Event::Start(tag.borrow()))?;
 
         property::serialize_properties_to_xml(writer, "attribute", &self.attributes)?;
         property::serialize_properties_to_xml(writer, "property", &self.properties)?;

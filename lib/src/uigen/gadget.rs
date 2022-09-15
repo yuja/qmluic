@@ -72,7 +72,7 @@ impl Gadget {
                 _ => tag.push_attribute((k.as_str(), v.to_string().as_str())),
             }
         }
-        writer.write_event(Event::Start(tag.to_borrowed()))?;
+        writer.write_event(Event::Start(tag.borrow()))?;
 
         for (k, v) in self.properties.iter().sorted_by_key(|&(k, _)| k) {
             let t = k.to_ascii_lowercase(); // apparently tag name of .ui is lowercase
@@ -343,7 +343,7 @@ impl ModelItem {
         W: io::Write,
     {
         let tag = BytesStart::new("item");
-        writer.write_event(Event::Start(tag.to_borrowed()))?;
+        writer.write_event(Event::Start(tag.borrow()))?;
         serialize_item_properties_to_xml(writer, &self.properties)?;
         writer.write_event(Event::End(tag.to_end()))
     }
@@ -358,7 +358,7 @@ where
 {
     for (k, v) in properties.iter().sorted_by_key(|&(k, _)| k) {
         let tag = BytesStart::new("property").with_attributes([("name", k.as_ref())]);
-        writer.write_event(Event::Start(tag.to_borrowed()))?;
+        writer.write_event(Event::Start(tag.borrow()))?;
         v.serialize_to_xml(writer)?;
         writer.write_event(Event::End(tag.to_end()))?;
     }
@@ -410,11 +410,11 @@ impl PaletteColorGroup {
         T: AsRef<str>,
     {
         let group_tag = BytesStart::new(tag_name.as_ref());
-        writer.write_event(Event::Start(group_tag.to_borrowed()))?;
+        writer.write_event(Event::Start(group_tag.borrow()))?;
 
         for (k, v) in self.roles.iter().sorted_by_key(|&(k, _)| k) {
             let tag = BytesStart::new("colorrole").with_attributes([("role", k.as_ref())]);
-            writer.write_event(Event::Start(tag.to_borrowed()))?;
+            writer.write_event(Event::Start(tag.borrow()))?;
             v.serialize_to_xml(writer)?;
             writer.write_event(Event::End(tag.to_end()))?;
         }

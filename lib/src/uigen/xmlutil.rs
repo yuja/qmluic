@@ -15,7 +15,7 @@ where
     T: AsRef<str>,
 {
     let tag = BytesStart::new(tag.as_ref());
-    writer.write_event(Event::Start(tag.to_borrowed()))?;
+    writer.write_event(Event::Start(tag.borrow()))?;
     writer.write_event(Event::Text(BytesText::from_plain_str(content.as_ref())))?;
     writer.write_event(Event::End(tag.to_end()))?;
     Ok(())

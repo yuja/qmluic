@@ -147,7 +147,7 @@ impl Layout {
                 format_opt_i32_array(&self.attributes.stretch, 1).as_ref(),
             ));
         }
-        writer.write_event(Event::Start(tag.to_borrowed()))?;
+        writer.write_event(Event::Start(tag.borrow()))?;
 
         property::serialize_properties_to_xml(writer, "property", &self.properties)?;
 
@@ -210,7 +210,7 @@ impl LayoutItem {
         if let Some(v) = self.row_span {
             tag.push_attribute(("rowspan", v.to_string().as_ref()));
         }
-        writer.write_event(Event::Start(tag.to_borrowed()))?;
+        writer.write_event(Event::Start(tag.borrow()))?;
 
         self.content.serialize_to_xml(writer)?;
 
@@ -352,11 +352,11 @@ impl SpacerItem {
         W: io::Write,
     {
         let tag = BytesStart::new("spacer").with_attributes([("name", self.name.as_ref())]);
-        writer.write_event(Event::Start(tag.to_borrowed()))?;
+        writer.write_event(Event::Start(tag.borrow()))?;
 
         for (k, v) in self.properties.iter().sorted_by_key(|&(k, _)| k) {
             let t = BytesStart::new("property").with_attributes([("name", k.as_ref())]);
-            writer.write_event(Event::Start(t.to_borrowed()))?;
+            writer.write_event(Event::Start(t.borrow()))?;
             v.serialize_to_xml(writer)?;
             writer.write_event(Event::End(t.to_end()))?;
         }
