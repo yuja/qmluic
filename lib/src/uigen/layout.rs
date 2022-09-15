@@ -114,7 +114,7 @@ impl Layout {
     where
         W: io::Write,
     {
-        let mut tag = BytesStart::borrowed_name(b"layout");
+        let mut tag = BytesStart::new("layout");
         tag.push_attribute(("class", self.class.as_ref()));
         tag.push_attribute(("name", self.name.as_ref()));
         if !self.attributes.column_minimum_width.is_empty() {
@@ -194,7 +194,7 @@ impl LayoutItem {
     where
         W: io::Write,
     {
-        let mut tag = BytesStart::borrowed_name(b"item");
+        let mut tag = BytesStart::new("item");
         if let Some(v) = &self.alignment {
             tag.push_attribute(("alignment", v.as_ref()));
         }
@@ -351,12 +351,11 @@ impl SpacerItem {
     where
         W: io::Write,
     {
-        let tag =
-            BytesStart::borrowed_name(b"spacer").with_attributes([("name", self.name.as_ref())]);
+        let tag = BytesStart::new("spacer").with_attributes([("name", self.name.as_ref())]);
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
         for (k, v) in self.properties.iter().sorted_by_key(|&(k, _)| k) {
-            let t = BytesStart::borrowed_name(b"property").with_attributes([("name", k.as_ref())]);
+            let t = BytesStart::new("property").with_attributes([("name", k.as_ref())]);
             writer.write_event(Event::Start(t.to_borrowed()))?;
             v.serialize_to_xml(writer)?;
             writer.write_event(Event::End(t.to_end()))?;

@@ -106,7 +106,7 @@ impl SerializableValue {
     ) -> XmlResult<()>
     where
         W: io::Write,
-        T: AsRef<[u8]>,
+        T: AsRef<str>,
     {
         use SerializableValue::*;
         match self {
@@ -172,12 +172,12 @@ impl SimpleValue {
     ) -> XmlResult<()>
     where
         W: io::Write,
-        T: AsRef<[u8]>,
+        T: AsRef<str>,
     {
         use SimpleValue::*;
         match self {
             String(s, k) => {
-                let mut tag = BytesStart::borrowed_name(tag_name.as_ref());
+                let mut tag = BytesStart::new(tag_name.as_ref());
                 if *k == StringKind::NoTr {
                     tag.push_attribute(("notr", "true"));
                 }
@@ -252,9 +252,9 @@ fn serialize_string_list_to_xml<W, T>(
 ) -> XmlResult<()>
 where
     W: io::Write,
-    T: AsRef<[u8]>,
+    T: AsRef<str>,
 {
-    let mut tag = BytesStart::borrowed_name(tag_name.as_ref());
+    let mut tag = BytesStart::new(tag_name.as_ref());
     if kind == StringKind::NoTr {
         tag.push_attribute(("notr", "true"));
     }

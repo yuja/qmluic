@@ -153,11 +153,11 @@ pub(super) fn serialize_properties_to_xml<W, T>(
 ) -> XmlResult<()>
 where
     W: io::Write,
-    T: AsRef<[u8]>,
+    T: AsRef<str>,
 {
     let tag_name = tag_name.as_ref();
     for (k, (v, s)) in properties.iter().sorted_by_key(|&(k, _)| k) {
-        let mut tag = BytesStart::borrowed_name(tag_name).with_attributes([("name", k.as_ref())]);
+        let mut tag = BytesStart::new(tag_name).with_attributes([("name", k.as_ref())]);
         if *s != PropertySetter::StdSet {
             tag.push_attribute(("stdset", "0"));
         }

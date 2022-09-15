@@ -52,12 +52,12 @@ impl UiForm {
     where
         W: io::Write,
     {
-        let tag = BytesStart::borrowed_name(b"ui").with_attributes([("version", "4.0")]);
+        let tag = BytesStart::new("ui").with_attributes([("version", "4.0")]);
         writer.write_event(Event::Start(tag.to_borrowed()))?;
         xmlutil::write_tagged_str(writer, "class", &self.class)?;
         self.root_widget.serialize_to_xml(writer)?;
         if !self.custom_widgets.is_empty() {
-            let tag = BytesStart::borrowed_name(b"customwidgets");
+            let tag = BytesStart::new("customwidgets");
             writer.write_event(Event::Start(tag.to_borrowed()))?;
             for w in &self.custom_widgets {
                 w.serialize_to_xml(writer)?;
@@ -94,7 +94,7 @@ impl CustomWidget {
     where
         W: io::Write,
     {
-        let tag = BytesStart::borrowed_name(b"customwidget");
+        let tag = BytesStart::new("customwidget");
         writer.write_event(Event::Start(tag.to_borrowed()))?;
         xmlutil::write_tagged_str(writer, "class", &self.class)?;
         xmlutil::write_tagged_str(writer, "extends", &self.extends)?;
