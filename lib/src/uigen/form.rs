@@ -65,7 +65,8 @@ impl UiForm {
             writer.write_event(Event::End(tag.to_end()))?;
         }
         writer.write_event(Event::End(tag.to_end()))?;
-        writer.write(b"\n")
+        writer.inner().write_all(b"\n")?;
+        Ok(())
     }
 }
 
