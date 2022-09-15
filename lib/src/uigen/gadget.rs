@@ -61,9 +61,9 @@ impl Gadget {
     ) -> XmlResult<()>
     where
         W: io::Write,
-        T: AsRef<[u8]>,
+        T: AsRef<str>,
     {
-        let mut tag = BytesStart::borrowed_name(tag_name.as_ref());
+        let mut tag = BytesStart::new(tag_name.as_ref());
         for (k, v) in self.attributes.iter().sorted_by_key(|&(k, _)| k) {
             match v {
                 SimpleValue::Enum(s) if self.kind.no_enum_prefix() => {
@@ -342,7 +342,7 @@ impl ModelItem {
     where
         W: io::Write,
     {
-        let tag = BytesStart::borrowed_name(b"item");
+        let tag = BytesStart::new("item");
         writer.write_event(Event::Start(tag.to_borrowed()))?;
         serialize_item_properties_to_xml(writer, &self.properties)?;
         writer.write_event(Event::End(tag.to_end()))
@@ -357,7 +357,7 @@ where
     W: io::Write,
 {
     for (k, v) in properties.iter().sorted_by_key(|&(k, _)| k) {
-        let tag = BytesStart::borrowed_name(b"property").with_attributes([("name", k.as_ref())]);
+        let tag = BytesStart::new("property").with_attributes([("name", k.as_ref())]);
         writer.write_event(Event::Start(tag.to_borrowed()))?;
         v.serialize_to_xml(writer)?;
         writer.write_event(Event::End(tag.to_end()))?;
@@ -407,14 +407,13 @@ impl PaletteColorGroup {
     ) -> XmlResult<()>
     where
         W: io::Write,
-        T: AsRef<[u8]>,
+        T: AsRef<str>,
     {
-        let group_tag = BytesStart::borrowed_name(tag_name.as_ref());
+        let group_tag = BytesStart::new(tag_name.as_ref());
         writer.write_event(Event::Start(group_tag.to_borrowed()))?;
 
         for (k, v) in self.roles.iter().sorted_by_key(|&(k, _)| k) {
-            let tag =
-                BytesStart::borrowed_name(b"colorrole").with_attributes([("role", k.as_ref())]);
+            let tag = BytesStart::new("colorrole").with_attributes([("role", k.as_ref())]);
             writer.write_event(Event::Start(tag.to_borrowed()))?;
             v.serialize_to_xml(writer)?;
             writer.write_event(Event::End(tag.to_end()))?;

@@ -136,8 +136,7 @@ impl Action {
     where
         W: io::Write,
     {
-        let tag =
-            BytesStart::borrowed_name(b"action").with_attributes([("name", self.name.as_ref())]);
+        let tag = BytesStart::new("action").with_attributes([("name", self.name.as_ref())]);
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
         property::serialize_properties_to_xml(writer, "property", &self.properties)?;
@@ -288,7 +287,7 @@ impl Widget {
     where
         W: io::Write,
     {
-        let tag = BytesStart::borrowed_name(b"widget")
+        let tag = BytesStart::new("widget")
             .with_attributes([("class", self.class.as_ref()), ("name", self.name.as_ref())]);
         writer.write_event(Event::Start(tag.to_borrowed()))?;
 
@@ -297,7 +296,7 @@ impl Widget {
 
         for n in &self.actions {
             writer.write_event(Event::Empty(
-                BytesStart::borrowed_name(b"addaction").with_attributes([("name", n.as_ref())]),
+                BytesStart::new("addaction").with_attributes([("name", n.as_ref())]),
             ))?;
         }
 
