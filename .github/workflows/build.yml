@@ -97,7 +97,7 @@ jobs:
       - name: Install clippy
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: "1.61"
           profile: minimal
           components: clippy
           override: true
