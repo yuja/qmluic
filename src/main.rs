@@ -25,16 +25,16 @@ use thiserror::Error;
 
 #[derive(Clone, Debug, Parser)]
 struct Cli {
-    #[clap(flatten)]
+    #[command(flatten)]
     global_args: GlobalArgs,
-    #[clap(subcommand)]
+    #[command(subcommand)]
     command: Command,
 }
 
 #[derive(Args, Clone, Debug)]
 struct GlobalArgs {
     /// Command to query Qt installation paths.
-    #[clap(long, global = true, default_value = "qmake", action)]
+    #[arg(long, global = true, default_value = "qmake")]
     qmake: String,
 }
 
@@ -114,12 +114,11 @@ fn dispatch(helper: &CommandHelper, command: &Command) -> Result<(), CommandErro
 #[derive(Args, Clone, Debug)]
 struct DumpMetatypesArgs {
     /// Source metatypes file (.json)
-    #[clap(action)]
     input: Utf8PathBuf,
-    #[clap(short = 'o', long, action)]
+    #[arg(short = 'o', long)]
     /// Write metatypes output to file (e.g. metatypes.json)
     output_metatypes: Option<Utf8PathBuf>,
-    #[clap(long, action)]
+    #[arg(long)]
     /// Write qmltypes output to file (e.g. plugins.qmltypes)
     output_qmltypes: Option<Utf8PathBuf>,
 }
@@ -251,24 +250,24 @@ fn generate_qmltypes(
 #[derive(Args, Clone, Debug)]
 struct GenerateUiArgs {
     /// QML files to parse
-    #[clap(required = true, action)]
+    #[arg(required = true)]
     sources: Vec<Utf8PathBuf>,
     /// Create output files in the given directory.
     ///
     /// If specified, the source file paths must be relative and not contain "..".
-    #[clap(short = 'O', long, action)]
+    #[arg(short = 'O', long)]
     output_directory: Option<Utf8PathBuf>,
-    #[clap(long, action)]
+    #[arg(long)]
     /// Qt metatypes.json files/directories to load
     ///
     /// By default, qt${major}core/gui/widgets_*.json will be loaded from the
     /// QT_INSTALL_LIBS/metatypes directory.
     foreign_types: Vec<Utf8PathBuf>,
     /// Do not generate C++ code to set up dynamic bindings
-    #[clap(long, action)]
+    #[arg(long)]
     no_dynamic_binding: bool,
     /// Do not convert output file names to lowercase
-    #[clap(long, action)]
+    #[arg(long)]
     no_lowercase_file_name: bool,
 }
 
@@ -408,9 +407,8 @@ fn generate_ui_file(
 #[derive(Args, Clone, Debug)]
 struct PreviewArgs {
     /// QML file to load
-    #[clap(action)]
     source: Utf8PathBuf,
-    #[clap(long, action)]
+    #[arg(long)]
     /// Qt metatypes.json files/directories to load
     ///
     /// By default, qt${major}core/gui/widgets_*.json will be loaded from the
