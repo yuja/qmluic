@@ -5,7 +5,7 @@ Maintainer: Yuya Nishihara <yuya@tcha.org>
 Rules-Requires-Root: no
 Build-Depends:
  debhelper-compat (= 13),
- cargo,
+ cargo (>= 0.61),
  cmake,
  ninja-build,
  qtbase5-dev (>= 5.15),
