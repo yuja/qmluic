@@ -744,9 +744,9 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-qmljs"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf2c15f04948957148a0874d626ab434bad51f918338626ea83c1ced27eb85f5"
+checksum = "c3e003217d413ba553a884c6e650de1502f5b55482b4c92dc3847601fc6bd8bd"
 dependencies = [
  "cc",
  "tree-sitter",
