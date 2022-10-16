@@ -43,14 +43,19 @@ option to load metatype.json files from the other directory or files.
 ### CMake
 
 There's a basic helper to integrate `qmluic generate-ui` in the build step.
+By default, the output `.ui` and `.h` files are generated into the
+`CMAKE_CURRENT_BINARY_DIR`. This can be changed by the `OUTPUT_DIRECTORY`
+option.
+
 Please make sure to not enable `CMAKE_AUTOUIC`, which conflicts with the .ui
 generation step.
 
 ```cmake
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+# DO NOT ENABLE: set(CMAKE_AUTOUIC ON)
+
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
 find_package(Qmluic REQUIRED)
-
-# DO NOT ENABLE: set(CMAKE_AUTOUIC ON)
 
 # Help Qt Creator find qmluic type stub
 set(QML_IMPORT_PATH ${QMLUIC_QML_IMPORT_PATH} CACHE STRING "" FORCE)
