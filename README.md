@@ -203,7 +203,8 @@ Major TODOs
 - [ ] Improve support for dynamic property bindings / signal callbacks
   - [ ] `.toString()`
   - [x] `"".isEmpty()`
-- [ ] export helper functions from C++
+- [ ] Export helper functions from C++
+- [ ] User type and property (so C++ data model can be bound to UI)
 
 Comparison to DeclarativeWidgets
 --------------------------------
