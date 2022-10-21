@@ -24,10 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Install Rust ${{ matrix.rust_toolchain }}
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust_toolchain }}
-          override: true
       - name: Build
         run: cargo build --workspace --verbose
       - name: Run tests
@@ -44,10 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Install Rust stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+        uses: dtolnay/rust-toolchain@stable
       - name: Install build dependencies
         run: |
           sudo apt update
@@ -95,12 +91,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Install clippy
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.61"
-          profile: minimal
           components: clippy
-          override: true
       # TODO: should we switch to actions-rs/clippy-check?
       - name: Lint with clippy
         run: cargo clippy --workspace --all-targets -- -Dwarnings
@@ -110,12 +104,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Install rustfmt
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          profile: minimal
           components: rustfmt
-          override: true
       - name: Check format
         run: cargo fmt --all --check
 
