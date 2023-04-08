@@ -3,16 +3,13 @@ use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::typedexpr::DescribeType as _;
 
 /// Analyzes TIR code to collect object/property dependencies and insert observe statements.
-pub fn analyze_code_property_dependency<'a>(
-    code: &mut CodeBody<'a>,
-    diagnostics: &mut Diagnostics,
-) {
+pub fn analyze_code_property_dependency(code: &mut CodeBody<'_>, diagnostics: &mut Diagnostics) {
     for i in 0..code.basic_blocks.len() {
         analyze_block(code, i, diagnostics);
     }
 }
 
-fn analyze_block<'a>(code: &mut CodeBody<'a>, block_index: usize, diagnostics: &mut Diagnostics) {
+fn analyze_block(code: &mut CodeBody<'_>, block_index: usize, diagnostics: &mut Diagnostics) {
     // if a variable comes in from another basic block, simply take it as dynamic
     let mut locals: Vec<Option<&NamedObjectRef>> = vec![None; code.locals.len()];
     let block = &code.basic_blocks[block_index];
