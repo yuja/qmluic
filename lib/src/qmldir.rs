@@ -117,7 +117,7 @@ fn make_doc_component_data(
                 data.import_module(ModuleIdBuf::Named(s.into()));
             }
             UiImportSource::String(x) => {
-                let dir = doc_base_dir.join(&x);
+                let dir = doc_base_dir.join(x);
                 if dir.is_dir() {
                     data.import_module(ModuleIdBuf::Directory(normalize_path(dir).to_owned()));
                 } else {

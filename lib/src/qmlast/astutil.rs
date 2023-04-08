@@ -18,7 +18,7 @@ pub(super) fn children_with_field_name<'s, 'tree>(
 ) -> impl ExactSizeIterator<Item = (Node<'tree>, Option<&'static str>)> + 's {
     cursor.reset(node);
     cursor.goto_first_child(); // would fail if node.child_count() == 0
-    (0..node.child_count()).into_iter().map(|_| {
+    (0..node.child_count()).map(|_| {
         let item = (cursor.node(), cursor.field_name());
         cursor.goto_next_sibling();
         item
@@ -96,7 +96,7 @@ fn parse_number_str(s: &str) -> Option<Number> {
     // TODO: maybe incomplete
     if let Some((radix, t)) = strip_radix_prefix(s) {
         parse_integer_str_radix(t, radix)
-    } else if s.contains(&['e', '.']) {
+    } else if s.contains(['e', '.']) {
         s.parse().ok().map(Number::Float)
     } else {
         parse_integer_str_radix(s, 10)
