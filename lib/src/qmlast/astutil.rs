@@ -37,7 +37,7 @@ pub(super) fn children_between_field_names<'s, 'tree>(
         .take_while(move |(_, f)| !f.map(|s| s == right_field_name).unwrap_or(false))
 }
 
-pub(super) fn node_text<'tree, 'source>(node: Node<'tree>, source: &'source str) -> &'source str {
+pub(super) fn node_text<'source>(node: Node<'_>, source: &'source str) -> &'source str {
     node.utf8_text(source.as_bytes())
         .expect("source range must be valid utf-8 string")
 }
@@ -80,9 +80,9 @@ pub(super) enum Number {
     Float(f64),
 }
 
-pub(super) fn parse_number<'tree, 'source>(
+pub(super) fn parse_number<'tree>(
     node: Node<'tree>,
-    source: &'source str,
+    source: &str,
 ) -> Result<Number, ParseError<'tree>> {
     if node.kind() != "number" {
         return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
@@ -127,9 +127,9 @@ fn strip_radix_prefix(s: &str) -> Option<(u32, &str)> {
     }
 }
 
-pub(super) fn parse_string<'tree, 'source>(
+pub(super) fn parse_string<'tree>(
     node: Node<'tree>,
-    source: &'source str,
+    source: &str,
 ) -> Result<String, ParseError<'tree>> {
     if node.kind() != "string" {
         return Err(ParseError::new(node, ParseErrorKind::UnexpectedNodeKind));
