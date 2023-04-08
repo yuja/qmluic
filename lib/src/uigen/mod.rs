@@ -143,7 +143,7 @@ fn make_doc_module_space<'a>(
             UiImportSource::Identifier(x) => ModuleIdBuf::Named(x.to_string(doc.source()).into()),
             UiImportSource::String(x) => {
                 if let Some(p) = doc.path().and_then(|p| p.parent()) {
-                    ModuleIdBuf::Directory(qmldir::normalize_path(p.join(&x)))
+                    ModuleIdBuf::Directory(qmldir::normalize_path(p.join(x)))
                 } else {
                     diagnostics.push(Diagnostic::error(
                         imp.node().byte_range(),

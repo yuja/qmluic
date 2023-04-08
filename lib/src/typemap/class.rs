@@ -84,7 +84,7 @@ impl<'a> Class<'a> {
             Some(Ok(()))
         } else {
             self.base_classes()
-                .find_map(|r| r.map(|c| (&c == base).then(|| ())).transpose())
+                .find_map(|r| r.map(|c| (&c == base).then_some(())).transpose())
         }
     }
 
@@ -206,7 +206,7 @@ impl ClassData {
         let attached_class_name = meta
             .class_infos
             .into_iter()
-            .find_map(|x| (x.name == "QML.Attached").then(|| x.value));
+            .find_map(|x| (x.name == "QML.Attached").then_some(x.value));
 
         let mut inner_type_map = NamespaceData::default();
         inner_type_map.extend_enums(meta.enums);
