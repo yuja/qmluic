@@ -14,10 +14,10 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        rust_toolchain: [stable, "1.61"]
+        rust_toolchain: [stable, "1.65"]
         exclude:
           - os: windows-latest
-            rust_toolchain: "1.61"
+            rust_toolchain: "1.65"
 
     runs-on: ${{ matrix.os }}
 
@@ -92,7 +92,7 @@ jobs:
       - name: Install clippy
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.61"
+          toolchain: "1.65"
           components: clippy
       # TODO: should we switch to actions-rs/clippy-check?
       - name: Lint with clippy
