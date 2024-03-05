@@ -36,7 +36,8 @@ impl UiForm {
         let custom_widgets = ctx
             .object_tree
             .flat_iter()
-            .filter_map(|n| n.is_custom_type().then(|| n.class().clone()))
+            .filter(|n| n.is_custom_type())
+            .map(|n| n.class().clone())
             .unique()
             .filter_map(|cls| CustomWidget::from_class(&cls, ctx.file_name_rules))
             .collect();

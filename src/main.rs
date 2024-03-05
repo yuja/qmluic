@@ -546,21 +546,19 @@ fn load_metatypes(paths: &[Utf8PathBuf]) -> anyhow::Result<Vec<metatype::Class>>
     }
 
     log::debug!("loading metatypes from {paths:?}");
-    paths.iter().fold(Ok(vec![]), |acc, path| {
-        acc.and_then(|mut classes| {
-            if path.is_dir() {
-                for r in path.read_dir_utf8()? {
-                    let e = r?;
-                    let p = e.path();
-                    if p.as_str().ends_with(".json") {
-                        load_into(&mut classes, p)?;
-                    }
+    paths.iter().try_fold(vec![], |mut classes, path| {
+        if path.is_dir() {
+            for r in path.read_dir_utf8()? {
+                let e = r?;
+                let p = e.path();
+                if p.as_str().ends_with(".json") {
+                    load_into(&mut classes, p)?;
                 }
-            } else {
-                load_into(&mut classes, path)?;
             }
-            Ok(classes)
-        })
+        } else {
+            load_into(&mut classes, path)?;
+        }
+        Ok(classes)
     })
 }
 

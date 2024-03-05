@@ -80,7 +80,7 @@ pub enum ParseColorError {
 }
 
 fn parse_hex_color(hex: &str) -> Option<Color> {
-    if hex.contains(|c| !matches!(c, '0'..='9' | 'a'..='f' | 'A'..='F')) {
+    if hex.contains(|c: char| !c.is_ascii_hexdigit()) {
         return None;
     }
     // unlike CSS, QML color is #argb, not #rgba
