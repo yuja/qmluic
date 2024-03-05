@@ -13,7 +13,7 @@ quick-xml = "0.31"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
-tree-sitter = "0.20"
+tree-sitter = "0.21"
 tree-sitter-qmljs = "0.1"
 
 [dev-dependencies]

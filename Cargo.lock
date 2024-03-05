@@ -529,7 +529,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
- "tree-sitter",
+ "tree-sitter 0.21.0",
  "tree-sitter-qmljs",
 ]
 
@@ -752,13 +752,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "tree-sitter"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "705bf7c0958d0171dd7d3a6542f2f4f21d87ed5f1dc8db52919d3a6bed9a359a"
+dependencies = [
+ "cc",
+ "regex",
+]
+
+[[package]]
 name = "tree-sitter-qmljs"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3e003217d413ba553a884c6e650de1502f5b55482b4c92dc3847601fc6bd8bd"
 dependencies = [
  "cc",
- "tree-sitter",
+ "tree-sitter 0.20.10",
 ]
 
 [[package]]
