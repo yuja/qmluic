@@ -57,13 +57,18 @@ function(qmluic_add_qmldir module_name lib)
   get_target_property(lib_location ${lib} LOCATION)
   get_filename_component(lib_directory "${lib_location}" DIRECTORY)
   set(metatypes_directory "${lib_directory}/metatypes")
+  # FIXME: Look for the QT_INSTALL_ARCHDATA path instead. This works only on
+  # Debian-like systems.
+  set(metatypes_directory_qt6 "${lib_directory}/qt6/metatypes")
 
   # Look up metatypes.json by pattern matching. Maybe this can be resolved from
   # the INTERFACE_SOURCES property with TARGET_PROPERTY:QT_CONSUMES_METATYPES on Qt 6,
   # but doing that would be tedious.
   string(REPLACE "::" "" metatypes_prefix ${lib})
   string(TOLOWER "${metatypes_prefix}" metatypes_prefix)
-  file(GLOB input_metatypes_file "${metatypes_directory}/${metatypes_prefix}_*.json")
+  file(GLOB input_metatypes_file
+    "${metatypes_directory}/${metatypes_prefix}_*.json"
+    "${metatypes_directory_qt6}/${metatypes_prefix}_*.json")
   list(LENGTH input_metatypes_file count)
   if(count EQUAL 0)
     message(FATAL_ERROR "No metatypes.json found for ${lib}")
