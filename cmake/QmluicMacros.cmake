@@ -95,5 +95,5 @@ function(qmluic_add_qmldir module_name lib)
     DEPENDS Qmluic::qmluic Qt::qmake
   )
 
-  add_custom_target(module_name ALL DEPENDS "${output_qmldir}" "${output_qmltypes}")
+  add_custom_target("${module_name}" ALL DEPENDS "${output_qmldir}" "${output_qmltypes}")
 endfunction()
