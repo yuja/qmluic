@@ -563,10 +563,13 @@ fn load_metatypes(paths: &[Utf8PathBuf]) -> anyhow::Result<Vec<metatype::Class>>
 }
 
 fn find_installed_metatype_files(paths: &QtPaths) -> anyhow::Result<Vec<Utf8PathBuf>> {
-    let base_path = paths
-        .install_libs
-        .as_ref()
+    // Recent versions of Qt 6 appear to install metatypes under the ARCHDATA
+    // directory. Old Qt 6 and Qt 5 install them to LIBS.
+    let base_path = [paths.install_archdata.as_ref(), paths.install_libs.as_ref()]
+        .iter()
+        .flatten()
         .map(|p| p.join("metatypes"))
+        .find(|p| p.exists())
         .ok_or_else(|| anyhow!("Qt metatypes path cannot be detected"))?;
     let major = paths
         .version
