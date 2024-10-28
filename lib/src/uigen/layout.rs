@@ -3,7 +3,7 @@ use super::expr::SerializableValue;
 use super::objcode::PropertyCode;
 use super::object::{self, Widget};
 use super::property::{self, PropertySetter};
-use super::{XmlResult, XmlWriter};
+use super::XmlWriter;
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectNode;
 use crate::typemap::{Class, TypeSpace};
@@ -110,7 +110,7 @@ impl Layout {
     }
 
     /// Serializes this to UI XML.
-    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> io::Result<()>
     where
         W: io::Write,
     {
@@ -190,7 +190,7 @@ impl LayoutItem {
     }
 
     /// Serializes this to UI XML.
-    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> io::Result<()>
     where
         W: io::Write,
     {
@@ -310,7 +310,7 @@ impl LayoutItemContent {
         }
     }
 
-    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> io::Result<()>
     where
         W: io::Write,
     {
@@ -347,7 +347,7 @@ impl SpacerItem {
     }
 
     /// Serializes this to UI XML.
-    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> io::Result<()>
     where
         W: io::Write,
     {

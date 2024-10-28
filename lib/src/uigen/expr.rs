@@ -2,7 +2,7 @@ use super::context::ObjectContext;
 use super::gadget::{Gadget, GadgetKind, ModelItem, PaletteColorGroup};
 use super::objcode::{PropertyCode, PropertyCodeKind};
 use super::xmlutil;
-use super::{XmlResult, XmlWriter};
+use super::XmlWriter;
 use crate::color::Color;
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qmlast::Node;
@@ -86,7 +86,7 @@ impl SerializableValue {
     }
 
     /// Serializes this to UI XML.
-    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> io::Result<()>
     where
         W: io::Write,
     {
@@ -103,7 +103,7 @@ impl SerializableValue {
         &self,
         writer: &mut XmlWriter<W>,
         tag_name: T,
-    ) -> XmlResult<()>
+    ) -> io::Result<()>
     where
         W: io::Write,
         T: AsRef<str>,
@@ -147,7 +147,7 @@ pub enum SimpleValue {
 
 impl SimpleValue {
     /// Serializes this to UI XML.
-    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> io::Result<()>
     where
         W: io::Write,
     {
@@ -169,7 +169,7 @@ impl SimpleValue {
         &self,
         writer: &mut XmlWriter<W>,
         tag_name: T,
-    ) -> XmlResult<()>
+    ) -> io::Result<()>
     where
         W: io::Write,
         T: AsRef<str>,
@@ -249,7 +249,7 @@ fn serialize_string_list_to_xml<W, T>(
     tag_name: T,
     strings: &[String],
     kind: StringKind,
-) -> XmlResult<()>
+) -> io::Result<()>
 where
     W: io::Write,
     T: AsRef<str>,

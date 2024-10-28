@@ -3,7 +3,7 @@ use super::expr::{self, SerializableValue, SimpleValue};
 use super::objcode::PropertyCode;
 use super::property;
 use super::xmlutil;
-use super::{XmlResult, XmlWriter};
+use super::XmlWriter;
 use crate::color::Color;
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::qtname;
@@ -47,7 +47,7 @@ impl Gadget {
     }
 
     /// Serializes this to UI XML.
-    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> io::Result<()>
     where
         W: io::Write,
     {
@@ -58,7 +58,7 @@ impl Gadget {
         &self,
         writer: &mut XmlWriter<W>,
         tag_name: T,
-    ) -> XmlResult<()>
+    ) -> io::Result<()>
     where
         W: io::Write,
         T: AsRef<str>,
@@ -338,7 +338,7 @@ impl ModelItem {
         ModelItem { properties }
     }
 
-    pub(super) fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    pub(super) fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> io::Result<()>
     where
         W: io::Write,
     {
@@ -352,7 +352,7 @@ impl ModelItem {
 fn serialize_item_properties_to_xml<W>(
     writer: &mut XmlWriter<W>,
     properties: &HashMap<String, SerializableValue>,
-) -> XmlResult<()>
+) -> io::Result<()>
 where
     W: io::Write,
 {
@@ -393,7 +393,7 @@ impl PaletteColorGroup {
         }
     }
 
-    pub(super) fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    pub(super) fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> io::Result<()>
     where
         W: io::Write,
     {
@@ -404,7 +404,7 @@ impl PaletteColorGroup {
         &self,
         writer: &mut XmlWriter<W>,
         tag_name: T,
-    ) -> XmlResult<()>
+    ) -> io::Result<()>
     where
         W: io::Write,
         T: AsRef<str>,
