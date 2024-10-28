@@ -198,7 +198,7 @@ where
     let type_name = type_name.as_ref();
     let mut var_name = String::with_capacity(type_name.len());
     let mut chars = type_name.chars().fuse();
-    if type_name.starts_with(|c| c == 'Q' || c == 'K')
+    if type_name.starts_with(['Q', 'K'])
         && type_name[1..].starts_with(|c: char| c.is_ascii_alphabetic())
     {
         chars.next();
