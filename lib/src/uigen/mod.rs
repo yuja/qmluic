@@ -7,6 +7,7 @@ use crate::qmlast::{UiImportSource, UiProgram};
 use crate::qmldir;
 use crate::qmldoc::UiDocument;
 use crate::typemap::{ImportedModuleSpace, ModuleId, ModuleIdBuf, TypeMap};
+use std::io;
 
 mod binding;
 mod context;
@@ -28,7 +29,7 @@ pub use self::layout::*; // re-export
 pub use self::object::*; // re-export
 
 pub type XmlError = quick_xml::Error;
-pub type XmlResult<T> = quick_xml::Result<T>;
+pub type XmlResult<T> = io::Result<T>;
 pub type XmlWriter<W> = quick_xml::Writer<W>;
 
 /// Builds `UiForm` (and `UiSupportCode`) from the given `doc`.
