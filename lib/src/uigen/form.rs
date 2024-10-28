@@ -1,7 +1,7 @@
 use super::context::BuildDocContext;
 use super::object::Widget;
 use super::xmlutil;
-use super::{XmlResult, XmlWriter};
+use super::XmlWriter;
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectNode;
 use crate::qtname::FileNameRules;
@@ -49,7 +49,7 @@ impl UiForm {
     }
 
     /// Serializes this to UI XML.
-    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> io::Result<()>
     where
         W: io::Write,
     {
@@ -92,7 +92,7 @@ impl CustomWidget {
     }
 
     /// Serializes this to UI XML.
-    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> io::Result<()>
     where
         W: io::Write,
     {

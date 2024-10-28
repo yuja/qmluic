@@ -1,6 +1,6 @@
 //! Utility for UI XML generation.
 
-use super::{XmlResult, XmlWriter};
+use super::XmlWriter;
 use quick_xml::events::{BytesStart, BytesText, Event};
 use std::io;
 
@@ -8,7 +8,7 @@ pub(super) fn write_tagged_str<W, S, T>(
     writer: &mut XmlWriter<W>,
     tag: T,
     content: S,
-) -> XmlResult<()>
+) -> io::Result<()>
 where
     W: io::Write,
     S: AsRef<str>,

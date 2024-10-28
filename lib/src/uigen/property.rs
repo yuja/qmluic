@@ -1,7 +1,7 @@
 use super::context::ObjectContext;
 use super::expr::{SerializableValue, SimpleValue};
 use super::objcode::PropertyCode;
-use super::{XmlResult, XmlWriter};
+use super::XmlWriter;
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use itertools::Itertools as _;
 use quick_xml::events::{BytesStart, Event};
@@ -150,7 +150,7 @@ pub(super) fn serialize_properties_to_xml<W, T>(
     writer: &mut XmlWriter<W>,
     tag_name: T,
     properties: &HashMap<String, (SerializableValue, PropertySetter)>,
-) -> XmlResult<()>
+) -> io::Result<()>
 where
     W: io::Write,
     T: AsRef<str>,

@@ -4,7 +4,7 @@ use super::gadget::ModelItem;
 use super::layout::Layout;
 use super::objcode::{PropertyCode, PropertyCodeKind};
 use super::property::{self, PropertySetter};
-use super::{XmlResult, XmlWriter};
+use super::XmlWriter;
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::objtree::ObjectNode;
 use crate::qtname;
@@ -66,7 +66,7 @@ impl UiObject {
     }
 
     /// Serializes this to UI XML.
-    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> io::Result<()>
     where
         W: io::Write,
     {
@@ -132,7 +132,7 @@ impl Action {
     }
 
     /// Serializes this to UI XML.
-    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> io::Result<()>
     where
         W: io::Write,
     {
@@ -283,7 +283,7 @@ impl Widget {
     }
 
     /// Serializes this to UI XML.
-    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> XmlResult<()>
+    pub fn serialize_to_xml<W>(&self, writer: &mut XmlWriter<W>) -> io::Result<()>
     where
         W: io::Write,
     {
