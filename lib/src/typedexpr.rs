@@ -290,29 +290,29 @@ pub enum ExpressionError<'a> {
     #[error("type resolution failed: {0}")]
     TypeResolution(#[from] TypeMapError),
     #[error(
-        "incompatible array element types at index {0}: {} and {}",
-        .1.qualified_name(),
-        .2.qualified_name(),
+        "incompatible array element types at index {0}: {ty1} and {ty2}",
+        ty1 = .1.qualified_name(),
+        ty2 = .2.qualified_name(),
     )]
     IncompatibleArrayElementType(usize, TypeDesc<'a>, TypeDesc<'a>),
-    #[error("index must be of integer type, but got: {}", .0.qualified_name())]
+    #[error("index must be of integer type, but got: {ty}", ty = .0.qualified_name())]
     IncompatibleIndexType(TypeDesc<'a>),
     #[error("invalid argument: {0}")]
     InvalidArgument(String),
     #[error(
-        "operation '{0}' on incompatible types: {} and {}",
-        .1.qualified_name(),
-        .2.qualified_name(),
+        "operation '{0}' on incompatible types: {ty1} and {ty2}",
+        ty1 = .1.qualified_name(),
+        ty2 = .2.qualified_name(),
     )]
     OperationOnIncompatibleTypes(String, TypeDesc<'a>, TypeDesc<'a>),
-    #[error("operation '{0}' on undetermined type: {}", .1.qualified_name())]
+    #[error("operation '{0}' on undetermined type: {ty}", ty = .1.qualified_name())]
     OperationOnUndeterminedType(String, TypeDesc<'a>),
-    #[error("operation '{0}' on unsupported type: {}", .1.qualified_name())]
+    #[error("operation '{0}' on unsupported type: {ty}", ty = .1.qualified_name())]
     OperationOnUnsupportedType(String, TypeDesc<'a>),
     #[error(
-        "operation '{0}' on unsupported types: {} and {}",
-        .1.qualified_name(),
-        .2.qualified_name(),
+        "operation '{0}' on unsupported types: {ty1} and {ty2}",
+        ty1 = .1.qualified_name(),
+        ty2 = .2.qualified_name(),
     )]
     OperationOnUnsupportedTypes(String, TypeDesc<'a>, TypeDesc<'a>),
     #[error("not a readable property")]
