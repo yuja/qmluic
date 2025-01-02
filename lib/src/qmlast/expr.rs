@@ -67,7 +67,7 @@ impl<'tree> Expression<'tree> {
                     .collect();
                 Expression::Array(items)
             }
-            "function" => Function::with_cursor(cursor).map(Expression::Function)?,
+            "function_expression" => Function::with_cursor(cursor).map(Expression::Function)?,
             "arrow_function" => Function::with_cursor(cursor).map(Expression::ArrowFunction)?,
             "member_expression" => {
                 let object =
@@ -198,7 +198,7 @@ impl<'tree> Function<'tree> {
     fn with_cursor(cursor: &mut TreeCursor<'tree>) -> Result<Self, ParseError<'tree>> {
         let node = cursor.node();
         match node.kind() {
-            "function" => {
+            "function_expression" => {
                 // reject unsupported keywords like 'async'
                 if let Some(n) = node.children(cursor).find(|n| !n.is_extra()) {
                     if n.kind() != "function" {
