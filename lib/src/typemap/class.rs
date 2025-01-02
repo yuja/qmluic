@@ -459,7 +459,7 @@ impl<'a> Iterator for BaseClasses<'a> {
     }
 }
 
-impl<'a> FusedIterator for BaseClasses<'a> {}
+impl FusedIterator for BaseClasses<'_> {}
 
 fn resolve_class_scoped<'a>(
     parent_space: &ParentSpace<'a>,

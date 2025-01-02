@@ -36,7 +36,7 @@ pub enum TypeDesc<'a> {
     Concrete(TypeKind<'a>),
 }
 
-impl<'a> TypeDesc<'a> {
+impl TypeDesc<'_> {
     pub const BOOL: Self = TypeDesc::Concrete(TypeKind::BOOL);
     pub const DOUBLE: Self = TypeDesc::Concrete(TypeKind::DOUBLE);
     pub const INT: Self = TypeDesc::Concrete(TypeKind::INT);

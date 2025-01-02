@@ -1052,7 +1052,7 @@ impl<'w, W: io::Write> CodeWriter<'w, W> {
     }
 }
 
-impl<'w, W: io::Write> io::Write for CodeWriter<'w, W> {
+impl<W: io::Write> io::Write for CodeWriter<'_, W> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         // assumes buf doesn't contain '\n' in the middle
         let was_line_start = self.line_start;
