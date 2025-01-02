@@ -402,7 +402,7 @@ impl<'a, 't, 's, 'm> PropertyCodeBodies<'a, 't, 's, 'm> {
     }
 }
 
-impl<'a, 't, 's, 'm> Iterator for PropertyCodeBodies<'a, 't, 's, 'm> {
+impl<'a, 'm> Iterator for PropertyCodeBodies<'a, '_, '_, 'm> {
     type Item = &'m CodeBody<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -422,7 +422,7 @@ impl<'a, 't, 's, 'm> Iterator for PropertyCodeBodies<'a, 't, 's, 'm> {
     }
 }
 
-impl<'a, 't, 's, 'm> FusedIterator for PropertyCodeBodies<'a, 't, 's, 'm> {}
+impl FusedIterator for PropertyCodeBodies<'_, '_, '_, '_> {}
 
 /// Signal callback code with its description.
 #[derive(Clone, Debug)]

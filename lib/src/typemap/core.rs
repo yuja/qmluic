@@ -106,7 +106,7 @@ impl<'a, 'b> Iterator for LexicalAncestorSpaces<'a, 'b> {
     }
 }
 
-impl<'a, 'b> FusedIterator for LexicalAncestorSpaces<'a, 'b> {}
+impl FusedIterator for LexicalAncestorSpaces<'_, '_> {}
 
 /// Error denoting inconsistency in the [`TypeMap`](super::TypeMap).
 #[derive(Clone, Debug, Error)]
