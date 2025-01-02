@@ -17,7 +17,7 @@ impl<'tree> ExpressionNode<'tree> {
 
     /// Returns true if this is a function or arrow function node without parentheses.
     pub fn is_bare_function(&self) -> bool {
-        self.0.kind() == "function" || self.0.kind() == "arrow_function"
+        self.0.kind() == "function_expression" || self.0.kind() == "arrow_function"
     }
 
     pub(super) fn inner_node(&self) -> Node<'tree> {
