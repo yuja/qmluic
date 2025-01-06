@@ -17,4 +17,4 @@ tree-sitter = "0.24"
 tree-sitter-qmljs = "0.2"
 
 [dev-dependencies]
-insta = "1.41"
+insta = "1.42"
