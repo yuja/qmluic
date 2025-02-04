@@ -79,7 +79,7 @@ jobs:
           sudo mk-build-deps -i qmluic/contrib/debian/control
       - name: Build deb
         run: make -C qmluic deb
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: ubuntu-22.04-deb
           path: qmluic_*.deb
