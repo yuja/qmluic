@@ -23,7 +23,7 @@ termcolor = "1.4"
 thiserror = "2.0"
 
 [dev-dependencies]
-assert_cmd = "2.0.16"
+assert_cmd = "2.0.17"
 insta = "1.42"
 
 [workspace]
