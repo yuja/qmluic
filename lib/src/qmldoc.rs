@@ -7,7 +7,7 @@ use std::fmt;
 use std::fs;
 use std::io;
 use std::ops::Range;
-use tree_sitter::{Node, Parser, Tree};
+use tree_sitter::{Language, Node, Parser, Tree};
 
 /// Object holding QML source text and parsed tree.
 #[derive(Clone, Debug)]
@@ -169,9 +169,10 @@ impl UiDocumentsCache {
 }
 
 fn new_parser() -> Parser {
+    let language = Language::new(tree_sitter_qmljs::LANGUAGE);
     let mut parser = Parser::new();
     parser
-        .set_language(&tree_sitter_qmljs::language())
+        .set_language(&language)
         .expect("QML grammar should be compatible with parser");
     parser
 }
