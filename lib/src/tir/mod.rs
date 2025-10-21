@@ -1,5 +1,9 @@
 //! Type-checked intermediate representation of expressions.
 
+// FIXME: Result<_, ExpressionError>: the `Err`-variant returned from this
+// function is very large
+#![allow(clippy::result_large_err)]
+
 mod builder;
 mod ceval;
 mod core;

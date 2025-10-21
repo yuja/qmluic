@@ -223,7 +223,7 @@ impl UiSupportCode {
             writeln!(
                 w,
                 "quint32 bindingGuard_[{}] = {{0}};",
-                (self.bindings.len() + 31) / 32
+                self.bindings.len().div_ceil(32)
             )?;
             writeln!(w, "#endif")?;
         }
@@ -1027,7 +1027,7 @@ impl<'w, W: io::Write> CodeWriter<'w, W> {
         }
     }
 
-    pub fn indented(&mut self) -> CodeWriter<W> {
+    pub fn indented(&mut self) -> CodeWriter<'_, W> {
         CodeWriter {
             inner: self.inner,
             indent_level: self.indent_level + 1,

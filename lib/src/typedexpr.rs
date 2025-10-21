@@ -1,5 +1,9 @@
 //! Expression tree visitor with type information.
 
+// FIXME: Result<_, ExpressionError>: the `Err`-variant returned from this
+// function is very large
+#![allow(clippy::result_large_err)]
+
 use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::opcode::{
     BinaryLogicalOp, BinaryOp, BuiltinFunctionKind, BuiltinNamespaceKind, ComparisonOp,

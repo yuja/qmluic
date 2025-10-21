@@ -108,7 +108,7 @@ where
 /// assert_eq!(make_relative_path(Utf8Path::new("/foo/bar"), Path::new("/baz")),
 ///            Utf8Path::new("../foo/bar"));
 /// ```
-pub fn make_relative_path(path: &Utf8Path, start: impl AsRef<Path>) -> Cow<Utf8Path> {
+pub fn make_relative_path(path: &Utf8Path, start: impl AsRef<Path>) -> Cow<'_, Utf8Path> {
     // find common prefix
     for (i, base) in start.as_ref().ancestors().enumerate() {
         if let Ok(p) = path.strip_prefix(base) {
@@ -129,7 +129,7 @@ pub fn make_relative_path(path: &Utf8Path, start: impl AsRef<Path>) -> Cow<Utf8P
 }
 
 /// Turns the given `path` into relative path from the current working directory.
-pub fn make_cwd_relative_path(path: &Utf8Path) -> Cow<Utf8Path> {
+pub fn make_cwd_relative_path(path: &Utf8Path) -> Cow<'_, Utf8Path> {
     // qmldir::normalize_path() uses canonicalize(), which disagree with the cwd on Windows.
     if let Ok(cwd) = env::current_dir().and_then(|p| p.canonicalize()) {
         make_relative_path(path, cwd)
