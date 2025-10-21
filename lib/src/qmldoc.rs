@@ -51,9 +51,9 @@ impl UiDocument {
         P: AsRef<Utf8Path>, // TODO: or Into<Utf8PathBuf>, but read(&path) makes more sense?
     {
         let path = path.as_ref();
-        let type_name = path.file_stem().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::Other, "no type name part in file name")
-        })?;
+        let type_name = path
+            .file_stem()
+            .ok_or_else(|| io::Error::other("no type name part in file name"))?;
         log::debug!("reading file {path:?}");
         let source = fs::read_to_string(path)?;
         Ok(Self::parse(source, type_name, Some(path.to_owned())))
@@ -76,7 +76,7 @@ impl UiDocument {
     }
 
     /// Collects syntax errors from the parsed tree.
-    pub fn collect_syntax_errors(&self) -> Vec<SyntaxError> {
+    pub fn collect_syntax_errors(&self) -> Vec<SyntaxError<'_>> {
         if !self.tree.root_node().has_error() {
             return Vec::new();
         }
@@ -107,7 +107,7 @@ impl UiDocument {
     }
 
     /// Root node of the parsed tree.
-    pub fn root_node(&self) -> Node {
+    pub fn root_node(&self) -> Node<'_> {
         self.tree.root_node()
     }
 }

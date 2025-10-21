@@ -19,11 +19,11 @@ fn is_compatible_enum(left: &Enum, right: &Enum) -> Result<bool, TypeMapError> {
         || left
             .alias_enum()
             .transpose()?
-            .map_or(false, |en| &en == right)
+            .is_some_and(|en| &en == right)
         || right
             .alias_enum()
             .transpose()?
-            .map_or(false, |en| &en == left))
+            .is_some_and(|en| &en == left))
 }
 
 pub fn deduce_concrete_type<'a>(

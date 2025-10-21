@@ -29,7 +29,7 @@ pub enum ModuleIdBuf {
 }
 
 impl ModuleIdBuf {
-    pub fn as_ref(&self) -> ModuleId {
+    pub fn as_ref(&self) -> ModuleId<'_> {
         match self {
             ModuleIdBuf::Builtins => ModuleId::Builtins,
             ModuleIdBuf::Named(name) => ModuleId::Named(name),

@@ -214,7 +214,7 @@ impl<'a> MethodMatches<'a> {
         self.as_slice().len()
     }
 
-    pub fn iter(&self) -> slice::Iter<Method<'a>> {
+    pub fn iter(&self) -> slice::Iter<'_, Method<'a>> {
         self.as_slice().iter()
     }
 

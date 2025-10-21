@@ -56,7 +56,7 @@ impl QmlComponentData {
         }
     }
 
-    pub fn imports(&self) -> impl ExactSizeIterator<Item = ModuleId> {
+    pub fn imports(&self) -> impl ExactSizeIterator<Item = ModuleId<'_>> {
         self.imports.iter().map(|id| id.as_ref())
     }
 
