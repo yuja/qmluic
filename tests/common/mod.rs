@@ -16,7 +16,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::str;
 use tempfile::TempDir;
-use termcolor::NoColor;
 
 pub struct TestEnv {
     temp_dir: TempDir,
@@ -170,8 +169,7 @@ fn format_reportable_diagnostics(
     doc: &UiDocument,
     diagnostics: impl IntoIterator<Item = ReportableDiagnostic>,
 ) -> String {
-    let mut buf = Vec::new();
-    let mut writer = NoColor::new(&mut buf);
+    let mut buf = String::new();
     let config = term::Config::default();
     let files = SimpleFile::new(
         doc.path()
@@ -180,7 +178,7 @@ fn format_reportable_diagnostics(
         doc.source(),
     );
     for d in diagnostics {
-        term::emit(&mut writer, &config, &files, &d).unwrap();
+        term::emit_to_string(&mut buf, &config, &files, &d).unwrap();
     }
-    str::from_utf8(&buf).unwrap().trim_end().to_owned()
+    buf
 }
