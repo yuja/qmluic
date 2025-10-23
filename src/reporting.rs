@@ -84,7 +84,7 @@ where
         doc.source(),
     );
     for d in diagnostics {
-        term::emit(&mut stderr.lock(), &config, &files, &d)?;
+        term::emit_to_write_style(&mut stderr.lock(), &config, &files, &d)?;
     }
     Ok(())
 }
