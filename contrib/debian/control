@@ -11,7 +11,7 @@ Build-Depends:
  qtbase5-dev (>= 5.15),
  qtdeclarative5-dev-tools,
  qttools5-dev,
- rustc (>= 1.74),
+ rustc (>= 1.77),
 Standards-Version: 4.6.1
 Vcs-Browser: https://github.com/yuja/qmluic/
 Vcs-Git: https://github.com/yuja/qmluic.git
