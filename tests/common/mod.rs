@@ -50,7 +50,7 @@ impl TestEnv {
     }
 
     pub fn generate_ui_cmd(&self, args: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Command {
-        let mut cmd = Command::cargo_bin("qmluic").unwrap();
+        let mut cmd = assert_cmd::cargo::cargo_bin_cmd!("qmluic");
         cmd.current_dir(self.base_path())
             .env("NO_COLOR", "")
             .arg("generate-ui")
