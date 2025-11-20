@@ -18,9 +18,9 @@ fn test_simple_file() {
         .generate_ui_cmd(["--no-dynamic-binding", "Simple.qml"])
         .assert()
         .success();
-    insta::assert_snapshot!(str::from_utf8(&a.get_output().stderr).unwrap(), @r###"
-    processing Simple.qml
-    "###);
+    insta::assert_snapshot!(
+        str::from_utf8(&a.get_output().stderr).unwrap(),
+        @"processing Simple.qml");
 
     insta::assert_snapshot!(env.read_to_string("simple.ui"), @r###"
     <ui version="4.0">
@@ -55,9 +55,9 @@ fn test_output_directory_absolute() {
         .generate_ui_cmd(["-O", "out", env.join("Foo.qml").to_str().unwrap()])
         .assert()
         .failure();
-    insta::assert_snapshot!(str::from_utf8(&a.get_output().stderr).unwrap(), @r###"
-    error: source file paths must be relative if --output-directory is specified
-    "###);
+    insta::assert_snapshot!(
+        str::from_utf8(&a.get_output().stderr).unwrap(),
+        @"error: source file paths must be relative if --output-directory is specified");
 }
 
 #[test]
@@ -70,9 +70,9 @@ fn test_output_directory_escaped() {
         .current_dir(env.join("dir"))
         .assert()
         .failure();
-    insta::assert_snapshot!(str::from_utf8(&a.get_output().stderr).unwrap(), @r###"
-    error: source file paths must be relative if --output-directory is specified
-    "###);
+    insta::assert_snapshot!(
+        str::from_utf8(&a.get_output().stderr).unwrap(),
+        @"error: source file paths must be relative if --output-directory is specified");
 }
 
 #[test]
