@@ -24,7 +24,7 @@ thiserror = "2.0"
 
 [dev-dependencies]
 assert_cmd = "2.1.1"
-insta = "1.44"
+insta = "1.45"
 
 [workspace]
 members = ["lib"]
